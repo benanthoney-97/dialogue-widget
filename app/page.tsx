@@ -1,103 +1,103 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect, type FormEvent } from "react";
+import SourcesPanel, { type SourceMatch } from "./components/SourcesPanel";
 
-export default function Home() {
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
+}
+
+function jumpToHeading(headingTextOrId: string) {
+  const id = document.getElementById(headingTextOrId)
+    ? headingTextOrId
+    : slugify(headingTextOrId);
+
+  const el =
+    document.getElementById(id) ||
+    Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).find(
+      (h) =>
+        (h as HTMLElement).innerText.trim().toLowerCase() ===
+        headingTextOrId.trim().toLowerCase()
+    );
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+export default function Page() {
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [matches, setMatches] = useState<SourceMatch[]>([]);
+  const [reportHtml, setReportHtml] = useState<string>("");
+
+  useEffect(() => {
+    // Load the pre-generated combined report (static HTML)
+    fetch("/reports/uk_spending_full.html")
+      .then((res) => res.text())
+      .then((html) => setReportHtml(html));
+  }, []);
+
+  async function retrieve(query: string, namespace = "uk_spending") {
+    if (!query?.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/retrieve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, top_k: 5, namespace })
+      });
+      const data = await res.json();
+      setMatches(data?.matches || []);
+
+      // auto-scroll
+      const top = data?.matches?.[0];
+      if (top?.section) jumpToHeading(top.section);
+    } catch (e) {
+      console.error(e);
+      setMatches([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await retrieve(q);
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, padding: 16 }}>
+      {/* Report viewer */}
+      <div
+        style={{
+          border: "1px solid rgba(0,0,0,.1)",
+          borderRadius: 12,
+          padding: 16,
+          background: "#fff",
+          maxHeight: "100dvh",
+          overflowY: "scroll"
+        }}
+        dangerouslySetInnerHTML={{ __html: reportHtml }}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      {/* Q&A panel */}
+      <div>
+        <h2>Ask a question</h2>
+        <form onSubmit={onSubmit} style={{ display: "flex", gap: 8 }}>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Ask about healthcare, housing, etc."
+            style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid rgba(0,0,0,.12)" }}
+          />
+          <button
+            type="submit"
+            disabled={!q || loading}
+            style={{ padding: "10px 14px", borderRadius: 8, background: "#0b3b3c", color: "#fff", border: "none" }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            {loading ? "Searching…" : "Search"}
+          </button>
+        </form>
+
+        <SourcesPanel matches={matches} />
+      </div>
+    </main>
   );
 }
