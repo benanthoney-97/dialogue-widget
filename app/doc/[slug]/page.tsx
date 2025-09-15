@@ -10,6 +10,13 @@ export default function DocPage() {
   const slug = params?.slug || "";
   const entry = useMemo(() => docMap[slug], [slug]);
 
+  // Detect touch devices (mobile/tablet)
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsTouch(matchMedia("(pointer: coarse)").matches);
+  }, []);
+
   // Auto-resize for iframe host (optional)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -51,39 +58,60 @@ export default function DocPage() {
         minHeight: "100dvh",
         height: "100dvh",
         width: "100vw",
-        overflow: "hidden",
         position: "relative",
+        // Let the inner shell scroll on mobile, keep hidden on desktop
+        overflow: isTouch ? "visible" : "hidden",
       }}
     >
-      {/* Full-bleed PDF */}
+      {/* Full-bleed PDF container */}
       <div
         aria-label="PDF container"
         style={{
           position: "absolute",
           inset: 0,
+          background: "#f0f0f0",
+          // On touch devices, the shell is scrollable to enable smooth PDF scrolling
+          overflow: isTouch ? "auto" : "hidden",
+          height: isTouch ? "100svh" as any : "100dvh",
+          WebkitOverflowScrolling: isTouch ? ("touch" as any) : undefined,
+          overscrollBehavior: isTouch ? "contain" : undefined,
+          touchAction: isTouch ? "pan-y" : undefined,
           display: "grid",
           placeItems: "center",
-          background: "#f0f0f0",
         }}
       >
-        {/* Use <object> for widest native support. Height = full viewport. */}
-        <object
-          data={`${pdfPath}#view=FitH`}
-          type="application/pdf"
-          aria-label="Research PDF"
-          style={{
-            width: "100vw",
-            height: "100dvh",
-            border: "none",
-            display: "block",
-            background: "#fff",
-          }}
-        >
-          <p style={{ padding: 16 }}>
-            This browser can’t display the PDF.{" "}
-            <a href={pdfPath} target="_blank" rel="noreferrer">Open the document</a>.
-          </p>
-        </object>
+        {isTouch ? (
+          // iOS scrolls iframes far more reliably than <object>
+          <iframe
+            src={`${pdfPath}#view=FitH`}
+            title="Research PDF"
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "none",
+              display: "block",
+              background: "#fff",
+            }}
+          />
+        ) : (
+          <object
+            data={`${pdfPath}#view=FitH`}
+            type="application/pdf"
+            aria-label="Research PDF"
+            style={{
+              width: "100vw",
+              height: "100dvh",
+              border: "none",
+              display: "block",
+              background: "#fff",
+            }}
+          >
+            <p style={{ padding: 16 }}>
+              This browser can’t display the PDF.{" "}
+              <a href={pdfPath} target="_blank" rel="noreferrer">Open the document</a>.
+            </p>
+          </object>
+        )}
       </div>
 
       {/* Bottom-center overlayed Dialogue widget */}
@@ -112,7 +140,7 @@ export default function DocPage() {
             borderRadius: 14,
             boxShadow: "0 8px 30px rgba(0,0,0,.12)",
             padding: expanded ? 16 : 10,
-            pointerEvents: "auto", // widget itself remains interactive
+            pointerEvents: "auto", // widget is interactive
             transition: "transform 160ms ease, padding 160ms ease",
             marginBottom: 8,
           }}
