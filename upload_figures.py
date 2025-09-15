@@ -3,7 +3,6 @@ import requests
 from pathlib import Path
 
 EL_FILE_ENDPOINT = "https://api.elevenlabs.io/v1/convai/knowledge-base/file"
-API_KEY = "sk_f211031fce1c35922009fe067d3f5a5afbc813b0c4387b6e"  # replace with env or actual key
 
 def upload_file(path: Path, name: str):
     with open(path, "rb") as f:
