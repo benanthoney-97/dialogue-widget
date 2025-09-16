@@ -28,8 +28,27 @@ export default function DocPage() {
     setIsTouch(matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  // Optional query param to force PDF.js everywhere for testing: ?force=pdfjs
+  if (!entry) {
+    return (
+      <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 }}>
+        <div style={{ padding: 16, border: "1px solid rgba(0,0,0,.1)", borderRadius: 12 }}>
+          Unknown document slug: <code>{slug}</code>
+        </div>
+      </main>
+    );
+  }
+
+  // Now safe to destructure
+  const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
+  const useSignedUrl = auth !== "public";
+  const [expanded, setExpanded] = useState(false);
+
+  // Force PDF.js if touch or query param
   const forcePDFJS = sp?.get("force") === "pdfjs";
+  const usePDFJS = isTouch || forcePDFJS;
+
+  // Build proxied URL for PDF.js
+  const pdfForPDFJS = `/api/pdf-proxy?url=${encodeURIComponent(pdfPath)}`;
 
   // Auto-resize for iframe host (optional)
   useEffect(() => {
@@ -53,8 +72,7 @@ export default function DocPage() {
 
   function pushDebug(line: string, level: LogLevel = "info", meta: Record<string, unknown> = {}) {
     const s = `[${new Date().toISOString().slice(11, 19)}] ${level.toUpperCase()} ${line}`;
-    if (debug) setDebugLines((arr) => [...arr.slice(-50), s]); // keep last 50
-    // also ship to server logs
+    if (debug) setDebugLines((arr) => [...arr.slice(-50), s]);
     fetch("/api/moblog", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -63,21 +81,7 @@ export default function DocPage() {
     }).catch(() => {});
   }
 
-  if (!entry) {
-    return (
-      <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 }}>
-        <div style={{ padding: 16, border: "1px solid rgba(0,0,0,.1)", borderRadius: 12 }}>
-          Unknown document slug: <code>{slug}</code>
-        </div>
-      </main>
-    );
-  }
-
-  const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
-  const useSignedUrl = auth !== "public";
-  const [expanded, setExpanded] = useState(false);
-
-  // HEAD check to validate status and content-type
+  // HEAD check
   useEffect(() => {
     (async () => {
       try {
@@ -91,23 +95,16 @@ export default function DocPage() {
         pushDebug(`HEAD failed: ${e?.message || String(e)}`, "error");
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfPath]);
 
-  // Scroll/touch diagnostics (are we receiving touch/scroll?)
+  // Scroll/touch diagnostics
   const shellRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = shellRef.current;
     if (!el || !debug) return;
-    const onTouchStart = (ev: TouchEvent) => {
-      pushDebug("touchstart", "debug", { touches: ev.touches.length });
-    };
-    const onTouchMove = (ev: TouchEvent) => {
-      pushDebug("touchmove", "debug", { y: ev.touches[0]?.clientY });
-    };
-    const onScroll = () => {
-      pushDebug(`shell scrollTop=${el.scrollTop}`, "debug");
-    };
+    const onTouchStart = (ev: TouchEvent) => pushDebug("touchstart", "debug", { touches: ev.touches.length });
+    const onTouchMove = (ev: TouchEvent) => pushDebug("touchmove", "debug", { y: ev.touches[0]?.clientY });
+    const onScroll = () => pushDebug(`shell scrollTop=${el.scrollTop}`, "debug");
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -126,10 +123,10 @@ export default function DocPage() {
         height: "100dvh",
         width: "100vw",
         position: "relative",
-        overflow: isTouch || forcePDFJS ? "visible" : "hidden", // allow inner shell to scroll when using PDF.js
+        overflow: usePDFJS ? "visible" : "hidden",
       }}
     >
-      {/* Full-bleed PDF container (scrollable shell on touch / PDF.js) */}
+      {/* Full-bleed PDF */}
       <div
         ref={shellRef}
         aria-label="PDF container"
@@ -137,20 +134,21 @@ export default function DocPage() {
           position: "absolute",
           inset: 0,
           background: "#f0f0f0",
-          overflow: isTouch || forcePDFJS ? "auto" : "hidden",
-          height: isTouch || forcePDFJS ? ("100svh" as any) : "100dvh",
-          WebkitOverflowScrolling: isTouch || forcePDFJS ? ("touch" as any) : undefined,
-          overscrollBehavior: isTouch || forcePDFJS ? "contain" : undefined,
-          touchAction: isTouch || forcePDFJS ? "pan-y" : undefined,
+          overflow: usePDFJS ? "auto" : "hidden",
+          height: usePDFJS ? ("100svh" as any) : "100dvh",
+          WebkitOverflowScrolling: usePDFJS ? ("touch" as any) : undefined,
+          overscrollBehavior: usePDFJS ? "contain" : undefined,
+          touchAction: usePDFJS ? "pan-y" : undefined,
           display: "grid",
           placeItems: "center",
         }}
       >
-        {isTouch || forcePDFJS ? (
-          // Use PDF.js (ReactPDFPane) for reliable scrolling/rendering on touch devices
-          <ReactPDFPane file={pdfPath} />
+        {usePDFJS ? (
+          <ReactPDFPane
+            file={pdfForPDFJS}
+            onDebug={(msg, meta) => pushDebug(msg, "info", meta)}
+          />
         ) : (
-          // Keep native viewer on desktop for performance
           <object
             data={`${pdfPath}#view=FitH`}
             type="application/pdf"
@@ -166,15 +164,13 @@ export default function DocPage() {
           >
             <div style={{ padding: 16 }}>
               <p>Inline PDF viewer isn’t available here.</p>
-              <p>
-                <a href={pdfPath} target="_blank" rel="noreferrer">Open the document</a>
-              </p>
+              <p><a href={pdfPath} target="_blank" rel="noreferrer">Open the document</a></p>
             </div>
           </object>
         )}
       </div>
 
-      {/* Bottom-center overlayed Dialogue widget */}
+      {/* Dialogue widget */}
       <div
         style={{
           position: "fixed",
@@ -216,14 +212,7 @@ export default function DocPage() {
               cursor: "pointer",
             }}
           >
-            <div
-              style={{
-                width: 36,
-                height: 4,
-                borderRadius: 999,
-                background: "rgba(0,0,0,.18)",
-              }}
-            />
+            <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,.18)" }} />
           </div>
 
           <DialogueBar
@@ -232,20 +221,13 @@ export default function DocPage() {
             serverLocation={region}
           />
 
-          <div
-            style={{
-              marginTop: 6,
-              fontSize: 12,
-              color: "#6b7280",
-              display: expanded ? "block" : "none",
-            }}
-          >
+          <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", display: expanded ? "block" : "none" }}>
             Tip: Ask while you read. Collapse this panel anytime.
           </div>
         </div>
       </div>
 
-      {/* Debug overlay (only when ?debug=1) */}
+      {/* Debug overlay */}
       {debug && (
         <div
           style={{
@@ -266,12 +248,9 @@ export default function DocPage() {
           }}
         >
           <div style={{ marginBottom: 4, opacity: 0.8 }}>
-            <strong>Debug</strong> (touch={String(isTouch)} forcePDFJS={String(forcePDFJS)}) — add{" "}
-            <code>?debug=1</code> or <code>?force=pdfjs</code>
+            <strong>Debug</strong> (touch={String(isTouch)} forcePDFJS={String(forcePDFJS)}) — add <code>?debug=1</code> or <code>?force=pdfjs</code>
           </div>
-          {debugLines.map((l, i) => (
-            <div key={i}>{l}</div>
-          ))}
+          {debugLines.map((l, i) => <div key={i}>{l}</div>)}
         </div>
       )}
     </main>
