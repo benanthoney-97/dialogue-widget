@@ -1,14 +1,14 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // ✅ allow deploy even if lint rules fail
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // (Optional) temporarily ignore TS build errors too
-  // Remove this once you’ve cleaned up types.
-  typescript: {
-    ignoreBuildErrors: true,
+import type { NextConfig } from "next";
+import type { Configuration } from "webpack";
+
+const nextConfig: NextConfig = {
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
+  webpack: (config: Configuration) => {
+    config.resolve = config.resolve || {};
+    config.resolve.fallback = { ...(config.resolve.fallback || {}), canvas: false };
+    return config;
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
