@@ -11,10 +11,9 @@
   "dependencies": {
     "@elevenlabs/react": "^0.6.2",
     "next": "15.5.3",
-    "pdfjs-dist": "^5.3.93",
+    "pdfjs-dist": "^3.11.174",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-pdf": "^10.1.0"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
