@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
-  file: string; // direct URL or your /api/pdf-proxy?url=...
-  onDebug?: (evt: string, meta?: Record<string, unknown>) => void;
+  file: string; // direct PDF URL (or your /api/pdf-proxy?url=...)
 };
 
-export default function PDFJSViewer({ file, onDebug }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+export default function PDFJSViewer({ file }: Props) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errMsg, setErrMsg] = useState<string>("");
 
@@ -19,29 +18,23 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
       try {
         setStatus("loading");
 
-        // 🔑 Dynamic import so the server build never analyzes pdfjs (avoids 'canvas' resolution)
-        const pdfjsLib: any = await import("pdfjs-dist/build/pdf");
-
-        // Point worker to the file we copied to public/
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
-        onDebug?.("pdfjs:configuredWorker", { workerSrc: pdfjsLib.GlobalWorkerOptions.workerSrc });
+// inside useEffect
+const pdfjsLib: any = await import("pdfjs-dist/webpack");
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
 
         const loadingTask = pdfjsLib.getDocument({ url: file, withCredentials: false });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
-        onDebug?.("pdfjs:onLoadSuccess", { numPages: pdf.numPages });
-        setStatus("ready");
+        const host = hostRef.current!;
+        host.innerHTML = ""; // clear
 
-        const host = containerRef.current!;
-        host.innerHTML = "";
-
+        // Render each page to a canvas that scales to viewport width
         const renderPage = async (pageNum: number) => {
           const page = await pdf.getPage(pageNum);
-
-          // Simple responsive scale
-          const baseViewport = page.getViewport({ scale: 1 });
-          const scale = Math.max(0.8, Math.min(2.0, window.innerWidth / 900));
+          // Pick a scale that roughly fits mobile/desktop widths
+          const base = 900; // px baseline
+          const scale = Math.max(0.8, Math.min(2.0, window.innerWidth / base));
           const viewport = page.getViewport({ scale });
 
           const canvas = document.createElement("canvas");
@@ -49,11 +42,11 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
           canvas.style.margin = "0 auto 16px";
           canvas.style.maxWidth = "100%";
           const ctx = canvas.getContext("2d")!;
-
           canvas.width = viewport.width;
           canvas.height = viewport.height;
 
-          await page.render({ canvasContext: ctx, viewport }).promise;
+          const renderTask = page.render({ canvasContext: ctx, viewport });
+          await renderTask.promise;
           host.appendChild(canvas);
         };
 
@@ -62,7 +55,7 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
           await renderPage(i);
         }
 
-        // Re-render on resize (debounced)
+        // Re-render on resize (simple debounce)
         let t: any;
         const onResize = () => {
           clearTimeout(t);
@@ -77,8 +70,9 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
             } catch {}
           }, 150);
         };
-
         window.addEventListener("resize", onResize);
+
+        setStatus("ready");
 
         return () => {
           window.removeEventListener("resize", onResize);
@@ -88,10 +82,8 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
           } catch {}
         };
       } catch (e: any) {
-        const msg = e?.message || String(e);
-        setErrMsg(msg);
+        setErrMsg(e?.message || String(e));
         setStatus("error");
-        onDebug?.("pdfjs:onLoadError", { message: msg });
       }
     }
 
@@ -99,11 +91,11 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [file, onDebug]);
+  }, [file]);
 
   return (
     <div
-      ref={containerRef}
+      ref={hostRef}
       style={{
         width: "100%",
         height: "100%",
