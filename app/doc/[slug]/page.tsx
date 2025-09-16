@@ -11,30 +11,17 @@ export default function DocPage() {
   const slug = params?.slug || "";
   const entry = useMemo(() => docMap[slug], [slug]);
 
-  // Touch detection: prefer PDF.js on mobile
+  // Prefer PDF.js on touch devices
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setIsTouch(matchMedia("(pointer: coarse)").matches);
+    setIsTouch(window.matchMedia?.("(pointer: coarse)")?.matches ?? false);
   }, []);
 
   if (!entry) {
     return (
-      <main
-        style={{
-          minHeight: "100dvh",
-          display: "grid",
-          placeItems: "center",
-          padding: 16,
-        }}
-      >
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid rgba(0,0,0,.1)",
-            borderRadius: 12,
-          }}
-        >
+      <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 }}>
+        <div style={{ padding: 16, border: "1px solid rgba(0,0,0,.1)", borderRadius: 12 }}>
           Unknown document slug: <code>{slug}</code>
         </div>
       </main>
@@ -45,6 +32,9 @@ export default function DocPage() {
   const useSignedUrl = auth !== "public";
   const [expanded, setExpanded] = useState(false);
 
+  // Fallback message if pdfPath is missing
+  const noPdf = !pdfPath;
+
   return (
     <main
       style={{
@@ -53,7 +43,7 @@ export default function DocPage() {
         height: "100dvh",
         width: "100vw",
         position: "relative",
-        overflow: isTouch ? "visible" : "hidden",
+        overflow: "hidden",
       }}
     >
       {/* Full-bleed PDF */}
@@ -65,11 +55,19 @@ export default function DocPage() {
           background: "#f0f0f0",
           display: "grid",
           placeItems: "center",
-          overflow: isTouch ? "auto" : "hidden",
-          height: "100dvh",
+          // Keep scroll available on mobile and when PDF.js is used
+          overflow: "auto",
+          height: isTouch ? ("100svh" as any) : "100dvh",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+          touchAction: "pan-y",
         }}
       >
-        {isTouch ? (
+        {noPdf ? (
+          <div style={{ padding: 16 }}>
+            <p>PDF not available for this document.</p>
+          </div>
+        ) : isTouch ? (
           <PDFJSViewer file={pdfPath} />
         ) : (
           <object
@@ -127,7 +125,6 @@ export default function DocPage() {
             marginBottom: 8,
           }}
         >
-          {/* drag/expand affordance */}
           <div
             role="button"
             aria-label={expanded ? "Collapse dialogue" : "Expand dialogue"}
@@ -149,11 +146,7 @@ export default function DocPage() {
             />
           </div>
 
-          <DialogueBar
-            agentId={agentId}
-            useSignedUrl={useSignedUrl}
-            serverLocation={region}
-          />
+          <DialogueBar agentId={agentId} useSignedUrl={useSignedUrl} serverLocation={region} />
 
           <div
             style={{

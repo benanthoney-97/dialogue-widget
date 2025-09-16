@@ -3,13 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
-  file: string; // direct PDF URL (or your /api/pdf-proxy?url=...)
+  file: string; // direct URL or /api/pdf-proxy?url=...
 };
 
+// Load a script tag once
+function loadScriptOnce(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "1") return resolve();
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.addEventListener("load", () => {
+      s.dataset.loaded = "1";
+      resolve();
+    });
+    s.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
+    document.head.appendChild(s);
+  });
+}
+
 export default function PDFJSViewer({ file }: Props) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [errMsg, setErrMsg] = useState<string>("");
+  const [errMsg, setErrMsg] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -18,35 +40,37 @@ export default function PDFJSViewer({ file }: Props) {
       try {
         setStatus("loading");
 
-// inside useEffect
-const pdfjsLib: any = await import("pdfjs-dist/webpack");
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+        // 1) Load pdf.js UMD from CDN (pin version)
+        await loadScriptOnce("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
 
-        const loadingTask = pdfjsLib.getDocument({ url: file, withCredentials: false });
-        const pdf = await loadingTask.promise;
+        // 2) Grab global and set worker (served from /public/pdfjs)
+        const pdfjsLib = (window as any).pdfjsLib;
+        if (!pdfjsLib) throw new Error("pdfjsLib not found on window");
+
+        // Point worker to your static file
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+
+        // 3) Load and render
+        const task = pdfjsLib.getDocument({ url: file });
+        const pdf = await task.promise;
         if (cancelled) return;
 
-        const host = hostRef.current!;
-        host.innerHTML = ""; // clear
+        const host = containerRef.current!;
+        host.innerHTML = "";
 
-        // Render each page to a canvas that scales to viewport width
-        const renderPage = async (pageNum: number) => {
-          const page = await pdf.getPage(pageNum);
-          // Pick a scale that roughly fits mobile/desktop widths
-          const base = 900; // px baseline
-          const scale = Math.max(0.8, Math.min(2.0, window.innerWidth / base));
-          const viewport = page.getViewport({ scale });
+        const renderPage = async (num: number) => {
+          const page = await pdf.getPage(num);
+          const scale = Math.max(0.9, Math.min(2, window.innerWidth / 900));
+          const vp = page.getViewport({ scale });
 
           const canvas = document.createElement("canvas");
           canvas.style.display = "block";
           canvas.style.margin = "0 auto 16px";
-          canvas.style.maxWidth = "100%";
-          const ctx = canvas.getContext("2d")!;
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          canvas.width = vp.width;
+          canvas.height = vp.height;
 
-          const renderTask = page.render({ canvasContext: ctx, viewport });
-          await renderTask.promise;
+          const ctx = canvas.getContext("2d")!;
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
           host.appendChild(canvas);
         };
 
@@ -55,7 +79,9 @@ const pdfjsLib: any = await import("pdfjs-dist/webpack");
           await renderPage(i);
         }
 
-        // Re-render on resize (simple debounce)
+        setStatus("ready");
+
+        // Simple re-render on resize
         let t: any;
         const onResize = () => {
           clearTimeout(t);
@@ -72,30 +98,24 @@ const pdfjsLib: any = await import("pdfjs-dist/webpack");
         };
         window.addEventListener("resize", onResize);
 
-        setStatus("ready");
-
         return () => {
           window.removeEventListener("resize", onResize);
-          try {
-            pdf.cleanup?.();
-            pdf.destroy?.();
-          } catch {}
+          try { pdf.cleanup?.(); pdf.destroy?.(); } catch {}
         };
       } catch (e: any) {
+        if (cancelled) return;
         setErrMsg(e?.message || String(e));
         setStatus("error");
       }
     }
 
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [file]);
 
   return (
     <div
-      ref={hostRef}
+      ref={containerRef}
       style={{
         width: "100%",
         height: "100%",
