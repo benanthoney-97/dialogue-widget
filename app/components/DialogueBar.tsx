@@ -127,27 +127,27 @@ export default function DialogueBar({
           boxShadow: "0 4px 16px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.5)",
         }}
       >
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            sendUserActivity();
-          }}
+<input
+  value={q}
+  onChange={(e) => {
+    setQ(e.target.value);
+    sendUserActivity();
+  }}
           placeholder={
             connected
               ? "Send a message to continue the conversation"
               : "Send a message to start the conversation"
           }
-          style={{
-            flex: 1,
-            border: "none",
-            outline: "none",
-            fontSize: 18,
-            lineHeight: "24px",
-            color: "#3f3f46",
-            background: "transparent",
-          }}
-        />
+  style={{
+    flex: 1,
+    border: "none",
+    outline: "none",
+    fontSize: typeof window !== "undefined" && window.innerWidth < 640 ? 14 : 18,
+    lineHeight: "20px",
+    color: "#3f3f46",
+    background: "transparent",
+  }}
+/>
 
         <button
           type="button"
@@ -212,7 +212,7 @@ export default function DialogueBar({
 
         <span style={{ color: "#6b7280" }}>
           {connected
-            ? (isSpeaking ? "Agent speaking — talk to interrupt" : "Listening")
+            ? (isSpeaking ? "Agent speaking — talk to interrupt" : "Your turn to speak")
             : phase === "connecting"
             ? "Connecting…"
             : "Ready"}
