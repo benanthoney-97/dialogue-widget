@@ -294,39 +294,59 @@ useEffect(() => {
         </div>
       </form>
 
-      {/* Bottom row */}
-      <div
+{/* Bottom row with reserved space for End call */}
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "auto 1fr",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 6px",
+    fontSize: 12,
+    color: "#6b7280",
+  }}
+>
+  {/* Left cell: End call or invisible placeholder (keeps layout stable) */}
+  <div>
+    {connected ? (
+      <button
+        type="button"
+        onClick={disconnect}
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "8px 6px",
-          fontSize: 12,
-          color: "#6b7280",
+          border: "none",
+          background: "transparent",
+          color: "#ef4444",
+          cursor: "pointer",
+          fontWeight: 600,
         }}
       >
-        <button
-          type="button"
-          onClick={disconnect}
-          disabled={!connected}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: connected ? "#ef4444" : "rgba(239,68,68,.5)",
-            cursor: connected ? "pointer" : "default",
-            fontWeight: 600,
-          }}
-        >
-          End call
-        </button>
+        End call
+      </button>
+    ) : (
+      <span
+        aria-hidden="true"
+        style={{
+          visibility: "hidden",      // occupies space, not visible
+          display: "inline-block",
+          fontWeight: 600,
+        }}
+      >
+        End call
+      </span>
+    )}
+  </div>
 
-        <span>
-          {connected
-            ? (isSpeaking ? "Agent speaking — talk to interrupt" : "Listening")
-            : phase === "connecting"
-            ? "Connecting…"
-            : "Ready"}
-        </span>
-      </div>
+  {/* Right cell: status stays right-aligned regardless */}
+  <div style={{ textAlign: "right" }}>
+    {connected
+      ? isSpeaking
+        ? "Agent speaking — talk to interrupt"
+        : "Listening"
+      : phase === "connecting"
+      ? "Connecting…"
+      : "Ready"}
+  </div>
+</div>
 
       {err && (
         <div style={{ color: "#b91c1c", marginTop: 8, fontSize: 14 }}>{err}</div>
