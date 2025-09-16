@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBar";
 import { docMap } from "@/app/lib/docMap";
+import { useSearchParams } from "next/navigation";
+import MobileConsole from "@/app/components/MobileConsole";
 
 // Client-only PDF.js viewer
 const PDFJSViewer = dynamic(() => import("@/app/components/PDFJSViewer"), {
@@ -49,6 +51,12 @@ export default function DocPage() {
       </main>
     );
   }
+  // inside component:
+const sp = useSearchParams();
+const debug = sp?.get("debug") === "1";
+
+// inside return JSX, near the end:
+{debug && <MobileConsole enabled={true} />}
 
   const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
   const useSignedUrl = auth !== "public";

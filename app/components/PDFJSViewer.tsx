@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 
 type Props = {
   file: string; // direct URL or /api/pdf-proxy?url=...
 };
 
-// Load a script tag once
 function loadScriptOnce(src: string) {
   return new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
     if (existing) {
-      if (existing.dataset.loaded === "1") return resolve();
+      if ((existing as any).__loaded) return resolve();
       existing.addEventListener("load", () => resolve());
       existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
       return;
@@ -19,8 +18,9 @@ function loadScriptOnce(src: string) {
     const s = document.createElement("script");
     s.src = src;
     s.async = true;
+    (s as any).__loaded = false;
     s.addEventListener("load", () => {
-      s.dataset.loaded = "1";
+      (s as any).__loaded = true;
       resolve();
     });
     s.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
@@ -28,94 +28,148 @@ function loadScriptOnce(src: string) {
   });
 }
 
-export default function PDFJSViewer({ file }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+function safeRemoveAllChildren(el: HTMLElement) {
+  // Avoid touching nodes React might own: only operate in our host subtree.
+  // Remove one-by-one to avoid transient detach races with workers.
+  let node = el.lastChild;
+  while (node) {
+    const prev = node.previousSibling;
+    try {
+      el.removeChild(node);
+    } catch { /* ignore NotFoundError races */ }
+    node = prev;
+  }
+}
+
+function PDFJSViewerInner({ file }: Props) {
+  const shellRef = useRef<HTMLDivElement | null>(null); // outer wrapper (React owns)
+  const hostRef = useRef<HTMLDivElement | null>(null);  // inner host (we own)
+  const renderTokenRef = useRef<symbol | null>(null);
+  const pdfRef = useRef<any>(null);
+
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errMsg, setErrMsg] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
+    const token = Symbol("renderToken");
+    renderTokenRef.current = token;
 
     async function run() {
       try {
         setStatus("loading");
 
-        // 1) Load pdf.js UMD from CDN (pin version)
+        // 1) Load PDF.js UMD
         await loadScriptOnce("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
 
-        // 2) Grab global and set worker (served from /public/pdfjs)
+        // 2) Configure worker
         const pdfjsLib = (window as any).pdfjsLib;
-        if (!pdfjsLib) throw new Error("pdfjsLib not found on window");
-
-        // Point worker to your static file
+        if (!pdfjsLib) throw new Error("pdfjsLib not found");
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
 
-        // 3) Load and render
+        // 3) Start loading
         const task = pdfjsLib.getDocument({ url: file });
         const pdf = await task.promise;
-        if (cancelled) return;
+        if (!active || renderTokenRef.current !== token) return;
+        pdfRef.current = pdf;
 
-        const host = containerRef.current!;
-        host.innerHTML = "";
+        // 4) Prepare host that React never touches
+        const host = hostRef.current!;
+        safeRemoveAllChildren(host);
 
-        const renderPage = async (num: number) => {
+        const scaleForWidth = (vw: number) => Math.max(0.9, Math.min(2, vw / 900));
+
+        async function renderPage(num: number) {
+          if (!active || renderTokenRef.current !== token) return;
           const page = await pdf.getPage(num);
-          const scale = Math.max(0.9, Math.min(2, window.innerWidth / 900));
+          if (!active || renderTokenRef.current !== token) return;
+
+          const scale = scaleForWidth(window.innerWidth);
           const vp = page.getViewport({ scale });
 
           const canvas = document.createElement("canvas");
           canvas.style.display = "block";
           canvas.style.margin = "0 auto 16px";
+          canvas.style.maxWidth = "100%";
           canvas.width = vp.width;
           canvas.height = vp.height;
 
           const ctx = canvas.getContext("2d")!;
-          await page.render({ canvasContext: ctx, viewport: vp }).promise;
-          host.appendChild(canvas);
-        };
+          const renderTask = page.render({ canvasContext: ctx, viewport: vp });
 
+          await renderTask.promise.catch(() => {});
+          if (!active || renderTokenRef.current !== token) return;
+          // Append only if still current
+          host.appendChild(canvas);
+        }
+
+        // 5) Render sequentially
         for (let i = 1; i <= pdf.numPages; i++) {
-          if (cancelled) return;
+          if (!active || renderTokenRef.current !== token) return;
           await renderPage(i);
         }
 
+        if (!active || renderTokenRef.current !== token) return;
         setStatus("ready");
 
-        // Simple re-render on resize
+        // 6) Handle resize with token bump (cancel previous render set)
         let t: any;
         const onResize = () => {
           clearTimeout(t);
           t = setTimeout(async () => {
-            if (cancelled) return;
-            try {
-              host.innerHTML = "";
-              for (let i = 1; i <= pdf.numPages; i++) {
-                if (cancelled) return;
-                await renderPage(i);
-              }
-            } catch {}
+            if (!active) return;
+            // Invalidate current renders by bumping token
+            const newToken = Symbol("renderToken");
+            renderTokenRef.current = newToken;
+
+            // Clear canvases safely
+            safeRemoveAllChildren(host);
+
+            // Re-render pages under new token
+            for (let i = 1; i <= pdf.numPages; i++) {
+              if (!active || renderTokenRef.current !== newToken) return;
+              await renderPage(i);
+            }
           }, 150);
         };
         window.addEventListener("resize", onResize);
 
+        // Cleanup
         return () => {
           window.removeEventListener("resize", onResize);
-          try { pdf.cleanup?.(); pdf.destroy?.(); } catch {}
         };
       } catch (e: any) {
-        if (cancelled) return;
+        if (!active) return;
         setErrMsg(e?.message || String(e));
         setStatus("error");
       }
     }
 
-    run();
-    return () => { cancelled = true; };
+    const cleanupPromise = run();
+
+    return () => {
+      active = false;
+      // Invalidate all pending renders
+      renderTokenRef.current = null;
+      // Stop and destroy pdf instance if any
+      try {
+        const pdf = pdfRef.current;
+        pdfRef.current = null;
+        pdf?.cleanup?.();
+        pdf?.destroy?.();
+      } catch {}
+      // Clear host safely
+      try {
+        if (hostRef.current) safeRemoveAllChildren(hostRef.current);
+      } catch {}
+      // Await any pending effect cleanup
+      void cleanupPromise;
+    };
   }, [file]);
 
   return (
     <div
-      ref={containerRef}
+      ref={shellRef}
       style={{
         width: "100%",
         height: "100%",
@@ -125,6 +179,8 @@ export default function PDFJSViewer({ file }: Props) {
         boxSizing: "border-box",
       }}
     >
+      {/* React owns shellRef but NOT this hostRef subtree */}
+      <div ref={hostRef} />
       {status === "loading" && <div style={{ padding: 16 }}>Loading PDF…</div>}
       {status === "error" && (
         <div style={{ padding: 16, color: "#b91c1c" }}>
@@ -133,4 +189,15 @@ export default function PDFJSViewer({ file }: Props) {
       )}
     </div>
   );
+}
+
+// Help avoid re-renders: only re-mount if `file` changes
+const PDFJSViewer = memo(PDFJSViewerInner, (prev, next) => prev.file === next.file);
+export default PDFJSViewer;
+
+// Optional: tame Fast Refresh in dev to avoid mid-render races
+if (typeof window !== "undefined" && (import.meta as any).hot) {
+  (import.meta as any).hot.dispose?.(() => {
+    // noop – effect cleanup in component will run
+  });
 }
