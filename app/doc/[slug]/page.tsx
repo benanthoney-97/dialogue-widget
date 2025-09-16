@@ -2,10 +2,14 @@
 
 import { useMemo, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import DialogueBar from "@/app/components/DialogueBar";
 import { docMap } from "@/app/lib/docMap";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
+
+// Lazy-load the PDF.js pane (client-only)
+const ReactPDFPane = dynamic(() => import("@/app/components/ReactPDFPane"), { ssr: false });
 
 export default function DocPage() {
   const params = useParams<{ slug: string }>();
@@ -23,6 +27,9 @@ export default function DocPage() {
     if (typeof window === "undefined") return;
     setIsTouch(matchMedia("(pointer: coarse)").matches);
   }, []);
+
+  // Optional query param to force PDF.js everywhere for testing: ?force=pdfjs
+  const forcePDFJS = sp?.get("force") === "pdfjs";
 
   // Auto-resize for iframe host (optional)
   useEffect(() => {
@@ -119,10 +126,10 @@ export default function DocPage() {
         height: "100dvh",
         width: "100vw",
         position: "relative",
-        overflow: isTouch ? "visible" : "hidden", // allow inner shell to scroll on touch devices
+        overflow: isTouch || forcePDFJS ? "visible" : "hidden", // allow inner shell to scroll when using PDF.js
       }}
     >
-      {/* Full-bleed PDF container (scrollable shell on touch) */}
+      {/* Full-bleed PDF container (scrollable shell on touch / PDF.js) */}
       <div
         ref={shellRef}
         aria-label="PDF container"
@@ -130,31 +137,20 @@ export default function DocPage() {
           position: "absolute",
           inset: 0,
           background: "#f0f0f0",
-          overflow: isTouch ? "auto" : "hidden",
-          height: isTouch ? ("100svh" as any) : "100dvh",
-          WebkitOverflowScrolling: isTouch ? ("touch" as any) : undefined,
-          overscrollBehavior: isTouch ? "contain" : undefined,
-          touchAction: isTouch ? "pan-y" : undefined,
+          overflow: isTouch || forcePDFJS ? "auto" : "hidden",
+          height: isTouch || forcePDFJS ? ("100svh" as any) : "100dvh",
+          WebkitOverflowScrolling: isTouch || forcePDFJS ? ("touch" as any) : undefined,
+          overscrollBehavior: isTouch || forcePDFJS ? "contain" : undefined,
+          touchAction: isTouch || forcePDFJS ? "pan-y" : undefined,
           display: "grid",
           placeItems: "center",
         }}
       >
-        {isTouch ? (
-          <iframe
-            src={`${pdfPath}#view=FitH`}
-            title="Research PDF"
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "none",
-              display: "block",
-              background: "#fff",
-            }}
-            onLoad={() => pushDebug("iframe onLoad fired", "info")}
-            // onError is not consistently fired on iframes, but keep it just in case
-            onError={() => pushDebug("iframe onError fired", "warn")}
-          />
+        {isTouch || forcePDFJS ? (
+          // Use PDF.js (ReactPDFPane) for reliable scrolling/rendering on touch devices
+          <ReactPDFPane file={pdfPath} />
         ) : (
+          // Keep native viewer on desktop for performance
           <object
             data={`${pdfPath}#view=FitH`}
             type="application/pdf"
@@ -167,7 +163,6 @@ export default function DocPage() {
               background: "#fff",
             }}
             onLoadCapture={() => pushDebug("object onLoadCapture fired", "info")}
-            // <object> doesn't have a reliable onError; the fallback content renders instead
           >
             <div style={{ padding: 16 }}>
               <p>Inline PDF viewer isn’t available here.</p>
@@ -271,7 +266,8 @@ export default function DocPage() {
           }}
         >
           <div style={{ marginBottom: 4, opacity: 0.8 }}>
-            <strong>Debug</strong> (touch={String(isTouch)}) — add <code>?debug=1</code> to URL
+            <strong>Debug</strong> (touch={String(isTouch)} forcePDFJS={String(forcePDFJS)}) — add{" "}
+            <code>?debug=1</code> or <code>?force=pdfjs</code>
           </div>
           {debugLines.map((l, i) => (
             <div key={i}>{l}</div>
