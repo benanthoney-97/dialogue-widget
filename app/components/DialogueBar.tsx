@@ -162,7 +162,7 @@ export default function DialogueBar({
             height: 44,
             borderRadius: 12,
             border: "none",
-            background: connected ? "#0b3b3c" : "#9ca3af",
+            background: connected ? "#b01c2e" : "#9ca3af",
             color: "#fff",
             cursor: "pointer",
           }}
@@ -185,7 +185,7 @@ export default function DialogueBar({
             padding: "10px 16px",
             borderRadius: 12,
             border: "none",
-            background: connected ? "#0b3b3c" : "#9ca3af",
+            background: connected ? "#b01c2e" : "#9ca3af",
             color: "#fff",
             fontWeight: 600,
             cursor: q.trim() ? "pointer" : "default",
@@ -207,7 +207,7 @@ export default function DialogueBar({
             cursor: connected ? "pointer" : "default",
           }}
         >
-          ✂️ End call
+          End call
         </button>
 
         <span style={{ color: "#6b7280" }}>
