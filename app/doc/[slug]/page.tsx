@@ -9,7 +9,9 @@ import { docMap } from "@/app/lib/docMap";
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 // Lazy-load the PDF.js pane (client-only)
-const ReactPDFPane = dynamic(() => import("@/app/components/ReactPDFPane"), { ssr: false });
+const ReactPDFPane = dynamic(() => import("@/app/components/ReactPDFPane"), {
+  ssr: false,
+});
 
 export default function DocPage() {
   const params = useParams<{ slug: string }>();
@@ -17,11 +19,12 @@ export default function DocPage() {
   const slug = params?.slug || "";
   const entry = useMemo(() => docMap[slug], [slug]);
 
-  // Debug flag via ?debug=1
   const debug = sp?.get("debug") === "1";
+  const forcePDFJS = sp?.get("force") === "pdfjs";
+  const proxyParam = sp?.get("proxy"); // "on" | "off" | null
   const [debugLines, setDebugLines] = useState<string[]>([]);
 
-  // Touch / device detection
+  // Touch detection: default to PDF.js on touch devices
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -38,19 +41,26 @@ export default function DocPage() {
     );
   }
 
-  // Now safe to destructure
   const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
   const useSignedUrl = auth !== "public";
   const [expanded, setExpanded] = useState(false);
 
-  // Force PDF.js if touch or query param
-  const forcePDFJS = sp?.get("force") === "pdfjs";
-  const usePDFJS = isTouch || forcePDFJS;
+  // Use PDF.js for touch or when forced
+  const preferPDFJS = isTouch || forcePDFJS;
 
-  // Build proxied URL for PDF.js
-  const pdfForPDFJS = `/api/pdf-proxy?url=${encodeURIComponent(pdfPath)}`;
+  // Proxy strategy: try direct first, auto-fallback to proxy if PDF.js errors
+  const [useProxy, setUseProxy] = useState<boolean>(() => {
+    if (proxyParam === "on") return true;
+    if (proxyParam === "off") return false;
+    return false; // default: start direct (no proxy)
+  });
 
-  // Auto-resize for iframe host (optional)
+  // Build URLs
+  const directUrl = pdfPath;
+  const proxiedUrl = `/api/pdf-proxy?url=${encodeURIComponent(pdfPath)}`;
+  const pdfUrl = useProxy ? proxiedUrl : directUrl;
+
+  // Auto-resize for iframe hosts
   useEffect(() => {
     if (typeof window === "undefined") return;
     const send = () => {
@@ -77,25 +87,9 @@ export default function DocPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
-      body: JSON.stringify({ level, msg: line, meta: { slug, ...meta } }),
+      body: JSON.stringify({ level, msg: line, meta: { slug, useProxy, ...meta } }),
     }).catch(() => {});
   }
-
-  // HEAD check
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(pdfPath, { method: "HEAD" });
-        const ctype = res.headers.get("content-type") || "(none)";
-        pushDebug(`HEAD ${res.status} content-type=${ctype}`, res.ok ? "info" : "warn");
-        if (!ctype.includes("application/pdf")) {
-          pushDebug("Content-Type is not application/pdf — inline render may fail", "warn");
-        }
-      } catch (e: any) {
-        pushDebug(`HEAD failed: ${e?.message || String(e)}`, "error");
-      }
-    })();
-  }, [pdfPath]);
 
   // Scroll/touch diagnostics
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +109,28 @@ export default function DocPage() {
     };
   }, [debug]);
 
+  // Handler fed by ReactPDFPane for success/error
+  function handlePDFDebug(evt: string, meta?: Record<string, unknown>) {
+    if (evt === "pdfjs:onLoadSuccess") {
+      pushDebug("pdfjs onLoadSuccess", "info", meta);
+    } else if (evt === "pdfjs:onLoadError") {
+      pushDebug("pdfjs onLoadError", "warn", meta);
+      // If proxy is allowed (proxyParam not "off") and we were trying direct, fallback to proxy once
+      if (proxyParam !== "off" && !useProxy) {
+        pushDebug("switching to proxy fallback", "info");
+        setUseProxy(true);
+      }
+    } else if (evt === "pdfjs:onSourceError") {
+      pushDebug("pdfjs onSourceError", "warn", meta);
+      if (proxyParam !== "off" && !useProxy) {
+        pushDebug("switching to proxy fallback", "info");
+        setUseProxy(true);
+      }
+    } else {
+      pushDebug(evt, "debug", meta);
+    }
+  }
+
   return (
     <main
       style={{
@@ -123,10 +139,10 @@ export default function DocPage() {
         height: "100dvh",
         width: "100vw",
         position: "relative",
-        overflow: usePDFJS ? "visible" : "hidden",
+        overflow: preferPDFJS ? "visible" : "hidden",
       }}
     >
-      {/* Full-bleed PDF */}
+      {/* Full-bleed PDF container */}
       <div
         ref={shellRef}
         aria-label="PDF container"
@@ -134,19 +150,19 @@ export default function DocPage() {
           position: "absolute",
           inset: 0,
           background: "#f0f0f0",
-          overflow: usePDFJS ? "auto" : "hidden",
-          height: usePDFJS ? ("100svh" as any) : "100dvh",
-          WebkitOverflowScrolling: usePDFJS ? ("touch" as any) : undefined,
-          overscrollBehavior: usePDFJS ? "contain" : undefined,
-          touchAction: usePDFJS ? "pan-y" : undefined,
+          overflow: preferPDFJS ? "auto" : "hidden",
+          height: preferPDFJS ? ("100svh" as any) : "100dvh",
+          WebkitOverflowScrolling: preferPDFJS ? ("touch" as any) : undefined,
+          overscrollBehavior: preferPDFJS ? "contain" : undefined,
+          touchAction: preferPDFJS ? "pan-y" : undefined,
           display: "grid",
           placeItems: "center",
         }}
       >
-        {usePDFJS ? (
+        {preferPDFJS ? (
           <ReactPDFPane
-            file={pdfForPDFJS}
-            onDebug={(msg, meta) => pushDebug(msg, "info", meta)}
+            file={pdfUrl}                 // direct first, fallback to proxy on error
+            onDebug={handlePDFDebug}      // reports success/error
           />
         ) : (
           <object
@@ -170,7 +186,7 @@ export default function DocPage() {
         )}
       </div>
 
-      {/* Dialogue widget */}
+      {/* Bottom-center overlayed Dialogue widget */}
       <div
         style={{
           position: "fixed",
@@ -215,13 +231,16 @@ export default function DocPage() {
             <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,.18)" }} />
           </div>
 
-          <DialogueBar
-            agentId={agentId}
-            useSignedUrl={useSignedUrl}
-            serverLocation={region}
-          />
+          <DialogueBar agentId={agentId} useSignedUrl={useSignedUrl} serverLocation={region} />
 
-          <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", display: expanded ? "block" : "none" }}>
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 12,
+              color: "#6b7280",
+              display: expanded ? "block" : "none",
+            }}
+          >
             Tip: Ask while you read. Collapse this panel anytime.
           </div>
         </div>
@@ -248,7 +267,9 @@ export default function DocPage() {
           }}
         >
           <div style={{ marginBottom: 4, opacity: 0.8 }}>
-            <strong>Debug</strong> (touch={String(isTouch)} forcePDFJS={String(forcePDFJS)}) — add <code>?debug=1</code> or <code>?force=pdfjs</code>
+            <strong>Debug</strong> (touch={String(isTouch)} preferPDFJS={String(preferPDFJS)} useProxy={String(useProxy)})
+            {" — add "}
+            <code>?debug=1</code>, <code>?force=pdfjs</code>, <code>?proxy=on</code> or <code>?proxy=off</code>
           </div>
           {debugLines.map((l, i) => <div key={i}>{l}</div>)}
         </div>
