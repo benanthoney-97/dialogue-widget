@@ -256,7 +256,7 @@ useEffect(() => {
               }}
             >
               {phase === "connecting" ? (
-                <span>Connecting…</span>
+                <span>Connecting</span>
               ) : (
                 <>
                   <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
