@@ -237,28 +237,28 @@ return (
     </button>
   ) : (
     // SEND (shown once user types)
-    <button
-      type="submit"
-      disabled={phase === "connecting"}
-      aria-label="Send message"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "10px 16px",
-        height: 44,
-        minWidth: 116, // match Talk width
-        borderRadius: 12,
-        border: "none",
-        background: connected ? "#111827" : "#9ca3af",
-        color: "#fff",
-        fontWeight: 700,
-        cursor: phase === "connecting" ? "default" : "pointer",
-        transition: "background .15s ease",
-      }}
-    >
-      {phase === "connecting" ? "Connecting…" : "Send"}
-    </button>
+<button
+  type="submit"
+  disabled={phase === "connecting"}
+  aria-label="Send message"
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 16px",
+    height: 44,
+    // minWidth: 116, // ← remove this line
+    borderRadius: 12,
+    border: "none",
+    background: connected ? "#b01c2e" : "#9ca3af",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: phase === "connecting" ? "default" : "pointer",
+    transition: "background .15s ease",
+  }}
+>
+  {phase === "connecting" ? "Connecting…" : "Send"}
+</button>
   )}
 </div>
     </form>
