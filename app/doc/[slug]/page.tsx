@@ -1,27 +1,49 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import PDFJSViewer from "@/app/components/PDFJSViewer";
 import DialogueBar from "@/app/components/DialogueBar";
 import { docMap } from "@/app/lib/docMap";
+
+// Client-only PDF.js viewer
+const PDFJSViewer = dynamic(() => import("@/app/components/PDFJSViewer"), {
+  ssr: false,
+});
 
 export default function DocPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug || "";
   const entry = useMemo(() => docMap[slug], [slug]);
 
-  // Prefer PDF.js on touch devices
+  // Defer anything that depends on window to avoid hydration swaps
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Touch detection (decide viewer after mount)
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setIsTouch(window.matchMedia?.("(pointer: coarse)")?.matches ?? false);
+    setIsTouch(matchMedia("(pointer: coarse)").matches);
   }, []);
 
   if (!entry) {
     return (
-      <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 }}>
-        <div style={{ padding: 16, border: "1px solid rgba(0,0,0,.1)", borderRadius: 12 }}>
+      <main
+        style={{
+          minHeight: "100dvh",
+          display: "grid",
+          placeItems: "center",
+          padding: 16,
+        }}
+      >
+        <div
+          style={{
+            padding: 16,
+            border: "1px solid rgba(0,0,0,.1)",
+            borderRadius: 12,
+          }}
+        >
           Unknown document slug: <code>{slug}</code>
         </div>
       </main>
@@ -32,9 +54,6 @@ export default function DocPage() {
   const useSignedUrl = auth !== "public";
   const [expanded, setExpanded] = useState(false);
 
-  // Fallback message if pdfPath is missing
-  const noPdf = !pdfPath;
-
   return (
     <main
       style={{
@@ -43,10 +62,10 @@ export default function DocPage() {
         height: "100dvh",
         width: "100vw",
         position: "relative",
-        overflow: "hidden",
+        overflow: mounted && isTouch ? "visible" : "hidden",
       }}
     >
-      {/* Full-bleed PDF */}
+      {/* Full-bleed PDF area */}
       <div
         aria-label="PDF container"
         style={{
@@ -55,21 +74,26 @@ export default function DocPage() {
           background: "#f0f0f0",
           display: "grid",
           placeItems: "center",
-          // Keep scroll available on mobile and when PDF.js is used
-          overflow: "auto",
-          height: isTouch ? ("100svh" as any) : "100dvh",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "contain",
-          touchAction: "pan-y",
+          overflow: mounted && isTouch ? "auto" : "hidden",
+          height: "100dvh",
+          WebkitOverflowScrolling: mounted && isTouch ? ("touch" as any) : undefined,
+          touchAction: mounted && isTouch ? "pan-y" : undefined,
         }}
       >
-        {noPdf ? (
-          <div style={{ padding: 16 }}>
-            <p>PDF not available for this document.</p>
-          </div>
+        {!mounted ? (
+          // Keep SSR/CSR markup identical to avoid hydration issues
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "#fff",
+            }}
+          />
         ) : isTouch ? (
-          <PDFJSViewer file={pdfPath} />
+          // Client-only PDF.js viewer on touch devices
+          <PDFJSViewer key="pdfjs" file={pdfPath} />
         ) : (
+          // Native <object> on desktop
           <object
             data={`${pdfPath}#view=FitH`}
             type="application/pdf"
@@ -125,6 +149,7 @@ export default function DocPage() {
             marginBottom: 8,
           }}
         >
+          {/* drag/expand affordance */}
           <div
             role="button"
             aria-label={expanded ? "Collapse dialogue" : "Expand dialogue"}
@@ -146,7 +171,11 @@ export default function DocPage() {
             />
           </div>
 
-          <DialogueBar agentId={agentId} useSignedUrl={useSignedUrl} serverLocation={region} />
+          <DialogueBar
+            agentId={agentId}
+            useSignedUrl={useSignedUrl}
+            serverLocation={region}
+          />
 
           <div
             style={{
