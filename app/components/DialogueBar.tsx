@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   useSignedUrl?: boolean;                  
   serverLocation?: "us" | "eu-residency" | "in-residency" | "global";
 };
+
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
 
@@ -122,6 +123,14 @@ export default function DialogueBar({
 
   const connected = String(status) === "connected";
   const hasText = q.trim().length > 0;
+  // inside your component
+const inputRef = useRef<HTMLInputElement | null>(null);
+
+useEffect(() => {
+  if (inputRef.current) {
+    inputRef.current.focus();
+  }
+}, []);
 
   return (
     <div style={{
@@ -143,23 +152,23 @@ export default function DialogueBar({
         <strong>Tip:</strong> Press <strong>Enter</strong> to send • Tap <strong>Talk</strong> to speak
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: isNarrow ? 8 : 12,
-          padding: isNarrow ? 10 : 12,
-          borderRadius: 20,
-          border: "1px solid rgba(0,0,0,.12)",
-          background: "#fff",
-          boxShadow: "0 4px 16px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.5)",
-          width: "100%",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-        aria-label="Dialogue input"
-      >
+<form
+  onSubmit={onSubmit}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    paddingLeft: 0,
+    borderRadius: 20,
+    // background: "#fff",   ❌ removed
+    // boxShadow: "0 4px 16px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.5)", ❌ removed
+    width: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  }}
+  aria-label="Dialogue input"
+>
         {/* Input wrapper */}
         <div
           style={{
@@ -170,29 +179,28 @@ export default function DialogueBar({
             minWidth: 0,
             padding: isNarrow ? "8px 12px" : "10px 14px",
             borderRadius: 14,
-            background: "rgba(0,0,0,.03)",
-            border: "1px solid rgba(0,0,0,.06)",
           }}
         >
-          <input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              sendUserActivity();
-            }}
-            placeholder="Type a question..."
-            aria-label="Type your question"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              fontSize: "clamp(15px, 2.5vw, 18px)",
-              lineHeight: "22px",
-              color: "#111827",
-              background: "transparent",
-            }}
-          />
+<input
+  ref={inputRef}   // 👈 this ensures the cursor is ready
+  value={q}
+  onChange={(e) => {
+    setQ(e.target.value);
+    sendUserActivity();
+  }}
+  placeholder={connected ? "Type a question..." : "Type a question..."}
+  aria-label="Type your question"
+  style={{
+    flex: 1,
+    minWidth: 0,
+    border: "none",
+    outline: "none",
+    fontSize: "clamp(15px, 2.5vw, 18px)",
+    lineHeight: "22px",
+    color: "#111827",
+    background: "transparent",
+  }}
+/>
         </div>
 
         {/* tiny “or” */}
@@ -275,7 +283,7 @@ export default function DialogueBar({
                 border: "none",
                 background: connected ? "#b01c2e" : "#9ca3af",
                 color: "#fff",
-                fontWeight: 700,
+                fontWeight: 500,
                 cursor: phase === "connecting" ? "default" : "pointer",
                 transition: "background .15s ease",
               }}
