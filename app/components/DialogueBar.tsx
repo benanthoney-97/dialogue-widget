@@ -288,7 +288,7 @@ useEffect(() => {
                 transition: "background .15s ease",
               }}
             >
-              {phase === "connecting" ? "Connecting…" : "Send"}
+              {phase === "connecting" ? "Connecting" : "Send"}
             </button>
           )}
         </div>
