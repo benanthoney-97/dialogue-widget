@@ -1,106 +1,117 @@
-// app/components/PDFJSViewer.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-// ✅ Use the legacy browser build to avoid Node "canvas" dependency
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 
 type Props = {
-  /** URL to the PDF (can be direct or via your /api/pdf-proxy) */
-  file: string;
-  /** Optional logger */
+  file: string; // URL to the PDF (direct or via your /api/pdf-proxy)
   onDebug?: (evt: string, meta?: Record<string, unknown>) => void;
 };
 
+declare global {
+  interface Window {
+    pdfjsLib?: any;
+  }
+}
+
 export default function PDFJSViewer({ file, onDebug }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const pdfRef = useRef<any>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [errMsg, setErrMsg] = useState<string>("");
-
-  // Configure worker once
-  useEffect(() => {
-    try {
-      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
-      onDebug?.("pdfjs:workerConfigured", { workerSrc: "/pdfjs/pdf.worker.min.js" });
-    } catch {
-      // ignore
-    }
-  }, [onDebug]);
+  const [errMsg, setErrMsg] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
-    async function loadAndRender() {
-      setStatus("loading");
-      setErrMsg("");
+    async function ensurePdfJs(): Promise<any> {
+      if (window.pdfjsLib) return window.pdfjsLib;
 
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        // Lock to the same version you tested:
+        script.src = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js";
+        script.async = true;
+        script.onload = () => {
+          if (window.pdfjsLib) {
+            onDebug?.("pdfjs:loadedCdn");
+            resolve(window.pdfjsLib);
+          } else {
+            reject(new Error("pdfjsLib not found after script load"));
+          }
+        };
+        script.onerror = () => reject(new Error("Failed to load pdf.min.js from CDN"));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function render() {
       try {
-        // Load PDF
-        const loadingTask = (pdfjsLib as any).getDocument({
-          url: file,
-          // You can add more options here if needed (cMapUrl, standardFontDataUrl, etc.)
-        });
-        const pdf = await loadingTask.promise;
+        setStatus("loading");
+        const pdfjsLib = await ensurePdfJs();
         if (cancelled) return;
-        pdfRef.current = pdf;
+
+        // Point the worker to your hosted file:
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+        onDebug?.("pdfjs:configureWorker", { workerSrc: pdfjsLib.GlobalWorkerOptions.workerSrc });
+
+        const task = pdfjsLib.getDocument({ url: file, withCredentials: false });
+        const pdf = await task.promise;
+        if (cancelled) return;
         onDebug?.("pdfjs:onLoadSuccess", { numPages: pdf.numPages });
 
-        const host = containerRef.current!;
-        host.innerHTML = ""; // clear any previous render
         setStatus("ready");
+        const host = containerRef.current!;
+        host.innerHTML = "";
 
-        // simple, responsive page scaling
-        const calcScale = (vw: number) => {
-          // ~fit for typical A4 at various device widths
-          return Math.max(0.9, Math.min(2.0, vw / 900));
-        };
+        const calcScale = (vw: number) => Math.max(0.8, Math.min(2.0, vw / 900));
 
         const renderPage = async (pageNum: number) => {
           const page = await pdf.getPage(pageNum);
-          const scale = calcScale(window.innerWidth);
-          const viewport = page.getViewport({ scale });
+          const vp = page.getViewport({ scale: calcScale(window.innerWidth) });
 
           const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d")!;
           canvas.style.display = "block";
           canvas.style.margin = "0 auto 16px";
           canvas.style.maxWidth = "100%";
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
 
-          const renderTask = page.render({ canvasContext: ctx, viewport });
+          const ctx = canvas.getContext("2d")!;
+          canvas.width = vp.width;
+          canvas.height = vp.height;
+
+          const renderTask = page.render({ canvasContext: ctx, viewport: vp });
           await renderTask.promise;
           host.appendChild(canvas);
         };
 
-        // Initial render of all pages
         for (let i = 1; i <= pdf.numPages; i++) {
           if (cancelled) return;
           await renderPage(i);
         }
 
-        // Re-render on resize (debounced)
-        let t: ReturnType<typeof setTimeout> | null = null;
         const onResize = () => {
-          if (t) clearTimeout(t);
-          t = setTimeout(async () => {
-            if (cancelled || !pdfRef.current) return;
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(async () => {
             try {
+              if (cancelled) return;
               host.innerHTML = "";
-              for (let i = 1; i <= pdfRef.current.numPages; i++) {
+              for (let i = 1; i <= pdf.numPages; i++) {
                 if (cancelled) return;
                 await renderPage(i);
               }
-            } catch (e) {
-              // ignore render errors on resize
+            } catch {
+              /* no-op */
             }
           }, 150);
         };
-        window.addEventListener("resize", onResize);
 
+        window.addEventListener("resize", onResize);
         return () => {
           window.removeEventListener("resize", onResize);
+          try {
+            pdf.cleanup?.();
+            pdf.destroy?.();
+          } catch {
+            /* no-op */
+          }
         };
       } catch (e: any) {
         const msg = e?.message || String(e);
@@ -110,18 +121,12 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
       }
     }
 
-    loadAndRender();
+    const cleanupPromise = render();
 
     return () => {
       cancelled = true;
-      try {
-        // Cleanup pdf instance if present
-        pdfRef.current?.cleanup?.();
-        pdfRef.current?.destroy?.();
-      } catch {
-        // ignore
-      }
-      pdfRef.current = null;
+      // wait for possible cleanup from render()
+      Promise.resolve(cleanupPromise).catch(() => {});
     };
   }, [file, onDebug]);
 
@@ -138,9 +143,7 @@ export default function PDFJSViewer({ file, onDebug }: Props) {
         boxSizing: "border-box",
       }}
     >
-      {status === "loading" && (
-        <div style={{ padding: 16 }}>Loading PDF…</div>
-      )}
+      {status === "loading" && <div style={{ padding: 16 }}>Loading PDF…</div>}
       {status === "error" && (
         <div style={{ padding: 16, color: "#b91c1c" }}>
           Failed to load PDF. {errMsg ? `(${errMsg})` : ""}
