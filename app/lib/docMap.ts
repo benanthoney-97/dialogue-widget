@@ -19,5 +19,16 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
   },
-  // add more...
+ "spending-review-june": {
+   pdfPath: "/papers/spending-review-june.pdf",
+   agentId: "agent_1601k522np07ey0bx6shfs65wvnk",
+   region: "eu-residency",
+   auth: "signed",
+ },
+ "klr-h1-25": {
+   pdfPath: "/papers/klr-h1-25.pdf",
+   agentId: "agent_6501k59ek962ekft13ah41dedzkq",
+   region: "eu-residency",
+   auth: "signed",
+ }
 };
