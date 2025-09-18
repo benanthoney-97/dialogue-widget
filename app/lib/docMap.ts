@@ -30,5 +30,11 @@ export const docMap: Record<string, DocEntry> = {
    agentId: "agent_6501k59ek962ekft13ah41dedzkq",
    region: "eu-residency",
    auth: "signed",
+ },
+  "srm-field-experiments": {
+   pdfPath: "/papers/srm-field-experiments.pdf",
+   agentId: "agent_6101k4d1wak5erk80jsmk1nfcjdc",
+   region: "eu-residency",
+   auth: "signed",
  }
 };
