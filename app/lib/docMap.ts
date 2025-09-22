@@ -42,5 +42,11 @@ export const docMap: Record<string, DocEntry> = {
    agentId: "agent_2701k5r3zyn1f7wbh5wx7c2wpr7v",
    region: "eu-residency",
    auth: "signed",
+ }, 
+    "convergence-ai-dlt-cc": {
+   pdfPath: "/papers/convergence-ai-dlt.pdf",
+   agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
+   region: "eu-residency",
+   auth: "signed",
  }
 };
