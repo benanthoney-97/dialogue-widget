@@ -36,5 +36,11 @@ export const docMap: Record<string, DocEntry> = {
    agentId: "agent_6101k4d1wak5erk80jsmk1nfcjdc",
    region: "eu-residency",
    auth: "signed",
+ },
+   "conflict-economy-sesame": {
+   pdfPath: "/papers/Abel-Abate-Demissie.pdf",
+   agentId: "agent_2701k5r3zyn1f7wbh5wx7c2wpr7v",
+   region: "eu-residency",
+   auth: "signed",
  }
 };
