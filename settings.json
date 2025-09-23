@@ -1,0 +1,10 @@
+{
+  "markdown-pdf.styles": ["${workspaceFolder}/print.css"],
+  "markdown-pdf.paperSize": "A4",
+  "markdown-pdf.displayHeaderFooter": true,
+  "markdown-pdf.footerTemplate": "<div style='font-size:8px;text-align:center;width:100%'><span class='pageNumber'></span> / <span class='totalPages'></span></div>",
+  "markdown-pdf.margin.top": "20mm",
+  "markdown-pdf.margin.bottom": "15mm",
+  "markdown-pdf.margin.left": "15mm",
+  "markdown-pdf.margin.right": "15mm"
+}

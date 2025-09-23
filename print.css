@@ -1,0 +1,26 @@
+@page { size: A4; margin: 20mm 15mm; }
+
+body { font-family: Georgia, "Times New Roman", serif; font-size: 11pt; line-height: 1.35; }
+
+/* Keep big blocks intact as much as possible */
+table, thead, tbody, tr, td, th {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Manual page breaks */
+.page-break {
+  page-break-before: always;
+  break-before: page;
+}
+
+/* Auto-start each poem (H1) on a new page, except the first */
+h1 { break-before: page; page-break-before: always; }
+h1:first-of-type { break-before: auto; page-break-before: auto; }
+
+/* Optional: tighter table padding so more fits on a page */
+th, td { padding: 4px 6px; border: 1px solid #aaa; vertical-align: top; }
+th { background: #f3f3f3; font-weight: 700; }
+
+/* Avoid page break directly after an H1 + first table row */
+h1 + table { page-break-inside: avoid; break-inside: avoid; }

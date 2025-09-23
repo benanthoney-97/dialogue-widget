@@ -48,5 +48,11 @@ export const docMap: Record<string, DocEntry> = {
    agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
    region: "eu-residency",
    auth: "signed",
+ },
+     "english-gcse-revision": {
+   pdfPath: "/papers/gcse_revision.pdf",
+   agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
+   region: "eu-residency",
+   auth: "signed",
  }
 };
