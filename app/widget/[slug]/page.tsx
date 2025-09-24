@@ -55,7 +55,7 @@ export default function WidgetBySlugPage() {
         display: "grid",
         placeItems: "center",
         padding: 16,
-        background: "#f8f7f3",
+        background: "#ffffffff",
       }}
     >
       <div style={{ width: "100%", maxWidth: 960 }}>

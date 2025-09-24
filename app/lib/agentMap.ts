@@ -7,6 +7,6 @@ export const agentMap: Record<string, string> = {
   "srm-field-experiments": "agent_6101k4d1wak5erk80jsmk1nfcjdc",
   "conflict-economy-sesame": "agent_2701k5r3zyn1f7wbh5wx7c2wpr7v",
   "convergence-ai-dlt-cc": "agent_5501k5rqdhq7f789s213t7e7b60a",
-    "english-gcse-revision": "agent_7701k5tkhf04evvbsacthtwc890q"
-
+  "english-gcse-revision": "agent_7701k5tkhf04evvbsacthtwc890q",
+  "srm-live-wildfires": "agent_5901k5y39g61eckahbpx06479dv8"
 };
