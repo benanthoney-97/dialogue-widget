@@ -9,5 +9,6 @@ export const agentMap: Record<string, string> = {
   "convergence-ai-dlt-cc": "agent_5501k5rqdhq7f789s213t7e7b60a",
   "english-gcse-revision": "agent_7701k5tkhf04evvbsacthtwc890q",
   "srm-live-wildfires": "agent_5901k5y39g61eckahbpx06479dv8",
-    "dialogue-website-agent": "agent_2301k6ajjgh3fvntarvd2a4g13t8"
+  "dialogue-website-agent": "agent_2301k6ajjgh3fvntarvd2a4g13t8",
+  "manual-agent": "agent_9601k51nhvafffgrhgrh5vtykrfb"
 };
