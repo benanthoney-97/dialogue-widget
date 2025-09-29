@@ -11,5 +11,6 @@ export const agentMap: Record<string, string> = {
   "srm-live-wildfires": "agent_5901k5y39g61eckahbpx06479dv8",
   "dialogue-website-agent": "agent_2301k6ajjgh3fvntarvd2a4g13t8",
   "manual-agent": "agent_9601k51nhvafffgrhgrh5vtykrfb",
-  "uk-vein-clinic-lead-form-agent": "agent_8001k6awq7g0ert91rvgv1yx69hj"
+  "uk-vein-clinic-lead-form-agent": "agent_8001k6awq7g0ert91rvgv1yx69hj",
+  "uk-vein-clinic-knowledge-centre-agent": "agent_0401k6bc69vqfk8t1vp96f1xyym2"
 };
