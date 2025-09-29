@@ -1,6 +1,6 @@
 "use client";
 
-import DialogueBar from "@/app/components/DialogueBar";
+import DialogueBar from "@/app/components/DialogueBarTalkOnly";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { agentMap } from "@/app/lib/agentMap";
@@ -52,13 +52,26 @@ export default function WidgetBySlugPage() {
     <main
       style={{
         minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
         padding: 16,
         background: "#ffffffff",
+        textAlign: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 960 }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 960,
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
         {missing ? (
           <div
             style={{
@@ -68,6 +81,8 @@ export default function WidgetBySlugPage() {
               border: "1px solid rgba(0,0,0,.08)",
               color: "#b91c1c",
               fontWeight: 600,
+              maxWidth: 480,
+              margin: "0 auto",
             }}
           >
             No agent configured for slug <code>{slug}</code>. Provide{" "}
