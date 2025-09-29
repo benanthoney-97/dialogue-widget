@@ -148,7 +148,7 @@ const debug = sp?.get("debug") === "1";
             background: "rgba(255, 255, 255, 0.92)",
             backdropFilter: "saturate(1.2) blur(6px)",
             WebkitBackdropFilter: "saturate(1.2) blur(6px)",
-            border: "1px solid #b01c2e",
+            border: "1px solid #525fe1",
             borderRadius: 14,
             boxShadow: "0 8px 30px rgba(0,0,0,.12)",
             padding: expanded ? 16 : 10,
