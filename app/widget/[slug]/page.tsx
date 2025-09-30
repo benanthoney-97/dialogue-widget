@@ -67,6 +67,9 @@ export default function WidgetBySlugPage() {
         padding: 16,
         background: "#ffffffff",
         textAlign: "center",
+            border: "1px solid #525fe1",
+            borderRadius: 14,
+            boxShadow: "0 8px 30px rgba(0,0,0,.12)",
       }}
     >
       <div
