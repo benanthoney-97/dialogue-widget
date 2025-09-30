@@ -12,5 +12,6 @@ export const agentMap: Record<string, string> = {
   "dialogue-website-agent": "agent_2301k6ajjgh3fvntarvd2a4g13t8",
   "manual-agent": "agent_9601k51nhvafffgrhgrh5vtykrfb",
   "uk-vein-clinic-lead-form-agent": "agent_8001k6awq7g0ert91rvgv1yx69hj",
-  "uk-vein-clinic-knowledge-centre-agent": "agent_0401k6bc69vqfk8t1vp96f1xyym2"
+  "uk-vein-clinic-knowledge-centre-agent": "agent_0401k6bc69vqfk8t1vp96f1xyym2",
+  "fit-for-work-demo": "agent_5801k6dhyv7veekvmkw5wp7e52fc"
 };
