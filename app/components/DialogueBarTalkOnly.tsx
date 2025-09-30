@@ -7,6 +7,9 @@ type Props = {
   agentId: string;
   useSignedUrl?: boolean;
   serverLocation?: "us" | "eu-residency" | "in-residency" | "global";
+  buttonColor?: string;
+  buttonTextColor?: string;
+  title?: string;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
@@ -15,6 +18,9 @@ export default function DialogueBarTalkOnly({
   agentId,
   useSignedUrl = true,
   serverLocation = "us",
+  buttonColor = "#525fe1",
+  buttonTextColor = "#ffffff",
+  title = "",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
@@ -99,6 +105,8 @@ export default function DialogueBarTalkOnly({
   }
 
   const connected = String(status) === "connected";
+  const talkBackground = buttonColor;
+  const talkTextColor = buttonTextColor;
 
   return (
     <div
@@ -110,6 +118,20 @@ export default function DialogueBarTalkOnly({
         boxSizing: "border-box",
       }}
     >
+      {title ? (
+        <div
+          style={{
+            textAlign: "left",
+            fontSize: isNarrow ? 16 : 18,
+            fontWeight: 700,
+            marginBottom: 8,
+            color: "#111827",
+          }}
+        >
+          {title}
+        </div>
+      ) : null}
+
       <div
         style={{
           textAlign: "left",
@@ -146,9 +168,8 @@ export default function DialogueBarTalkOnly({
             minWidth: isNarrow ? 140 : 180,
             borderRadius: 16,
             border: "1px solid rgba(0,0,0,.06)",
-            background:
-              phase === "connecting" ? "#d1d5db" : connected ? "#525fe1" : "#525fe1",
-            color: "#fff",
+            background: phase === "connecting" ? "#d1d5db" : talkBackground,
+            color: talkTextColor,
             fontWeight: 700,
             cursor: phase === "connecting" ? "default" : "pointer",
             transition: "background .15s ease, opacity .15s ease",
@@ -160,9 +181,9 @@ export default function DialogueBarTalkOnly({
           ) : (
             <>
               <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-                <rect x="2" y="6" width="3" height="8" rx="1" />
-                <rect x="8.5" y="3" width="3" height="14" rx="1" />
-                <rect x="15" y="8" width="3" height="6" rx="1" />
+                <rect x="2" y="6" width="3" height="8" rx="1" fill="currentColor" />
+                <rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
+                <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
               </svg>
               <span>{connected ? "Live" : "Talk"}</span>
             </>

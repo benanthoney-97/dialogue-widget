@@ -4,6 +4,11 @@ import DialogueBar from "@/app/components/DialogueBarTalkOnly";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { agentMap } from "@/app/lib/agentMap";
+import {
+  buttonThemeMap,
+  defaultButtonTheme,
+} from "@/app/lib/buttonThemeMap";
+import { titleMap, defaultTitle } from "@/app/lib/titleMap";
 
 export default function WidgetBySlugPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -47,6 +52,9 @@ export default function WidgetBySlugPage() {
   }, []);
 
   const missing = !agentId;
+  const { background: buttonColor, text: buttonTextColor } =
+    buttonThemeMap[slug] ?? defaultButtonTheme;
+  const title = titleMap[slug] ?? defaultTitle;
 
   return (
     <main
@@ -93,6 +101,9 @@ export default function WidgetBySlugPage() {
             agentId={agentId}
             useSignedUrl={useSignedUrl}
             serverLocation={serverLocation}
+            buttonColor={buttonColor}
+            buttonTextColor={buttonTextColor}
+            title={title}
           />
         )}
       </div>
