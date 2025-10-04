@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 
+@font-face {
+  font-family: "Cooper Light BT";
+  src: url("/fonts/CooperBT/Cooper Light BT.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

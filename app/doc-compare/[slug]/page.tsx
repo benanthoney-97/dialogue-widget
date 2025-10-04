@@ -3,7 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
-import DialogueBar from "@/app/components/DialogueBar";
+import DialogueBar from "@/app/components/DialogueBarTalkButton";
 import MobileConsole from "@/app/components/MobileConsole";
 import { docMap } from "@/app/lib/docMap";
 
@@ -48,8 +48,6 @@ export default function DocComparePage() {
 
   const { agentId, region = "us" } = leftEntry;
   const useSignedUrl = (leftEntry.auth !== "public") || (rightEntry.auth !== "public");
-
-  const [expanded, setExpanded] = useState(false);
 
   // IMPORTANT: these must point to real files in /public/papers/ for native <object>
   const leftPdf = leftEntry.pdfPath;   // e.g. "/papers/gcse_revision.pdf"
@@ -198,42 +196,17 @@ export default function DocComparePage() {
       >
         <div
           style={{
-            width: "min(820px, 100%)",
-            background: "rgba(255, 255, 255, 0.92)",
-            backdropFilter: "saturate(1.2) blur(6px)",
-            WebkitBackdropFilter: "saturate(1.2) blur(6px)",
-            border: "1px solid #525fe1",
-            borderRadius: 14,
-            boxShadow: "0 8px 30px rgba(0,0,0,.12)",
-            padding: expanded ? 16 : 10,
+            width: "100%",
+            maxWidth: 820,
             pointerEvents: "auto",
-            transition: "transform 160ms ease, padding 160ms ease",
             marginBottom: 8,
+            display: "flex",
+            justifyContent: "center",
           }}
         >
-          <div
-            role="button"
-            aria-label={expanded ? "Collapse dialogue" : "Expand dialogue"}
-            onClick={() => setExpanded((v) => !v)}
-            style={{ display: "grid", placeItems: "center", margin: "-2px 0 8px", cursor: "pointer" }}
-          >
-            <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,.18)" }} />
-          </div>
-
           {agentId && (
             <DialogueBar agentId={agentId} useSignedUrl={useSignedUrl} serverLocation={region} />
           )}
-
-          <div
-            style={{
-              marginTop: 6,
-              fontSize: 12,
-              color: "#6b7280",
-              display: expanded ? "block" : "none",
-            }}
-          >
-            Tip: Ask questions while you read. Collapse this panel anytime.
-          </div>
         </div>
       </div>
 

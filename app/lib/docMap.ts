@@ -55,10 +55,4 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  },
-      "fit-for-work-demo": {
-   pdfPath: "/papers/(Example Deck) Fit for Work x Wetton .pdf",
-   agentId: "agent_5801k6dhyv7veekvmkw5wp7e52fc",
-   region: "eu-residency",
-   auth: "signed",
- }
 };

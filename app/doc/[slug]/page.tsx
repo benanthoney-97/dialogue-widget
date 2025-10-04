@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import DialogueBar from "@/app/components/DialogueBar";
+import DialogueBar from "@/app/components/DialogueBarTalkButton";
 import { docMap } from "@/app/lib/docMap";
 import { useSearchParams } from "next/navigation";
 import MobileConsole from "@/app/components/MobileConsole";
@@ -60,7 +60,89 @@ const debug = sp?.get("debug") === "1";
 
   const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
   const useSignedUrl = auth !== "public";
-  const [expanded, setExpanded] = useState(false);
+  const dragContainerRef = useRef<HTMLDivElement | null>(null);
+  const dragPointerId = useRef<number | null>(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function handleDragPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, a, input, textarea")) return;
+    if (!dragContainerRef.current) return;
+    dragPointerId.current = event.pointerId;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const rect = dragContainerRef.current.getBoundingClientRect();
+    dragOffsetRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+    setDragPos({ x: rect.left, y: rect.top });
+    setDragging(true);
+    event.preventDefault();
+  }
+
+  function handleDragPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragging || dragPointerId.current !== event.pointerId || !dragContainerRef.current)
+      return;
+    if (typeof window === "undefined") return;
+    const card = dragContainerRef.current;
+    const width = card.offsetWidth;
+    const height = card.offsetHeight;
+    const inset = 12;
+    const maxX = Math.max(inset, window.innerWidth - width - inset);
+    const maxY = Math.max(inset, window.innerHeight - height - inset);
+    const newX = event.clientX - dragOffsetRef.current.x;
+    const newY = event.clientY - dragOffsetRef.current.y;
+    const clampedX = Math.min(Math.max(newX, inset), maxX);
+    const clampedY = Math.min(Math.max(newY, inset), maxY);
+    setDragPos({ x: clampedX, y: clampedY });
+    event.preventDefault();
+  }
+
+  function handleDragPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (dragPointerId.current !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dragPointerId.current = null;
+    setDragging(false);
+    event.preventDefault();
+  }
+
+  useEffect(() => {
+    if (!dragPos || !dragContainerRef.current) return;
+    const inset = 12;
+
+    const clampPosition = () => {
+      setDragPos((prev) => {
+        if (!prev || !dragContainerRef.current) return prev;
+        const el = dragContainerRef.current;
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
+        const maxX = Math.max(inset, window.innerWidth - width - inset);
+        const maxY = Math.max(inset, window.innerHeight - height - inset);
+        const clampedX = Math.min(Math.max(prev.x, inset), maxX);
+        const clampedY = Math.min(Math.max(prev.y, inset), maxY);
+        if (clampedX === prev.x && clampedY === prev.y) return prev;
+        return { x: clampedX, y: clampedY };
+      });
+    };
+
+    clampPosition();
+
+    const handleResize = () => clampPosition();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    const observer = new ResizeObserver(() => clampPosition());
+    observer.observe(dragContainerRef.current);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+      observer.disconnect();
+    };
+  }, [dragPos]);
 
   return (
     <main
@@ -126,75 +208,47 @@ const debug = sp?.get("debug") === "1";
         )}
       </div>
 
-      {/* Bottom-center overlayed Dialogue widget */}
+      {/* Draggable Dialogue widget */}
       <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingLeft: "max(8px, env(safe-area-inset-left))",
-          paddingRight: "max(8px, env(safe-area-inset-right))",
-          paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-          zIndex: 50,
-          display: "grid",
-          placeItems: "center",
-          pointerEvents: "none",
-        }}
+        style={
+          dragPos
+            ? {
+                position: "fixed",
+                top: dragPos.y,
+                left: dragPos.x,
+                transform: "translate(0, 0)",
+                zIndex: 50,
+                pointerEvents: "none",
+              }
+            : {
+                position: "fixed",
+                bottom: "max(12px, env(safe-area-inset-bottom))",
+                right: "max(12px, env(safe-area-inset-right))",
+                zIndex: 50,
+                pointerEvents: "none",
+              }
+        }
       >
         <div
+          ref={dragContainerRef}
+          onPointerDown={handleDragPointerDown}
+          onPointerMove={handleDragPointerMove}
+          onPointerUp={handleDragPointerUp}
+          onPointerCancel={handleDragPointerUp}
           style={{
-            width: "min(820px, 100%)",
-            background: "rgba(255, 255, 255, 0.92)",
-            backdropFilter: "saturate(1.2) blur(6px)",
-            WebkitBackdropFilter: "saturate(1.2) blur(6px)",
-            border: "1px solid #525fe1",
-            borderRadius: 14,
-            boxShadow: "0 8px 30px rgba(0,0,0,.12)",
-            padding: expanded ? 16 : 10,
             pointerEvents: "auto",
-            transition: "transform 160ms ease, padding 160ms ease",
-            marginBottom: 8,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+            cursor: dragging ? "grabbing" : "grab",
+            touchAction: "none",
           }}
         >
-          {/* drag/expand affordance */}
-          <div
-            role="button"
-            aria-label={expanded ? "Collapse dialogue" : "Expand dialogue"}
-            onClick={() => setExpanded((v) => !v)}
-            style={{
-              display: "grid",
-              placeItems: "center",
-              margin: "-2px 0 8px",
-              cursor: "pointer",
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 4,
-                borderRadius: 999,
-                background: "rgba(0,0,0,.18)",
-              }}
-            />
-          </div>
-
           <DialogueBar
             agentId={agentId}
             useSignedUrl={useSignedUrl}
             serverLocation={region}
           />
-
-          <div
-            style={{
-              marginTop: 6,
-              fontSize: 12,
-              color: "#6b7280",
-              display: expanded ? "block" : "none",
-            }}
-          >
-            Tip: Ask questions while you read. Collapse this panel anytime.
-          </div>
         </div>
       </div>
     </main>

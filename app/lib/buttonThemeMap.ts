@@ -23,5 +23,4 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
   "manual-agent": { background: "#525fe1", text: "#ffffff" },
   "uk-vein-clinic-lead-form-agent": { background: "#29f0de", text: "#004545" },
   "uk-vein-clinic-knowledge-centre-agent": { background: "#29f0de", text: "#004545" },
-  "fit-for-work-demo": { background: "#66ffcb", text: "#22223b" },
 };
