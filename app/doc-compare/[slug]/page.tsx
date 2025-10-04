@@ -29,10 +29,20 @@ export default function DocComparePage() {
   // mount + touch detection to mirror your single page behavior
   const [mounted, setMounted] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
-      setIsTouch(matchMedia("(pointer: coarse)").matches);
+      const pointerCoarse = matchMedia("(pointer: coarse)").matches;
+      setIsTouch(pointerCoarse);
+      const checkMobile = () => setIsMobile(window.innerWidth < 768);
+      checkMobile();
+      window.addEventListener("resize", checkMobile);
+      window.addEventListener("orientationchange", checkMobile);
+      return () => {
+        window.removeEventListener("resize", checkMobile);
+        window.removeEventListener("orientationchange", checkMobile);
+      };
     }
   }, []);
 
@@ -64,7 +74,7 @@ export default function DocComparePage() {
         overflow: "hidden",
       }}
     >
-      {/* Two-column area */}
+      {/* Two-column area / mobile notice */}
       <div
         aria-label="PDF compare container"
         style={{
@@ -72,110 +82,130 @@ export default function DocComparePage() {
           inset: 0,
           background: "#f0f0f0",
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
           gap: 8,
           padding: 8,
           height: "100dvh",
           boxSizing: "border-box",
+          alignItems: isMobile ? "center" : undefined,
+          justifyItems: isMobile ? "center" : undefined,
         }}
       >
-        {/* LEFT pane */}
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #eee",
-            borderRadius: 8,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
-          <header style={{ padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
-            Left
-          </header>
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            {!mounted ? (
-              <div style={{ width: "100%", height: "100%", background: "#fff" }} />
-            ) : isTouch ? (
-              // Touch: use PDF.js canvases (scrollable)
-              <div style={{ height: "100%", overflow: "auto" }}>
-                <PDFJSViewer key={`left-${leftPdf}`} file={leftPdf} />
-              </div>
-            ) : (
-              // Desktop: native PDF viewer (true PDF, scrollable)
-              <object
-                data={`${leftPdf}#view=FitH`}
-                type="application/pdf"
-                aria-label="Left PDF"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  display: "block",
-                  background: "#fff",
-                }}
-              >
-                <div style={{ padding: 16 }}>
-                  <p>Inline PDF viewer isn’t available here.</p>
-                  <p>
-                    <a href={leftPdf} target="_blank" rel="noreferrer">
-                      Open the document
-                    </a>
-                  </p>
-                </div>
-              </object>
-            )}
+        {isMobile ? (
+          <div
+            style={{
+              maxWidth: 320,
+              textAlign: "center",
+              background: "rgba(255,255,255,0.9)",
+              border: "1px solid #d1d5db",
+              borderRadius: 12,
+              padding: 20,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+            }}
+          >
+            <p style={{ fontSize: 16, color: "#111827", margin: 0 }}>
+              You should have both documents in front of you.
+            </p>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* LEFT pane */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #eee",
+                borderRadius: 8,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+              }}
+            >
+              <header style={{ padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
+                Left
+              </header>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                {!mounted ? (
+                  <div style={{ width: "100%", height: "100%", background: "#fff" }} />
+                ) : isTouch ? (
+                  <div style={{ height: "100%", overflow: "auto" }}>
+                    <PDFJSViewer key={`left-${leftPdf}`} file={leftPdf} />
+                  </div>
+                ) : (
+                  <object
+                    data={`${leftPdf}#view=FitH`}
+                    type="application/pdf"
+                    aria-label="Left PDF"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "none",
+                      display: "block",
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ padding: 16 }}>
+                      <p>Inline PDF viewer isn’t available here.</p>
+                      <p>
+                        <a href={leftPdf} target="_blank" rel="noreferrer">
+                          Open the document
+                        </a>
+                      </p>
+                    </div>
+                  </object>
+                )}
+              </div>
+            </div>
 
-        {/* RIGHT pane */}
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #eee",
-            borderRadius: 8,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
-          <header style={{ padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
-            Right
-          </header>
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            {!mounted ? (
-              <div style={{ width: "100%", height: "100%", background: "#fff" }} />
-            ) : isTouch ? (
-              <div style={{ height: "100%", overflow: "auto" }}>
-                <PDFJSViewer key={`right-${rightPdf}`} file={rightPdf} />
+            {/* RIGHT pane */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #eee",
+                borderRadius: 8,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+              }}
+            >
+              <header style={{ padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
+                Right
+              </header>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                {!mounted ? (
+                  <div style={{ width: "100%", height: "100%", background: "#fff" }} />
+                ) : isTouch ? (
+                  <div style={{ height: "100%", overflow: "auto" }}>
+                    <PDFJSViewer key={`right-${rightPdf}`} file={rightPdf} />
+                  </div>
+                ) : (
+                  <object
+                    data={`${rightPdf}#view=FitH`}
+                    type="application/pdf"
+                    aria-label="Right PDF"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "none",
+                      display: "block",
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ padding: 16 }}>
+                      <p>Inline PDF viewer isn’t available here.</p>
+                      <p>
+                        <a href={rightPdf} target="_blank" rel="noreferrer">
+                          Open the document
+                        </a>
+                      </p>
+                    </div>
+                  </object>
+                )}
               </div>
-            ) : (
-              <object
-                data={`${rightPdf}#view=FitH`}
-                type="application/pdf"
-                aria-label="Right PDF"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  display: "block",
-                  background: "#fff",
-                }}
-              >
-                <div style={{ padding: 16 }}>
-                  <p>Inline PDF viewer isn’t available here.</p>
-                  <p>
-                    <a href={rightPdf} target="_blank" rel="noreferrer">
-                      Open the document
-                    </a>
-                  </p>
-                </div>
-              </object>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Bottom-center Dialogue widget (same as single page) */}
