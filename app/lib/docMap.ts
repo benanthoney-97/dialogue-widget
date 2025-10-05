@@ -50,7 +50,7 @@ export const docMap: Record<string, DocEntry> = {
    auth: "signed",
  },
      "english-gcse-revision": {
-   pdfPath: "/papers/gcse_revision.pdf",
+   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
    agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
    region: "eu-residency",
    auth: "signed",
