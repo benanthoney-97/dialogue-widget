@@ -55,4 +55,10 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  },
+      "history-seminar": {
+   pdfPath: "/papers/Week 2 (2).pdf",
+   agentId: "agent_7801k6smvwp1e7q9kqs8x7bq5p3s",
+   region: "eu-residency",
+   auth: "signed",
+ },
 };
