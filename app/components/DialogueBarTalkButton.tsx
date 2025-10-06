@@ -9,6 +9,7 @@ type Props = {
   serverLocation?: "us" | "eu-residency" | "in-residency" | "global";
   buttonColor?: string;
   buttonTextColor?: string;
+  buttonBorderColor?: string;
   title?: string;
 };
 
@@ -20,6 +21,7 @@ export default function DialogueBarTalkButton({
   serverLocation = "us",
   buttonColor = "#525fe1",
   buttonTextColor = "#ffffff",
+  buttonBorderColor,
   title = "",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -127,11 +129,12 @@ export default function DialogueBarTalkButton({
   const connected = String(status) === "connected";
   const talkBackground = buttonColor;
   const talkTextColor = buttonTextColor;
+  const cardBorderColor = buttonBorderColor ?? buttonColor ?? "#525fe1";
   const showIcons = connected;
   const containerMaxWidth = isNarrow ? "100%" : showIcons ? 420 : 260;
   const cardStyle: CSSProperties = {
     background: "rgba(255, 255, 255, 0.92)",
-    border: "1px solid #525fe1",
+    border: `1px solid ${cardBorderColor}`,
     borderRadius: 16,
     boxShadow: "0 8px 24px rgba(0,0,0,.12)",
     backdropFilter: "saturate(1.2) blur(6px)",

@@ -1,9 +1,10 @@
 // app/lib/docMap.ts
 export type DocEntry = {
-  pdfPath: string;        // path under /public
+  pdfPath: string;        // legacy path under /public (kept for backwards compatibility)
   agentId: string;        // ElevenLabs Agent ID
   region?: "us" | "eu-residency" | "in-residency" | "global";
   auth?: "signed" | "public";
+  url?: string;           // optional external URL to load in widget view
 };
 
 export const docMap: Record<string, DocEntry> = {
@@ -49,12 +50,33 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  },
-     "english-gcse-revision": {
-   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
-   agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
-   region: "eu-residency",
-   auth: "signed",
- },
+  "english-gcse-revision": {
+  pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
+  agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
+  region: "eu-residency",
+  auth: "signed",
+  },
+  "srm-all": {
+    pdfPath: "/papers/srm-field-experiments.pdf",
+    agentId: "agent_5901k6svv6z8fr9s87fk9rqrf1kp",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://srm360.org/",
+},
+  "uk-vein-clinic-lead-form-agent": {
+    pdfPath: "",
+    agentId: "agent_8001k6awq7g0ert91rvgv1yx69hj",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://www.ukveinclinic.com/thank-you",
+  },
+  "uk-vein-clinic-knowledge-centre-agent": {
+    pdfPath: "",
+    agentId: "agent_0401k6bc69vqfk8t1vp96f1xyym2",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://www.ukveinclinic.com/diseases-conditions/varicose-veins",
+  },
       "history-seminar": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_7801k6smvwp1e7q9kqs8x7bq5p3s",

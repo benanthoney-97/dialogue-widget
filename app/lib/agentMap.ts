@@ -8,7 +8,7 @@ export const agentMap: Record<string, string> = {
   "conflict-economy-sesame": "agent_2701k5r3zyn1f7wbh5wx7c2wpr7v",
   "convergence-ai-dlt-cc": "agent_5501k5rqdhq7f789s213t7e7b60a",
   "english-gcse-revision": "agent_7701k5tkhf04evvbsacthtwc890q",
-  "srm-live-wildfires": "agent_5901k5y39g61eckahbpx06479dv8",
+  "srm-all": "agent_5901k6svv6z8fr9s87fk9rqrf1kp",
   "dialogue-website-agent": "agent_2301k6ajjgh3fvntarvd2a4g13t8",
   "manual-agent": "agent_9601k51nhvafffgrhgrh5vtykrfb",
   "uk-vein-clinic-lead-form-agent": "agent_8001k6awq7g0ert91rvgv1yx69hj",

@@ -15,7 +15,7 @@
       return;
     }
 
-    const url = new URL("https://YOUR-DOMAIN.com/widget");
+    const url = new URL("https://YOUR-DOMAIN.com/text-widget");
     url.searchParams.set("agentId", agentId);
     url.searchParams.set("region", region);
     url.searchParams.set("auth", auth);
