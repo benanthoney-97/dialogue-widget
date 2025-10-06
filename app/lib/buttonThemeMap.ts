@@ -62,6 +62,16 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#000000ff",
     border: "#f6d217",
   },
+    "srm-september-update": {
+    background: "#f6d217",
+    text: "#000000ff",
+    border: "#f6d217",
+  },
+    "srm-live-discussion": {
+    background: "#f6d217",
+    text: "#000000ff",
+    border: "#f6d217",
+  },
   "dialogue-website-agent": {
     background: "#525fe1",
     text: "#ffffff",

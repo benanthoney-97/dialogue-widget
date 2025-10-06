@@ -68,6 +68,22 @@ export const docMap: Record<string, DocEntry> = {
     url: "https://srm360.org/",
     talkLabel: "SRM360 Learn",
   },
+    "srm-september-update": {
+    pdfPath: "/papers/srm-field-experiments.pdf",
+    agentId: "agent_2501k5ydzc8retbr2t1ntqphynhf",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://news.srm360.org/index.php?action=social&chash=8f85517967795eeef66c225f7883bdcb.313&s=5b65f7b95b41d7073fc93cf81f44f763&_gl=1*1a8idy0*_ga*NDg3Mjg3NzY0LjE3NTcwMTgwNzg.*_ga_4G9JPHNFGF*czE3NTk3NDA1MDYkbzM1JGcxJHQxNzU5NzQxMzQzJGoxNiRsMCRoMA..",
+    talkLabel: "Start Update",
+  },
+    "srm-live-discussion": {
+    pdfPath: "/papers/srm-field-experiments.pdf",
+    agentId: "agent_5901k5y39g61eckahbpx06479dv8",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://srm360.org/video/live-discussion-srm-and-africa-perspectives-from-the-continent/",
+    talkLabel: "Begin Discussion",
+  },
   "uk-vein-clinic-lead-form-agent": {
     pdfPath: "",
     agentId: "agent_8001k6awq7g0ert91rvgv1yx69hj",
