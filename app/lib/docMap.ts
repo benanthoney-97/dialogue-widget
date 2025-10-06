@@ -83,12 +83,18 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     url: "https://www.ukveinclinic.com/diseases-conditions/varicose-veins",
     talkLabel: "Learn",
-
   },
       "history-seminar": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_7801k6smvwp1e7q9kqs8x7bq5p3s",
    region: "eu-residency",
    auth: "signed",
+ },
+       "dialogue-website-agent": {
+   pdfPath: "/papers/Week 2 (2).pdf",
+   agentId: "agent_2301k6ajjgh3fvntarvd2a4g13t8",
+   region: "eu-residency",
+   auth: "signed",
+  talkLabel: "Try Dialogue",
  },
 };
