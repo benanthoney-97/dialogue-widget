@@ -56,7 +56,7 @@ export default function DocComparePage() {
     );
   }
 
-  const { agentId, region = "us" } = leftEntry;
+  const { agentId, region = "us", talkLabel } = leftEntry;
   const useSignedUrl = (leftEntry.auth !== "public") || (rightEntry.auth !== "public");
 
   // IMPORTANT: these must point to real files in /public/papers/ for native <object>
@@ -235,7 +235,12 @@ export default function DocComparePage() {
           }}
         >
           {agentId && (
-            <DialogueBar agentId={agentId} useSignedUrl={useSignedUrl} serverLocation={region} />
+            <DialogueBar
+              agentId={agentId}
+              useSignedUrl={useSignedUrl}
+              serverLocation={region}
+              talkLabel={talkLabel}
+            />
           )}
         </div>
       </div>

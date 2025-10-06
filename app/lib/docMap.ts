@@ -5,6 +5,7 @@ export type DocEntry = {
   region?: "us" | "eu-residency" | "in-residency" | "global";
   auth?: "signed" | "public";
   url?: string;           // optional external URL to load in widget view
+  talkLabel?: string;     // optional label for the talk button
 };
 
 export const docMap: Record<string, DocEntry> = {
@@ -49,6 +50,7 @@ export const docMap: Record<string, DocEntry> = {
    agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
    region: "eu-residency",
    auth: "signed",
+   talkLabel: "CC Dialogue",
  },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
@@ -62,13 +64,15 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     url: "https://srm360.org/",
-},
+    talkLabel: "SRM360 Learn",
+  },
   "uk-vein-clinic-lead-form-agent": {
     pdfPath: "",
     agentId: "agent_8001k6awq7g0ert91rvgv1yx69hj",
     region: "eu-residency",
     auth: "signed",
     url: "https://www.ukveinclinic.com/thank-you",
+    talkLabel: "Prepare for call",
   },
   "uk-vein-clinic-knowledge-centre-agent": {
     pdfPath: "",
@@ -76,6 +80,8 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     url: "https://www.ukveinclinic.com/diseases-conditions/varicose-veins",
+    talkLabel: "Learn",
+
   },
       "history-seminar": {
    pdfPath: "/papers/Week 2 (2).pdf",

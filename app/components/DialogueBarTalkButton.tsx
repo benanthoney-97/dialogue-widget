@@ -11,6 +11,7 @@ type Props = {
   buttonTextColor?: string;
   buttonBorderColor?: string;
   title?: string;
+  talkLabel?: string;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
@@ -23,6 +24,7 @@ export default function DialogueBarTalkButton({
   buttonTextColor = "#ffffff",
   buttonBorderColor,
   title = "",
+  talkLabel = "Talk",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
@@ -127,8 +129,11 @@ export default function DialogueBarTalkButton({
   }
 
   const connected = String(status) === "connected";
+  const effectiveTalkLabel = talkLabel?.trim() ? talkLabel.trim() : "Talk";
   const talkBackground = buttonColor;
   const talkTextColor = buttonTextColor;
+  const talkIdleAriaLabel = `Connect and ${effectiveTalkLabel}`;
+  const talkActiveAriaLabel = effectiveTalkLabel;
   const cardBorderColor = buttonBorderColor ?? buttonColor ?? "#525fe1";
   const showIcons = connected;
   const containerMaxWidth = isNarrow ? "100%" : showIcons ? 420 : 260;
@@ -316,8 +321,8 @@ export default function DialogueBarTalkButton({
           onClick={async () => {
             if (phase !== "connecting") await onMicClick();
           }}
-          aria-label={connected ? "Start talking" : "Connect and start talking"}
-          title={connected ? "Talk" : "Connect and talk"}
+          aria-label={connected ? talkActiveAriaLabel : talkIdleAriaLabel}
+          title={connected ? talkActiveAriaLabel : talkIdleAriaLabel}
           disabled={phase === "connecting"}
           style={{
             display: "inline-flex",
@@ -346,7 +351,7 @@ export default function DialogueBarTalkButton({
                 <rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
                 <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
               </svg>
-              <span>{connected ? "Live" : "Talk"}</span>
+              <span>{connected ? "Live" : effectiveTalkLabel}</span>
             </>
           )}
         </button>

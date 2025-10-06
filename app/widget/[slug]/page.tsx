@@ -51,7 +51,7 @@ export default function WidgetDocPage() {
     );
   }
 
-  const { agentId, region = "us", auth = "signed", url } = entry;
+  const { agentId, region = "us", auth = "signed", url, talkLabel } = entry;
   const useSignedUrl = auth !== "public";
   const targetUrl = url ?? DEFAULT_EXTERNAL_URL;
 
@@ -205,6 +205,7 @@ export default function WidgetDocPage() {
             buttonColor={theme.background}
             buttonTextColor={theme.text}
             buttonBorderColor={theme.border}
+            talkLabel={talkLabel}
           />
         </div>
       </div>

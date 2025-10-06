@@ -58,7 +58,7 @@ const debug = sp?.get("debug") === "1";
 // inside return JSX, near the end:
 {debug && <MobileConsole enabled={true} />}
 
-  const { pdfPath, agentId, region = "us", auth = "signed" } = entry;
+  const { pdfPath, agentId, region = "us", auth = "signed", talkLabel } = entry;
   const useSignedUrl = auth !== "public";
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
   const dragPointerId = useRef<number | null>(null);
@@ -248,6 +248,7 @@ const debug = sp?.get("debug") === "1";
             agentId={agentId}
             useSignedUrl={useSignedUrl}
             serverLocation={region}
+            talkLabel={talkLabel}
           />
         </div>
       </div>
