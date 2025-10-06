@@ -92,4 +92,9 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#004545",
     border: "#29f0de",
   },
+    "timeout-october-demo": {
+    background: "#e1192c",
+    text: "#ffffffff",
+    border: "#e1192c",
+  },
 };

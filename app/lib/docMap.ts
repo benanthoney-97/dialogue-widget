@@ -6,6 +6,7 @@ export type DocEntry = {
   auth?: "signed" | "public";
   url?: string;           // optional external URL to load in widget view
   talkLabel?: string;     // optional label for the talk button
+  screenshotPath?: string; // optional static image backdrop under /public
 };
 
 export const docMap: Record<string, DocEntry> = {
@@ -15,6 +16,7 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Start Dialogue",
+    screenshotPath: "/screenshots/default.png",
   },
   "intro-linear-optimisation": {
     pdfPath: "/papers/intro-linear-optimisation.pdf",
@@ -67,6 +69,7 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     url: "https://srm360.org/",
     talkLabel: "SRM360 Learn",
+    screenshotPath: "/screenshots/default.png",
   },
     "srm-september-update": {
     pdfPath: "/papers/srm-field-experiments.pdf",
@@ -74,7 +77,7 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     url: "https://news.srm360.org/index.php?action=social&chash=8f85517967795eeef66c225f7883bdcb.313&s=5b65f7b95b41d7073fc93cf81f44f763&_gl=1*1a8idy0*_ga*NDg3Mjg3NzY0LjE3NTcwMTgwNzg.*_ga_4G9JPHNFGF*czE3NTk3NDA1MDYkbzM1JGcxJHQxNzU5NzQxMzQzJGoxNiRsMCRoMA..",
-    talkLabel: "Start Update",
+    talkLabel: "SRM360 Update",
   },
     "srm-live-discussion": {
     pdfPath: "/papers/srm-field-experiments.pdf",
@@ -82,7 +85,7 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     url: "https://srm360.org/video/live-discussion-srm-and-africa-perspectives-from-the-continent/",
-    talkLabel: "Begin Discussion",
+    talkLabel: "SRM360 Discuss",
   },
   "uk-vein-clinic-lead-form-agent": {
     pdfPath: "",
@@ -106,11 +109,21 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  },
-       "dialogue-website-agent": {
+    "dialogue-website-agent": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_2301k6ajjgh3fvntarvd2a4g13t8",
    region: "eu-residency",
    auth: "signed",
   talkLabel: "Try Dialogue",
+  screenshotPath: "/screenshots/default.png",
+ },
+    "timeout-october-demo": {
+   pdfPath: "/papers/Week 2 (2).pdf",
+   agentId: "agent_1401k6wz63r0fpk8akgwcd8vkt2g",
+   region: "eu-residency",
+    auth: "signed",
+    url: " https://www.timeout.com/london",
+  talkLabel: "Talk to Time Out",
+  screenshotPath: "/screenshots/timeout.jpg",
  },
 };
