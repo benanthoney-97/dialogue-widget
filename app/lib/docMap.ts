@@ -14,12 +14,14 @@ export const docMap: Record<string, DocEntry> = {
     agentId: "agent_0201k5721624eje83256ywmc5g9v",    // <- fill in
     region: "eu-residency",
     auth: "signed",
+    talkLabel: "Start Dialogue",
   },
   "intro-linear-optimisation": {
     pdfPath: "/papers/intro-linear-optimisation.pdf",
     agentId: "agent_4901k57bjnnkefr8pvnbpsjgkx6t",
     region: "eu-residency",
     auth: "signed",
+    talkLabel: "Begin Lecture",
   },
  "spending-review-june": {
    pdfPath: "/papers/spending-review-june.pdf",

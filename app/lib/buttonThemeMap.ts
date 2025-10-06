@@ -18,14 +18,14 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     border: "#525fe1",
   },
   "genai-adoption-he-students": {
-    background: "#525fe1",
+    background: "#b01c2e",
     text: "#ffffff",
-    border: "#525fe1",
+    border: "#b01c2e",
   },
   "intro-linear-optimisation": {
-    background: "#525fe1",
+    background: "#b01c2e",
     text: "#ffffff",
-    border: "#525fe1",
+    border: "#b01c2e",
   },
   "klr-h1-25": {
     background: "#525fe1",

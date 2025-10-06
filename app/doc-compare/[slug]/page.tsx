@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBarTalkButton";
 import MobileConsole from "@/app/components/MobileConsole";
 import { docMap } from "@/app/lib/docMap";
+import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 
 // Client-only PDF.js viewer (your existing one)
 const PDFJSViewer = dynamic(() => import("@/app/components/PDFJSViewer"), {
@@ -57,6 +58,7 @@ export default function DocComparePage() {
   }
 
   const { agentId, region = "us", talkLabel } = leftEntry;
+  const theme = buttonThemeMap[leftKey] ?? defaultButtonTheme;
   const useSignedUrl = (leftEntry.auth !== "public") || (rightEntry.auth !== "public");
 
   // IMPORTANT: these must point to real files in /public/papers/ for native <object>
@@ -240,6 +242,9 @@ export default function DocComparePage() {
               useSignedUrl={useSignedUrl}
               serverLocation={region}
               talkLabel={talkLabel}
+              buttonColor={theme.background}
+              buttonTextColor={theme.text}
+              buttonBorderColor={theme.border}
             />
           )}
         </div>

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBarTalkButton";
 import { docMap } from "@/app/lib/docMap";
+import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 import { useSearchParams } from "next/navigation";
 import MobileConsole from "@/app/components/MobileConsole";
 
@@ -17,6 +18,7 @@ export default function DocPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug || "";
   const entry = useMemo(() => docMap[slug], [slug]);
+  const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
 
   // Defer anything that depends on window to avoid hydration swaps
   const [mounted, setMounted] = useState(false);
@@ -249,6 +251,9 @@ const debug = sp?.get("debug") === "1";
             useSignedUrl={useSignedUrl}
             serverLocation={region}
             talkLabel={talkLabel}
+            buttonColor={theme.background}
+            buttonTextColor={theme.text}
+            buttonBorderColor={theme.border}
           />
         </div>
       </div>
