@@ -97,4 +97,9 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#ffffffff",
     border: "#e1192c",
   },
+    "savills-2025-european-real-estate-logistics-consensus": {
+    background: "#ffdf00",
+    text: "#ce181e",
+    border: "#ffdf00",
+  },
 };

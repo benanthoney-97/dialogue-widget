@@ -8,6 +8,7 @@ export const agentMap: Record<string, string> = {
   "conflict-economy-sesame": "agent_2701k5r3zyn1f7wbh5wx7c2wpr7v",
   "convergence-ai-dlt-cc": "agent_5501k5rqdhq7f789s213t7e7b60a",
   "english-gcse-revision": "agent_7701k5tkhf04evvbsacthtwc890q",
+  "teacher-english-gcse": "agent_5001k6qh9mz3edk836s4v5yysayd",
   "srm-all": "agent_2501k5ydzc8retbr2t1ntqphynhf",
   "srm-september-update": "agent_5901k6svv6z8fr9s87fk9rqrf1kp",
   "srm-live-discussion": "agent_5901k5y39g61eckahbpx06479dv8",
@@ -17,4 +18,5 @@ export const agentMap: Record<string, string> = {
   "uk-vein-clinic-knowledge-centre-agent": "agent_0401k6bc69vqfk8t1vp96f1xyym2",
   "history-seminar": "agent_7801k6smvwp1e7q9kqs8x7bq5p3s",
   "timeout-october-demo": "agent_1401k6wz63r0fpk8akgwcd8vkt2g",
+    "savills-2025-european-real-estate-logistics-consensus": "agent_5501k6z36t98e4f9qh0nt92g15zy",
 };
