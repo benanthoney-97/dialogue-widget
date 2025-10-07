@@ -18,6 +18,7 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     talkLabel: "Start Dialogue",
     screenshotPath: "/screenshots/default.png",
+    author: "Dr. Marios Kremantzis",
   },
   "intro-linear-optimisation": {
     pdfPath: "/papers/intro-linear-optimisation.pdf",
@@ -25,6 +26,7 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Begin Lecture",
+    author: "Dr. Marios Kremantzis",
   },
  "spending-review-june": {
    pdfPath: "/papers/spending-review-june.pdf",
