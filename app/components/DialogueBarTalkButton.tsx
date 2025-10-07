@@ -282,6 +282,10 @@ export default function DialogueBarTalkButton({
   }, [agentId]);
   const agentSlug = agentMatch?.slug ?? "";
   const agentEntry = agentMatch?.entry;
+  const contactAuthorLabel = agentEntry?.author?.trim()
+    ? agentEntry.author.trim()
+    : "the author";
+  const contactTitle = `Contact ${contactAuthorLabel}`;
   const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {
@@ -597,7 +601,7 @@ export default function DialogueBarTalkButton({
                 color: "#1f2937",
               }}
             >
-              Contact the author
+              {contactTitle}
             </div>
             <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={{ fontSize: 13, color: "#374151", fontWeight: 600 }}>
@@ -874,9 +878,9 @@ export default function DialogueBarTalkButton({
                 type="button"
                 onClick={toggleContact}
                 aria-label={
-                  contactVisible ? "Hide contact form" : "Show contact form"
+                  contactVisible ? "Hide contact form" : contactTitle
                 }
-                title={contactVisible ? "Hide contact form" : "Contact the author"}
+                title={contactVisible ? "Hide contact form" : contactTitle}
                 disabled={contactClosing && !contactOpen}
                 style={{
                   border: "1px solid rgba(0,0,0,.12)",

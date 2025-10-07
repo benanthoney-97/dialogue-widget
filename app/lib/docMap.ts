@@ -7,6 +7,7 @@ export type DocEntry = {
   url?: string;           // optional external URL to load in widget view
   talkLabel?: string;     // optional label for the talk button
   screenshotPath?: string; // optional static image backdrop under /public
+  author?: string;        // optional author name used in contact form copy
 };
 
 export const docMap: Record<string, DocEntry> = {
@@ -49,14 +50,15 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  }, 
-    "convergence-ai-dlt-cc": {
-   pdfPath: "/papers/convergence-ai-dlt.pdf",
-   agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
-   region: "eu-residency",
-   auth: "signed",
-   talkLabel: "Summary",
+  "convergence-ai-dlt-cc": {
+    pdfPath: "/papers/convergence-ai-dlt.pdf",
+    agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Summary",
     url: "https://www.cliffordchance.com/content/dam/cliffordchance/Thought_Leadership/convergence-of-ai-and-dlt-final-v2-interactive-compressed.pdf",
- },
+    author: "Diego Ballon Ossio",
+  },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
   agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
