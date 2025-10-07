@@ -285,7 +285,10 @@ export default function DialogueBarTalkButton({
   const contactAuthorLabel = agentEntry?.author?.trim()
     ? agentEntry.author.trim()
     : "the author";
-  const contactTitle = `Contact ${contactAuthorLabel} about this research`;
+  const contactWorkLabel = agentEntry?.workLabel?.trim()
+    ? agentEntry.workLabel.trim()
+    : "research";
+  const contactTitle = `Contact ${contactAuthorLabel} about this ${contactWorkLabel}`;
   const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {

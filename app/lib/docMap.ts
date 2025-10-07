@@ -8,6 +8,7 @@ export type DocEntry = {
   talkLabel?: string;     // optional label for the talk button
   screenshotPath?: string; // optional static image backdrop under /public
   author?: string;        // optional author name used in contact form copy
+  workLabel?: string;     // optional noun used in contact form copy
 };
 
 export const docMap: Record<string, DocEntry> = {
@@ -27,6 +28,7 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     talkLabel: "Begin Lecture",
     author: "Dr. Marios Kremantzis",
+    workLabel: "lecture",
   },
  "spending-review-june": {
    pdfPath: "/papers/spending-review-june.pdf",
