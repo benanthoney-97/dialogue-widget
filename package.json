@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@elevenlabs/react": "^0.6.2",
-    "@vercel/blob": "^0.24.0",
     "@next/font": "^14.2.15",
     "next": "^15.5.3",
     "pdfjs-dist": "^3.11.174",

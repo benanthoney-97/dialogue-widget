@@ -1,5 +1,8 @@
 // app/lib/clientKnowledgeStore.ts
-import { head, put } from "@vercel/blob";
+
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const BLOB_BASE_URL =
+  process.env.BLOB_BASE_URL?.replace(/\/+$/, "") || "https://blob.vercel-storage.com";
 
 export type ConversationKnowledgeRecord = {
   callId: string;
@@ -29,6 +32,10 @@ export async function appendConversationRecord(
   clientSlug: string,
   record: ConversationKnowledgeRecord
 ) {
+  if (!BLOB_TOKEN) {
+    throw new Error("BLOB_READ_WRITE_TOKEN is not configured");
+  }
+
   const existing = await getClientKnowledge(clientSlug);
   const conversations = [record, ...existing.conversations].slice(0, MAX_RECORDS);
   const payload: ClientKnowledgePayload = {
@@ -37,20 +44,24 @@ export async function appendConversationRecord(
     conversations,
   };
 
-  await put(getBlobKey(clientSlug), JSON.stringify(payload), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-  });
+  await writeBlob(getBlobKey(clientSlug), payload);
 }
 
 export async function getClientKnowledge(clientSlug: string): Promise<ClientKnowledgePayload> {
   const key = getBlobKey(clientSlug);
   try {
-    const metadata = await head(key);
-    if (!metadata?.url) throw new Error("Missing blob URL");
-    const res = await fetch(metadata.url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to fetch blob: ${res.statusText}`);
+    const res = await fetch(`${BLOB_BASE_URL}/${key}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (res.status === 404) {
+      return {
+        client: clientSlug,
+        updatedAt: new Date().toISOString(),
+        conversations: [],
+      };
+    }
+    if (!res.ok) throw new Error(`Failed to fetch blob: ${res.status} ${res.statusText}`);
     const data = (await res.json()) as ClientKnowledgePayload;
     if (!data || typeof data !== "object") {
       throw new Error("Invalid blob payload");
@@ -74,8 +85,35 @@ function getBlobKey(clientSlug: string) {
 }
 
 function isNotFoundError(error: unknown) {
+  if (!error) return false;
+  const status = (error as { status?: number }).status;
+  const code = (error as { code?: string }).code ?? (error as { name?: string }).name;
+  const message =
+    typeof (error as { message?: string }).message === "string"
+      ? (error as { message?: string }).message
+      : "";
   return (
-    (error as { status?: number })?.status === 404 ||
-    (error as { code?: string })?.code === "blob_not_found"
+    status === 404 ||
+    code?.toLowerCase() === "blob_not_found" ||
+    code?.toLowerCase() === "notfound" ||
+    message.toLowerCase().includes("does not exist") ||
+    message.toLowerCase().includes("not found")
   );
+}
+
+async function writeBlob(key: string, payload: ClientKnowledgePayload) {
+  const res = await fetch(`${BLOB_BASE_URL}/${key}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${BLOB_TOKEN}`,
+      "Content-Type": "application/json",
+      "X-Vercel-Blob-Access": "public",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to write blob (${res.status}): ${text}`);
+  }
 }
