@@ -2,7 +2,9 @@
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 const BLOB_BASE_URL =
-  process.env.BLOB_BASE_URL?.replace(/\/+$/, "") || "https://blob.vercel-storage.com";
+  process.env.BLOB_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
+  process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
+  "https://blob.vercel-storage.com";
 
 export type ConversationKnowledgeRecord = {
   callId: string;
@@ -119,6 +121,7 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
       Authorization: `Bearer ${BLOB_TOKEN}`,
       "Content-Type": "application/json",
       "x-vercel-blob-access": "public",
+      "x-vercel-blob-add-random-suffix": "false",
     },
     body: JSON.stringify(payload),
   });
@@ -130,6 +133,16 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
       JSON.stringify({ url, status: res.status, statusText: res.statusText, text })
     );
     throw new Error(`Failed to write blob (${res.status})`);
+  }
+
+  try {
+    const result = await res.json();
+    console.log(
+      "[clientKnowledgeStore] Wrote blob",
+      JSON.stringify({ url: result?.url ?? url })
+    );
+  } catch {
+    // ignore if no JSON body
   }
 }
 
