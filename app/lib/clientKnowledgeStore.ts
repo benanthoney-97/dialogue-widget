@@ -38,6 +38,10 @@ export async function appendConversationRecord(
   }
 
   const existing = await getClientKnowledge(clientSlug);
+  console.log(
+    "[clientKnowledgeStore] Loaded existing conversations",
+    JSON.stringify({ clientSlug, existingCount: existing.conversations.length })
+  );
   const conversations = [record, ...existing.conversations].slice(0, MAX_RECORDS);
   const payload: ClientKnowledgePayload = {
     client: clientSlug,
@@ -57,6 +61,10 @@ export async function getClientKnowledge(clientSlug: string): Promise<ClientKnow
       cache: "no-store",
     });
     if (res.status === 404) {
+      console.log(
+        "[clientKnowledgeStore] Blob not found, returning empty",
+        JSON.stringify({ clientSlug, url })
+      );
       return {
         client: clientSlug,
         updatedAt: new Date().toISOString(),

@@ -647,6 +647,11 @@ async function persistClientConversations({
   const clientSlugs = getClientsForAgentId(agentId);
   if (!clientSlugs.length) return;
 
+  console.log(
+    "[post-call] Persisting client conversations",
+    JSON.stringify({ callId, agentId, clientSlugs })
+  );
+
   const eventTimestamp =
     typeof payload.event_timestamp === "number" ? payload.event_timestamp : null;
   const data =
@@ -707,4 +712,12 @@ async function appendClientConversationRecord(
   record: ConversationKnowledgeRecord
 ) {
   await appendConversationRecord(clientSlug, record);
+  console.log(
+    "[post-call] Appended client conversation",
+    JSON.stringify({
+      clientSlug,
+      callId: record.callId,
+      eventTimestamp: record.eventTimestamp,
+    })
+  );
 }
