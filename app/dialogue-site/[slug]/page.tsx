@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import DialogueBar from "@/app/components/DialogueBarTalkButton";
+import DialogueBar from "@/app/components/DialogueBarTalkOnly";
 import { docMap } from "@/app/lib/docMap";
 import { agentMap } from "@/app/lib/agentMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
