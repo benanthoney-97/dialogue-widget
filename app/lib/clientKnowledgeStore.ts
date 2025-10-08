@@ -1,4 +1,5 @@
 // app/lib/clientKnowledgeStore.ts
+import { head, put } from "@vercel/blob";
 
 export type ConversationKnowledgeRecord = {
   callId: string;
@@ -15,44 +16,66 @@ export type ConversationKnowledgeRecord = {
   sourceType?: string;
 };
 
-type ClientKnowledgePayload = {
+export type ClientKnowledgePayload = {
   client: string;
   updatedAt: string;
   conversations: ConversationKnowledgeRecord[];
 };
 
+const STORAGE_PREFIX = "client-conversations";
 const MAX_RECORDS = 200;
 
-const globalStore = globalThis as typeof globalThis & {
-  __clientConversationStore?: Map<string, ClientKnowledgePayload>;
-};
-
-const store: Map<string, ClientKnowledgePayload> =
-  globalStore.__clientConversationStore ?? new Map();
-
-if (!globalStore.__clientConversationStore) {
-  globalStore.__clientConversationStore = store;
-}
-
-export function appendConversationRecord(
+export async function appendConversationRecord(
   clientSlug: string,
   record: ConversationKnowledgeRecord
 ) {
-  const existing = store.get(clientSlug);
-  const conversations = existing ? [record, ...existing.conversations] : [record];
-  store.set(clientSlug, {
+  const existing = await getClientKnowledge(clientSlug);
+  const conversations = [record, ...existing.conversations].slice(0, MAX_RECORDS);
+  const payload: ClientKnowledgePayload = {
     client: clientSlug,
     updatedAt: new Date().toISOString(),
-    conversations: conversations.slice(0, MAX_RECORDS),
+    conversations,
+  };
+
+  await put(getBlobKey(clientSlug), JSON.stringify(payload), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
   });
 }
 
-export function getClientKnowledge(clientSlug: string): ClientKnowledgePayload {
-  return (
-    store.get(clientSlug) ?? {
-      client: clientSlug,
-      updatedAt: new Date().toISOString(),
-      conversations: [],
+export async function getClientKnowledge(clientSlug: string): Promise<ClientKnowledgePayload> {
+  const key = getBlobKey(clientSlug);
+  try {
+    const metadata = await head(key);
+    if (!metadata?.url) throw new Error("Missing blob URL");
+    const res = await fetch(metadata.url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to fetch blob: ${res.statusText}`);
+    const data = (await res.json()) as ClientKnowledgePayload;
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid blob payload");
     }
+    return data;
+  } catch (error: unknown) {
+    if (isNotFoundError(error)) {
+      return {
+        client: clientSlug,
+        updatedAt: new Date().toISOString(),
+        conversations: [],
+      };
+    }
+    console.error("Failed to load client knowledge", error);
+    throw error;
+  }
+}
+
+function getBlobKey(clientSlug: string) {
+  return `${STORAGE_PREFIX}/${clientSlug}.json`;
+}
+
+function isNotFoundError(error: unknown) {
+  return (
+    (error as { status?: number })?.status === 404 ||
+    (error as { code?: string })?.code === "blob_not_found"
   );
 }

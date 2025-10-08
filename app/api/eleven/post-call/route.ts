@@ -706,5 +706,5 @@ async function appendClientConversationRecord(
   clientSlug: string,
   record: ConversationKnowledgeRecord
 ) {
-  appendConversationRecord(clientSlug, record);
+  await appendConversationRecord(clientSlug, record);
 }

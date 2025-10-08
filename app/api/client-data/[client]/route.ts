@@ -18,7 +18,7 @@ export async function GET(
     );
   }
 
-  const payload = getClientKnowledge(clientSlug);
+  const payload = await getClientKnowledge(clientSlug);
   return NextResponse.json(payload, {
     headers: {
       "Cache-Control": "no-store",
