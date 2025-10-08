@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { promises as fs } from "fs";
-import path from "path";
 import { getClientsForAgentId } from "@/app/lib/clientMap";
+import {
+  appendConversationRecord,
+  type ConversationKnowledgeRecord,
+} from "@/app/lib/clientKnowledgeStore";
 
 export const runtime = "nodejs";
 
@@ -53,21 +55,6 @@ const globalStore = globalThis as typeof globalThis & {
   __pendingContactRequests?: Map<string, PendingContactRecord[]>;
 };
 
-type ConversationKnowledgeRecord = {
-  callId: string;
-  agentId: string;
-  clientSlug: string;
-  eventTimestamp: number | null;
-  capturedAt: string;
-  summarySubject?: string | null;
-  summary?: string | null;
-  transcriptSummary?: string | null;
-  transcriptText?: string | null;
-  analysis?: unknown;
-  metadata?: unknown;
-  sourceType?: string;
-};
-
 type PersistConversationArgs = {
   agentId?: string;
   callId: string;
@@ -100,7 +87,6 @@ const resendFrom = process.env.RESEND_FROM_EMAIL;
 const contactForwardAddress = process.env.RESEND_CONTACT_FORWARD_EMAIL;
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
-const CLIENT_DATA_DIR = path.join(process.cwd(), "data", "client-conversations");
 
 function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
@@ -720,35 +706,5 @@ async function appendClientConversationRecord(
   clientSlug: string,
   record: ConversationKnowledgeRecord
 ) {
-  await fs.mkdir(CLIENT_DATA_DIR, { recursive: true });
-  const filePath = path.join(CLIENT_DATA_DIR, `${clientSlug}.json`);
-
-  let existing: { client: string; conversations: ConversationKnowledgeRecord[] } = {
-    client: clientSlug,
-    conversations: [],
-  };
-
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    const parsed = JSON.parse(content);
-    if (parsed && typeof parsed === "object" && Array.isArray(parsed.conversations)) {
-      existing = {
-        client: typeof parsed.client === "string" ? parsed.client : clientSlug,
-        conversations: parsed.conversations as ConversationKnowledgeRecord[],
-      };
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw error;
-    }
-  }
-
-  const conversations = [record, ...existing.conversations].slice(0, 200);
-  const payload = {
-    client: clientSlug,
-    updatedAt: new Date().toISOString(),
-    conversations,
-  };
-
-  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
+  appendConversationRecord(clientSlug, record);
 }

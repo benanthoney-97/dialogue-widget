@@ -16,24 +16,6 @@ export const clientMap: Record<string, ClientEntry> = {
       "Executive insights drawn from the Convergence of AI and Distributed Ledger Technology interactive report.",
     clientAgentId: "agent_client_clifford_chance_insights",
   },
-  "dialogue-ai": {
-    displayName: "Dialogue AI Demo",
-    slugKeys: [
-      "genai-adoption-he-students",
-      "convergence-ai-dlt-cc",
-      "intro-linear-optimisation",
-    ],
-    description:
-      "Sample account showcasing how customers interact with Dialogue AI reports.",
-    clientAgentId: "agent_client_dialogue_ai_demo",
-  },
-  srm360: {
-    displayName: "SRM360",
-    slugKeys: ["srm-field-experiments", "srm-all", "srm-live-discussion"],
-    description:
-      "Insights drawn from the SRM stakeholder engagement and knowledge hub experiences.",
-    clientAgentId: "agent_client_srm360_insights",
-  },
 };
 
 export function getClientReports(slug: string) {
