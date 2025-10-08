@@ -1,10 +1,13 @@
 // app/lib/clientKnowledgeStore.ts
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const BLOB_BASE_URL =
+const BLOB_PUBLIC_BASE_URL =
   process.env.BLOB_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
   process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
   "https://blob.vercel-storage.com";
+const BLOB_WRITE_BASE_URL =
+  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") ||
+  BLOB_PUBLIC_BASE_URL.replace(/\.public(?=\.)/, "");
 
 export type ConversationKnowledgeRecord = {
   callId: string;
@@ -56,7 +59,7 @@ export async function appendConversationRecord(
 
 export async function getClientKnowledge(clientSlug: string): Promise<ClientKnowledgePayload> {
   const key = getBlobKey(clientSlug);
-  const url = `${BLOB_BASE_URL}/${encodePath(key)}`;
+  const url = `${BLOB_PUBLIC_BASE_URL}/${encodePath(key)}`;
   try {
     const res = await fetch(url, {
       method: "GET",
@@ -114,7 +117,7 @@ function isNotFoundError(error: unknown) {
 }
 
 async function writeBlob(key: string, payload: ClientKnowledgePayload) {
-  const url = `${BLOB_BASE_URL}/${encodePath(key)}`;
+  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
