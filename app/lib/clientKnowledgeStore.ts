@@ -131,5 +131,3 @@ function encodePath(pathname: string) {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
 }
-  }
-}
