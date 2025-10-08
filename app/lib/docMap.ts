@@ -12,6 +12,13 @@ export type DocEntry = {
 };
 
 export const docMap: Record<string, DocEntry> = {
+  "uk-spending-review-2025": {
+    pdfPath: "",
+    agentId: "agent_1601k522np07ey0bx6shfs65wvnk",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Start Dialogue",
+  },
   "genai-adoption-he-students": {
     pdfPath: "/papers/genai-adoption-he-students.pdf",
     agentId: "agent_0201k5721624eje83256ywmc5g9v",    // <- fill in
@@ -122,14 +129,21 @@ export const docMap: Record<string, DocEntry> = {
    region: "eu-residency",
    auth: "signed",
  },
-    "dialogue-website-agent": {
-   pdfPath: "/papers/Week 2 (2).pdf",
-   agentId: "agent_2301k6ajjgh3fvntarvd2a4g13t8",
-   region: "eu-residency",
-   auth: "signed",
-  talkLabel: "Try Dialogue",
-  screenshotPath: "/screenshots/default.png",
- },
+  "dialogue-website-agent": {
+ pdfPath: "/papers/Week 2 (2).pdf",
+ agentId: "agent_2301k6ajjgh3fvntarvd2a4g13t8",
+ region: "eu-residency",
+ auth: "signed",
+talkLabel: "Try Dialogue",
+screenshotPath: "/screenshots/default.png",
+},
+  "manual-agent": {
+    pdfPath: "",
+    agentId: "agent_9601k51nhvafffgrhgrh5vtykrfb",
+    region: "us",
+    auth: "signed",
+    talkLabel: "Talk",
+  },
     "timeout-october-demo": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_1401k6wz63r0fpk8akgwcd8vkt2g",

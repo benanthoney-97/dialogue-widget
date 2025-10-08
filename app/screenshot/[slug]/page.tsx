@@ -10,7 +10,6 @@ import {
 import { useParams, useSearchParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBarRedirect";
 import { docMap } from "@/app/lib/docMap";
-import { agentMap } from "@/app/lib/agentMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 
 export default function ScreenshotPage() {
@@ -20,8 +19,7 @@ export default function ScreenshotPage() {
   const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
 
   const queryAgent = sp?.get("agentId") ?? "";
-  const mappedAgent = slug ? agentMap[slug] : "";
-  const agentId = queryAgent || entry?.agentId || mappedAgent || "";
+  const agentId = queryAgent || entry?.agentId || "";
   const region = (sp?.get("region") as
     | "us"
     | "eu-residency"
@@ -65,7 +63,7 @@ export default function ScreenshotPage() {
           }}
         >
           No agent configured for slug <code>{slug}</code>. Supply an <code>agentId</code> or
-          update <code>agentMap</code>/<code>docMap</code>.
+          update <code>docMap</code>.
         </div>
       </main>
     );

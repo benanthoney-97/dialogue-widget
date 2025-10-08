@@ -3,19 +3,20 @@
 import DialogueBar from "@/app/components/DialogueText";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { agentMap } from "@/app/lib/agentMap";
 import {
   buttonThemeMap,
   defaultButtonTheme,
 } from "@/app/lib/buttonThemeMap";
 import { titleMap, defaultTitle } from "@/app/lib/titleMap";
+import { docMap } from "@/app/lib/docMap";
 
 export default function WidgetBySlugPage() {
   const { slug } = useParams<{ slug: string }>();
   const sp = useSearchParams();
 
   // Resolution order: URL override → mapping → env default
-  const mapped = agentMap[slug] || "";
+  const entry = slug ? docMap[slug] : undefined;
+  const mapped = entry?.agentId ?? "";
   const agentId =
     sp.get("agentId") ??
     mapped ??
@@ -85,7 +86,7 @@ export default function WidgetBySlugPage() {
           }}
         >
           No agent configured for slug <code>{slug}</code>. Provide{" "}
-          <code>?agentId=</code> or add this slug to <code>agentMap</code>.
+          <code>?agentId=</code> or add this slug to <code>docMap</code>.
         </div>
       ) : null}
 

@@ -3,7 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import DialogueBar from "@/app/components/DialogueBar";
+import DialogueBar from "@/app/components/DialogueText";
 import { docMap } from "@/app/lib/docMap";
 import { useSearchParams } from "next/navigation";
 import MobileConsole from "@/app/components/MobileConsole";

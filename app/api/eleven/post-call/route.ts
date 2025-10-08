@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { promises as fs } from "fs";
+import path from "path";
+import { getClientsForAgentId } from "@/app/lib/clientMap";
+
+export const runtime = "nodejs";
 
 type SummaryPayload = {
   email: string;
@@ -48,6 +53,29 @@ const globalStore = globalThis as typeof globalThis & {
   __pendingContactRequests?: Map<string, PendingContactRecord[]>;
 };
 
+type ConversationKnowledgeRecord = {
+  callId: string;
+  agentId: string;
+  clientSlug: string;
+  eventTimestamp: number | null;
+  capturedAt: string;
+  summarySubject?: string | null;
+  summary?: string | null;
+  transcriptSummary?: string | null;
+  transcriptText?: string | null;
+  analysis?: unknown;
+  metadata?: unknown;
+  sourceType?: string;
+};
+
+type PersistConversationArgs = {
+  agentId?: string;
+  callId: string;
+  payload: PostCallPayload;
+  summary?: SummaryContentRecord;
+  transcriptionSummary?: SummaryContentRecord;
+};
+
 const pendingSummaryRequests =
   globalStore.__pendingSummaryRequests ??
   new Map<string, PendingSummaryRequest[]>();
@@ -72,6 +100,7 @@ const resendFrom = process.env.RESEND_FROM_EMAIL;
 const contactForwardAddress = process.env.RESEND_CONTACT_FORWARD_EMAIL;
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const CLIENT_DATA_DIR = path.join(process.cwd(), "data", "client-conversations");
 
 function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
@@ -591,6 +620,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  try {
+    await persistClientConversations({
+      agentId,
+      callId,
+      payload,
+      summary: baseContent,
+      transcriptionSummary,
+    });
+  } catch (error) {
+    console.error("Failed to persist client knowledge record", error);
+  }
+
   const summarySubscribersPending =
     callId === "unknown-call"
       ? 0
@@ -607,4 +648,107 @@ export async function POST(request: NextRequest) {
     contactNotificationsSent,
     warnings,
   });
+}
+
+async function persistClientConversations({
+  agentId,
+  callId,
+  payload,
+  summary,
+  transcriptionSummary,
+}: PersistConversationArgs) {
+  if (!agentId) return;
+  const clientSlugs = getClientsForAgentId(agentId);
+  if (!clientSlugs.length) return;
+
+  const eventTimestamp =
+    typeof payload.event_timestamp === "number" ? payload.event_timestamp : null;
+  const data =
+    payload.type === "post_call_transcription" && payload.data && typeof payload.data === "object"
+      ? (payload.data as Record<string, unknown>)
+      : null;
+
+  const analysis = data && typeof data === "object" ? (data as { analysis?: unknown }).analysis : null;
+  const metadata = data && typeof data === "object" ? (data as { metadata?: unknown }).metadata : null;
+
+  let transcriptText: string | null = null;
+  if (data && typeof data === "object" && Array.isArray((data as { transcript?: unknown }).transcript)) {
+    const transcript = (data as { transcript: any[] }).transcript;
+    transcriptText = transcript
+      .map((turn) => {
+        const role = turn?.role ?? "agent";
+        const message =
+          typeof turn?.message === "string"
+            ? turn.message
+            : typeof turn?.original_message === "string"
+            ? turn.original_message
+            : "";
+        return `${role}: ${message}`.trim();
+      })
+      .join("\n");
+  }
+
+  const summaryText = summary?.text ?? transcriptionSummary?.text ?? null;
+  const summarySubject = summary?.subject ?? transcriptionSummary?.subject ?? null;
+
+  const recordBase = {
+    callId,
+    agentId,
+    eventTimestamp,
+    capturedAt: new Date().toISOString(),
+    summarySubject,
+    summary: summaryText,
+    transcriptSummary: transcriptionSummary?.text ?? summary?.text ?? null,
+    transcriptText,
+    analysis,
+    metadata,
+    sourceType: payload.type ?? "post_call",
+  };
+
+  await Promise.all(
+    clientSlugs.map(async (clientSlug) => {
+      const record: ConversationKnowledgeRecord = {
+        ...recordBase,
+        clientSlug,
+      };
+      await appendClientConversationRecord(clientSlug, record);
+    })
+  );
+}
+
+async function appendClientConversationRecord(
+  clientSlug: string,
+  record: ConversationKnowledgeRecord
+) {
+  await fs.mkdir(CLIENT_DATA_DIR, { recursive: true });
+  const filePath = path.join(CLIENT_DATA_DIR, `${clientSlug}.json`);
+
+  let existing: { client: string; conversations: ConversationKnowledgeRecord[] } = {
+    client: clientSlug,
+    conversations: [],
+  };
+
+  try {
+    const content = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(content);
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.conversations)) {
+      existing = {
+        client: typeof parsed.client === "string" ? parsed.client : clientSlug,
+        conversations: parsed.conversations as ConversationKnowledgeRecord[],
+      };
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const conversations = [record, ...existing.conversations].slice(0, 200);
+  const payload = {
+    client: clientSlug,
+    updatedAt: new Date().toISOString(),
+    conversations,
+  };
+
+  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
 }

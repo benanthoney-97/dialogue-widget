@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBarTalkOnly";
 import { docMap } from "@/app/lib/docMap";
-import { agentMap } from "@/app/lib/agentMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 
 export default function DialogueSitePage() {
@@ -14,8 +13,7 @@ export default function DialogueSitePage() {
   const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
 
   const queryAgent = sp?.get("agentId") ?? "";
-  const mappedAgent = slug ? agentMap[slug] : "";
-  const agentId = queryAgent || entry?.agentId || mappedAgent || "";
+  const agentId = queryAgent || entry?.agentId || "";
   const region = (sp?.get("region") as
     | "us"
     | "eu-residency"
