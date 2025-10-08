@@ -33,7 +33,8 @@ export async function appendConversationRecord(
   record: ConversationKnowledgeRecord
 ) {
   if (!BLOB_TOKEN) {
-    throw new Error("BLOB_READ_WRITE_TOKEN is not configured");
+    console.warn("[clientKnowledgeStore] Missing BLOB_READ_WRITE_TOKEN; skipping write");
+    return;
   }
 
   const existing = await getClientKnowledge(clientSlug);
@@ -49,8 +50,9 @@ export async function appendConversationRecord(
 
 export async function getClientKnowledge(clientSlug: string): Promise<ClientKnowledgePayload> {
   const key = getBlobKey(clientSlug);
+  const url = `${BLOB_BASE_URL}/${encodePath(key)}`;
   try {
-    const res = await fetch(`${BLOB_BASE_URL}/${key}`, {
+    const res = await fetch(url, {
       method: "GET",
       cache: "no-store",
     });
@@ -102,18 +104,32 @@ function isNotFoundError(error: unknown) {
 }
 
 async function writeBlob(key: string, payload: ClientKnowledgePayload) {
-  const res = await fetch(`${BLOB_BASE_URL}/${key}`, {
+  const url = `${BLOB_BASE_URL}/${encodePath(key)}`;
+  const res = await fetch(url, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${BLOB_TOKEN}`,
       "Content-Type": "application/json",
-      "X-Vercel-Blob-Access": "public",
+      "x-vercel-blob-access": "public",
     },
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Failed to write blob (${res.status}): ${text}`);
+    console.error(
+      "[clientKnowledgeStore] Failed to write blob",
+      JSON.stringify({ url, status: res.status, statusText: res.statusText, text })
+    );
+    throw new Error(`Failed to write blob (${res.status})`);
+  }
+}
+
+function encodePath(pathname: string) {
+  return pathname
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
   }
 }
