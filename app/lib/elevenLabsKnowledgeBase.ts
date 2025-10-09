@@ -16,6 +16,7 @@ type RefreshOptions = {
   documentId?: string;
   documentName?: string;
   ragModel?: string;
+  agentId?: string;
 };
 
 async function deleteDocument(documentId: string) {
@@ -177,12 +178,119 @@ async function computeRagIndex(documentId: string, model: string) {
   }
 }
 
+async function fetchAgent(agentId: string) {
+  if (!ELEVENLABS_API_KEY) return null;
+  try {
+    const res = await fetch(
+      `${ELEVENLABS_API_BASE}/v1/convai/agents/${agentId}`,
+      {
+        method: "GET",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+        },
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.warn(
+        "[elevenLabs] Failed to fetch agent",
+        JSON.stringify({ agentId, status: res.status, statusText: res.statusText, text })
+      );
+      return null;
+    }
+    return (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  } catch (error) {
+    console.warn(
+      "[elevenLabs] Error fetching agent",
+      JSON.stringify({ agentId, message: (error as Error)?.message })
+    );
+    return null;
+  }
+}
+
+async function updateAgentKnowledgeBase(
+  agentId: string,
+  documentId: string,
+  documentName: string | null,
+  ragModel: string | undefined
+) {
+  if (!ELEVENLABS_API_KEY) return;
+  const agent = await fetchAgent(agentId);
+  if (!agent) return;
+
+  const conversationConfig = (agent.conversation_config ?? {}) as Record<string, any>;
+  const agentConfig = (conversationConfig.agent ?? {}) as Record<string, any>;
+  const promptConfig = (agentConfig.prompt ?? {}) as Record<string, any>;
+
+  const existingKb = Array.isArray(promptConfig.knowledge_base)
+    ? promptConfig.knowledge_base.filter((entry: any) => entry && entry.id !== documentId)
+    : [];
+
+  const name = documentName?.trim() ? documentName.trim() : documentId;
+  existingKb.push({
+    type: "url",
+    id: documentId,
+    name,
+    usage_mode: "auto",
+  });
+
+  const existingRag = (promptConfig.rag ?? {}) as Record<string, any>;
+  const ragPayload = {
+    ...existingRag,
+    enabled: true,
+    ...(ragModel ? { embedding_model: ragModel } : {}),
+  };
+
+  const body = {
+    conversation_config: {
+      agent: {
+        prompt: {
+          knowledge_base: existingKb,
+          rag: ragPayload,
+        },
+      },
+    },
+  };
+
+  try {
+    const res = await fetch(
+      `${ELEVENLABS_API_BASE}/v1/convai/agents/${agentId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.warn(
+        "[elevenLabs] Failed to update agent knowledge base",
+        JSON.stringify({ agentId, status: res.status, statusText: res.statusText, text })
+      );
+      return;
+    }
+    console.log(
+      "[elevenLabs] Updated agent knowledge base",
+      JSON.stringify({ agentId, documentId })
+    );
+  } catch (error) {
+    console.warn(
+      "[elevenLabs] Error updating agent",
+      JSON.stringify({ agentId, message: (error as Error)?.message })
+    );
+  }
+}
+
 export async function refreshKnowledgeBaseDocument({
   clientSlug,
   url,
   documentId,
   documentName,
   ragModel = "e5_mistral_7b_instruct",
+  agentId,
 }: RefreshOptions) {
   if (!ELEVENLABS_API_KEY) {
     console.warn("[elevenLabs] Missing ELEVENLABS_API_KEY; skipping KB refresh");
@@ -214,6 +322,15 @@ export async function refreshKnowledgeBaseDocument({
     sourceUrl: url,
     updatedAt: new Date().toISOString(),
   });
+
+  if (agentId) {
+    await updateAgentKnowledgeBase(agentId, created.id, created.name ?? nameToUse ?? null, ragModel);
+  } else {
+    console.log(
+      "[elevenLabs] No agent ID provided; skipping agent update",
+      JSON.stringify({ clientSlug })
+    );
+  }
 
   await computeRagIndex(created.id, ragModel);
 }

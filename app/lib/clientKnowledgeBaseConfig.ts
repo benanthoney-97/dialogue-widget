@@ -1,12 +1,14 @@
 // app/lib/clientKnowledgeBaseConfig.ts
 
 import { getKnowledgeBaseState } from "@/app/lib/clientKnowledgeBaseState";
+import { getClientAgentId } from "@/app/lib/clientMap";
 
 export type KnowledgeBaseConfig = {
   url: string;
   documentId?: string;
   documentName?: string;
   ragModel?: string;
+  agentId?: string;
 };
 
 function slugToEnvKey(slug: string) {
@@ -33,11 +35,14 @@ export async function getKnowledgeBaseConfig(
     process.env.ELEVENLABS_KB_DEFAULT_MODEL?.trim();
 
   const stored = await getKnowledgeBaseState(clientSlug);
+  const agentId = getClientAgentId(clientSlug) ?? undefined;
+
   const resolvedConfig: KnowledgeBaseConfig = {
     url: stored?.sourceUrl?.trim() || url,
     documentId: stored?.documentId || docIdEnv || undefined,
     documentName: stored?.documentName || docNameEnv || undefined,
     ragModel,
+    agentId,
   };
 
   console.log(
@@ -49,6 +54,7 @@ export async function getKnowledgeBaseConfig(
       documentId: resolvedConfig.documentId ?? null,
       documentName: resolvedConfig.documentName ?? null,
       ragModel: resolvedConfig.ragModel ?? null,
+      agentId: resolvedConfig.agentId ?? null,
     })
   );
 

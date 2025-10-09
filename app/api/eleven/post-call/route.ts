@@ -772,5 +772,6 @@ async function scheduleKnowledgeBaseRefresh(clientSlug: string) {
     documentId: config.documentId,
     documentName: config.documentName,
     ragModel: config.ragModel,
+    agentId: config.agentId,
   });
 }
