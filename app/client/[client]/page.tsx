@@ -167,14 +167,22 @@ export default function ClientInsightsChat() {
     sendUserMessage,
   } = useConversation({
     serverLocation,
-    onConnect: () => setErr(""),
+    onConnect: () => {
+      console.log("[client-chat] Connected to ElevenLabs", {
+        agentId: clientAgentId,
+        serverLocation,
+      });
+      setErr("");
+    },
     onDisconnect: () => {
+      console.log("[client-chat] Disconnected from ElevenLabs");
       lastAgentMessageIdRef.current = null;
     },
     onError: (error: unknown) =>
       setErr(error instanceof Error ? error.message : String(error ?? "Unknown error")),
     onMessage: ({ source, message }) => {
       const text = message ?? "";
+      console.log("[client-chat] Message", { source, text });
       if (source === "user") {
         handleClientEvent({ type: "user_transcript", text });
       } else {
@@ -184,6 +192,7 @@ export default function ClientInsightsChat() {
     onDebug: (event: any) => {
       if (!event || typeof event !== "object") return;
       if (event.type === "agent_response_correction") {
+        console.log("[client-chat] Agent correction", event);
         handleAgentCorrection(
           event.agent_response_correction_event?.corrected_agent_response
         );
@@ -194,14 +203,21 @@ export default function ClientInsightsChat() {
 
   const connect = useCallback(async () => {
     try {
-      if (String(status) === "connected" || String(status) === "connecting") return;
+      if (String(status) === "connected" || String(status) === "connecting") {
+        console.log("[client-chat] Reusing existing connection", { status: String(status) });
+        return;
+      }
       const res = await fetch(
         `/api/eleven/get-signed-url?agent_id=${encodeURIComponent(clientAgentId)}`
       );
+      console.log("[client-chat] Requested signed URL", { status: res.status });
       const data = await res.json();
-      if (!res.ok || !data?.signedUrl)
+      if (!res.ok || !data?.signedUrl) {
+        console.error("[client-chat] Signed URL error", data);
         throw new Error(data?.error || "Failed to get signed URL");
+      }
       await startSession({ signedUrl: data.signedUrl, connectionType: "websocket" });
+      console.log("[client-chat] Start session invoked");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error ?? "Unknown error");
       setErr(message);
@@ -228,6 +244,7 @@ export default function ClientInsightsChat() {
         try {
           await connect();
           await sendUserMessage(trimmed);
+          console.log("[client-chat] Sent prompt", { text: trimmed });
         } catch (error) {
           setIsThinking(false);
           setMessages((prev) => [
@@ -249,7 +266,10 @@ export default function ClientInsightsChat() {
   const handleSend = useCallback(
     (event?: FormEvent) => {
       if (event) event.preventDefault();
-      if (isThinking) return;
+      if (isThinking) {
+        console.log("[client-chat] Send blocked while thinking");
+        return;
+      }
       const trimmed = input.trim();
       if (!trimmed) return;
       setInput("");
