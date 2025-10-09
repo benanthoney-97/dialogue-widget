@@ -559,6 +559,52 @@ export default function ClientInsightsChat() {
   );
   const queryAgentId = searchParams?.get("agentId") ?? "";
   const clientAgentId = entry?.clientAgentId ?? queryAgentId ?? "";
+  const dataFeedUrl = normalizedClient ? getClientDataPath(normalizedClient) : "";
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [isQuestionsLoading, setIsQuestionsLoading] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!normalizedClient || !dataFeedUrl) {
+      setQuestions([]);
+      return;
+    }
+
+    const fetchQuestions = async () => {
+      setIsQuestionsLoading(true);
+      setQuestionsError(null);
+      try {
+        const res = await fetch(dataFeedUrl, { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(`Failed to load questions (status ${res.status})`);
+        }
+        const payload = (await res.json()) as {
+          questions?: unknown;
+        };
+        if (cancelled) return;
+        const fromPayload = Array.isArray(payload.questions)
+          ? (payload.questions as unknown[])
+              .map((item) => (typeof item === "string" ? item.trim() : ""))
+              .filter((item) => item.length > 0)
+          : [];
+        setQuestions(fromPayload);
+      } catch (error) {
+        if (cancelled) return;
+        setQuestionsError(
+          error instanceof Error ? error.message : "Unable to load questions."
+        );
+        setQuestions([]);
+      } finally {
+        if (!cancelled) setIsQuestionsLoading(false);
+      }
+    };
+
+    fetchQuestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataFeedUrl, normalizedClient]);
 
   if (!normalizedClient || !entry) {
     return (
@@ -586,7 +632,6 @@ export default function ClientInsightsChat() {
     );
   }
 
-  const dataFeedUrl = getClientDataPath(normalizedClient);
   const associatedLabels = reports
     .map(({ slug, doc }) => doc?.talkLabel || doc?.pdfPath || slug)
     .filter(Boolean);
@@ -666,16 +711,79 @@ export default function ClientInsightsChat() {
           background: "radial-gradient(circle at top, rgba(37, 99, 235, 0.22), transparent 60%)",
           minHeight: 0,
           overflow: "hidden",
+          padding: "16px clamp(16px, 4vw, 32px)",
+          gap: 20,
         }}
       >
-        <ClientDialogue
-          agentId={clientAgentId}
-          useSignedUrl
-          serverLocation={serverLocation}
-          buttonColor="#38bdf8"
-          buttonTextColor="#0b1220"
-          buttonBorderColor="#1d4ed8"
-        />
+        <div
+          style={{
+            width: "min(960px, 96vw)",
+            margin: "0 auto",
+            background: "rgba(17, 24, 39, 0.65)",
+            border: "1px solid rgba(148, 163, 184, 0.35)",
+            borderRadius: 16,
+            padding: 16,
+            boxShadow: "0 12px 30px rgba(7, 11, 23, 0.45)",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <h2
+            style={{
+              margin: 0,
+              marginBottom: 12,
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#f1f5f9",
+            }}
+          >
+            Questions asked so far
+          </h2>
+          {questionsError ? (
+            <p style={{ margin: 0, color: "#fca5a5", fontSize: 14 }}>{questionsError}</p>
+          ) : isQuestionsLoading ? (
+            <p style={{ margin: 0, color: "rgba(226, 232, 240, 0.7)", fontSize: 14 }}>
+              Loading questions…
+            </p>
+          ) : questions.length ? (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 20,
+                display: "grid",
+                gap: 8,
+                fontSize: 14,
+                color: "rgba(226, 232, 240, 0.85)",
+              }}
+            >
+              {questions.map((question, index) => (
+                <li key={`${question}-${index}`}>{question}</li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ margin: 0, color: "rgba(226, 232, 240, 0.7)", fontSize: 14 }}>
+              No questions captured yet.
+            </p>
+          )}
+        </div>
+
+        <div
+          style={{
+            flex: "1 1 auto",
+            display: "flex",
+            width: "100%",
+            maxWidth: "min(960px, 96vw)",
+            margin: "0 auto",
+          }}
+        >
+          <ClientDialogue
+            agentId={clientAgentId}
+            useSignedUrl
+            serverLocation={serverLocation}
+            buttonColor="#38bdf8"
+            buttonTextColor="#0b1220"
+            buttonBorderColor="#1d4ed8"
+          />
+        </div>
       </section>
     </main>
   );

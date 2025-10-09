@@ -26,6 +26,7 @@ export type ClientKnowledgePayload = {
   client: string;
   updatedAt: string;
   conversations: ConversationKnowledgeRecord[];
+  questions: string[];
 };
 
 const STORAGE_PREFIX = "client-conversations";
@@ -48,10 +49,12 @@ export async function appendConversationRecord(
   );
 
   const conversations = [record, ...(existing?.conversations ?? [])].slice(0, MAX_RECORDS);
+  const questions = deriveQuestions(conversations);
   const payload: ClientKnowledgePayload = {
     client: clientSlug,
     updatedAt: new Date().toISOString(),
     conversations,
+    questions,
   };
 
   await writeBlob(getBlobKey(clientSlug), payload);
@@ -65,7 +68,28 @@ export async function getClientKnowledge(clientSlug: string): Promise<ClientKnow
     client: clientSlug,
     updatedAt: new Date().toISOString(),
     conversations: [],
+    questions: [],
   };
+}
+
+function deriveQuestions(conversations: ConversationKnowledgeRecord[]): string[] {
+  const collected = conversations.flatMap((conversation) => {
+    const results = conversation.dataCollectionResults;
+    if (!results || typeof results !== "object") return [];
+    return Object.values(results)
+      .map((entry: any) => entry?.value)
+      .filter((value): value is string => typeof value === "string" && value.trim());
+  });
+
+  const seen = new Set<string>();
+  const uniqueOrdered: string[] = [];
+  for (const question of collected) {
+    if (!seen.has(question)) {
+      seen.add(question);
+      uniqueOrdered.push(question);
+    }
+  }
+  return uniqueOrdered;
 }
 
 function getBlobKey(clientSlug: string) {
