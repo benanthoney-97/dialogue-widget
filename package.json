@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "enable:rag": "node scripts/enableRag.js"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.6.2",

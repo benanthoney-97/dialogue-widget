@@ -1,24 +1,28 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useConversation } from "@elevenlabs/react";
+
 import {
   clientMap,
-  getClientReports,
   getClientAgentId,
   getClientDataPath,
+  getClientReports,
 } from "@/app/lib/clientMap";
 import { docMap } from "@/app/lib/docMap";
 
 type Message = {
   id: string;
-  role: "assistant" | "user";
+  role: "user" | "assistant";
   content: string;
 };
 
@@ -28,71 +32,43 @@ const QUICK_QUESTIONS = [
   "Highlight notable questions from enterprise prospects.",
 ];
 
+const makeMessageId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
 export default function ClientInsightsChat() {
   const { client } = useParams<{ client: string }>();
-  const sp = useSearchParams();
+  const searchParams = useSearchParams();
 
   const entry = client ? clientMap[client] : undefined;
   const reports = useMemo(() => (client ? getClientReports(client) : []), [client]);
-  const queryAgent = sp?.get("agentId") ?? "";
-  const clientAgentId = queryAgent || (client ? getClientAgentId(client) ?? "" : "");
+  const queryAgentId = searchParams?.get("agentId") ?? "";
+  const clientAgentId = queryAgentId || (client ? getClientAgentId(client) ?? "" : "");
 
   if (!client || !entry) {
     return (
-      <main
-        style={{
-          minHeight: "100dvh",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
-          background: "#0f172a",
-        }}
-      >
-        <div
-          style={{
-            padding: 24,
-            borderRadius: 16,
-            background: "#111827",
-            border: "1px solid rgba(148, 163, 184, 0.35)",
-            maxWidth: 420,
-            textAlign: "center",
-            color: "#e2e8f0",
-          }}
-        >
-          <strong>Unknown client slug:</strong> <code>{client ?? "—"}</code>
-        </div>
-      </main>
+      <FallbackState
+        title="Unknown client"
+        description={
+          <>
+            <strong>Unknown client slug:</strong> <code>{client ?? "—"}</code>
+          </>
+        }
+      />
     );
   }
 
   if (!clientAgentId) {
     return (
-      <main
-        style={{
-          minHeight: "100dvh",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
-          background: "#0f172a",
-        }}
-      >
-        <div
-          style={{
-            padding: 24,
-            borderRadius: 16,
-            background: "#111827",
-            border: "1px solid rgba(148, 163, 184, 0.35)",
-            maxWidth: 520,
-            textAlign: "center",
-            color: "#e2e8f0",
-            lineHeight: 1.6,
-          }}
-        >
-          <strong>{entry.displayName}</strong> does not yet have an insights agent configured.
-          Add <code>clientAgentId</code> in <code>clientMap</code> or provide{" "}
-          <code>?agentId=</code> in the URL to continue.
-        </div>
-      </main>
+      <FallbackState
+        title={`${entry.displayName} has no insights agent configured`}
+        description={
+          <>
+            Add <code>clientAgentId</code> to <code>clientMap</code> or pass <code>?agentId=</code>.
+          </>
+        }
+      />
     );
   }
 
@@ -100,49 +76,187 @@ export default function ClientInsightsChat() {
   const associatedLabels = reports
     .map(({ slug, doc }) => doc?.talkLabel || doc?.pdfPath || slug)
     .filter(Boolean);
-
   const introMessage = buildIntroMessage(entry.displayName, associatedLabels, dataFeedUrl);
+
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "assistant-intro",
-      role: "assistant",
-      content: introMessage,
-    },
+    { id: makeMessageId(), role: "assistant", content: introMessage },
   ]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [err, setErr] = useState("");
+
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const lastLocalUserRef = useRef<string>("");
+  const lastRemoteUserRef = useRef<string>("");
+  const lastAgentResponseRef = useRef<string>("");
+  const lastAgentMessageIdRef = useRef<string | null>(null);
+
+  const primaryDoc = entry.slugKeys[0];
+  const serverLocation = (primaryDoc && docMap[primaryDoc]?.region) || "us";
 
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
+    const el = chatRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  function handleSend(event?: FormEvent) {
-    if (event) event.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed || isThinking) return;
+  const appendUserMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setMessages((prev) => [...prev, { id: makeMessageId(), role: "user", content: trimmed }]);
+  }, []);
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsThinking(true);
+  const appendAgentMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const id = makeMessageId();
+    lastAgentMessageIdRef.current = id;
+    setMessages((prev) => [...prev, { id, role: "assistant", content: trimmed }]);
+  }, []);
 
-    window.setTimeout(() => {
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: buildPlaceholderReply(trimmed, associatedLabels, dataFeedUrl),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+  const replaceLastAgentMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !lastAgentMessageIdRef.current) return;
+    setMessages((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((m) => m.id === lastAgentMessageIdRef.current);
+      if (idx === -1) return prev;
+      next[idx] = { ...next[idx], content: trimmed };
+      return next;
+    });
+  }, []);
+
+  const handleClientEvent = useCallback(
+    ({ type, text }: { type: "user_transcript" | "agent_response"; text: string }) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      if (type === "user_transcript") {
+        if (trimmed === lastLocalUserRef.current) {
+          lastLocalUserRef.current = "";
+          return;
+        }
+        if (trimmed === lastRemoteUserRef.current) return;
+        lastRemoteUserRef.current = trimmed;
+        appendUserMessage(trimmed);
+        return;
+      }
+
+      if (trimmed === lastAgentResponseRef.current) return;
+      lastAgentResponseRef.current = trimmed;
       setIsThinking(false);
-    }, 420);
-  }
+      appendAgentMessage(trimmed);
+    },
+    [appendAgentMessage, appendUserMessage]
+  );
+
+  const handleAgentCorrection = useCallback(
+    (text?: string) => {
+      const trimmed = text?.trim();
+      if (!trimmed) return;
+      lastAgentResponseRef.current = trimmed;
+      replaceLastAgentMessage(trimmed);
+    },
+    [replaceLastAgentMessage]
+  );
+
+  const {
+    startSession,
+    endSession,
+    status,
+    sendUserMessage,
+  } = useConversation({
+    serverLocation,
+    onConnect: () => setErr(""),
+    onDisconnect: () => {
+      lastAgentMessageIdRef.current = null;
+    },
+    onError: (error: unknown) =>
+      setErr(error instanceof Error ? error.message : String(error ?? "Unknown error")),
+    onMessage: ({ source, message }) => {
+      const text = message ?? "";
+      if (source === "user") {
+        handleClientEvent({ type: "user_transcript", text });
+      } else {
+        handleClientEvent({ type: "agent_response", text });
+      }
+    },
+    onDebug: (event: any) => {
+      if (!event || typeof event !== "object") return;
+      if (event.type === "agent_response_correction") {
+        handleAgentCorrection(
+          event.agent_response_correction_event?.corrected_agent_response
+        );
+      }
+    },
+    micMuted: true,
+  });
+
+  const connect = useCallback(async () => {
+    try {
+      if (String(status) === "connected" || String(status) === "connecting") return;
+      const res = await fetch(
+        `/api/eleven/get-signed-url?agent_id=${encodeURIComponent(clientAgentId)}`
+      );
+      const data = await res.json();
+      if (!res.ok || !data?.signedUrl)
+        throw new Error(data?.error || "Failed to get signed URL");
+      await startSession({ signedUrl: data.signedUrl, connectionType: "websocket" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? "Unknown error");
+      setErr(message);
+      throw error;
+    }
+  }, [clientAgentId, startSession, status]);
+
+  useEffect(() => {
+    return () => {
+      endSession().catch(() => undefined);
+    };
+  }, [endSession]);
+
+  const sendPrompt = useCallback(
+    (prompt: string) => {
+      const trimmed = prompt.trim();
+      if (!trimmed) return;
+
+      appendUserMessage(trimmed);
+      lastLocalUserRef.current = trimmed;
+      setIsThinking(true);
+
+      (async () => {
+        try {
+          await connect();
+          await sendUserMessage(trimmed);
+        } catch (error) {
+          setIsThinking(false);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: makeMessageId(),
+              role: "assistant",
+              content:
+                "Sorry, I couldn't reach the insights agent just now. Please try again in a moment.",
+            },
+          ]);
+          console.error("[client-chat] Failed to send message", error);
+        }
+      })();
+    },
+    [appendUserMessage, connect, sendUserMessage]
+  );
+
+  const handleSend = useCallback(
+    (event?: FormEvent) => {
+      if (event) event.preventDefault();
+      if (isThinking) return;
+      const trimmed = input.trim();
+      if (!trimmed) return;
+      setInput("");
+      sendPrompt(trimmed);
+    },
+    [input, isThinking, sendPrompt]
+  );
 
   return (
     <main
@@ -205,6 +319,9 @@ export default function ClientInsightsChat() {
               <strong>Customer agents:</strong> {associatedLabels.join(", ")}
             </span>
           ) : null}
+          {err ? (
+            <span style={{ color: "#fca5a5" }}>Connection issue: {err}</span>
+          ) : null}
         </div>
       </header>
 
@@ -226,7 +343,13 @@ export default function ClientInsightsChat() {
         {isThinking ? <TypingIndicator /> : null}
       </div>
 
-      <QuickPrompts onSelect={(prompt) => setInput(prompt)} />
+      <QuickPrompts
+        onSelect={(prompt) => {
+          setInput("");
+          if (isThinking) return;
+          sendPrompt(prompt);
+        }}
+      />
 
       <form
         onSubmit={handleSend}
@@ -239,46 +362,60 @@ export default function ClientInsightsChat() {
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             gap: 12,
-            background: "#111c34",
-            border: "1px solid rgba(148, 163, 184, 0.22)",
-            borderRadius: 18,
-            padding: "12px 14px",
           }}
         >
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about engagement trends, questions customers are asking, or top-performing reports…"
-            rows={1}
+          <div
             style={{
-              flex: 1,
-              resize: "none",
-              background: "transparent",
-              border: "none",
-              color: "#e2e8f0",
-              fontSize: 15,
-              lineHeight: 1.5,
-              outline: "none",
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isThinking}
-            style={{
-              alignSelf: "flex-end",
-              padding: "8px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: !input.trim() || isThinking ? "rgba(148, 163, 184, 0.35)" : "#38bdf8",
-              color: "#0b1220",
-              fontWeight: 600,
-              cursor: !input.trim() || isThinking ? "default" : "pointer",
-              transition: "background .18s ease",
+              display: "flex",
+              gap: 12,
+              background: "#111c34",
+              border: "1px solid rgba(148, 163, 184, 0.22)",
+              borderRadius: 18,
+              padding: "12px 14px",
             }}
           >
-            Send
-          </button>
+            <textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about engagement trends, questions customers are asking, or top-performing reports…"
+              rows={1}
+              style={{
+                flex: 1,
+                resize: "none",
+                background: "transparent",
+                border: "none",
+                color: "#e2e8f0",
+                fontSize: 15,
+                lineHeight: 1.5,
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isThinking}
+              style={{
+                alignSelf: "flex-end",
+                padding: "8px 18px",
+                borderRadius: 12,
+                border: "none",
+                background: !input.trim() || isThinking
+                  ? "rgba(148, 163, 184, 0.35)"
+                  : "#38bdf8",
+                color: "#0b1220",
+                fontWeight: 600,
+                cursor: !input.trim() || isThinking ? "default" : "pointer",
+                transition: "background .18s ease",
+              }}
+            >
+              Send
+            </button>
+          </div>
+          <span style={{ fontSize: 12, color: "rgba(226, 232, 240, 0.65)" }}>
+            Responses are powered by the customer insights agent and refreshed with your latest
+            knowledge feed.
+          </span>
         </div>
       </form>
     </main>
@@ -288,12 +425,7 @@ export default function ClientInsightsChat() {
 function ChatBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: isUser ? "flex-end" : "flex-start",
-      }}
-    >
+    <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
       <div
         style={{
           maxWidth: "min(720px, 80%)",
@@ -374,26 +506,50 @@ function QuickPrompts({ onSelect }: { onSelect: (prompt: string) => void }) {
   );
 }
 
+function FallbackState({
+  title,
+  description,
+}: {
+  title: string;
+  description: ReactNode;
+}) {
+  return (
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
+        background: "#0f172a",
+      }}
+    >
+      <div
+        style={{
+          padding: 24,
+          borderRadius: 16,
+          background: "#111827",
+          border: "1px solid rgba(148, 163, 184, 0.35)",
+          maxWidth: 520,
+          textAlign: "center",
+          color: "#e2e8f0",
+          lineHeight: 1.6,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>{title}</h2>
+        <div>{description}</div>
+      </div>
+    </main>
+  );
+}
+
 function buildIntroMessage(name: string, reports: string[], dataFeedUrl: string) {
-  const introLines = [
+  const lines = [
     `Hi, you're viewing ${name}'s engagement workspace.`,
     "I'll surface insights from customers as soon as the knowledge feed refreshes.",
   ];
   if (reports.length) {
-    introLines.push(`Right now, I'm tracking these customer agents: ${reports.join(", ")}.`);
+    lines.push(`Right now, I'm tracking these customer agents: ${reports.join(", ")}.`);
   }
-  introLines.push(`New conversations are synced to ${dataFeedUrl}. Ask me anything to explore.`);
-  return introLines.join("\n\n");
-}
-
-function buildPlaceholderReply(question: string, reports: string[], dataFeedUrl: string) {
-  const lines = [
-    `You asked: "${question}".`,
-    "I'm capturing that request — shortly I'll use the refreshed knowledge feed to respond with live data.",
-  ];
-  if (reports.length) {
-    lines.push(`Insights will draw from: ${reports.join(", ")}.`);
-  }
-  lines.push(`You can review the raw conversations at ${dataFeedUrl}.`);
+  lines.push(`New conversations are synced to ${dataFeedUrl}. Ask me anything to explore.`);
   return lines.join("\n\n");
 }
