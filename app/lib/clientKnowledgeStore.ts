@@ -51,12 +51,13 @@ export async function appendConversationRecord(
     return;
   }
 
-  const existing = await getClientKnowledge(clientSlug);
+  const existing = await fetchLatestClientKnowledge(clientSlug);
+  const existingCount = existing?.conversations.length ?? 0;
   console.log(
     "[clientKnowledgeStore] Loaded existing conversations",
-    JSON.stringify({ clientSlug, existingCount: existing.conversations.length })
+    JSON.stringify({ clientSlug, existingCount })
   );
-  const conversations = [record, ...existing.conversations].slice(0, MAX_RECORDS);
+  const conversations = [record, ...(existing?.conversations ?? [])].slice(0, MAX_RECORDS);
   const payload: ClientKnowledgePayload = {
     client: clientSlug,
     updatedAt: new Date().toISOString(),
@@ -67,41 +68,14 @@ export async function appendConversationRecord(
 }
 
 export async function getClientKnowledge(clientSlug: string): Promise<ClientKnowledgePayload> {
-  const key = getBlobKey(clientSlug);
-  const url = `${BLOB_PUBLIC_BASE_URL}/${encodePath(key)}`;
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-    });
-    if (res.status === 404) {
-      console.log(
-        "[clientKnowledgeStore] Blob not found, returning empty",
-        JSON.stringify({ clientSlug, url })
-      );
-      return {
-        client: clientSlug,
-        updatedAt: new Date().toISOString(),
-        conversations: [],
-      };
-    }
-    if (!res.ok) throw new Error(`Failed to fetch blob: ${res.status} ${res.statusText}`);
-    const data = (await res.json()) as ClientKnowledgePayload;
-    if (!data || typeof data !== "object") {
-      throw new Error("Invalid blob payload");
-    }
-    return data;
-  } catch (error: unknown) {
-    if (isNotFoundError(error)) {
-      return {
-        client: clientSlug,
-        updatedAt: new Date().toISOString(),
-        conversations: [],
-      };
-    }
-    console.error("Failed to load client knowledge", error);
-    throw error;
-  }
+  const latest = await fetchLatestClientKnowledge(clientSlug);
+  if (latest) return latest;
+
+  return {
+    client: clientSlug,
+    updatedAt: new Date().toISOString(),
+    conversations: [],
+  };
 }
 
 function getBlobKey(clientSlug: string) {
@@ -163,4 +137,76 @@ function encodePath(pathname: string) {
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+}
+
+async function fetchLatestClientKnowledge(clientSlug: string) {
+  if (!BLOB_TOKEN) return null;
+  const prefix = `${STORAGE_PREFIX}/${clientSlug}`;
+  try {
+    const list = await listClientBlobs(prefix, 1);
+    if (!list.length) {
+      console.log(
+        "[clientKnowledgeStore] No existing blobs for client",
+        JSON.stringify({ clientSlug })
+      );
+      return null;
+    }
+    const latest = list[0];
+    const url = latest.url ?? latest.downloadUrl;
+    if (!url) return null;
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (!res.ok) {
+      console.error(
+        "[clientKnowledgeStore] Failed to fetch latest blob",
+        JSON.stringify({ clientSlug, url, status: res.status, statusText: res.statusText })
+      );
+      return null;
+    }
+    const data = (await res.json()) as ClientKnowledgePayload;
+    if (!data || typeof data !== "object" || !Array.isArray(data.conversations)) {
+      console.error(
+        "[clientKnowledgeStore] Invalid blob payload",
+        JSON.stringify({ clientSlug, url })
+      );
+      return null;
+    }
+    return data;
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    console.error(
+      "[clientKnowledgeStore] Failed to load latest client knowledge",
+      error
+    );
+    return null;
+  }
+}
+
+async function listClientBlobs(prefix: string, limit: number) {
+  const params = new URLSearchParams({ prefix, limit: String(limit) });
+  const url = `${BLOB_WRITE_BASE_URL}?${params.toString()}`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${BLOB_TOKEN}`,
+    },
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    const text = await res.text().catch(() => "");
+    console.error(
+      "[clientKnowledgeStore] Failed to list blobs",
+      JSON.stringify({ prefix, status: res.status, statusText: res.statusText, text })
+    );
+    throw new Error(`Failed to list blobs (${res.status})`);
+  }
+
+  const data = (await res.json()) as {
+    blobs?: Array<{ url?: string; downloadUrl?: string; uploadedAt?: string }>;
+  };
+  const blobs = data?.blobs ?? [];
+  return blobs.sort((a, b) => {
+    const aDate = a?.uploadedAt ? Date.parse(a.uploadedAt) : 0;
+    const bDate = b?.uploadedAt ? Date.parse(b.uploadedAt) : 0;
+    return bDate - aDate;
+  });
 }
