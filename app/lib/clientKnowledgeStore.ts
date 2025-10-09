@@ -102,6 +102,7 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
     const response = await put(key, JSON.stringify(payload), {
       access: "public",
       addRandomSuffix: false,
+      allowOverwrite: true,
       contentType: "application/json",
       cacheControlMaxAge: 0,
     });
