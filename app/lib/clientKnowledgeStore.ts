@@ -1,37 +1,14 @@
 // app/lib/clientKnowledgeStore.ts
 
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const FALLBACK_WRITE_BASE = "https://blob.vercel-storage.com";
+import { list, put } from "@vercel/blob";
 
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 const rawPublicBase =
   process.env.BLOB_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
   process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
   "";
 
-const BLOB_PUBLIC_BASE_URL = rawPublicBase || FALLBACK_WRITE_BASE;
-
-function deriveWriteBase() {
-  const candidate =
-    process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") ||
-    process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
-    (rawPublicBase.includes(".public.")
-      ? rawPublicBase.replace(".public.", ".")
-      : rawPublicBase) ||
-    FALLBACK_WRITE_BASE;
-
-  if (
-    !candidate.endsWith("blob.vercel-storage.com") ||
-    candidate.includes(".public.")
-  ) {
-    return FALLBACK_WRITE_BASE;
-  }
-  return candidate;
-}
-
-let resolvedWriteBase =
-  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") || deriveWriteBase();
-
-const BLOB_WRITE_BASE_URL = resolvedWriteBase;
+const BLOB_PUBLIC_BASE_URL = rawPublicBase || "";
 
 export type ConversationKnowledgeRecord = {
   callId: string;
@@ -79,7 +56,6 @@ export async function appendConversationRecord(
     conversations,
   };
 
-  await purgeClientBlobs(clientSlug);
   await writeBlob(getBlobKey(clientSlug), payload);
 }
 
@@ -122,45 +98,25 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
     );
     return;
   }
-
-  await deleteExistingBlob(key);
-
-  const url = `${BLOB_WRITE_BASE_URL}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${BLOB_TOKEN}`,
-      "Content-Type": "application/json",
-      "x-vercel-blob-access": "public",
-      "x-vercel-blob-add-random-suffix": "false",
-      "x-vercel-blob-name": encodePath(key),
-      "x-vercel-blob-overwrite": "true",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error(
-      "[clientKnowledgeStore] Failed to write blob",
-      JSON.stringify({ url, status: res.status, statusText: res.statusText, text })
-    );
-    throw new Error(`Failed to write blob (${res.status})`);
-  }
-  let result: any = null;
   try {
-    result = await res.json();
-  } catch {
-    result = null;
+    const response = await put(key, JSON.stringify(payload), {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: "application/json",
+      cacheControlMaxAge: 0,
+    });
+
+    console.log(
+      "[clientKnowledgeStore] Wrote blob via SDK",
+      JSON.stringify({ key, url: response.url })
+    );
+  } catch (error) {
+    console.error(
+      "[clientKnowledgeStore] SDK write failed",
+      JSON.stringify({ key, message: (error as Error)?.message })
+    );
+    throw error;
   }
-  console.log(
-    "[clientKnowledgeStore] Wrote blob",
-    JSON.stringify({
-      requestedUrl: url,
-      responseUrl: result?.url ?? null,
-      locationHeader: res.headers.get("location") ?? res.headers.get("content-location"),
-    })
-  );
 }
 
 function encodePath(pathname: string) {
@@ -184,32 +140,8 @@ function parseClientKnowledgePayload(
   return data as ClientKnowledgePayload;
 }
 
-async function deleteExistingBlob(key: string) {
-  if (!BLOB_TOKEN) return;
-  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}`;
-  try {
-    const res = await fetch(url, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${BLOB_TOKEN}`,
-      },
-    });
-    if (!res.ok && res.status !== 404) {
-      const text = await res.text().catch(() => "");
-      console.warn(
-        "[clientKnowledgeStore] Failed to delete existing blob",
-        JSON.stringify({ key, status: res.status, statusText: res.statusText, text })
-      );
-    }
-  } catch (error) {
-    console.warn(
-      "[clientKnowledgeStore] Error deleting existing blob",
-      JSON.stringify({ key, message: (error as Error)?.message })
-    );
-  }
-}
-
 async function fetchPublicClientKnowledge(clientSlug: string) {
+  if (!BLOB_PUBLIC_BASE_URL) return null;
   const key = getBlobKey(clientSlug);
   const url = `${BLOB_PUBLIC_BASE_URL}/${encodePath(key)}?ts=${Date.now()}`;
   try {
@@ -241,38 +173,30 @@ async function fetchPublicClientKnowledge(clientSlug: string) {
 
 async function fetchLatestClientKnowledge(clientSlug: string) {
   if (BLOB_TOKEN) {
-    const prefix = `${STORAGE_PREFIX}/${clientSlug}`;
     try {
-      const list = await listClientBlobs(prefix, 1);
-      if (!list.length) {
+      const listing = await list({ prefix: `${STORAGE_PREFIX}/${clientSlug}.json`, limit: 1 });
+      const latest = listing.blobs?.[0];
+      if (!latest) {
         console.log(
           "[clientKnowledgeStore] No existing blobs for client",
           JSON.stringify({ clientSlug })
         );
-      } else {
-        const latest = list[0];
-        const url = latest.url ?? latest.downloadUrl;
+      } else if (latest.url) {
+        const url = latest.url;
         console.log(
           "[clientKnowledgeStore] Using latest blob",
           JSON.stringify({ clientSlug, url })
         );
-        if (url) {
-          const res = await fetch(url, { method: "GET", cache: "no-store" });
-          if (res.ok) {
-            const payload = await res.json().catch(() => null);
-            const parsed = parseClientKnowledgePayload(payload, { clientSlug, url });
-            if (parsed) return parsed;
-          } else {
-            console.error(
-              "[clientKnowledgeStore] Failed to fetch latest blob",
-              JSON.stringify({
-                clientSlug,
-                url,
-                status: res.status,
-                statusText: res.statusText,
-              })
-            );
-          }
+        const res = await fetch(url, { method: "GET", cache: "no-store" });
+        if (res.ok) {
+          const payload = await res.json().catch(() => null);
+          const parsed = parseClientKnowledgePayload(payload, { clientSlug, url });
+          if (parsed) return parsed;
+        } else {
+          console.error(
+            "[clientKnowledgeStore] Failed to fetch latest blob",
+            JSON.stringify({ clientSlug, url, status: res.status, statusText: res.statusText })
+          );
         }
       }
     } catch (error) {
@@ -301,68 +225,4 @@ async function fetchLatestClientKnowledge(clientSlug: string) {
   return publicData;
 }
 
-async function listClientBlobs(prefix: string, limit: number) {
-  const params = new URLSearchParams({ prefix, limit: String(limit) });
-  const url = `${BLOB_WRITE_BASE_URL}?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${BLOB_TOKEN}`,
-    },
-  });
-
-  if (!res.ok) {
-    if (res.status === 404) return [];
-    const text = await res.text().catch(() => "");
-    console.error(
-      "[clientKnowledgeStore] Failed to list blobs",
-      JSON.stringify({ prefix, status: res.status, statusText: res.statusText, text })
-    );
-    throw new Error(`Failed to list blobs (${res.status})`);
-  }
-
-  const data = (await res.json()) as {
-    blobs?: Array<{ url?: string; downloadUrl?: string; uploadedAt?: string }>;
-  };
-  const blobs = data?.blobs ?? [];
-  return blobs.sort((a, b) => {
-    const aDate = a?.uploadedAt ? Date.parse(a.uploadedAt) : 0;
-    const bDate = b?.uploadedAt ? Date.parse(b.uploadedAt) : 0;
-    return bDate - aDate;
-  });
-}
-
-async function purgeClientBlobs(clientSlug: string) {
-  if (!BLOB_TOKEN) return;
-  try {
-    const blobs = await listClientBlobs(`${STORAGE_PREFIX}/${clientSlug}`, 25);
-    const deletions = blobs.map(async (blob) => {
-      const targetUrl = blob.url ?? blob.downloadUrl;
-      if (!targetUrl) return;
-      const keyPath = new URL(targetUrl).pathname.replace(/^\/+/, "");
-      const deleteUrl = `${BLOB_WRITE_BASE_URL}/${keyPath}`;
-      const res = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${BLOB_TOKEN}` },
-      });
-      if (!res.ok && res.status !== 404) {
-        const text = await res.text().catch(() => "");
-        console.warn(
-          "[clientKnowledgeStore] Failed to delete blob during purge",
-          JSON.stringify({
-            clientSlug,
-            url: deleteUrl,
-            status: res.status,
-            statusText: res.statusText,
-            text,
-          })
-        );
-      }
-    });
-    await Promise.allSettled(deletions);
-  } catch (error) {
-    console.warn(
-      "[clientKnowledgeStore] Error purging blobs",
-      JSON.stringify({ clientSlug, message: (error as Error)?.message })
-    );
-  }
-}
+// No purge helpers required with SDK-managed overwrites.
