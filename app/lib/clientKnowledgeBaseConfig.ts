@@ -1,7 +1,10 @@
 // app/lib/clientKnowledgeBaseConfig.ts
 
-type KnowledgeBaseConfig = {
-  documentId: string;
+import { getKnowledgeBaseState } from "@/app/lib/clientKnowledgeBaseState";
+
+export type KnowledgeBaseConfig = {
+  url: string;
+  documentId?: string;
   documentName?: string;
   ragModel?: string;
 };
@@ -13,19 +16,28 @@ function slugToEnvKey(slug: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-export function getKnowledgeBaseConfig(
+export async function getKnowledgeBaseConfig(
   clientSlug: string
-): KnowledgeBaseConfig | null {
+): Promise<KnowledgeBaseConfig | null> {
   const key = slugToEnvKey(clientSlug);
-  const documentId = process.env[`ELEVENLABS_KB_DOC_ID_${key}`];
-  if (!documentId) return null;
-  const documentName = process.env[`ELEVENLABS_KB_DOC_NAME_${key}`];
+  const urlEnv = process.env[`ELEVENLABS_KB_URL_${key}`];
+  const url = urlEnv?.trim()
+    ? urlEnv.trim()
+    : process.env[`ELEVENLABS_KB_URL_DEFAULT`]?.trim();
+  if (!url) return null;
+
+  const docIdEnv = process.env[`ELEVENLABS_KB_DOC_ID_${key}`]?.trim();
+  const docNameEnv = process.env[`ELEVENLABS_KB_DOC_NAME_${key}`]?.trim();
   const ragModel =
-    process.env[`ELEVENLABS_KB_RAG_MODEL_${key}`] ||
-    process.env.ELEVENLABS_KB_DEFAULT_MODEL;
+    process.env[`ELEVENLABS_KB_RAG_MODEL_${key}`]?.trim() ||
+    process.env.ELEVENLABS_KB_DEFAULT_MODEL?.trim();
+
+  const stored = await getKnowledgeBaseState(clientSlug);
+
   return {
-    documentId,
-    documentName: documentName?.trim() ? documentName : undefined,
-    ragModel: ragModel?.trim() ? ragModel : undefined,
+    url: stored?.sourceUrl?.trim() || url,
+    documentId: stored?.documentId || docIdEnv || undefined,
+    documentName: stored?.documentName || docNameEnv || undefined,
+    ragModel,
   };
 }

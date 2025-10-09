@@ -743,16 +743,18 @@ async function appendClientConversationRecord(
   );
 }
 
-function scheduleKnowledgeBaseRefresh(clientSlug: string) {
-  const config = getKnowledgeBaseConfig(clientSlug);
+async function scheduleKnowledgeBaseRefresh(clientSlug: string) {
+  const config = await getKnowledgeBaseConfig(clientSlug);
   if (!config) {
     console.log(
       "[post-call] No knowledge base config; skipping refresh",
       JSON.stringify({ clientSlug })
     );
-    return Promise.resolve();
+    return;
   }
-  return refreshKnowledgeBaseDocument({
+  await refreshKnowledgeBaseDocument({
+    clientSlug,
+    url: config.url,
     documentId: config.documentId,
     documentName: config.documentName,
     ragModel: config.ragModel,

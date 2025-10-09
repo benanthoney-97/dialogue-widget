@@ -1,60 +1,39 @@
 // app/lib/elevenLabsKnowledgeBase.ts
 
+import {
+  setKnowledgeBaseState,
+  getKnowledgeBaseState,
+} from "@/app/lib/clientKnowledgeBaseState";
+
 const ELEVENLABS_API_BASE =
   process.env.ELEVENLABS_API_BASE?.replace(/\/+$/, "") ||
   "https://api.elevenlabs.io";
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 type RefreshOptions = {
-  documentId: string;
+  clientSlug: string;
+  url: string;
+  documentId?: string;
   documentName?: string;
   ragModel?: string;
 };
 
-async function fetchDocumentInfo(documentId: string) {
-  if (!ELEVENLABS_API_KEY) return null;
-  try {
-    const res = await fetch(
-      `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/${documentId}`,
-      {
-        method: "GET",
-        headers: {
-          "xi-api-key": ELEVENLABS_API_KEY,
-        },
-      }
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as { name?: string } | null;
-  } catch (error) {
-    console.warn(
-      "[elevenLabs] Failed to fetch knowledge base document info",
-      JSON.stringify({
-        documentId,
-        message: (error as Error)?.message,
-      })
-    );
-    return null;
-  }
-}
-
-async function updateDocumentName(documentId: string, name: string) {
+async function deleteDocument(documentId: string) {
   if (!ELEVENLABS_API_KEY) return;
   try {
     const res = await fetch(
-      `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/${documentId}`,
+      `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/${documentId}?force=true`,
       {
-        method: "PATCH",
+        method: "DELETE",
         headers: {
           "xi-api-key": ELEVENLABS_API_KEY,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
       }
     );
-    if (!res.ok) {
+    if (!res.ok && res.status !== 404) {
       const text = await res.text().catch(() => "");
       console.warn(
-        "[elevenLabs] Failed to update knowledge base document name",
+        "[elevenLabs] Failed to delete knowledge base document",
         JSON.stringify({
           documentId,
           status: res.status,
@@ -65,7 +44,7 @@ async function updateDocumentName(documentId: string, name: string) {
     }
   } catch (error) {
     console.warn(
-      "[elevenLabs] Error updating knowledge base document",
+      "[elevenLabs] Error deleting knowledge base document",
       JSON.stringify({
         documentId,
         message: (error as Error)?.message,
@@ -74,15 +53,68 @@ async function updateDocumentName(documentId: string, name: string) {
   }
 }
 
+async function createDocumentFromUrl(url: string, name?: string | null) {
+  if (!ELEVENLABS_API_KEY) return null;
+  try {
+    const res = await fetch(
+      `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/url`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+          name: name?.trim() ? name.trim() : null,
+        }),
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(
+        "[elevenLabs] Failed to create knowledge base document from URL",
+        JSON.stringify({
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          text,
+        })
+      );
+      return null;
+    }
+    const data = (await res.json().catch(() => null)) as
+      | { id?: string; name?: string }
+      | null;
+    if (!data?.id) {
+      console.error(
+        "[elevenLabs] Invalid response when creating document from URL",
+        JSON.stringify({ url })
+      );
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error(
+      "[elevenLabs] Error creating document from URL",
+      JSON.stringify({
+        url,
+        message: (error as Error)?.message,
+      })
+    );
+    return null;
+  }
+}
+
 async function computeRagIndex(documentId: string, model: string) {
   if (!ELEVENLABS_API_KEY) return;
-  const url = `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/${documentId}/rag/compute`;
+  const endpoint = `${ELEVENLABS_API_BASE}/v1/convai/knowledge-base/${documentId}/rag/compute`;
   let attempt = 0;
   const maxAttempts = 6;
   while (attempt < maxAttempts) {
     attempt += 1;
     try {
-      const res = await fetch(url, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "xi-api-key": ELEVENLABS_API_KEY,
@@ -137,6 +169,8 @@ async function computeRagIndex(documentId: string, model: string) {
 }
 
 export async function refreshKnowledgeBaseDocument({
+  clientSlug,
+  url,
   documentId,
   documentName,
   ragModel = "e5_mistral_7b_instruct",
@@ -145,18 +179,32 @@ export async function refreshKnowledgeBaseDocument({
     console.warn("[elevenLabs] Missing ELEVENLABS_API_KEY; skipping KB refresh");
     return;
   }
-
-  let effectiveName = documentName;
-  if (!effectiveName) {
-    const info = await fetchDocumentInfo(documentId);
-    if (info?.name) {
-      effectiveName = info.name;
-    }
+  if (!url) {
+    console.warn(
+      "[elevenLabs] Missing URL for knowledge base refresh",
+      JSON.stringify({ clientSlug })
+    );
+    return;
   }
 
-  if (effectiveName) {
-    await updateDocumentName(documentId, effectiveName);
+  const nameToUse =
+    documentName ||
+    (await getKnowledgeBaseState(clientSlug))?.documentName ||
+    null;
+
+  if (documentId) {
+    await deleteDocument(documentId);
   }
 
-  await computeRagIndex(documentId, ragModel);
+  const created = await createDocumentFromUrl(url, nameToUse);
+  if (!created?.id) return;
+
+  await setKnowledgeBaseState(clientSlug, {
+    documentId: created.id,
+    documentName: created.name ?? nameToUse,
+    sourceUrl: url,
+    updatedAt: new Date().toISOString(),
+  });
+
+  await computeRagIndex(created.id, ragModel);
 }
