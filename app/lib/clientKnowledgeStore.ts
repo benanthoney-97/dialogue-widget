@@ -125,14 +125,15 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
 
   await deleteExistingBlob(key);
 
-  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}?addRandomSuffix=false`;
+  const url = `${BLOB_WRITE_BASE_URL}`;
   const res = await fetch(url, {
-    method: "PUT",
+    method: "POST",
     headers: {
       Authorization: `Bearer ${BLOB_TOKEN}`,
       "Content-Type": "application/json",
       "x-vercel-blob-access": "public",
       "x-vercel-blob-add-random-suffix": "false",
+      "x-vercel-blob-name": encodePath(key),
       "x-vercel-blob-overwrite": "true",
     },
     body: JSON.stringify(payload),
