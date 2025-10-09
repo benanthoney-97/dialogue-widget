@@ -14,7 +14,7 @@ export const clientMap: Record<string, ClientEntry> = {
     slugKeys: ["convergence-ai-dlt-cc"],
     description:
       "Executive insights drawn from the Convergence of AI and Distributed Ledger Technology interactive report.",
-    clientAgentId: "agent_client_clifford_chance_insights",
+    clientAgentId: "agent_3201k728gsbtfdqsbgvnhxvvmtzz",
   },
 };
 
