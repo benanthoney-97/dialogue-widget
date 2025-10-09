@@ -79,6 +79,7 @@ export async function appendConversationRecord(
     conversations,
   };
 
+  await purgeClientBlobs(clientSlug);
   await writeBlob(getBlobKey(clientSlug), payload);
 }
 
@@ -124,7 +125,7 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
 
   await deleteExistingBlob(key);
 
-  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}`;
+  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}?addRandomSuffix=false`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
@@ -145,16 +146,20 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
     );
     throw new Error(`Failed to write blob (${res.status})`);
   }
-
+  let result: any = null;
   try {
-    const result = await res.json();
-    console.log(
-      "[clientKnowledgeStore] Wrote blob",
-      JSON.stringify({ url: result?.url ?? url })
-    );
+    result = await res.json();
   } catch {
-    // ignore if no JSON body
+    result = null;
   }
+  console.log(
+    "[clientKnowledgeStore] Wrote blob",
+    JSON.stringify({
+      requestedUrl: url,
+      responseUrl: result?.url ?? null,
+      locationHeader: res.headers.get("location") ?? res.headers.get("content-location"),
+    })
+  );
 }
 
 function encodePath(pathname: string) {
@@ -217,6 +222,12 @@ async function fetchPublicClientKnowledge(clientSlug: string) {
       return null;
     }
     const payload = await res.json().catch(() => null);
+    if (!payload) {
+      console.warn(
+        "[clientKnowledgeStore] Public blob returned empty payload",
+        JSON.stringify({ clientSlug, url })
+      );
+    }
     return parseClientKnowledgePayload(payload, { clientSlug, url });
   } catch (error) {
     console.error(
@@ -240,6 +251,10 @@ async function fetchLatestClientKnowledge(clientSlug: string) {
       } else {
         const latest = list[0];
         const url = latest.url ?? latest.downloadUrl;
+        console.log(
+          "[clientKnowledgeStore] Using latest blob",
+          JSON.stringify({ clientSlug, url })
+        );
         if (url) {
           const res = await fetch(url, { method: "GET", cache: "no-store" });
           if (res.ok) {
@@ -269,7 +284,20 @@ async function fetchLatestClientKnowledge(clientSlug: string) {
     }
   }
 
-  return fetchPublicClientKnowledge(clientSlug);
+  const publicData = await fetchPublicClientKnowledge(clientSlug);
+  if (publicData) {
+    console.log(
+      "[clientKnowledgeStore] Served client data from public blob",
+      JSON.stringify({ clientSlug })
+    );
+  }
+  if (!publicData) {
+    console.warn(
+      "[clientKnowledgeStore] Falling back to empty payload after public fetch failed",
+      JSON.stringify({ clientSlug })
+    );
+  }
+  return publicData;
 }
 
 async function listClientBlobs(prefix: string, limit: number) {
@@ -300,4 +328,40 @@ async function listClientBlobs(prefix: string, limit: number) {
     const bDate = b?.uploadedAt ? Date.parse(b.uploadedAt) : 0;
     return bDate - aDate;
   });
+}
+
+async function purgeClientBlobs(clientSlug: string) {
+  if (!BLOB_TOKEN) return;
+  try {
+    const blobs = await listClientBlobs(`${STORAGE_PREFIX}/${clientSlug}`, 25);
+    const deletions = blobs.map(async (blob) => {
+      const targetUrl = blob.url ?? blob.downloadUrl;
+      if (!targetUrl) return;
+      const keyPath = new URL(targetUrl).pathname.replace(/^\/+/, "");
+      const deleteUrl = `${BLOB_WRITE_BASE_URL}/${keyPath}`;
+      const res = await fetch(deleteUrl, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${BLOB_TOKEN}` },
+      });
+      if (!res.ok && res.status !== 404) {
+        const text = await res.text().catch(() => "");
+        console.warn(
+          "[clientKnowledgeStore] Failed to delete blob during purge",
+          JSON.stringify({
+            clientSlug,
+            url: deleteUrl,
+            status: res.status,
+            statusText: res.statusText,
+            text,
+          })
+        );
+      }
+    });
+    await Promise.allSettled(deletions);
+  } catch (error) {
+    console.warn(
+      "[clientKnowledgeStore] Error purging blobs",
+      JSON.stringify({ clientSlug, message: (error as Error)?.message })
+    );
+  }
 }
