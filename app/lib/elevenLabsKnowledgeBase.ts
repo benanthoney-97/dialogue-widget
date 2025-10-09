@@ -41,6 +41,11 @@ async function deleteDocument(documentId: string) {
           text,
         })
       );
+    } else {
+      console.log(
+        "[elevenLabs] Deleted knowledge base document",
+        JSON.stringify({ documentId, status: res.status })
+      );
     }
   } catch (error) {
     console.warn(
@@ -93,6 +98,10 @@ async function createDocumentFromUrl(url: string, name?: string | null) {
       );
       return null;
     }
+    console.log(
+      "[elevenLabs] Created knowledge base document from URL",
+      JSON.stringify({ url, documentId: data.id })
+    );
     return data;
   } catch (error) {
     console.error(

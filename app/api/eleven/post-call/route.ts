@@ -752,6 +752,14 @@ async function scheduleKnowledgeBaseRefresh(clientSlug: string) {
     );
     return;
   }
+  console.log(
+    "[post-call] Refreshing knowledge base",
+    JSON.stringify({
+      clientSlug,
+      url: config.url,
+      documentId: config.documentId ?? null,
+    })
+  );
   await refreshKnowledgeBaseDocument({
     clientSlug,
     url: config.url,
