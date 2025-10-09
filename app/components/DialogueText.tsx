@@ -17,14 +17,13 @@ type Props = {
   buttonColor?: string;
   buttonTextColor?: string;
   buttonBorderColor?: string;
-  title?: string;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
 
 type TranscriptMessage = {
   id: string;
-  role: "user" | "agent" | "system";
+  role: "user" | "assistant" | "system";
   text: string;
 };
 
@@ -32,8 +31,8 @@ type ClientEvent =
   | { type: "user_transcript"; text: string }
   | { type: "agent_response"; text: string };
 
-const MIN_TEXTAREA_HEIGHT = 40;
-const MAX_TEXTAREA_HEIGHT = 200;
+const MIN_TEXTAREA_HEIGHT = 44;
+const MAX_TEXTAREA_HEIGHT = 220;
 
 const makeMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -44,45 +43,40 @@ export default function DialogueText({
   agentId,
   useSignedUrl = true,
   serverLocation = "us",
-  buttonColor = "#525fe1",
-  buttonTextColor = "#ffffff",
+  buttonColor = "#60a5fa",
+  buttonTextColor = "#0f172a",
   buttonBorderColor,
-  title = "",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
   const [isNarrow, setIsNarrow] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [wasMutedBeforePause, setWasMutedBeforePause] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
   const lastLocalUserMessageRef = useRef<string>("");
   const lastRemoteUserTranscriptRef = useRef<string>("");
-  const lastAgentMessageIdRef = useRef<string | null>(null);
   const lastAgentResponseRef = useRef<string>("");
-
-  const handleScrollToBottom = useCallback(() => {
-    const el = transcriptRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, []);
-
-  useEffect(() => {
-    handleScrollToBottom();
-  }, [messages, handleScrollToBottom]);
+  const lastAgentMessageIdRef = useRef<string | null>(null);
+  const isAgentStreamingRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = matchMedia("(max-width: 428px)");
+    const mq = matchMedia("(max-width: 640px)");
     const apply = () => setIsNarrow(mq.matches);
     apply();
     mq.addEventListener?.("change", apply);
     return () => mq.removeEventListener?.("change", apply);
   }, []);
+
+  useEffect(() => {
+    const el = transcriptRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   useEffect(() => {
     const el = draftInputRef.current;
@@ -98,19 +92,16 @@ export default function DialogueText({
   const appendUserMessage = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const id = makeMessageId();
-    setMessages((prev) => [...prev, { id, role: "user", text: trimmed }]);
-    handleScrollToBottom();
-  }, [handleScrollToBottom]);
+    setMessages((prev) => [...prev, { id: makeMessageId(), role: "user", text: trimmed }]);
+  }, []);
 
   const appendAgentMessage = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const id = makeMessageId();
     lastAgentMessageIdRef.current = id;
-    setMessages((prev) => [...prev, { id, role: "agent", text: trimmed }]);
-    handleScrollToBottom();
-  }, [handleScrollToBottom]);
+    setMessages((prev) => [...prev, { id, role: "assistant", text: trimmed }]);
+  }, []);
 
   const replaceLastAgentMessage = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -122,8 +113,7 @@ export default function DialogueText({
       next[idx] = { ...next[idx], text: trimmed };
       return next;
     });
-    handleScrollToBottom();
-  }, [handleScrollToBottom]);
+  }, []);
 
   const handleClientEvent = useCallback(
     ({ type, text }: ClientEvent) => {
@@ -141,47 +131,64 @@ export default function DialogueText({
         return;
       }
 
-      if (trimmed === lastAgentResponseRef.current) return;
+      if (trimmed === lastAgentResponseRef.current) {
+        isAgentStreamingRef.current = false;
+        return;
+      }
       lastAgentResponseRef.current = trimmed;
-      appendAgentMessage(trimmed);
+      if (isAgentStreamingRef.current && lastAgentMessageIdRef.current) {
+        replaceLastAgentMessage(trimmed);
+      } else {
+        appendAgentMessage(trimmed);
+      }
+      isAgentStreamingRef.current = false;
     },
-    [appendAgentMessage, appendUserMessage]
+    [appendAgentMessage, appendUserMessage, replaceLastAgentMessage]
   );
 
   const handleAgentCorrection = useCallback(
-    (text: string | undefined) => {
+    (text?: string) => {
       const trimmed = text?.trim();
       if (!trimmed) return;
       lastAgentResponseRef.current = trimmed;
       replaceLastAgentMessage(trimmed);
+      isAgentStreamingRef.current = false;
     },
     [replaceLastAgentMessage]
   );
 
-  const {
-    startSession,
-    endSession,
-    status,
-    sendUserActivity,
-    sendUserMessage,
-  } = useConversation({
+  const handleAgentTentative = useCallback(
+    (text?: string) => {
+      const trimmed = text?.trim();
+      if (!trimmed) return;
+      if (!isAgentStreamingRef.current || !lastAgentMessageIdRef.current) {
+        isAgentStreamingRef.current = true;
+        lastAgentResponseRef.current = trimmed;
+        appendAgentMessage(trimmed);
+        return;
+      }
+      if (trimmed === lastAgentResponseRef.current) return;
+      lastAgentResponseRef.current = trimmed;
+      replaceLastAgentMessage(trimmed);
+    },
+    [appendAgentMessage, replaceLastAgentMessage]
+  );
+
+  const { startSession, endSession, status, sendUserMessage } = useConversation({
     serverLocation,
     onConnect: () => {
+      console.log("[DialogueText] Connected", { agentId, serverLocation });
       setPhase("connected");
-      setMicMuted(false);
-      setIsPaused(false);
-      setWasMutedBeforePause(false);
     },
     onDisconnect: () => {
+      console.log("[DialogueText] Disconnected");
       setPhase("ready");
-      setMicMuted(false);
-      setIsPaused(false);
-      setWasMutedBeforePause(false);
     },
-    onError: (e: unknown) =>
-      setErr(e instanceof Error ? e.message : String(e)),
+    onError: (error: unknown) =>
+      setErr(error instanceof Error ? error.message : String(error ?? "Unknown error")),
     onMessage: ({ source, message }) => {
       const text = message ?? "";
+      console.log("[DialogueText] onMessage", { source, text });
       if (source === "user") {
         handleClientEvent({ type: "user_transcript", text });
       } else {
@@ -194,10 +201,24 @@ export default function DialogueText({
         handleAgentCorrection(
           event.agent_response_correction_event?.corrected_agent_response
         );
+        return;
+      }
+      if (event.type === "tentative_agent_response") {
+        handleAgentTentative(
+          typeof event.response === "string"
+            ? event.response
+            : event.tentative_agent_response_internal_event?.tentative_agent_response
+        );
       }
     },
-    micMuted,
+    micMuted: true,
   });
+
+  const endSessionRef = useRef(endSession);
+
+  useEffect(() => {
+    endSessionRef.current = endSession;
+  }, [endSession]);
 
   useEffect(() => {
     const s = String(status);
@@ -206,28 +227,28 @@ export default function DialogueText({
     else setPhase("ready");
   }, [status]);
 
-  async function ensureMicPerms() {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e) {
-      console.error("Mic permission error:", e);
-    }
-  }
+  useEffect(() => {
+    return () => {
+      const end = endSessionRef.current;
+      if (end) {
+        end().catch(() => undefined);
+      }
+    };
+  }, []);
 
   const connect = useCallback(async () => {
     try {
-      setErr("");
+      if (String(status) === "connected" || String(status) === "connecting") return;
       setPhase("connecting");
-      setMicMuted(false);
-      setIsPaused(false);
-      setWasMutedBeforePause(false);
-      await ensureMicPerms();
-
       if (useSignedUrl) {
         const res = await fetch(
           `/api/eleven/get-signed-url?agent_id=${encodeURIComponent(agentId)}`
         );
         const data = await res.json();
+        console.log("[DialogueText] Signed URL response", {
+          status: res.status,
+          ok: res.ok,
+        });
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
         await startSession({
@@ -235,138 +256,86 @@ export default function DialogueText({
           connectionType: "websocket",
         });
       } else {
-        await startSession({ agentId, connectionType: "websocket" });
+        await startSession({
+          agentId,
+          connectionType: "websocket",
+        });
       }
-
       setPhase("connected");
-    } catch (e: any) {
-      setErr(e?.message || String(e));
+    } catch (error) {
       setPhase("ready");
-      throw e;
+      throw error;
     }
-  }, [agentId, startSession, useSignedUrl]);
+  }, [agentId, startSession, status, useSignedUrl]);
 
-  const disconnect = useCallback(async () => {
-    try {
-      await endSession();
-      setPhase("ready");
-      setMicMuted(false);
-      setIsPaused(false);
-      setWasMutedBeforePause(false);
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-    }
-  }, [endSession]);
+  const handleSend = useCallback(async () => {
+    const text = draft.trim();
+    if (!text || isSending) return;
 
-  const handleStop = useCallback(async () => {
+    setDraft("");
+    appendUserMessage(text);
+    lastLocalUserMessageRef.current = text;
+    setIsSending(true);
+    setErr("");
+
     try {
-      await disconnect();
+      await connect();
+      console.log("[DialogueText] Sending message", { text });
+      await sendUserMessage?.(text);
+    } catch (error) {
+      console.error("[DialogueText] Failed to send", error);
+      setErr(error instanceof Error ? error.message : String(error ?? "Unknown error"));
       setMessages((prev) => [
         ...prev,
         {
           id: makeMessageId(),
           role: "system",
-          text: "You ended the dialogue.",
+          text: "Sorry, I couldn't send that message. Please try again.",
         },
       ]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [appendUserMessage, connect, draft, isSending, sendUserMessage]);
+
+  const handleEndCall = useCallback(async () => {
+    if (isEnding) return;
+    const end = endSessionRef.current;
+    if (!end) return;
+    setErr("");
+    setIsEnding(true);
+    isAgentStreamingRef.current = false;
+    lastAgentMessageIdRef.current = null;
+    try {
+      await end();
+      setPhase("ready");
     } catch (error) {
-      console.error("Failed to end session", error);
+      console.error("[DialogueText] Failed to end session", error);
+      setErr(
+        error instanceof Error ? error.message : String(error ?? "Unknown error")
+      );
+    } finally {
+      setIsEnding(false);
     }
-  }, [disconnect]);
+  }, [isEnding]);
 
-  const onMicClick = useCallback(async () => {
-    if (String(status) !== "connected") {
-      try {
-        await connect();
-      } catch (error) {
-        console.error("Failed to connect", error);
-      }
-    } else {
-      sendUserActivity();
-    }
-  }, [connect, sendUserActivity, status]);
+  const containerWidth = useMemo(() => (isNarrow ? "100%" : "100%"), [isNarrow]);
 
-  const connected = String(status) === "connected";
-  const talkBackground = buttonColor;
-  const talkTextColor = buttonTextColor;
-
-  const containerMaxWidth = useMemo(
-    () => (isNarrow ? "100%" : 520),
-    [isNarrow]
-  );
-
-  const showConversationUI = connected || messages.length > 0 || draft.trim().length > 0;
-  const cardWidth = isNarrow ? "100%" : "420px";
-  const containerWidth = showConversationUI ? cardWidth : containerMaxWidth;
-
-  const renderTalkButton = () => {
-    if (connected) return null;
-    return (
-      <button
-        type="button"
-        onClick={async () => {
-          if (phase !== "connecting") await onMicClick();
-        }}
-        aria-label="Connect and start talking"
-        title="Connect and talk"
-        disabled={phase === "connecting"}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          padding: "0 12px",
-          height: 40,
-          minWidth: isNarrow ? 90 : 110,
-          borderRadius: 12,
-          border: `1px solid ${buttonBorderColor ?? "rgba(0,0,0,.06)"}`,
-          background: phase === "connecting" ? "#d1d5db" : talkBackground,
-          color: talkTextColor,
-          fontWeight: 700,
-          cursor: phase === "connecting" ? "default" : "pointer",
-          transition: "background .15s ease, opacity .15s ease",
-          opacity: phase === "connecting" ? 0.7 : 1,
-          flexShrink: 0,
-        }}
-      >
-        {phase === "connecting" ? (
-          <span>Connecting</span>
-        ) : (
-          <>
-            <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-              <rect x="2" y="6" width="3" height="8" rx="1" fill="currentColor" />
-              <rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
-              <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
-            </svg>
-            <span>Talk</span>
-          </>
-        )}
-      </button>
-    );
-  };
-
-  const talkButtonElement = renderTalkButton();
-
-  const actionRowStyle: CSSProperties = {
+  const transcriptStyle: CSSProperties = {
+    padding: isNarrow ? 12 : 16,
+    overflowY: "auto",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 10,
-    flexWrap: "wrap",
+    flexDirection: "column",
+    gap: 12,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+    background: "rgba(17, 24, 39, 0.55)",
+    borderRadius: 16,
+    border: "1px solid rgba(148, 163, 184, 0.25)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+    flex: "1 1 auto",
+    minHeight: 0,
   };
-
-  const talkButton = renderTalkButton();
-
-const transcriptStyle: CSSProperties = {
-  padding: isNarrow ? 10 : 14,
-  maxHeight: isNarrow ? "70vh" : "70vh",
-  overflowY: "auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  justifyContent: "flex-start",
-  alignItems: "stretch",
-};
 
   const messageBubble = (message: TranscriptMessage) => {
     if (message.role === "system") {
@@ -375,8 +344,9 @@ const transcriptStyle: CSSProperties = {
           key={message.id}
           style={{
             alignSelf: "center",
-            color: "#6b7280",
+            color: "#cbd5f5",
             fontSize: 12,
+            opacity: 0.75,
           }}
         >
           {message.text}
@@ -390,15 +360,14 @@ const transcriptStyle: CSSProperties = {
         style={{
           alignSelf: isUser ? "flex-end" : "flex-start",
           maxWidth: "85%",
-          background: isUser ? "#4f46e5" : "#e0e7ff",
-          color: isUser ? "#fff" : "#1e1b4b",
+          background: isUser ? buttonColor : "rgba(148, 163, 184, 0.16)",
+          color: isUser ? buttonTextColor : "#e2e8f0",
           padding: "10px 14px",
-          borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+          borderRadius: isUser ? "15px 15px 4px 15px" : "15px 15px 15px 4px",
           fontSize: 14,
-          lineHeight: 1.4,
-          textAlign: isUser ? "right" : "left",
-          boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+          lineHeight: 1.45,
           wordBreak: "break-word",
+          boxShadow: "0 6px 16px rgba(6, 10, 20, 0.35)",
         }}
       >
         {message.text}
@@ -406,230 +375,165 @@ const transcriptStyle: CSSProperties = {
     );
   };
 
-  async function handleSubmitMessage() {
-    const text = draft.trim();
-    if (!text) return;
-    setDraft("");
-    lastLocalUserMessageRef.current = text;
-    try {
-      if (!connected) {
-        await connect();
-      }
-      appendUserMessage(text);
-      await sendUserMessage?.(text);
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-    }
-  }
+  const sendDisabled = isSending || phase === "connecting" || isEnding;
 
   return (
     <div
       style={{
         width: containerWidth,
-        maxWidth: containerWidth,
         margin: "0 auto",
-        padding: isNarrow ? "0 8px" : "0 12px",
+        padding: isNarrow ? "0 8px" : "0",
         boxSizing: "border-box",
-        textAlign: "center",
-        fontFamily: '"Cooper Light BT", "Cooper Lt BT", "Cooper", serif',
-        fontWeight: 500,
-        letterSpacing: "0.02em",
-        WebkitFontSmoothing: "antialiased",
-        MozOsxFontSmoothing: "grayscale",
+        display: "flex",
+        flexDirection: "column",
+        flex: "1 1 auto",
+        height: "100%",
+        minHeight: 0,
       }}
     >
-      {title ? (
-        <div
-          style={{
-            fontSize: isNarrow ? 16 : 18,
-            fontWeight: 700,
-            color: "#111827",
-            marginBottom: 12,
-          }}
-        >
-          {title}
-        </div>
-      ) : null}
-
-      {showConversationUI ? (
-        <div
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            border: `1px solid ${buttonBorderColor ?? "rgba(0,0,0,.08)"}`,
-            borderRadius: 16,
-            boxShadow: "0 12px 32px rgba(0,0,0,.12)",
-            backdropFilter: "saturate(1.1) blur(6px)",
-            WebkitBackdropFilter: "saturate(1.1) blur(6px)",
-            padding: isNarrow ? 12 : 16,
-            marginTop: 16,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            width: "100%",
-            minHeight: isNarrow ? undefined : "60vh",
-            maxHeight: isNarrow ? undefined : "60vh",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          <div
-            ref={transcriptRef}
-            style={{
-              ...transcriptStyle,
-              flex: 1,
-              minHeight: 0,
-              width: "100%",
-              overflowY: "auto",
-              justifyContent: "flex-start",
-            }}
-            aria-live="polite"
-          >
-            {messages.map((message) => messageBubble(message))}
-          </div>
-
-          <div
-            style={{
-              marginTop: "auto",
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 12,
-              width: "100%",
-              flexShrink: 0,
-            }}
-          >
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (phase !== "connecting") {
-                  void handleSubmitMessage();
-                }
-              }}
+      <div
+        style={{
+          background: "rgba(11, 18, 32, 0.9)",
+          border: `1px solid ${buttonBorderColor ?? "rgba(148, 163, 184, 0.28)"}`,
+          borderRadius: 20,
+          boxShadow: "0 24px 48px rgba(7, 11, 23, 0.65)",
+          padding: isNarrow ? 16 : 20,
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          width: "100%",
+          flex: "1 1 auto",
+          minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
+        <div ref={transcriptRef} style={transcriptStyle} aria-live="polite">
+          {messages.length ? (
+            messages.map((message) => messageBubble(message))
+          ) : (
+            <div
               style={{
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 10,
-                background: "rgba(255,255,255,0.9)",
-                borderRadius: 14,
-                border: "1px solid rgba(82,95,225,0.18)",
-                padding: 0,
-                flex: 1,
-                minWidth: 0,
+                color: "rgba(226, 232, 240, 0.65)",
+                fontSize: 14,
               }}
-              >
-                <textarea
-                  ref={draftInputRef}
-                  value={draft}
-                  onChange={(event) => {
-                    setDraft(event.target.value);
-                    sendUserActivity();
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      if (phase !== "connecting") {
-                        void handleSubmitMessage();
-                      }
-                    }
-                  }}
-                  placeholder="Type a message..."
-                  aria-label="Type a message"
-                  rows={1}
-                  style={{
-                    flex: 1,
-                    minHeight: MIN_TEXTAREA_HEIGHT,
-                    height: MIN_TEXTAREA_HEIGHT,
-                    resize: "none",
-                    border: "none",
-                    outline: "none",
-                    fontSize: 14,
-                    lineHeight: 1.4,
-                    color: "#111827",
-                    background: "transparent",
-                    overflow: "hidden",
-                    padding: "10px 12px",
-                    boxSizing: "border-box",
-                  }}
-                  onInput={(event) => {
-                    const el = event.currentTarget;
-                    el.style.height = "auto";
-                    const nextHeight = Math.max(
-                      MIN_TEXTAREA_HEIGHT,
-                      Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)
-                    );
-                    el.style.height = `${nextHeight}px`;
-                  }}
-                />
-              {draft.trim() ? (
-                <button
-                  type="submit"
-                  disabled={phase === "connecting"}
-                  aria-label="Send message"
-                  style={{
-                    padding: "0 12px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "transparent",
-                    color: talkBackground,
-                    cursor: phase === "connecting" ? "not-allowed" : "pointer",
-                    transition: "background .15s ease, color .15s ease",
-                    height: 40,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M2.294 3.353a1 1 0 0 1 1.053-.162l13 5.5a1 1 0 0 1 0 1.818l-13 5.5A1 1 0 0 1 2 15.1V4.9a1 1 0 0 1 .294-.647ZM4 6.618v6.764L12.382 10 4 6.618Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </button>
-              ) : null}
-            </form>
-
-            {connected ? (
-              <button
-                type="button"
-                onClick={handleStop}
-                aria-label="End call"
-                title="End call"
-                style={{
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  background: "rgba(239, 68, 68, 0.12)",
-                  color: "#b91c1c",
-                  cursor: "pointer",
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: 40,
-                  transition: "background .15s ease, color .15s ease",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-                  <rect x="3" y="3" width="10" height="10" rx="3" fill="currentColor" />
-                </svg>
-              </button>
-            ) : (
-              talkButtonElement
-            )}
-          </div>
+            >
+              Ask a question to see engagement insights powered by your knowledge feed.
+            </div>
+          )}
         </div>
-      ) : (
-        <div style={actionRowStyle}>{talkButtonElement}</div>
-      )}
 
-      {err && (
-        <div style={{ color: "#b91c1c", fontSize: 14, marginTop: 12 }}>{err}</div>
-      )}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSend();
+          }}
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 12,
+            background: "rgba(17, 28, 52, 0.9)",
+            borderRadius: 16,
+            border: "1px solid rgba(148, 163, 184, 0.35)",
+            padding: "10px 12px",
+            marginTop: "auto",
+          }}
+        >
+          <textarea
+            ref={draftInputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void handleSend();
+              }
+            }}
+            placeholder="Type your question…"
+            aria-label="Type your question"
+            rows={1}
+            style={{
+              flex: 1,
+              minHeight: MIN_TEXTAREA_HEIGHT,
+              resize: "none",
+              border: "none",
+              outline: "none",
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: "#e2e8f0",
+              background: "transparent",
+              overflow: "hidden",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "nowrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                void handleEndCall();
+              }}
+              disabled={phase !== "connected" || isEnding}
+              style={{
+                padding: "0 14px",
+                height: 42,
+                borderRadius: 12,
+                border: "1px solid rgba(239, 68, 68, 0.45)",
+                background:
+                  phase !== "connected" || isEnding
+                    ? "rgba(239, 68, 68, 0.15)"
+                    : "rgba(239, 68, 68, 0.85)",
+                color:
+                  phase !== "connected" || isEnding
+                    ? "rgba(248, 250, 252, 0.65)"
+                    : "#f8fafc",
+                cursor:
+                  phase !== "connected" || isEnding ? "not-allowed" : "pointer",
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 110,
+                transition:
+                  "background .18s ease, color .18s ease, opacity .18s ease",
+              }}
+            >
+              {isEnding ? "Ending…" : "End call"}
+            </button>
+            <button
+              type="submit"
+              disabled={sendDisabled || !draft.trim()}
+              style={{
+                padding: "0 16px",
+                height: 42,
+                borderRadius: 12,
+                border: "1px solid rgba(59, 130, 246, 0.45)",
+                background: sendDisabled ? "rgba(148, 163, 184, 0.2)" : buttonColor,
+                color: sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor,
+                cursor: sendDisabled ? "not-allowed" : "pointer",
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 110,
+                transition:
+                  "background .18s ease, color .18s ease, opacity .18s ease",
+              }}
+            >
+              {sendDisabled ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </form>
+
+        {err ? (
+          <div style={{ color: "#fca5a5", fontSize: 13 }}>{err}</div>
+        ) : null}
+      </div>
     </div>
   );
 }

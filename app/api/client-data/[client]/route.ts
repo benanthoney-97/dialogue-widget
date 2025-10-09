@@ -10,7 +10,7 @@ export async function GET(
   context: { params: Promise<{ client: string }> }
 ) {
   const params = await context.params;
-  const clientSlug = params.client;
+  const clientSlug = params.client?.toLowerCase();
   if (!clientSlug || !clientMap[clientSlug]) {
     return NextResponse.json(
       { error: "Unknown client slug", client: clientSlug },

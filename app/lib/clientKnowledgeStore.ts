@@ -139,46 +139,87 @@ function encodePath(pathname: string) {
     .join("/");
 }
 
-async function fetchLatestClientKnowledge(clientSlug: string) {
-  if (!BLOB_TOKEN) return null;
-  const prefix = `${STORAGE_PREFIX}/${clientSlug}`;
+function parseClientKnowledgePayload(
+  data: unknown,
+  meta: { clientSlug: string; url: string }
+): ClientKnowledgePayload | null {
+  if (!data || typeof data !== "object" || !Array.isArray((data as any).conversations)) {
+    console.error(
+      "[clientKnowledgeStore] Invalid blob payload",
+      JSON.stringify(meta)
+    );
+    return null;
+  }
+  return data as ClientKnowledgePayload;
+}
+
+async function fetchPublicClientKnowledge(clientSlug: string) {
+  const key = getBlobKey(clientSlug);
+  const url = `${BLOB_PUBLIC_BASE_URL}/${encodePath(key)}?ts=${Date.now()}`;
   try {
-    const list = await listClientBlobs(prefix, 1);
-    if (!list.length) {
-      console.log(
-        "[clientKnowledgeStore] No existing blobs for client",
-        JSON.stringify({ clientSlug })
-      );
-      return null;
-    }
-    const latest = list[0];
-    const url = latest.url ?? latest.downloadUrl;
-    if (!url) return null;
     const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (res.status === 404) return null;
     if (!res.ok) {
       console.error(
-        "[clientKnowledgeStore] Failed to fetch latest blob",
+        "[clientKnowledgeStore] Failed to fetch public blob",
         JSON.stringify({ clientSlug, url, status: res.status, statusText: res.statusText })
       );
       return null;
     }
-    const data = (await res.json()) as ClientKnowledgePayload;
-    if (!data || typeof data !== "object" || !Array.isArray(data.conversations)) {
-      console.error(
-        "[clientKnowledgeStore] Invalid blob payload",
-        JSON.stringify({ clientSlug, url })
-      );
-      return null;
-    }
-    return data;
+    const payload = await res.json().catch(() => null);
+    return parseClientKnowledgePayload(payload, { clientSlug, url });
   } catch (error) {
-    if (isNotFoundError(error)) return null;
     console.error(
-      "[clientKnowledgeStore] Failed to load latest client knowledge",
-      error
+      "[clientKnowledgeStore] Error fetching public blob",
+      JSON.stringify({ clientSlug, url, message: (error as Error)?.message })
     );
     return null;
   }
+}
+
+async function fetchLatestClientKnowledge(clientSlug: string) {
+  if (BLOB_TOKEN) {
+    const prefix = `${STORAGE_PREFIX}/${clientSlug}`;
+    try {
+      const list = await listClientBlobs(prefix, 1);
+      if (!list.length) {
+        console.log(
+          "[clientKnowledgeStore] No existing blobs for client",
+          JSON.stringify({ clientSlug })
+        );
+      } else {
+        const latest = list[0];
+        const url = latest.url ?? latest.downloadUrl;
+        if (url) {
+          const res = await fetch(url, { method: "GET", cache: "no-store" });
+          if (res.ok) {
+            const payload = await res.json().catch(() => null);
+            const parsed = parseClientKnowledgePayload(payload, { clientSlug, url });
+            if (parsed) return parsed;
+          } else {
+            console.error(
+              "[clientKnowledgeStore] Failed to fetch latest blob",
+              JSON.stringify({
+                clientSlug,
+                url,
+                status: res.status,
+                statusText: res.statusText,
+              })
+            );
+          }
+        }
+      }
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        console.error(
+          "[clientKnowledgeStore] Failed to load latest client knowledge",
+          error
+        );
+      }
+    }
+  }
+
+  return fetchPublicClientKnowledge(clientSlug);
 }
 
 async function listClientBlobs(prefix: string, limit: number) {
