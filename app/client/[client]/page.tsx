@@ -578,6 +578,30 @@ export default function ClientInsightsChat() {
   const hasHomeVolume = homeChartRows.some((row) => row.count > 0);
 
   const totalConversationsCount = useMemo(() => conversations.length, [conversations]);
+  const totalConversationSeconds = useMemo(() => {
+    let total = 0;
+    conversations.forEach((conversation) => {
+      const value = conversation.callDurationSecs;
+      if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        total += value;
+      }
+    });
+    return total;
+  }, [conversations]);
+
+  const formatSecondsAsDuration = useMemo(() => {
+    return (seconds: number) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      const parts: string[] = [];
+      if (hours) parts.push(`${hours}h`);
+      if (minutes) parts.push(`${minutes}m`);
+      if (secs || !parts.length) parts.push(`${secs}s`);
+      return parts.join(" ");
+    };
+  }, []);
 
   useEffect(() => {
     if (!filteredConversations.length) {
@@ -998,6 +1022,28 @@ export default function ClientInsightsChat() {
                 <span style={{ fontSize: 26, fontWeight: 700 }}>{totalConversationsCount}</span>
                 <span style={{ fontSize: 12, color: "rgba(226, 232, 240, 0.6)" }}>
                   Across all customer agents
+                </span>
+              </div>
+              <div
+                style={{
+                  background: "rgba(37, 58, 96, 0.65)",
+                  border: "1px solid rgba(56, 189, 248, 0.35)",
+                  borderRadius: 16,
+                  padding: "16px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  boxShadow: "0 6px 18px rgba(8, 20, 39, 0.35)",
+                }}
+              >
+                <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1.1 }}>
+                  Total conversation time
+                </span>
+                <span style={{ fontSize: 26, fontWeight: 700 }}>
+                  {formatSecondsAsDuration(totalConversationSeconds)}
+                </span>
+                <span style={{ fontSize: 12, color: "rgba(226, 232, 240, 0.6)" }}>
+                  Summed duration of captured calls
                 </span>
               </div>
             </div>
