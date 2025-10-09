@@ -11,7 +11,10 @@ export type ClientEntry = {
 export const clientMap: Record<string, ClientEntry> = {
   "clifford-chance": {
     displayName: "Clifford Chance",
-    slugKeys: ["convergence-ai-dlt-cc"],
+    slugKeys: [
+      "convergence-ai-dlt-cc",
+      "savills-2025-european-real-estate-logistics-consensus",
+    ],
     description:
       "Executive insights drawn from the Convergence of AI and Distributed Ledger Technology interactive report.",
     clientAgentId: "agent_3201k728gsbtfdqsbgvnhxvvmtzz",

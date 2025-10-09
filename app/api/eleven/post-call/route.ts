@@ -661,6 +661,15 @@ async function persistClientConversations({
       ? (payload.data as Record<string, unknown>)
       : null;
 
+  const metadata =
+    payload && typeof payload.metadata === "object" && payload.metadata !== null
+      ? (payload.metadata as Record<string, unknown>)
+      : null;
+  const rawDuration = metadata
+    ? (metadata as { call_duration_secs?: unknown }).call_duration_secs
+    : undefined;
+  const callDurationSecs = typeof rawDuration === "number" ? rawDuration : null;
+
   const analysis =
     data && typeof data === "object" && "analysis" in data && typeof (data as any).analysis === "object"
       ? ((data as { analysis: Record<string, unknown> }).analysis)
@@ -700,6 +709,7 @@ async function persistClientConversations({
     callId,
     agentId,
     capturedAt: new Date().toISOString(),
+    callDurationSecs,
     summarySubject,
     summary: summaryText,
     transcriptSummary: transcriptionSummary?.text ?? summary?.text ?? null,

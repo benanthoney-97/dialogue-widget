@@ -15,6 +15,7 @@ export type ConversationKnowledgeRecord = {
   agentId: string;
   clientSlug: string;
   capturedAt: string;
+  callDurationSecs?: number | null;
   summarySubject?: string | null;
   summary?: string | null;
   transcriptSummary?: string | null;

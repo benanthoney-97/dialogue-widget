@@ -2,6 +2,7 @@
 export type DocEntry = {
   pdfPath: string;        // legacy path under /public (kept for backwards compatibility)
   agentId: string;        // ElevenLabs Agent ID
+  agentName?: string;     // human-friendly agent name
   region?: "us" | "eu-residency" | "in-residency" | "global";
   auth?: "signed" | "public";
   url?: string;           // optional external URL to load in widget view
@@ -15,6 +16,7 @@ export const docMap: Record<string, DocEntry> = {
   "uk-spending-review-2025": {
     pdfPath: "",
     agentId: "agent_1601k522np07ey0bx6shfs65wvnk",
+    agentName: "Spending Review UK",
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Start Dialogue",
@@ -22,6 +24,7 @@ export const docMap: Record<string, DocEntry> = {
   "genai-adoption-he-students": {
     pdfPath: "/papers/genai-adoption-he-students.pdf",
     agentId: "agent_0201k5721624eje83256ywmc5g9v",    // <- fill in
+    agentName: "GenAI HE Students",
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Start Dialogue",
@@ -31,6 +34,7 @@ export const docMap: Record<string, DocEntry> = {
   "intro-linear-optimisation": {
     pdfPath: "/papers/intro-linear-optimisation.pdf",
     agentId: "agent_4901k57bjnnkefr8pvnbpsjgkx6t",
+    agentName: "Intro to Linear Optimisation",
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Begin Lecture",
@@ -38,21 +42,24 @@ export const docMap: Record<string, DocEntry> = {
     workLabel: "lecture",
   },
  "spending-review-june": {
-   pdfPath: "/papers/spending-review-june.pdf",
-   agentId: "agent_1601k522np07ey0bx6shfs65wvnk",
-   region: "eu-residency",
-   auth: "signed",
+  pdfPath: "/papers/spending-review-june.pdf",
+  agentId: "agent_1601k522np07ey0bx6shfs65wvnk",
+  agentName: "Spending Review June",
+  region: "eu-residency",
+  auth: "signed",
  },
  "klr-h1-25": {
-   pdfPath: "/papers/klr-h1-25.pdf",
-   agentId: "agent_6501k59ek962ekft13ah41dedzkq",
-   region: "eu-residency",
-   auth: "signed",
+  pdfPath: "/papers/klr-h1-25.pdf",
+  agentId: "agent_6501k59ek962ekft13ah41dedzkq",
+  agentName: "KLR H1 2025",
+  region: "eu-residency",
+  auth: "signed",
  },
   "srm-field-experiments": {
-   pdfPath: "/papers/srm-field-experiments.pdf",
-   agentId: "agent_6101k4d1wak5erk80jsmk1nfcjdc",
-   region: "eu-residency",
+  pdfPath: "/papers/srm-field-experiments.pdf",
+  agentId: "agent_6101k4d1wak5erk80jsmk1nfcjdc",
+  agentName: "SRM Field Experiments",
+  region: "eu-residency",
    auth: "signed",
  },
    "conflict-economy-sesame": {
@@ -64,6 +71,7 @@ export const docMap: Record<string, DocEntry> = {
   "convergence-ai-dlt-cc": {
     pdfPath: "/papers/convergence-ai-dlt.pdf",
     agentId: "agent_5501k5rqdhq7f789s213t7e7b60a",
+    agentName: "The Convergence of AI and Distributed Ledger Technology: Opportunities and Risks",
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Summary",
@@ -155,6 +163,7 @@ screenshotPath: "/screenshots/default.png",
      "savills-2025-european-real-estate-logistics-consensus": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_5501k6z36t98e4f9qh0nt92g15zy",
+   agentName: "Savills Logistics Consensus",
    region: "eu-residency",
     auth: "signed",
   talkLabel: "Summary",
