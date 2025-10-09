@@ -1,13 +1,22 @@
 // app/lib/clientKnowledgeStore.ts
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const DEFAULT_WRITE_BASE_URL = "https://blob.vercel-storage.com";
+
 const BLOB_PUBLIC_BASE_URL =
   process.env.BLOB_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
   process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
-  "https://blob.vercel-storage.com";
-const BLOB_WRITE_BASE_URL =
-  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") ||
-  BLOB_PUBLIC_BASE_URL.replace(/\.public(?=\.)/, "");
+  DEFAULT_WRITE_BASE_URL;
+
+let resolvedWriteBase =
+  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") || DEFAULT_WRITE_BASE_URL;
+if (
+  !resolvedWriteBase.endsWith("blob.vercel-storage.com") ||
+  resolvedWriteBase.includes(".public.")
+) {
+  resolvedWriteBase = DEFAULT_WRITE_BASE_URL;
+}
+const BLOB_WRITE_BASE_URL = resolvedWriteBase;
 
 export type ConversationKnowledgeRecord = {
   callId: string;
