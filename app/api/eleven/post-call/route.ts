@@ -5,6 +5,8 @@ import {
   appendConversationRecord,
   type ConversationKnowledgeRecord,
 } from "@/app/lib/clientKnowledgeStore";
+import { getKnowledgeBaseConfig } from "@/app/lib/clientKnowledgeBaseConfig";
+import { refreshKnowledgeBaseDocument } from "@/app/lib/elevenLabsKnowledgeBase";
 
 export const runtime = "nodejs";
 
@@ -659,8 +661,20 @@ async function persistClientConversations({
       ? (payload.data as Record<string, unknown>)
       : null;
 
-  const analysis = data && typeof data === "object" ? (data as { analysis?: unknown }).analysis : null;
-  const metadata = data && typeof data === "object" ? (data as { metadata?: unknown }).metadata : null;
+  const analysis =
+    data && typeof data === "object" && "analysis" in data && typeof (data as any).analysis === "object"
+      ? ((data as { analysis: Record<string, unknown> }).analysis)
+      : null;
+  const dataCollectionResultsRaw =
+    analysis &&
+    typeof analysis === "object" &&
+    "data_collection_results" in analysis &&
+    typeof (analysis as any).data_collection_results === "object"
+      ? ((analysis as { data_collection_results: Record<string, unknown> }).data_collection_results)
+      : null;
+  const dataCollectionResults = dataCollectionResultsRaw
+    ? JSON.parse(JSON.stringify(dataCollectionResultsRaw))
+    : null;
 
   let transcriptText: string | null = null;
   if (data && typeof data === "object" && Array.isArray((data as { transcript?: unknown }).transcript)) {
@@ -685,15 +699,12 @@ async function persistClientConversations({
   const recordBase = {
     callId,
     agentId,
-    eventTimestamp,
     capturedAt: new Date().toISOString(),
     summarySubject,
     summary: summaryText,
     transcriptSummary: transcriptionSummary?.text ?? summary?.text ?? null,
     transcriptText,
-    analysis,
-    metadata,
-    sourceType: payload.type ?? "post_call",
+    dataCollectionResults,
   };
 
   await Promise.all(
@@ -702,22 +713,48 @@ async function persistClientConversations({
         ...recordBase,
         clientSlug,
       };
-      await appendClientConversationRecord(clientSlug, record);
+      await appendClientConversationRecord(clientSlug, record, eventTimestamp);
     })
   );
 }
 
 async function appendClientConversationRecord(
   clientSlug: string,
-  record: ConversationKnowledgeRecord
+  record: ConversationKnowledgeRecord,
+  eventTimestamp: number | null
 ) {
   await appendConversationRecord(clientSlug, record);
+  scheduleKnowledgeBaseRefresh(clientSlug).catch((error) => {
+    console.error(
+      "[post-call] Failed to refresh knowledge base",
+      JSON.stringify({
+        clientSlug,
+        message: (error as Error)?.message,
+      })
+    );
+  });
   console.log(
     "[post-call] Appended client conversation",
     JSON.stringify({
       clientSlug,
       callId: record.callId,
-      eventTimestamp: record.eventTimestamp,
+      eventTimestamp,
     })
   );
+}
+
+function scheduleKnowledgeBaseRefresh(clientSlug: string) {
+  const config = getKnowledgeBaseConfig(clientSlug);
+  if (!config) {
+    console.log(
+      "[post-call] No knowledge base config; skipping refresh",
+      JSON.stringify({ clientSlug })
+    );
+    return Promise.resolve();
+  }
+  return refreshKnowledgeBaseDocument({
+    documentId: config.documentId,
+    documentName: config.documentName,
+    ragModel: config.ragModel,
+  });
 }

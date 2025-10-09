@@ -14,15 +14,12 @@ export type ConversationKnowledgeRecord = {
   callId: string;
   agentId: string;
   clientSlug: string;
-  eventTimestamp: number | null;
   capturedAt: string;
   summarySubject?: string | null;
   summary?: string | null;
   transcriptSummary?: string | null;
   transcriptText?: string | null;
-  analysis?: unknown;
-  metadata?: unknown;
-  sourceType?: string;
+  dataCollectionResults?: Record<string, unknown> | null;
 };
 
 export type ClientKnowledgePayload = {
@@ -49,6 +46,7 @@ export async function appendConversationRecord(
     "[clientKnowledgeStore] Loaded existing conversations",
     JSON.stringify({ clientSlug, existingCount })
   );
+
   const conversations = [record, ...(existing?.conversations ?? [])].slice(0, MAX_RECORDS);
   const payload: ClientKnowledgePayload = {
     client: clientSlug,
@@ -98,6 +96,7 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
     );
     return;
   }
+
   try {
     const response = await put(key, JSON.stringify(payload), {
       access: "public",
@@ -175,7 +174,10 @@ async function fetchPublicClientKnowledge(clientSlug: string) {
 async function fetchLatestClientKnowledge(clientSlug: string) {
   if (BLOB_TOKEN) {
     try {
-      const listing = await list({ prefix: `${STORAGE_PREFIX}/${clientSlug}.json`, limit: 1 });
+      const listing = await list({
+        prefix: `${STORAGE_PREFIX}/${clientSlug}.json`,
+        limit: 1,
+      });
       const latest = listing.blobs?.[0];
       if (!latest) {
         console.log(
@@ -225,5 +227,3 @@ async function fetchLatestClientKnowledge(clientSlug: string) {
   }
   return publicData;
 }
-
-// No purge helpers required with SDK-managed overwrites.
