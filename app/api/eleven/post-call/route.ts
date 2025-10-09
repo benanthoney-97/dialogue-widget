@@ -724,7 +724,13 @@ async function appendClientConversationRecord(
   eventTimestamp: number | null
 ) {
   await appendConversationRecord(clientSlug, record);
-  scheduleKnowledgeBaseRefresh(clientSlug).catch((error) => {
+  try {
+    console.log(
+      "[post-call] Scheduling knowledge base refresh",
+      JSON.stringify({ clientSlug })
+    );
+    await scheduleKnowledgeBaseRefresh(clientSlug);
+  } catch (error) {
     console.error(
       "[post-call] Failed to refresh knowledge base",
       JSON.stringify({
@@ -732,7 +738,7 @@ async function appendClientConversationRecord(
         message: (error as Error)?.message,
       })
     );
-  });
+  }
   console.log(
     "[post-call] Appended client conversation",
     JSON.stringify({
