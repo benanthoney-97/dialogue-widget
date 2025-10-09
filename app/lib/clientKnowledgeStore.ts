@@ -1,21 +1,36 @@
 // app/lib/clientKnowledgeStore.ts
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const DEFAULT_WRITE_BASE_URL = "https://blob.vercel-storage.com";
+const FALLBACK_WRITE_BASE = "https://blob.vercel-storage.com";
 
-const BLOB_PUBLIC_BASE_URL =
+const rawPublicBase =
   process.env.BLOB_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
   process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
-  DEFAULT_WRITE_BASE_URL;
+  "";
+
+const BLOB_PUBLIC_BASE_URL = rawPublicBase || FALLBACK_WRITE_BASE;
+
+function deriveWriteBase() {
+  const candidate =
+    process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") ||
+    process.env.BLOB_BASE_URL?.replace(/\/+$/, "") ||
+    (rawPublicBase.includes(".public.")
+      ? rawPublicBase.replace(".public.", ".")
+      : rawPublicBase) ||
+    FALLBACK_WRITE_BASE;
+
+  if (
+    !candidate.endsWith("blob.vercel-storage.com") ||
+    candidate.includes(".public.")
+  ) {
+    return FALLBACK_WRITE_BASE;
+  }
+  return candidate;
+}
 
 let resolvedWriteBase =
-  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") || DEFAULT_WRITE_BASE_URL;
-if (
-  !resolvedWriteBase.endsWith("blob.vercel-storage.com") ||
-  resolvedWriteBase.includes(".public.")
-) {
-  resolvedWriteBase = DEFAULT_WRITE_BASE_URL;
-}
+  process.env.BLOB_WRITE_BASE_URL?.replace(/\/+$/, "") || deriveWriteBase();
+
 const BLOB_WRITE_BASE_URL = resolvedWriteBase;
 
 export type ConversationKnowledgeRecord = {
@@ -100,6 +115,15 @@ function isNotFoundError(error: unknown) {
 }
 
 async function writeBlob(key: string, payload: ClientKnowledgePayload) {
+  if (!BLOB_TOKEN) {
+    console.warn(
+      "[clientKnowledgeStore] Cannot write blob; missing BLOB_READ_WRITE_TOKEN"
+    );
+    return;
+  }
+
+  await deleteExistingBlob(key);
+
   const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}`;
   const res = await fetch(url, {
     method: "PUT",
@@ -108,6 +132,7 @@ async function writeBlob(key: string, payload: ClientKnowledgePayload) {
       "Content-Type": "application/json",
       "x-vercel-blob-access": "public",
       "x-vercel-blob-add-random-suffix": "false",
+      "x-vercel-blob-overwrite": "true",
     },
     body: JSON.stringify(payload),
   });
@@ -151,6 +176,31 @@ function parseClientKnowledgePayload(
     return null;
   }
   return data as ClientKnowledgePayload;
+}
+
+async function deleteExistingBlob(key: string) {
+  if (!BLOB_TOKEN) return;
+  const url = `${BLOB_WRITE_BASE_URL}/${encodePath(key)}`;
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${BLOB_TOKEN}`,
+      },
+    });
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text().catch(() => "");
+      console.warn(
+        "[clientKnowledgeStore] Failed to delete existing blob",
+        JSON.stringify({ key, status: res.status, statusText: res.statusText, text })
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "[clientKnowledgeStore] Error deleting existing blob",
+      JSON.stringify({ key, message: (error as Error)?.message })
+    );
+  }
 }
 
 async function fetchPublicClientKnowledge(clientSlug: string) {
