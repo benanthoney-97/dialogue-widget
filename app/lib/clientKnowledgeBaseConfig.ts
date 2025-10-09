@@ -33,11 +33,24 @@ export async function getKnowledgeBaseConfig(
     process.env.ELEVENLABS_KB_DEFAULT_MODEL?.trim();
 
   const stored = await getKnowledgeBaseState(clientSlug);
-
-  return {
+  const resolvedConfig: KnowledgeBaseConfig = {
     url: stored?.sourceUrl?.trim() || url,
     documentId: stored?.documentId || docIdEnv || undefined,
     documentName: stored?.documentName || docNameEnv || undefined,
     ragModel,
   };
+
+  console.log(
+    "[knowledgeBaseConfig] Resolved config",
+    JSON.stringify({
+      clientSlug,
+      hasStoredState: Boolean(stored),
+      url: resolvedConfig.url,
+      documentId: resolvedConfig.documentId ?? null,
+      documentName: resolvedConfig.documentName ?? null,
+      ragModel: resolvedConfig.ragModel ?? null,
+    })
+  );
+
+  return resolvedConfig;
 }
