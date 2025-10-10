@@ -160,7 +160,7 @@ screenshotPath: "/screenshots/default.png",
   talkLabel: "Talk to Time Out",
   screenshotPath: "/screenshots/timeout.jpg",
  },
-     "savills-2025-european-real-estate-logistics-consensus": {
+     "savills-prime-central-london ": {
    pdfPath: "/papers/Week 2 (2).pdf",
    agentId: "agent_5501k6z36t98e4f9qh0nt92g15zy",
    agentName: "Savills Logistics Consensus",

@@ -63,6 +63,8 @@ type PersistConversationArgs = {
   payload: PostCallPayload;
   summary?: SummaryContentRecord;
   transcriptionSummary?: SummaryContentRecord;
+  summaryEmails?: string[];
+  contactEmails?: string[];
 };
 
 const pendingSummaryRequests =
@@ -246,6 +248,49 @@ export async function POST(request: NextRequest) {
   const summaryEntries = collectEntries(payload.summary, payload.summaries);
   const contactRequests = collectEntries(payload.contact, payload.contacts);
 
+  console.log(
+    "[post-call] Received summary/contact entries",
+    JSON.stringify({
+      callId,
+      agentId,
+      summaryCount: summaryEntries.length,
+      contactCount: contactRequests.length,
+      contactEmails: contactRequests
+        .map((contact) => contact?.email ?? null)
+        .filter(Boolean),
+    })
+  );
+
+  const summaryEmailCollector = new Map<string, string>();
+  const contactEmailCollector = new Map<string, string>();
+
+  const collectSummaryEmail = (email?: string | null) => {
+    if (!email) return;
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    const normalized = trimmed.toLowerCase();
+    if (!summaryEmailCollector.has(normalized)) {
+      summaryEmailCollector.set(normalized, trimmed);
+    }
+  };
+
+  const collectContactEmail = (email?: string | null) => {
+    if (!email) return;
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    const normalized = trimmed.toLowerCase();
+    if (!contactEmailCollector.has(normalized)) {
+      contactEmailCollector.set(normalized, trimmed);
+    }
+  };
+
+  for (const entry of summaryEntries) {
+    collectSummaryEmail(entry.email);
+  }
+  for (const contact of contactRequests) {
+    collectContactEmail(contact?.email);
+  }
+
   const summaryEmailMap = new Map<string, SummaryContentRecord>();
   const warnings: string[] = [];
   const contactsToSendNow: ContactPayload[] = [];
@@ -303,6 +348,7 @@ export async function POST(request: NextRequest) {
     for (const { original, content } of prepared) {
       if (original.email) {
         summaryEmailMap.set(original.email, content);
+        collectSummaryEmail(original.email);
       }
     }
 
@@ -318,6 +364,7 @@ export async function POST(request: NextRequest) {
               text: baseContent.text,
             });
           }
+          collectSummaryEmail(request.email);
         }
         pendingSummaryRequests.delete(callId);
       }
@@ -344,6 +391,7 @@ export async function POST(request: NextRequest) {
             text: baseContent.text,
           });
         }
+        collectSummaryEmail(request.email);
       }
       pendingSummaryRequests.delete(callId);
       console.log(
@@ -362,6 +410,20 @@ export async function POST(request: NextRequest) {
     if (queuedContacts?.length) {
       contactsToSendNow.push(...queuedContacts);
       pendingContactRequests.delete(callId);
+      for (const contact of queuedContacts) {
+        collectContactEmail(contact?.email);
+      }
+      console.log(
+        "[post-call] Flushed queued contacts",
+        JSON.stringify({
+          callId,
+          agentId,
+          count: queuedContacts.length,
+          emails: queuedContacts
+            .map((contact) => contact?.email ?? null)
+            .filter(Boolean),
+        })
+      );
       console.log(
         "[post-call] Flushed queued contact requests",
         JSON.stringify({
@@ -388,6 +450,7 @@ export async function POST(request: NextRequest) {
             text: baseContent.text,
           });
         }
+        collectSummaryEmail(entry.email);
       }
     } else {
       const existing = pendingSummaryRequests.get(callId) ?? [];
@@ -405,8 +468,12 @@ export async function POST(request: NextRequest) {
           email: entry.email,
           subject: entry.subject?.trim() || undefined,
         });
+        collectSummaryEmail(entry.email);
       }
       pendingSummaryRequests.set(callId, Array.from(dedup.values()));
+      for (const request of dedup.values()) {
+        collectSummaryEmail(request.email);
+      }
       if (newlyQueued > 0) {
         console.log(
           "[post-call] Queued summary requests",
@@ -431,10 +498,27 @@ export async function POST(request: NextRequest) {
       );
     } else if (baseContent) {
       contactsToSendNow.push(...contactRequests);
+      for (const contact of contactRequests) {
+        collectContactEmail(contact?.email);
+      }
+      console.log(
+        "[post-call] Contact requests ready to send",
+        JSON.stringify({
+          callId,
+          agentId,
+          count: contactRequests.length,
+          emails: contactRequests
+            .map((contact) => contact?.email ?? null)
+            .filter(Boolean),
+        })
+      );
     } else {
       const existing = pendingContactRequests.get(callId) ?? [];
       existing.push(...contactRequests);
       pendingContactRequests.set(callId, existing);
+      for (const contact of existing) {
+        collectContactEmail(contact?.email);
+      }
       console.log(
         "[post-call] Queued contact requests",
         JSON.stringify({
@@ -442,6 +526,9 @@ export async function POST(request: NextRequest) {
           agentId,
           added: contactRequests.length,
           totalQueued: existing.length,
+          queuedEmails: existing
+            .map((contact) => contact?.email ?? null)
+            .filter(Boolean),
         })
       );
       warnings.push(
@@ -453,6 +540,25 @@ export async function POST(request: NextRequest) {
   const pending: Promise<unknown>[] = [];
   let summaryEmailsSent = 0;
   let contactNotificationsSent = 0;
+
+  summaryEmailMap.forEach((_, email) => collectSummaryEmail(email));
+  contactsToSendNow.forEach((contact) => collectContactEmail(contact?.email));
+
+  const summaryEmailsForRecord = Array.from(summaryEmailCollector.values()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const contactEmailsForRecord = Array.from(contactEmailCollector.values()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  console.log(
+    "[post-call] Aggregated lead emails",
+    JSON.stringify({
+      callId,
+      summaryEmailsForRecord,
+      contactEmailsForRecord,
+    })
+  );
 
   if (!resend || !resendFrom) {
     if (summaryEmailMap.size > 0) {
@@ -615,6 +721,8 @@ export async function POST(request: NextRequest) {
       payload,
       summary: baseContent,
       transcriptionSummary,
+      summaryEmails: summaryEmailsForRecord,
+      contactEmails: contactEmailsForRecord,
     });
   } catch (error) {
     console.error("Failed to persist client knowledge record", error);
@@ -644,6 +752,8 @@ async function persistClientConversations({
   payload,
   summary,
   transcriptionSummary,
+  summaryEmails,
+  contactEmails,
 }: PersistConversationArgs) {
   if (!agentId) return;
   const clientSlugs = getClientsForAgentId(agentId);
@@ -715,6 +825,8 @@ async function persistClientConversations({
     transcriptSummary: transcriptionSummary?.text ?? summary?.text ?? null,
     transcriptText,
     dataCollectionResults,
+    summaryEmails: summaryEmails && summaryEmails.length ? summaryEmails : undefined,
+    contactEmails: contactEmails && contactEmails.length ? contactEmails : undefined,
   };
 
   await Promise.all(
@@ -723,6 +835,15 @@ async function persistClientConversations({
         ...recordBase,
         clientSlug,
       };
+      console.log(
+        "[post-call] Persisting record",
+        JSON.stringify({
+          clientSlug,
+          callId: record.callId,
+          summaryEmails: record.summaryEmails,
+          contactEmails: record.contactEmails,
+        })
+      );
       await appendClientConversationRecord(clientSlug, record, eventTimestamp);
     })
   );

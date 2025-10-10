@@ -21,6 +21,8 @@ export type ConversationKnowledgeRecord = {
   transcriptSummary?: string | null;
   transcriptText?: string | null;
   dataCollectionResults?: Record<string, unknown> | null;
+  summaryEmails?: string[];
+  contactEmails?: string[];
 };
 
 export type ClientKnowledgePayload = {
@@ -49,7 +51,10 @@ export async function appendConversationRecord(
     JSON.stringify({ clientSlug, existingCount })
   );
 
-  const conversations = [record, ...(existing?.conversations ?? [])].slice(0, MAX_RECORDS);
+  const dedupedExisting = (existing?.conversations ?? []).filter(
+    (conversation) => conversation.callId !== record.callId
+  );
+  const conversations = [record, ...dedupedExisting].slice(0, MAX_RECORDS);
   const questions = deriveQuestions(conversations);
   const payload: ClientKnowledgePayload = {
     client: clientSlug,
