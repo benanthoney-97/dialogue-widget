@@ -67,10 +67,8 @@ export default function DialogueSitePage() {
         agentId={agentId}
         useSignedUrl={useSignedUrl}
         serverLocation={region}
-        talkLabel={talkLabel}
         buttonColor={theme.background}
         buttonTextColor={theme.text}
-        buttonBorderColor={theme.border}
       />
     </main>
   );

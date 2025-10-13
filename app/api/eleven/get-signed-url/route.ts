@@ -1,25 +1,52 @@
-// app/api/eleven/get-signed-url/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+// You may need to install 'node-fetch' if fetch is not available in your Node.js runtime
+// import fetch from 'node-fetch';
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const agentId = searchParams.get("agent_id");
-  if (!agentId) return NextResponse.json({ error: "agent_id required" }, { status: 400 });
+// This is a placeholder implementation for generating a signed URL for ElevenLabs API usage.
+// Replace this logic with your actual signing logic and credentials as needed.
 
-  const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) return NextResponse.json({ error: "ELEVENLABS_API_KEY missing" }, { status: 500 });
+export async function POST(req: NextRequest) {
+  try {
+    const { agent_id } = await req.json();
+    console.log('[elevenlabs-debug] Received agent_id:', agent_id);
 
-  const r = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`,
-    { headers: { "xi-api-key": key } }
-  );
+    // Get API key from environment variable
+    const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+    if (!ELEVENLABS_API_KEY) {
+      console.error('[elevenlabs-debug] Missing ELEVENLABS_API_KEY');
+      return NextResponse.json({ error: 'Missing ElevenLabs API key' }, { status: 500 });
+    }
 
-  if (!r.ok) {
-    const t = await r.text();
-    return NextResponse.json({ error: `Failed to get signed URL: ${t}` }, { status: 500 });
+    // Call ElevenLabs API to get the signed WebSocket URL for the agent
+    const url = `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agent_id)}`;
+    console.log('[elevenlabs-debug] Requesting ElevenLabs signed URL:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[elevenlabs-debug] ElevenLabs API error:', errorText);
+      return NextResponse.json({ error: errorText }, { status: 500 });
+    }
+
+    const data = await response.json();
+    console.log('[elevenlabs-debug] ElevenLabs API response:', data);
+    const signedUrl = data.signed_url;
+
+    if (!signedUrl) {
+      console.error('[elevenlabs-debug] No signed_url in ElevenLabs response:', data);
+      return NextResponse.json({ error: 'No signed URL returned from ElevenLabs' }, { status: 500 });
+    }
+
+    return NextResponse.json({ signedUrl });
+  } catch (error: any) {
+    console.error('[elevenlabs-debug] Exception in get-signed-url:', error);
+    return NextResponse.json({ error: error.message || 'Failed to generate signed URL' }, { status: 500 });
   }
-
-  const data = await r.json(); // { signed_url } or { signedUrl }
-  const signedUrl = data.signed_url || data.signedUrl;
-  return NextResponse.json({ signedUrl });
 }
+
+export const dynamic = 'force-dynamic';

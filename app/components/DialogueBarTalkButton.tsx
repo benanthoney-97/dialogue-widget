@@ -11,6 +11,8 @@ import {
 import { useConversation } from "@elevenlabs/react";
 import Image from "next/image";
 import { docMap } from "@/app/lib/docMap";
+import { insertContactRequest } from "@/app/lib/contactRequests";
+import { insertSummaryRequest } from "@/app/lib/summaryRequests";
 
 const POST_CALL_BASE =
   process.env.NEXT_PUBLIC_POST_CALL_BASE_URL?.replace(/\/$/, "") ?? "";
@@ -33,7 +35,7 @@ type Phase = "idle" | "ready" | "connecting" | "connected";
 
 export default function DialogueBarTalkButton({
   agentId,
-  useSignedUrl = true,
+  useSignedUrl = false,
   serverLocation = "us",
   buttonColor = "#525fe1",
   buttonTextColor = "#ffffff",
@@ -216,10 +218,18 @@ export default function DialogueBarTalkButton({
       await ensureMicPerms();
 
       if (useSignedUrl) {
-        const res = await fetch(
-          `/api/eleven/get-signed-url?agent_id=${encodeURIComponent(agentId)}`
-        );
-        const data = await res.json();
+        const res = await fetch('/api/eleven/get-signed-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent_id: agentId })
+        });
+        let data;
+        try {
+          data = await res.json();
+        } catch (err) {
+          const text = await res.text();
+          throw new Error(`Failed to parse JSON: ${err}\nResponse text: ${text}`);
+        }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
         await startSession({
@@ -377,6 +387,31 @@ export default function DialogueBarTalkButton({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setContactSubmitted(true);
+      const conversationId = conversationIdRef.current;
+      console.log("Submitting contact request", {
+        agent_id: agentId,
+        user_name: contactName,
+        user_email: contactEmail,
+        user_phone: contactPhone,
+        conversation_id: conversationId,
+      });
+      try {
+        const result = await insertContactRequest({
+          agent_id: agentId,
+          name: contactName,
+          user_email: contactEmail,
+          phone: contactPhone,
+          conversation_id: conversationId || undefined,
+        });
+        if (result.error) {
+          console.error("Supabase insert error:", result.error, result);
+        } else {
+          console.log("insertContactRequest result", result);
+        }
+      } catch (e) {
+        console.error("Failed to insert contact request in Supabase (exception)", e);
+      }
+      // Optionally still call webhook for legacy/other flows
       const payload = {
         contact: {
           email: contactEmail,
@@ -397,6 +432,7 @@ export default function DialogueBarTalkButton({
       postSummaryOrContact,
     ]
   );
+      console.log("Contact request submitted successfully");
 
   useEffect(() => {
     if (!contactOpen) return;
@@ -413,6 +449,20 @@ export default function DialogueBarTalkButton({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setSummarySubmitted(true);
+      // Insert into Supabase summary_requests
+      const conversationId = conversationIdRef.current;
+      if (agentId && summaryEmail && conversationId) {
+        try {
+          await insertSummaryRequest({
+            agent_id: agentId,
+            user_email: summaryEmail,
+            conversation_id: conversationId,
+          });
+        } catch (e) {
+          console.error('Failed to insert summary request in Supabase', e);
+        }
+      }
+      // Still call webhook for legacy/other flows
       const payload = {
         summary: {
           email: summaryEmail,
@@ -423,7 +473,7 @@ export default function DialogueBarTalkButton({
         beginSummaryClose();
       }, 1200);
     },
-    [beginSummaryClose, postSummaryOrContact, summaryEmail]
+    [beginSummaryClose, postSummaryOrContact, summaryEmail, agentId]
   );
 
   useEffect(() => {
