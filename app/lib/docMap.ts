@@ -78,6 +78,16 @@ export const docMap: Record<string, DocEntry> = {
     url: "https://www.cliffordchance.com/content/dam/cliffordchance/Thought_Leadership/convergence-of-ai-and-dlt-final-v2-interactive-compressed.pdf",
     author: "Diego Ballon Ossio",
   },
+  "fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line": {
+    pdfPath: "papers/fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line.pdf",
+    agentId: "agent_0801k7h3cd12fyt8d1g8tz0m4p1f",
+    agentName: "Fault lines: Where projects crack and how the Board can hold the line",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Summary",
+    url: "",
+    author: "Robert Griffiths",
+  },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
   agentId: "agent_7701k5tkhf04evvbsacthtwc890q",
