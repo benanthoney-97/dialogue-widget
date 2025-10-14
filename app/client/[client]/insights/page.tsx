@@ -23,8 +23,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
-import { BriefMeButton } from "../../../components/BriefMeButton";
-import { generateConversationPdf } from "@/app/utils/generateConversationPdf";
 
 // Data from Supabase
 type DialogueRow = {
@@ -55,8 +53,6 @@ type InsightsRow = {
 	pipeline_intent_reasoning?: any;
 	competitive_comparison_summary?: any;
 	main_language?: string;
-	agentId: string;
-	conversation_id: string;
 };
 // Helper to get unique values for dropdowns
 function getUniqueValues<T>(arr: T[], key: keyof T) {
@@ -84,6 +80,8 @@ export default function InsightsTable() {
 	});
 	const [activeFilter, setActiveFilter] = useState<string | null>(null);
 	const filterBarRef = useRef<HTMLDivElement>(null);
+	// Move filtersOpen state to top level so it persists across renders
+	const [filtersOpen, setFiltersOpen] = useState(false);
 
 	// Hide filter input when clicking outside filter bar
 	useEffect(() => {
@@ -97,7 +95,6 @@ export default function InsightsTable() {
 		return () => document.removeEventListener('mousedown', handleClick);
 	}, [activeFilter]);
 	const [clientDisplayName, setClientDisplayName] = useState<string | null>(null);
-	const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
 	const [insightsRows, setInsightsRows] = useState<InsightsRow[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -114,21 +111,16 @@ export default function InsightsTable() {
 	useEffect(() => {
 				async function fetchClientAndRows() {
 					if (!clientSlug) return;
-					// Get client display name, id, and default_agent_id
+					// Get client display name and id
 					const { data: clientData, error: clientError } = await supabase
 						.from('clients')
-						.select('id, display_name, default_agent_id')
+						.select('id, display_name')
 						.eq('name', clientSlug)
 						.single();
 					if (clientData && clientData.display_name) {
 						setClientDisplayName(clientData.display_name);
 					} else {
 						setClientDisplayName(null);
-					}
-					if (clientData && clientData.default_agent_id) {
-						setDefaultAgentId(clientData.default_agent_id);
-					} else {
-						setDefaultAgentId(null);
 					}
 					if (!clientData) return;
 					setLoading(true);
@@ -200,27 +192,25 @@ export default function InsightsTable() {
 							if (d.conversation_id === 'conv_9601k7c1fz2nervs6tj7zf9w0ps1') {
 								console.log('[DEBUG] For conversation_id conv_9601k7c1fz2nervs6tj7zf9w0ps1, lead:', lead, 'source:', leadSource);
 							}
-										const row = {
-											sourceDocument: agent ? agent.agent_name : '',
-											lead: { value: lead, source: leadSource },
-											engagementTime: d.call_duration_secs != null ?
-												new Date(d.call_duration_secs * 1000).toISOString().substr(11, 8) : '',
-											keyFocus: '',
-											intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
-											date: d.received_at || '',
-											briefReport: '',
-											transcript: d.transcript,
-											questions: d.questions,
-											transcript_summary: d.transcript_summary,
-											main_topics: d.main_topics,
-											content_gaps: d.content_gaps,
-											pipeline_intent_reasoning: d.pipeline_intent_reasoning,
-											competitive_comparison_summary: d.competitive_comparison_summary,
-											main_language: d.main_language,
-											agentId: clientData.default_agent_id || '',
-											conversation_id: d.conversation_id,
-										};
-										return row;
+							const row = {
+								sourceDocument: agent ? agent.agent_name : '',
+								lead: { value: lead, source: leadSource },
+								engagementTime: d.call_duration_secs != null ?
+									new Date(d.call_duration_secs * 1000).toISOString().substr(11, 8) : '',
+								keyFocus: '',
+								intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
+								date: d.received_at || '',
+								briefReport: '',
+								transcript: d.transcript,
+								questions: d.questions,
+								transcript_summary: d.transcript_summary,
+								main_topics: d.main_topics,
+								content_gaps: d.content_gaps,
+								pipeline_intent_reasoning: d.pipeline_intent_reasoning,
+								competitive_comparison_summary: d.competitive_comparison_summary,
+								main_language: d.main_language,
+							};
+							return row;
 						});
 						setInsightsRows(rows);
 						setLoading(false);
@@ -236,10 +226,10 @@ export default function InsightsTable() {
 					if (!b.date) return -1;
 					return new Date(b.date).getTime() - new Date(a.date).getTime();
 				});
-		const filteredRows = sortedRows.filter((row) => { 
-				if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
-			if (activeFilter === 'leads' && !row.lead.value) return false;
-				if (filters.dateAfter) {
+	       const filteredRows = sortedRows.filter((row) => { 
+		       if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
+		       if (filters.leads && !row.lead.value) return false;
+		       if (filters.dateAfter) {
 					const after = new Date(filters.dateAfter);
 					if (!row.date || new Date(row.date) < after) return false;
 				}
@@ -269,9 +259,9 @@ export default function InsightsTable() {
 
 	return (
 						<main style={{ minHeight: "100dvh", background: "#0a1628", padding: 0, fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif", display: 'flex', flexDirection: 'row' }}>
-							<div style={{ width: 180, flexShrink: 0 }}>
-								<Sidebar />
-							</div>
+							   <div style={{ width: 180, flexShrink: 0 }}>
+								   <Sidebar />
+							   </div>
 							<div style={{
 								flex: 1,
 								background: "#16213a",
@@ -286,113 +276,174 @@ export default function InsightsTable() {
 									<h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#e6eaff", fontFamily: "inherit" }}>
 										{clientDisplayName ? `${clientDisplayName} Insights` : "Insights"}
 									</h2>
-						{/* FILTER BAR */}
-						<div ref={filterBarRef} style={{ display: 'flex', gap: 18, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-										{/* Filter Chips */}
-													{[
-														{ key: 'sourceDocument', label: 'Source Document', input: (
-															<select
-																value={filters.sourceDocument}
-																onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
-																style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 80, maxWidth: 140, marginTop: 8 }}
-															>
-																<option value=''>All</option>
-																{getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
-																	<option key={doc} value={doc}>{doc}</option>
-																))}
-															</select>
-														) },
-														{ key: 'leads', label: 'Leads', input: null },
-														{ key: 'search', label: 'Search', input: (
-															<input
-																type='text'
-																value={filters.search}
-																onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-																placeholder='Search all fields...'
-																style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 180, marginTop: 8 }}
-															/>
-														) },
-														{ key: 'dateAfter', label: 'Date after', input: (
-															<input
-																type='date'
-																value={filters.dateAfter}
-																onChange={e => setFilters(f => ({ ...f, dateAfter: e.target.value }))}
-																style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, marginTop: 8 }}
-															/>
-														) },
-														{ key: 'dateBefore', label: 'Date before', input: (
-															<input
-																type='date'
-																value={filters.dateBefore}
-																onChange={e => setFilters(f => ({ ...f, dateBefore: e.target.value }))}
-																style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, marginTop: 8 }}
-															/>
-														) },
-														{ key: 'intent', label: 'Intent', input: (
-																			<select
-																				value={filters.intent}
-																				onChange={e => setFilters(f => ({ ...f, intent: e.target.value }))}
-																				style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, marginTop: 8, maxWidth: 180 }}
-																			>
-																<option value=''>All</option>
-																<option value='Interest'>Interest</option>
-																<option value='Consideration'>Consideration</option>
-																<option value='Intent'>Intent</option>
-															</select>
-														) },
-                                                        
-																			].map(f => {
-																				const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null);
-																				useEffect(() => {
-																					if (activeFilter === f.key && inputRef.current) {
-																						inputRef.current.focus();
-																					}
-																				}, [activeFilter]);
-																				return (
-																					<div key={f.key} style={{ position: 'relative', display: 'inline-block', marginRight: 8, marginBottom: 8, verticalAlign: 'top' }}>
-																						<span
-																							style={{
-																								display: 'inline-block',
-																								padding: '7px 18px',
-																								borderRadius: 999,
-																								background: activeFilter === f.key ? '#2d406b' : '#22325a',
-																								color: activeFilter === f.key ? '#fff' : '#a3c0ff',
-																								fontWeight: 600,
-																								fontSize: 14,
-																								cursor: 'pointer',
-																								boxShadow: activeFilter === f.key ? '0 2px 12px #22325a' : '0 2px 8px rgba(10,22,40,0.13)',
-																								border: activeFilter === f.key ? '2px solid #7ea0e6' : '1px solid #2d406b',
-																								transition: 'background 0.18s, color 0.18s, border 0.18s',
-																							}}
-																							onClick={() => setActiveFilter(activeFilter === f.key ? null : f.key)}
-																						>
-																							{f.label}
-																						</span>
-																						{activeFilter === f.key && f.input && (
-																							<div style={{
-																								position: 'absolute',
-																								left: 0,
-																								top: '100%',
-																								zIndex: 10,
-																								marginTop: 4,
-																								background: '#16213a',
-																								boxShadow: '0 4px 18px rgba(10,22,40,0.18)',
-																								borderRadius: 8,
-																								padding: 8,
-																								minWidth: 220,
-																								width: 'auto',
-																								maxWidth: 420,
-																								overflow: 'hidden',
-																							}}>
-																								{f.key === 'intent'
-																									? React.cloneElement(f.input, { ref: inputRef, style: { ...f.input.props.style, minWidth: 180, maxWidth: 400, width: 'auto' } })
-																									: React.cloneElement(f.input, { ref: inputRef })}
-																							</div>
-																						)}
-																					</div>
-																				);
-																			})}
-						</div>
+						   {/* FILTERS DROPDOWN BUTTON AND DROPDOWN */}
+						   {(() => {
+							  // Click-away handler
+							  React.useEffect(() => {
+								  if (!filtersOpen) return;
+								  function handleClick(e: MouseEvent) {
+									  if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
+									  setFiltersOpen(false);
+								  }
+								  document.addEventListener('mousedown', handleClick);
+								  return () => document.removeEventListener('mousedown', handleClick);
+							  }, [filtersOpen]);
+							  return (
+								  <div ref={filterBarRef} style={{ position: 'relative', marginBottom: 18, display: 'flex', justifyContent: 'flex-end' }}>
+									  <button
+										  onClick={() => setFiltersOpen(open => !open)}
+										  style={{
+											  background: '#22325a',
+											  color: '#a3c0ff',
+											  border: '1px solid #2d406b',
+											  borderRadius: 6,
+											  padding: '8px 22px',
+											  fontWeight: 600,
+											  fontSize: 15,
+											  cursor: 'pointer',
+											  boxShadow: '0 2px 8px rgba(10,22,40,0.13)',
+										  }}
+									  >
+										  {filtersOpen ? 'Hide filters' : 'Filters'}
+									  </button>
+									  {filtersOpen && (
+										  <div
+											  style={{
+												  position: 'absolute',
+												  top: 44,
+												  right: 0,
+												  background: '#16213a',
+												  border: '1px solid #2d406b',
+												  borderRadius: 12,
+												  boxShadow: '0 8px 32px rgba(10,22,40,0.45)',
+												  padding: 24,
+												  zIndex: 10,
+												  minWidth: 600,
+												  display: 'flex',
+												  flexDirection: 'column',
+												  gap: 12,
+											  }}
+										  >
+											  <div style={{ display: 'flex', gap: 18, marginBottom: 8 }}>
+												  {/* Row 1: Search, Source Document, Leads */}
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Search:</span>
+													   <input
+														   type='text'
+														   value={filters.search}
+														   onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+														   placeholder='Search all fields...'
+														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 120, maxWidth: 180 }}
+													   />
+												   </div>
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Source Document:</span>
+													   <select
+														   value={filters.sourceDocument}
+														   onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
+														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 80, maxWidth: 140 }}
+													   >
+														   <option value=''>All</option>
+														   {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
+															   <option key={doc as string} value={doc as string}>{doc}</option>
+														   ))}
+													   </select>
+												   </div>
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <button
+														   type="button"
+														   onClick={() => setFilters(filts => ({ ...filts, leads: filts.leads ? '' : '1' }))}
+														   style={{
+															   background: filters.leads ? '#2d406b' : '#22325a',
+															   color: filters.leads ? '#fff' : '#a3c0ff',
+															   fontWeight: 600,
+															   fontSize: 14,
+															   borderRadius: 6,
+															   border: filters.leads ? '2px solid #7ea0e6' : '1px solid #2d406b',
+															   padding: '7px 18px',
+															   cursor: 'pointer',
+															   boxShadow: filters.leads ? '0 2px 12px #22325a' : '0 2px 8px rgba(10,22,40,0.13)',
+															   transition: 'background 0.18s, color 0.18s, border 0.18s',
+														   }}
+													   >
+														   {filters.leads ? 'All' : 'Leads'}
+													   </button>
+												   </div>
+											   </div>
+											   <div style={{ display: 'flex', gap: 18 }}>
+												   {/* Row 2: Date After, Date Before, Intent */}
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Date after:</span>
+													   <input
+														   type='date'
+														   value={filters.dateAfter}
+														   onChange={e => setFilters(f => ({ ...f, dateAfter: e.target.value }))}
+														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14 }}
+													   />
+												   </div>
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Date before:</span>
+													   <input
+														   type='date'
+														   value={filters.dateBefore}
+														   onChange={e => setFilters(f => ({ ...f, dateBefore: e.target.value }))}
+														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14 }}
+													   />
+												   </div>
+												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Intent:</span>
+													   <select
+														   value={filters.intent}
+														   onChange={e => setFilters(f => ({ ...f, intent: e.target.value }))}
+														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 80, maxWidth: 180 }}
+													   >
+														   <option value=''>All</option>
+														   <option value='Interest'>Interest</option>
+														   <option value='Consideration'>Consideration</option>
+														   <option value='Intent'>Intent</option>
+													   </select>
+												   </div>
+											   </div>
+											   {/* Reset chip on its own line at the bottom of dropdown */}
+											   {(filters.sourceDocument || filters.search || filters.dateAfter || filters.dateBefore || filters.intent || filters.leads) && (
+												   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+													   <button
+														   type="button"
+														   onClick={() => setFilters({
+															   sourceDocument: '',
+															   search: '',
+															   dateAfter: '',
+															   dateBefore: '',
+															   intent: '',
+															   leads: '',
+														   })}
+														   title="Reset filters"
+														   style={{
+															   background: '#22325a',
+															   color: '#fff',
+															   border: '2px solid #fff',
+															   borderRadius: 8,
+															   fontWeight: 700,
+															   fontSize: 15,
+															   height: 38,
+															   padding: '0 24px',
+															   cursor: 'pointer',
+															   boxShadow: '0 2px 8px rgba(10,22,40,0.13)',
+															   transition: 'background 0.18s, color 0.18s, border 0.18s',
+															   zIndex: 2,
+															   display: 'flex',
+															   alignItems: 'center',
+														   }}
+													   >
+														   Reset
+													   </button>
+												   </div>
+											   )}
+										   </div>
+									   )}
+								   </div>
+							   );
+						   })()}
 
 						<div style={{ overflowX: "auto", width: "100%" }}>
 							<table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
@@ -452,25 +503,38 @@ export default function InsightsTable() {
 												{openDropdown === i ? 'Hide Report' : 'View Report'}
 											</button>
 										</td>
-															<td style={{ ...tdStyle, paddingLeft: 4, paddingRight: 4 }}>
-																<BriefMeButton agentId={row.agentId} transcript={row.transcript} conversationId={row.conversation_id} />
-															</td>
-										<td style={{ ...tdStyle, position: 'sticky', right: 0, background: '#1b2947', zIndex: 2 }}>
-											<button
-												title="Download PDF Brief"
-												style={{
-													background: 'none',
-													border: 'none',
-													padding: 0,
-													margin: 0,
-													cursor: 'pointer',
-													display: 'inline-flex',
-													alignItems: 'center',
-													justifyContent: 'center',
-													width: 28,
-													height: 28,
+										<td style={{ ...tdStyle, paddingLeft: 4, paddingRight: 4 }}>
+											<button style={{ ...buttonStyle, background: '#525fe1', color: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
+												<span style={{ display: 'inline-flex', alignItems: 'center' }}>
+													<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+														<rect x="2" y="6" width="3" height="8" rx="1" fill="currentColor" />
+														<rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
+														<rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
+													</svg>
+												</span>
+												Brief Me
+											</button>
+										</td>
+										<td style={{ ...tdStyle, position: 'sticky', right: 0, background: '#16213a', zIndex: 1 }}>
+											<span
+												title="View Brief Report"
+												style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, cursor: 'pointer' }}
+												onClick={async (e) => {
+													e.stopPropagation();
+													console.log('[DEBUG] PDF icon clicked for row', i, row);
+													try {
+														const mod = await import('../../../utils/generateConversationPdf');
+														if (mod && mod.generateConversationPdf) {
+															console.log('[DEBUG] Calling generateConversationPdf with row:', row);
+															await mod.generateConversationPdf(row);
+															console.log('[DEBUG] PDF generation complete');
+														} else {
+															console.error('[ERROR] generateConversationPdf not found in module');
+														}
+													} catch (err) {
+														console.error('[ERROR] PDF generation failed:', err);
+													}
 												}}
-												onClick={() => generateConversationPdf(row)}
 											>
 												<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
 													<rect x="4" y="2.5" width="14" height="17" rx="2.5" fill="#22325a" stroke="#a3c0ff" strokeWidth="1.2"/>
@@ -478,7 +542,7 @@ export default function InsightsTable() {
 													<rect x="7" y="10" width="8" height="1.5" rx="0.75" fill="#a3c0ff"/>
 													<rect x="7" y="13.5" width="5" height="1.5" rx="0.75" fill="#a3c0ff"/>
 												</svg>
-											</button>
+											</span>
 										</td>
 									</tr>
 														{openDropdown === i && (

@@ -347,5 +347,5 @@ export async function generateConversationPdf(row: any) {
       }
     });
   }
-  doc.save('conversation-details.pdf');
+  doc.save('Briefing Note.pdf');
 }

@@ -1,5 +1,6 @@
 "use client";
 import React, { useRef, useState } from "react";
+import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
@@ -17,11 +18,18 @@ export default function UploadPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
       setFiles(Array.from(e.target.files));
+      setNotification(null); // Clear notification on new file selection
     }
   }
 
   function handleRemoveFile(idx: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== idx);
+      if (updated.length === 0) {
+        setNotification(null); // Clear notification if all files removed
+      }
+      return updated;
+    });
   }
 
 
@@ -39,12 +47,46 @@ export default function UploadPage() {
     setSubmitted(true);
     let allSuccess = true;
     let firstError = null;
-    if (uploadMode === 'upload' && files.length > 0 && clientSlug) {
+        let client_id: number | null = null;
+        // Query clients table for client_id using clientSlug (field is 'name')
+        if (clientSlug) {
+          const { data: clientData, error: clientError } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('name', clientSlug)
+            .single();
+          if (clientError || !clientData) {
+            setNotification({ type: 'error', message: 'Client not found.' });
+            setSubmitted(false);
+            return;
+          }
+          client_id = clientData.id;
+        }
+        if (uploadMode === 'upload' && files.length > 0 && clientSlug && client_id) {
       for (const file of files) {
         const { error } = await supabase.storage
           .from('docs')
           .upload(`clients/${clientSlug}/${file.name}`, file, { upsert: true });
-        if (error) {
+        if (!error) {
+          // Insert placeholder row into agent_map with 'key' as filename and random agent_id
+          const agent_id = uuidv4();
+          const { error: insertError } = await supabase
+            .from('agent_map')
+            .insert([
+              {
+                agent_id, // Add random placeholder agent_id
+                client_id,
+                agent_name: file.name,
+                status: 'Pending',
+                created_at: new Date().toISOString(),
+                key: file.name, // Use filename as placeholder key
+              },
+            ]);
+          if (insertError) {
+            allSuccess = false;
+            if (!firstError) firstError = insertError.message;
+          }
+        } else {
           allSuccess = false;
           if (!firstError) firstError = error.message;
         }
@@ -56,11 +98,7 @@ export default function UploadPage() {
       }
     }
     // (You can add logic for fileUrl mode here if needed)
-    setTimeout(() => {
-      setFiles([]);
-      setSubmitted(false);
-      setNotification(null);
-    }, 4000);
+    setSubmitted(false);
   }
 
   return (
@@ -92,48 +130,7 @@ export default function UploadPage() {
             flexDirection: 'column',
             alignItems: 'center',
           }}>
-            {/* Notification */}
-            {notification && (
-              <div style={{
-                marginBottom: 18,
-                color: notification.type === 'success' ? '#22c55e' : '#ef4444',
-                background: notification.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
-                border: `1.5px solid ${notification.type === 'success' ? '#22c55e' : '#ef4444'}`,
-                borderRadius: 8,
-                padding: '10px 18px',
-                fontWeight: 700,
-                fontSize: 15,
-                textAlign: 'center',
-                width: '100%',
-                letterSpacing: 0.1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 10,
-              }}>
-                <span>{notification.message}</span>
-                {notification.type === 'success' && (
-                  <button
-                    style={{
-                      marginTop: 4,
-                      background: '#22c55e',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '7px 18px',
-                      fontWeight: 700,
-                      fontSize: 15,
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 8px #22c55e33',
-                      transition: 'background 0.18s',
-                    }}
-                    onClick={() => router.push(`/client/${clientSlug}/documents`)}
-                  >
-                    Track Progress
-                  </button>
-                )}
-              </div>
-            )}
+            {/* ...existing code... */}
             {/* Document Icon */}
             <div style={{ marginBottom: 18 }}>
               <svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -224,6 +221,7 @@ export default function UploadPage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
+                    accept=".pdf,.docx,.txt,.html,.md"
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
@@ -231,6 +229,26 @@ export default function UploadPage() {
                     <>
                       <div style={{ marginBottom: 8 }}>Drag & drop files here</div>
                       <div style={{ fontSize: 15, color: '#7ea0e6', fontWeight: 400 }}>or <span style={{ textDecoration: 'underline', color: '#7ea0e6', cursor: 'pointer' }}>click to select from computer</span></div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
+                        {['PDF', 'TXT', 'DOCX', 'HTML', 'MD'].map(type => (
+                          <span
+                            key={type}
+                            style={{
+                              background: '#22325a',
+                              color: '#7ea0e6',
+                              border: '1px solid #2d406b',
+                              borderRadius: 8,
+                              padding: '2px 10px',
+                              fontSize: 13,
+                              fontWeight: 600,
+                              letterSpacing: 0.5,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {type}
+                          </span>
+                        ))}
+                      </div>
                     </>
                   ) : (
                     <ul style={{ color: '#a3c0ff', fontSize: 15, paddingLeft: 0, margin: 0, width: '100%' }}>
@@ -266,7 +284,10 @@ export default function UploadPage() {
                   <input
                     type="url"
                     value={fileUrl}
-                    onChange={e => setFileUrl(e.target.value)}
+                    onChange={e => {
+                      setFileUrl(e.target.value);
+                      setNotification(null); // Clear notification on new URL
+                    }}
                     placeholder="Paste file URL here..."
                     style={{
                       width: '80%',
@@ -316,6 +337,70 @@ export default function UploadPage() {
               >
                 {submitted ? 'Uploading...' : 'Submit'}
               </button>
+              {/* Uploading message and notification below the button */}
+              {submitted && !notification && (
+                <div style={{
+                  marginTop: 18,
+                  color: '#fff',
+                  background: '#22325a',
+                  border: '2px solid #fff',
+                  borderRadius: 8,
+                  padding: '10px 18px',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  textAlign: 'center',
+                  width: '100%',
+                  letterSpacing: 0.1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 10,
+                }}>
+                  Do not leave this page while your document is uploading.
+                </div>
+              )}
+              {notification && (
+                <div style={{
+                  marginTop: 18,
+                  marginBottom: 0,
+                  color: notification.type === 'success' ? '#22c55e' : '#ef4444',
+                  background: notification.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                  border: `1.5px solid ${notification.type === 'success' ? '#22c55e' : '#ef4444'}`,
+                  borderRadius: 8,
+                  padding: '10px 18px',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  textAlign: 'center',
+                  width: '100%',
+                  letterSpacing: 0.1,
+                  display: 'flex',
+                  flexDirection: notification.type === 'success' ? 'row' : 'column',
+                  alignItems: 'center',
+                  gap: notification.type === 'success' ? 16 : 10,
+                  justifyContent: notification.type === 'success' ? 'center' : 'initial',
+                }}>
+                  <span>{notification.message}</span>
+                  {notification.type === 'success' && (
+                    <button
+                      style={{
+                        background: '#22c55e',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '7px 18px',
+                        fontWeight: 700,
+                        fontSize: 15,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px #22c55e33',
+                        transition: 'background 0.18s',
+                      }}
+                      onClick={() => router.push(`/client/${clientSlug}/documents`)}
+                    >
+                      Track Progress
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           </div>
         </div>
