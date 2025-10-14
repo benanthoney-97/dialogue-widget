@@ -47,6 +47,11 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#ffffff",
     border: "#4453f4",
   },
+    "fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line": {
+    background: "#d84012",
+    text: "#ffffff",
+    border: "#d84012",
+  },
   "english-gcse-revision": {
     background: "#525fe1",
     text: "#ffffff",

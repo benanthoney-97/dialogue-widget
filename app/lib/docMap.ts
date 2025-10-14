@@ -79,7 +79,7 @@ export const docMap: Record<string, DocEntry> = {
     author: "Diego Ballon Ossio",
   },
   "fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line": {
-    pdfPath: "papers/fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line.pdf",
+    pdfPath: "/papers/fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line.pdf",
     agentId: "agent_0801k7h3cd12fyt8d1g8tz0m4p1f",
     agentName: "Fault lines: Where projects crack and how the Board can hold the line",
     region: "eu-residency",
