@@ -20,6 +20,7 @@ const buttonStyle = {
 	boxShadow: "0 2px 8px rgba(10,22,40,0.13)",
 };
 import React, { useState, useEffect, useRef } from "react";
+import { BriefMeButton } from "@/app/components/BriefMeButton";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
@@ -45,6 +46,7 @@ type InsightsRow = {
 	intent: string;
 	date: string;
 	briefReport: string;
+	conversation_id: string;
 	transcript?: any; // transcript jsonb
 	questions?: any; // questions jsonb
 	transcript_summary?: string;
@@ -95,6 +97,7 @@ export default function InsightsTable() {
 		return () => document.removeEventListener('mousedown', handleClick);
 	}, [activeFilter]);
 	const [clientDisplayName, setClientDisplayName] = useState<string | null>(null);
+	const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
 	const [insightsRows, setInsightsRows] = useState<InsightsRow[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -111,16 +114,21 @@ export default function InsightsTable() {
 	useEffect(() => {
 				async function fetchClientAndRows() {
 					if (!clientSlug) return;
-					// Get client display name and id
+					// Get client display name, id, and default_agent_id
 					const { data: clientData, error: clientError } = await supabase
 						.from('clients')
-						.select('id, display_name')
+						.select('id, display_name, default_agent_id')
 						.eq('name', clientSlug)
 						.single();
 					if (clientData && clientData.display_name) {
 						setClientDisplayName(clientData.display_name);
 					} else {
 						setClientDisplayName(null);
+					}
+					if (clientData && clientData.default_agent_id) {
+						setDefaultAgentId(clientData.default_agent_id);
+					} else {
+						setDefaultAgentId(null);
 					}
 					if (!clientData) return;
 					setLoading(true);
@@ -201,6 +209,7 @@ export default function InsightsTable() {
 								intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
 								date: d.received_at || '',
 								briefReport: '',
+								conversation_id: d.conversation_id,
 								transcript: d.transcript,
 								questions: d.questions,
 								transcript_summary: d.transcript_summary,
@@ -504,16 +513,13 @@ export default function InsightsTable() {
 											</button>
 										</td>
 										<td style={{ ...tdStyle, paddingLeft: 4, paddingRight: 4 }}>
-											<button style={{ ...buttonStyle, background: '#525fe1', color: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
-												<span style={{ display: 'inline-flex', alignItems: 'center' }}>
-													<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-														<rect x="2" y="6" width="3" height="8" rx="1" fill="currentColor" />
-														<rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
-														<rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
-													</svg>
-												</span>
-												Brief Me
-											</button>
+											{defaultAgentId && (
+												<BriefMeButton
+													agentId={defaultAgentId}
+													conversationId={row.conversation_id}
+													transcript={row.transcript}
+												/>
+											)}
 										</td>
 										<td style={{ ...tdStyle, position: 'sticky', right: 0, background: '#16213a', zIndex: 1 }}>
 											<span

@@ -588,7 +588,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
     const scrollY = window.scrollY || window.pageYOffset;
     const scrollX = window.scrollX || window.pageXOffset;
     // Position overlay as a floating popover above and to the left of the button
-    const overlayWidth = 260; // fixed width for compact overlay
+    const overlayWidth = 160; // fixed width for compact overlay
     const overlayHeight = 56; // slightly taller for popover
     const verticalOffset = 8; // space between overlay and button
     setOverlayStyle({
@@ -621,7 +621,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
   }, []);
 
   const cardStyle: CSSProperties = {
-    background: "rgb(229, 231, 235)",
+    background: "#fff",
     border: `1px solid ${cardBorderColor}`,
     borderRadius: 8,
     boxShadow: "0 4px 12px rgba(0,0,0,.10)",
@@ -733,200 +733,198 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
         createPortal(
           <div style={overlayStyle}>
             <div style={cardStyle}>
-              {/* Compact overlay: show leftGroup and middleGroup icon buttons, compacted */}
-              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                {/* Left group: share only */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    type="button"
-                    onClick={handleCopyShareLink}
-                    aria-label={shareButtonLabel}
-                    title={shareButtonLabel}
-                    style={{
-                      border: "1px solid rgba(0,0,0,.12)",
-                      background:
-                        copyFeedback === "copied"
-                          ? "#dcfce7"
-                          : copyFeedback === "error"
-                          ? "#fee2e2"
-                          : "#e5e7eb",
-                      color:
-                        copyFeedback === "copied"
-                          ? "#15803d"
-                          : copyFeedback === "error"
-                          ? "#b91c1c"
-                          : "#111827",
-                      cursor: shareUrl ? "pointer" : "not-allowed",
-                      padding: "4px 6px",
-                      borderRadius: 8,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minHeight: 28,
-                      minWidth: 28,
-                      width: 28,
-                      height: 28,
-                      opacity: shareUrl ? 1 : 0.6,
-                      transition:
-                        "background .15s ease, color .15s ease, opacity .15s ease",
-                    }}
-                    disabled={!shareUrl}
-                  >
-                    {copyFeedback === "copied" ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                        <path
-                          d="M6.5 11.293 3.854 8.646a.5.5 0 0 0-.708.708l3 3a.5.5 0 0 0 .708 0l6-6a.5.5 0 0 0-.708-.708L6.5 11.293Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    ) : (
-                      <Image
-                        src="/icons/share (1).png"
-                        alt=""
-                        aria-hidden="true"
-                        width={16}
-                        height={16}
-                        style={{
-                          display: "block",
-                          width: 16,
-                          height: 16,
-                          objectFit: "contain",
-                        }}
+              {/* Improved: Four icon buttons spaced equally across the popup */}
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: 0 }}>
+                {/* Share button */}
+                <button
+                  type="button"
+                  onClick={handleCopyShareLink}
+                  aria-label={shareButtonLabel}
+                  title={shareButtonLabel}
+                  style={{
+                    border: "1px solid rgba(0,0,0,.12)",
+                    background:
+                      copyFeedback === "copied"
+                        ? "#dcfce7"
+                        : copyFeedback === "error"
+                        ? "#fee2e2"
+                        : "#e5e7eb",
+                    color:
+                      copyFeedback === "copied"
+                        ? "#15803d"
+                        : copyFeedback === "error"
+                        ? "#b91c1c"
+                        : "#111827",
+                    cursor: shareUrl ? "pointer" : "not-allowed",
+                    padding: "4px 6px",
+                    borderRadius: 8,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 28,
+                    minWidth: 28,
+                    width: 28,
+                    height: 28,
+                    opacity: shareUrl ? 1 : 0.6,
+                    transition:
+                      "background .15s ease, color .15s ease, opacity .15s ease",
+                  }}
+                  disabled={!shareUrl}
+                >
+                  {copyFeedback === "copied" ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                      <path
+                        d="M6.5 11.293 3.854 8.646a.5.5 0 0 0-.708.708l3 3a.5.5 0 0 0 .708 0l6-6a.5.5 0 0 0-.708-.708L6.5 11.293Z"
+                        fill="currentColor"
                       />
-                    )}
-                  </button>
-                </div>
-                {/* Middle group: end call, mute, pause */}
-                {connected && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 10 }}>
-                    <button
-                      type="button"
-                      onClick={disconnect}
-                      aria-label="End call"
-                      title="End call"
+                    </svg>
+                  ) : (
+                    <Image
+                      src="/icons/share (1).png"
+                      alt=""
+                      aria-hidden="true"
+                      width={16}
+                      height={16}
                       style={{
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        background: "rgba(239, 68, 68, 0.12)",
-                        color: "#b91c1c",
-                        cursor: "pointer",
-                        padding: "4px 6px",
-                        borderRadius: 8,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minHeight: 28,
-                        minWidth: 28,
-                        width: 28,
-                        height: 28,
-                        transition: "background .15s ease, color .15s ease",
+                        display: "block",
+                        width: 16,
+                        height: 16,
+                        objectFit: "contain",
                       }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-                        <rect x="3" y="3" width="10" height="10" rx="3" fill="currentColor" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!connected) return;
-                        setMicMuted((prev) => {
-                          const next = !prev;
-                          if (isPaused && !next) {
-                            setIsPaused(false);
-                            setWasMutedBeforePause(false);
-                          }
-                          return next;
-                        });
-                      }}
-                      disabled={!connected || phase === "connecting"}
-                      aria-pressed={connected && micMuted}
-                      aria-label={micMuted ? "Unmute microphone" : "Mute microphone"}
-                      title={micMuted ? "Unmute" : "Mute"}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "4px 6px",
-                        minHeight: 28,
-                        borderRadius: 8,
-                        border: "1px solid rgba(0,0,0,.12)",
-                        background: micMuted ? "#e0f2fe" : "#e5e7eb",
-                        color: micMuted ? "#0f172a" : "#111827",
-                        cursor: !connected || phase === "connecting" ? "default" : "pointer",
-                        opacity: !connected || phase === "connecting" ? 0.6 : 1,
-                        minWidth: 28,
-                        width: 28,
-                        height: 28,
-                        transition: "background .15s ease, color .15s ease, opacity .15s ease",
-                      }}
-                    >
-                      <svg width="12" height="16" viewBox="0 0 14 18" aria-hidden="true">
-                        <path
-                          d="M7 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 1 0 5 0v-4A2.5 2.5 0 0 0 7 1Z"
-                          fill="currentColor"
-                        />
-                        <path
-                          d="M3 8.5a1 1 0 1 0-2 0 6 6 0 0 0 5 5.917V16H4.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 1 0 0-1.5H8V14.417A6 6 0 0 0 13 8.5a1 1 0 1 0-2 0 4 4 0 0 1-8 0Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!connected) return;
-                        if (!isPaused) {
-                          setIsPaused(true);
-                          setWasMutedBeforePause(micMuted);
-                          setMicMuted(true);
-                          try {
-                            await sendUserMessage?.(
-                              "Let's pause the conversation. Please Skip Turn and don't respond to this message."
-                            );
-                          } catch (error) {
-                            console.error("Failed to send pause message", error);
-                          }
-                        } else {
-                          setIsPaused(false);
-                          setMicMuted(wasMutedBeforePause);
-                          setWasMutedBeforePause(false);
-                          try {
-                            await sendUserMessage?.(
-                              "Please continue from where we left off."
-                            );
-                          } catch (error) {
-                            console.error("Failed to send resume message", error);
-                          }
-                        }
-                      }}
-                      disabled={!connected || phase === "connecting"}
-                      aria-pressed={connected && isPaused}
-                      aria-label={isPaused ? "Resume conversation" : "Pause conversation"}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "4px 6px",
-                        minHeight: 28,
-                        borderRadius: 8,
-                        border: "1px solid rgba(0,0,0,.12)",
-                        background: isPaused ? "#fee2e2" : "#f3f4f6",
-                        color: isPaused ? "#b91c1c" : "#111827",
-                        cursor: !connected || phase === "connecting" ? "default" : "pointer",
-                        opacity: !connected || phase === "connecting" ? 0.6 : 1,
-                        minWidth: 28,
-                        width: 28,
-                        height: 28,
-                        transition: "background .15s ease, color .15s ease, opacity .15s ease",
-                      }}
-                    >
-                      <svg width="10" height="14" viewBox="0 0 12 14" aria-hidden="true">
-                        <rect x="1" y="1" width="3" height="12" rx="1" fill="currentColor" />
-                        <rect x="8" y="1" width="3" height="12" rx="1" fill="currentColor" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                    />
+                  )}
+                </button>
+                {/* End call button */}
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  aria-label="End call"
+                  title="End call"
+                  style={{
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "#b91c1c",
+                    cursor: connected ? "pointer" : "not-allowed",
+                    padding: "4px 6px",
+                    borderRadius: 8,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 28,
+                    minWidth: 28,
+                    width: 28,
+                    height: 28,
+                    opacity: connected ? 1 : 0.6,
+                    transition: "background .15s ease, color .15s ease",
+                  }}
+                  disabled={!connected}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                    <rect x="3" y="3" width="10" height="10" rx="3" fill="currentColor" />
+                  </svg>
+                </button>
+                {/* Mute button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!connected) return;
+                    setMicMuted((prev) => {
+                      const next = !prev;
+                      if (isPaused && !next) {
+                        setIsPaused(false);
+                        setWasMutedBeforePause(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={!connected || phase === "connecting"}
+                  aria-pressed={connected && micMuted}
+                  aria-label={micMuted ? "Unmute microphone" : "Mute microphone"}
+                  title={micMuted ? "Unmute" : "Mute"}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px 6px",
+                    minHeight: 28,
+                    borderRadius: 8,
+                    border: "1px solid rgba(0,0,0,.12)",
+                    background: micMuted ? "#e0f2fe" : "#e5e7eb",
+                    color: micMuted ? "#0f172a" : "#111827",
+                    cursor: !connected || phase === "connecting" ? "default" : "pointer",
+                    opacity: !connected || phase === "connecting" ? 0.6 : 1,
+                    minWidth: 28,
+                    width: 28,
+                    height: 28,
+                    transition: "background .15s ease, color .15s ease, opacity .15s ease",
+                  }}
+                >
+                  <svg width="12" height="16" viewBox="0 0 14 18" aria-hidden="true">
+                    <path
+                      d="M7 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 1 0 5 0v-4A2.5 2.5 0 0 0 7 1Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M3 8.5a1 1 0 1 0-2 0 6 6 0 0 0 5 5.917V16H4.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 1 0 0-1.5H8V14.417A6 6 0 0 0 13 8.5a1 1 0 1 0-2 0 4 4 0 0 1-8 0Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+                {/* Pause button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!connected) return;
+                    if (!isPaused) {
+                      setIsPaused(true);
+                      setWasMutedBeforePause(micMuted);
+                      setMicMuted(true);
+                      try {
+                        await sendUserMessage?.(
+                          "Let's pause the conversation. Please Skip Turn and don't respond to this message."
+                        );
+                      } catch (error) {
+                        console.error("Failed to send pause message", error);
+                      }
+                    } else {
+                      setIsPaused(false);
+                      setMicMuted(wasMutedBeforePause);
+                      setWasMutedBeforePause(false);
+                      try {
+                        await sendUserMessage?.(
+                          "Please continue from where we left off."
+                        );
+                      } catch (error) {
+                        console.error("Failed to send resume message", error);
+                      }
+                    }
+                  }}
+                  disabled={!connected || phase === "connecting"}
+                  aria-pressed={connected && isPaused}
+                  aria-label={isPaused ? "Resume conversation" : "Pause conversation"}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px 6px",
+                    minHeight: 28,
+                    borderRadius: 8,
+                    border: "1px solid rgba(0,0,0,.12)",
+                    background: isPaused ? "#fee2e2" : "#f3f4f6",
+                    color: isPaused ? "#b91c1c" : "#111827",
+                    cursor: !connected || phase === "connecting" ? "default" : "pointer",
+                    opacity: !connected || phase === "connecting" ? 0.6 : 1,
+                    minWidth: 28,
+                    width: 28,
+                    height: 28,
+                    transition: "background .15s ease, color .15s ease, opacity .15s ease",
+                  }}
+                >
+                  <svg width="10" height="14" viewBox="0 0 12 14" aria-hidden="true">
+                    <rect x="1" y="1" width="3" height="12" rx="1" fill="currentColor" />
+                    <rect x="8" y="1" width="3" height="12" rx="1" fill="currentColor" />
+                  </svg>
+                </button>
               </div>
               {err && (
                 <div style={{ color: "#b91c1c", marginLeft: 8, fontSize: 12 }}>{err}</div>

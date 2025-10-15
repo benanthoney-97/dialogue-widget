@@ -10,6 +10,7 @@ export default function DocumentsPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const pathname = usePathname();
 
   // Get client slug from URL
@@ -80,6 +81,7 @@ export default function DocumentsPage() {
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Dialogue Created Date</th>
                 <th style={thStyle}>Test</th>
+                <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -157,6 +159,57 @@ export default function DocumentsPage() {
                           </svg>
                         </span>
                         Test
+                      </button>
+                    </td>
+                    <td style={{
+                      width: 110,
+                      minWidth: 90,
+                      maxWidth: 140,
+                      textAlign: 'center',
+                      padding: 0,
+                      background: '#16213a',
+                      borderBottom: '1px solid #22325a',
+                    }}>
+                      <button
+                        type="button"
+                        aria-label="Copy document link"
+                        title="Copy document link"
+                        style={{
+                          ...buttonStyle,
+                          background: row.status === 'Ready' ? '#525fe1' : '#22325a',
+                          color: row.status === 'Ready' ? '#fff' : '#a3c0ff',
+                          opacity: row.status === 'Ready' ? 1 : 0.5,
+                          cursor: row.status === 'Ready' ? 'pointer' : 'not-allowed',
+                          pointerEvents: row.status === 'Ready' ? 'auto' : 'none',
+                          minWidth: 0,
+                          width: '100%',
+                          padding: '7px 16px',
+                          margin: 0,
+                          fontSize: 14,
+                        }}
+                        disabled={row.status !== 'Ready'}
+                        onClick={async () => {
+                          if (row && row.key && row.status === 'Ready') {
+                            const url = `https://embed.dialogue-ai.co/doc/${row.key}`;
+                            try {
+                              await navigator.clipboard.writeText(url);
+                            } catch {
+                              // fallback for older browsers
+                              const textarea = document.createElement('textarea');
+                              textarea.value = url;
+                              document.body.appendChild(textarea);
+                              textarea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textarea);
+                            }
+                            setCopiedIdx(i);
+                            setTimeout(() => {
+                              setCopiedIdx((prev) => (prev === i ? null : prev));
+                            }, 2000);
+                          }
+                        }}
+                      >
+                        {copiedIdx === i ? 'Copied' : 'Copy link'}
                       </button>
                     </td>
                   </tr>

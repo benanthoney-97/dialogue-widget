@@ -116,6 +116,7 @@ export default function DialogueBarTalkOnly({
         margin: "0 auto",
         padding: isNarrow ? "0 8px" : "0 12px",
         boxSizing: "border-box",
+        fontFamily: "'Cooper Light BT', Cooper, serif",
       }}
     >
       {title ? (
@@ -140,7 +141,6 @@ export default function DialogueBarTalkOnly({
           marginBottom: 8,
         }}
       >
-        <strong>Tip:</strong> Tap <strong>Talk</strong> to connect and speak with the agent
       </div>
 
       <div
@@ -185,7 +185,7 @@ export default function DialogueBarTalkOnly({
                 <rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
                 <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
               </svg>
-              <span>{connected ? "Live" : "Talk"}</span>
+              <span>{connected ? "Live" : "Speak to Dialogue"}</span>
             </>
           )}
         </button>
