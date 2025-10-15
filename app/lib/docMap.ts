@@ -97,6 +97,8 @@ export const docMap: Record<string, DocEntry> = {
     talkLabel: "Discuss Pitch",
     url: "",
     author: "Emily Ellis",
+    workLabel: "pitch",
+
   },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
