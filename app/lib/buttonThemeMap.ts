@@ -52,6 +52,11 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#ffffff",
     border: "#d84012",
   },
+    "ebay-radio-pitch": {
+    background: "#0968f6",
+    text: "#ffffff",
+    border: "#ffbd14",
+  },
   "english-gcse-revision": {
     background: "#525fe1",
     text: "#ffffff",

@@ -88,6 +88,16 @@ export const docMap: Record<string, DocEntry> = {
     url: "",
     author: "Robert Griffiths",
   },
+  "ebay-radio-pitch": {
+    pdfPath: "/papers/eBay radio pitch.pdf",
+    agentId: "agent_8601k7kj8tzyfx2bn6wrprt8ww4t",
+    agentName: "eBay Radio Pitch",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Discuss Pitch",
+    url: "",
+    author: "Emily Ellis",
+  },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",
   agentId: "agent_7701k5tkhf04evvbsacthtwc890q",

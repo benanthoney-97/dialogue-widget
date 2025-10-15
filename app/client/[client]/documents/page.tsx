@@ -108,21 +108,43 @@ export default function DocumentsPage() {
                       }}>{row.agent_name}</div>
                     </td>
                     <td style={tdStyle}>{row.content_type}</td>
-                    <td style={tdStyle}>{row.created_at ? row.created_at.split('T')[0] : '-'}</td>
+                    <td style={tdStyle}>
+                      {row.created_at
+                        ? (() => {
+                            const d = new Date(row.created_at);
+                            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+                              ' ' +
+                              d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                          })()
+                        : '-'}
+                    </td>
                     <td style={{ ...tdStyle, color: row.status === 'Ready' ? '#7ee67e' : row.status === 'Building' ? '#e6e67e' : '#a3c0ff', fontWeight: 700 }}>{row.status}</td>
-                    <td style={tdStyle}>{row.dialogue_created_date ? row.dialogue_created_date.split('T')[0] : '-'}</td>
+                    <td style={tdStyle}>
+                      {row.dialogue_created_date
+                        ? (() => {
+                            const d = new Date(row.dialogue_created_date);
+                            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+                              ' ' +
+                              d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                          })()
+                        : '-'}
+                    </td>
                     <td style={tdStyle}>
                       <button
                         style={{
                           ...buttonStyle,
-                          background: '#525fe1',
-                          color: '#fff',
+                          background: row.status === 'Ready' ? '#525fe1' : '#22325a',
+                          color: row.status === 'Ready' ? '#fff' : '#a3c0ff',
+                          opacity: row.status === 'Ready' ? 1 : 0.5,
+                          cursor: row.status === 'Ready' ? 'pointer' : 'not-allowed',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 4
+                          gap: 4,
+                          pointerEvents: row.status === 'Ready' ? 'auto' : 'none',
                         }}
+                        disabled={row.status !== 'Ready'}
                         onClick={() => {
-                          if (row && row.key) {
+                          if (row && row.key && row.status === 'Ready') {
                             window.open(`https://embed.dialogue-ai.co/doc/${row.key}`, '_blank');
                           }
                         }}

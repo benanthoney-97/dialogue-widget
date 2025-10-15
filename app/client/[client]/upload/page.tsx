@@ -221,7 +221,7 @@ export default function UploadPage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.docx,.txt,.html,.md"
+                    accept=".pdf,.docx,.txt,.html"
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
@@ -230,7 +230,7 @@ export default function UploadPage() {
                       <div style={{ marginBottom: 8 }}>Drag & drop files here</div>
                       <div style={{ fontSize: 15, color: '#7ea0e6', fontWeight: 400 }}>or <span style={{ textDecoration: 'underline', color: '#7ea0e6', cursor: 'pointer' }}>click to select from computer</span></div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
-                        {['PDF', 'TXT', 'DOCX', 'HTML', 'MD'].map(type => (
+                        {['PDF', 'TXT', 'DOCX', 'HTML'].map(type => (
                           <span
                             key={type}
                             style={{
