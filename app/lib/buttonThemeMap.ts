@@ -62,6 +62,11 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#ffffff",
     border: "#256671",
   },
+    "stephenson-harwood-competition": {
+    background: "#122746",
+    text: "#ffffff",
+    border: "#122746",
+  },
   "english-gcse-revision": {
     background: "#525fe1",
     text: "#ffffff",
