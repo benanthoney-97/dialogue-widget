@@ -88,6 +88,16 @@ export const docMap: Record<string, DocEntry> = {
     url: "",
     author: "Robert Griffiths",
   },
+    "family-business-fallouts": {
+    pdfPath: "/papers/family-business-fallouts.pdf",
+    agentId: "agent_5101k7pep63heees56yjfdq336ag",
+    agentName: "Family Business Fallouts",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Summary",
+    url: "",
+    author: "Victoria Pigott",
+  },
   "ebay-radio-pitch": {
     pdfPath: "/papers/eBay radio pitch.pdf",
     agentId: "agent_8601k7kj8tzyfx2bn6wrprt8ww4t",
