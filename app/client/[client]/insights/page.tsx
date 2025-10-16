@@ -461,7 +461,6 @@ export default function InsightsTable() {
 								<th style={{ ...thStyle, maxWidth: 220, minWidth: 150 }}>Source Document</th>
 								<th style={thStyle}>Length</th>
 								<th style={thStyle}>Date</th>
-								<th style={thStyle}>Key focus</th>
 								<th style={thStyle}>Pipeline Intent</th>
 								<th style={thStyle}>Lead</th>
 								<th style={thStyle}></th>
@@ -487,7 +486,6 @@ export default function InsightsTable() {
 													})
 												: ''
 										}</td>
-										<td style={tdStyle}>{row.keyFocus}</td>
 										<td style={tdStyle}>{row.intent}</td>
 										<td style={tdStyle}>
 											<span

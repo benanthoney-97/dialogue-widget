@@ -1,0 +1,1421 @@
+
+
+STEPHENSON HARWOOD
+
+# REALISING THE BENEFITS OF COMPETITIVE MARKETS
+
+## *Strengthening the Competition Appeal Tribunal*
+
+October 2025
+
+---
+
+
+
+2    Realising the benefits of competitive markets
+
++
+
+# CONTENTS
+
+<table>
+<tr><td>Introduction</td><td>03</td></tr>
+<tr><td>Foreword</td><td>05</td></tr>
+<tr><td>Executive Summary</td><td>07</td></tr>
+<tr><td>Chapter 1: The CAT and Consumer Protection</td><td>09</td></tr>
+<tr><td>Chapter 2: Consumer Confidence</td><td>14</td></tr>
+<tr><td>Chapter 3: Challenges Facing the Collective Actions Regime</td><td>19</td></tr>
+<tr><td>Chapter 4: Opportunities</td><td>28</td></tr>
+<tr><td>Chapter 5: Policy Recommendations</td><td>34</td></tr>
+<tr><td>Conclusion</td><td>39</td></tr>
+<tr><td>Sources</td><td>40</td></tr>
+</table>
+
+
+
+---
+
+
+
+3    Realising the benefits of competitive markets
+
+# INTRODUCTION
+
+**The Competition Appeal Tribunal's collective actions regime is at a critical juncture. After a decade of development, the regime designed to empower consumers and promote competitive markets faces challenges that undermine its ability to operate effectively. This report arrives at a moment when evidence-based analysis has never been more urgently needed.**
+
+Members of Stephenson Harwood's group actions and competition team have been at the forefront of collective proceedings since before the regime's inception in 2015. Our recently formed team represented over 1,800 companies in the Merchant Interchange Fee Umbrella Proceedings against Visa and Mastercard, and we are acting for businesses and consumers in several other significant opt-in and opt-out CAT claims, with quantum in the hundreds of millions of pounds, that test the boundaries of what this regime can achieve. Through this work, representing both consumers and businesses, we have witnessed first-hand both the regime's considerable promise and its present challenges.
+
+Recent commentary has suggested the CAT is "overwhelmed" by collective actions. The evidence, however, points to a very different reality. Collective action filings have reduced from 17 in 2023 to just 3 in the first nine months of 2025. While the CAT is busy administering claims issued in the past 5 years or so, the regime is experiencing a dramatic decline in new claim activity that should concern anyone who values competitive markets and consumer protection.
+
+What strikes me most after years of practice in this field is the disconnect between the regime's potential and its current reality. Objectively meritorious cases face considerable hurdles in securing funding and navigating procedural uncertainty. The PACCAR judgment has cast a particularly long shadow, creating instability that deters investment in what are inherently risky, expensive, and socially valuable cases.
+
+---
+
+
+
+This report represents a genuine cross-section of voices from across the collective actions landscape. I am grateful to the academics, practitioners, former tribunal members, policy experts, and consumer advocates who generously shared their time and insights. Their perspectives–sometimes aligned, sometimes divergent–have enriched this work immeasurably.
+
+The evidence presented here makes a compelling case that the CAT requires nurturing, not restriction. International comparisons with Canada and Australia–where collective redress mechanisms have operated successfully for over three decades–demonstrate that, with appropriate refinement, the UK can develop a regime that genuinely serves consumers and small businesses–the lifeblood of the UK economy–whilst maintaining the judicial quality and expertise for which English courts are internationally recognised.
+
+The economic stakes are substantial. Collective proceedings have been brought in sectors representing 57.4% of UK economic output, with the potential to deter anti-competitive conduct worth billions annually and to benefit the UK economy through improving the competitive process once the regime reaches maturity. That economic value can only be realised if the system is given the time and regulatory support necessary to mature.
+
+The Department for Business and Trade's consultation on opt-out collective actions, while arguably premature given the paucity of data in this early stage of the regime's development, provides an ideal opportunity to implement reforms that strengthen rather than constrain access to justice.
+
+The recommendations in this report chart a practical path forward: expansion beyond competition-only claims, stronger case management, improved consumer engagement, and legislative reversal of PACCAR to end the uncertainty permeating the system.
+
+The UK's collective redress regime has the institutional foundations and judicial expertise to succeed. Whether it fulfils that promise depends on the choices policymakers make in the months ahead. This report is intended to inform those choices with rigorous analysis and insights from those who have worked within and alongside the system.
+
+**GENEVIEVE QUIERIN**  
+*Partner*  
+*Stephenson Harwood*
+
+4    Realising the benefits of competitive markets
+
+
+---
+
+
+
++
+
+# FOREWORD
+
+Back in the first decade of the century, the introduction of an opt-out class action procedure in the UK was a very long shot indeed. Reformers who pointed to the glaring lacuna in our process, both in the court system generally and in the CAT's then inadequate collective claims procedure, were typically met with a barrage of references to perceived abuses in other jurisdictions, to greedy, ambulance-chasing lawyers, to mercenary funders, and to the existence of alternative means of obtaining collective redress in the courts, such as the group litigation procedure. Industry lobbied hard against change. So, when in about 2012, we at the CAT urged the coalition government to rationalise the tribunal's jurisdiction by, amongst other desirable reforms, extending its collective action regime to include an opt-out process, we did so more in hope than expectation. Surprisingly that hope was more than fulfilled, and the Consumer Rights Act 2015 was the result. The CAT became the only UK court or tribunal capable of entertaining an opt-out class action, albeit limited to competition claims. This placed a heavy responsibility on the tribunal, as well as on lawyers, funders and litigants, to show that the excesses and abuses perceived elsewhere could be avoided by stringent judicial oversight and case-management, and that the system could work fairly and effectively for both claimants and defendants.
+
+Ten years on we are still only really at the embarkation stage of a voyage into the hitherto uncharted seas of opt-out collective redress. Many of those involved in bringing such claims, or providing expert evidence in support, or funding or adjudicating in this jurisdiction are still feeling their way along a path with many unfamiliar features. For example, and in no particular order, the total dependence on third-party funding, the concept of a class representative, and the need for early judicial approval of many elements—including the suitability of the representative, the appropriateness of aggregated damages, the adequacy of funding, and the methodology for quantification and distribution of damages.
+
+Other questions have also arisen, including communications between defendants and class members, the nature of funding and its relationship with damages-based agreements (culminating in the difficulties created by the Supreme Court's PACCAR decision), the CAT's gatekeeping role, and the interrelationship between public and private enforcement.
+
+None of these issues can be said to be wholly resolved at this stage. All of them, and other questions too, are likely in the fullness of time to have a significant impact on the realisation or otherwise of the UK collective redress regime as an effective means of obtaining justice for multiple victims of wrongdoing, in circumstances, where no other source of relief would be available.
+
+Therefore, as we embark upon the second decade of the regime, it is perhaps a good time to reflect on progress to date. The Civil Justice Council, and now the Government, have been engaged in a review of the existing collective redress procedure, and the present report provides a valuable and timely collection of views and suggestions from a wide-ranging class of those with knowledge of, and involvement in, the system. It is very much to be hoped that in its review the Government will not be tempted to go down a path, which would be a significantly regressive step, of curtailing or removing the only means by which multiple claimants each suffering relatively small amounts of financial loss can achieve justice, reducing the valuable deterrent effect of compensation claims, and diminishing the attractiveness of this jurisdiction as a venue for the resolution of major competition litigation.
+
+5    Realising the benefits of competitive markets
+
+
+---
+
+
+
+6    Realising the benefits of competitive markets
+
+The report is right to point to the enormous achievements of the CAT over the last 10 years in further consolidating its position as an internationally respected forum for major competition litigation. The quality of its judgments are widely acknowledged to be outstanding. This is not to say that all is perfect: some of the commentators cited in the present report refer to the high costs of litigating in this jurisdiction and to the duration of proceedings, whilst confirming significant recent improvement in the latter. Both these features are, of course, symptoms of the extreme complexity of the legal, factual and economic issues that fall to be determined in such litigation. Further improvement in both aspects is no doubt possible, but perhaps unlikely to be on a substantial scale given the nature of these proceedings. In so far as the duration of collective proceedings here has sometimes been unfavourably contrasted with the speed of resolution in other jurisdictions, for example, Canada, Australia, and the US, it is fair to point out that there is no clearly equivalent comparator system. The UK sought to choose best practice from several, and did so adopting the precautionary principle designed to exclude frivolous cases, and to ensure fairness to defendants as well as class claimants.
+
+However, the most pressing problem with the system in its current form is undoubtedly the damage to the machinery of third-party funding, crucial to the existence and efficient functioning of the collective regime itself, caused by the majority decision of the Supreme Court in PACCAR. The present report confirms that the recent fall off in filings of new collective actions in the CAT is a consequence of the uncertainty and related complications for third-party funding caused by that decision. It has led to costly modification or substitution of previously agreed funding arrangements, together with satellite litigation arising from the often opportunistic challenges by defendants to amended funding agreements. Furthermore, the substituted "multiples of outlay" basis of remuneration for funders has created an undesirable separation between the interests of the class and those of the funder which did not exist before the PACCAR decision, when funders were remunerated on the basis of a percentage of the damages awarded. As the Civil Justice Council stated, and the present report concludes, it is of the utmost urgency for the future well-being and effectiveness of the existing class action jurisdiction that the majority decision of the Supreme Court be reversed by legislation at the earliest possible time. Without reasonable certainty of appropriate funding arrangements for those third parties investing in collective actions, the class action regime simply cannot function.
+
+Looking at the bigger picture, there is also a manifest anomaly in the current confinement of opt-out class actions to a single sector, namely, competition. As the present report points out, there are several other areas which lack a means to obtain redress for multiple small claims; these include, for example, infringements of consumer rights within the financial and investment sector and generally. Those who have lost relatively small sums of money by reason of unlawful conduct in those sectors are equally labouring under an injustice, with the wrongdoers able to avoid compensating those affected. It is therefore logical and desirable that the current opt-out system should be extended generally to include other sectors where multiple claims, not economically viable by reason of their small size, can be brought collectively with the aid of third-party funders.
+
+**SIR GERALD BARLING**
+*Former President of the Competition Appeal Tribunal (2007-2013)*
+
+The authors of the present report, together with its contributors, are to be congratulated for drawing attention to these and other shortcomings of the present class action system and for suggesting possible remedies. Encouragingly, several of the report's recommendations align with best practices already emerging, such as the support of class representatives by an independent advisory panel. Although not as yet prescribed in the CAT rules, appointment of such a panel is becoming common in opt- out cases. The report's analysis of the regime's challenges and opportunities, together with its practical recommendations for reform, provides valuable guidance for policymakers as they consider the regime's future development.
+
+---
+
+
+
+7    Realising the benefits of competitive markets
+
+# EXECUTIVE SUMMARY
+
+The Competition Appeal Tribunal was extended in 2015 to include opt-out collective actions to enhance competition, ensure prices stay fair and businesses don't abuse their position and keep innovating.
+
+'Competition is one of the great drivers of growth,' ministers stated at the time. Compensation for claimants, deterrence of bad actors and encouragement for innovators were, and should remain, the key objectives of the class action regime.
+
+The success of this regime, and its ability to promote competition, relies on: consumers' confidence in the system, funding to be able to bring cases and the court's ability to run efficient and results-driven claims.
+
+For many consumers, particularly those on lower incomes or with less formal education, the prospect of holding large corporations to account remains remote—potentially affecting those who need protection most. When claimants have taken their cases to the CAT, they frequently face costly and protracted proceedings where defendants deploy strategies that extend timelines and escalate costs, testing claimants' resolve and depleting their resources.
+
+Third-party litigation funding plays an essential role in enabling collective actions to proceed, providing the financial support necessary for claimants to pursue complex and expensive proceedings that would otherwise be impossible to bring. Without viable funding mechanisms, the regime's ability to deliver access to justice would be fundamentally undermined.
+
+However, legal challenges have created widespread uncertainty and significantly increased the risks associated with investing in collective proceedings. The Supreme Court's decision in PACCAR has proved particularly disruptive to the funding market upon which the regime depends. As a result, meritorious claims face difficulties securing investment, potentially allowing anti-competitive conduct to go unchallenged and competition to remain unenforced.
+
+The CAT remains relatively young in handling collective actions, with only four years having passed since the first opt-out collective proceedings order was granted. With that relative immaturity come procedural uncertainties and delays that can prove costly to all parties. Cases have sometimes taken longer to progress from filing to resolution than in other comparable jurisdictions. The journey through the system can be challenging, and the results from the limited number of concluded cases have not always delivered clear-cut outcomes for claimants or their funders.
+
+Claims that the CAT is 'overwhelmed' are contradicted by the evidence. Case filings have collapsed from 17 in 2023 to just 3 in the first nine months of 2025. This dramatic decline reflects not the tribunal's success in processing cases but the chilling effect of the PACCAR decision and wider market uncertainty that has deterred funders from supporting collective proceedings. The regime faces underutilisation driven by policy and legal uncertainty, not overload from excessive litigation.
+
+Yet the stakes could not be higher. The regime's deterrent value, once fully realised, could deliver substantial economic benefits. Collective proceedings have been brought in sectors representing £1,360bn in annual economic output—equivalent to 57.4% of the entire UK economy. Once the regime reaches maturity, its annual economic impact from deterring anti-competitive conduct is estimated to fall between £12.1bn and £24.2bn per year. However, this economic value can only be realised if the regime is given the time and regulatory support to mature.
+
+The decline in filings suggests the system requires attention and refinement. But many of the difficulties it faces are characteristic of an evolving system finding its footing—a regime that needs to be nurtured and its processes streamlined as it develops
+
+---
+
+
+
+# THERE ARE SEVERAL WAYS THE REGIME COULD BE ENHANCED TO BETTER SERVE ITS PURPOSE:
+
++ *The opt-out regime should be expanded* to cover data privacy breaches, consumer protection violations, and other mass harms beyond competition law. While the original justification centred on promoting competition, expanding scope would better serve access to justice and the rule of law—both fundamental to maintaining investment confidence. Currently, time and resources are consumed arguing over whether claims fall within competition law's jurisdictional boundaries. The regime should also clarify that businesses, particularly SMEs, can access the opt-out mechanism where appropriate, as they face the same barriers to justice as consumers when suffering small losses from the same wrongful conduct.
+
++ *Resolve the uncertainty.* The verdict of the Civil Justice Council's review that the Government staked its position on was for urgent standalone legislation to reverse the effects of PACCAR and end the uncertainty permeating the system. If litigation funders cannot confidently invest in claims, the representative action regime falls apart.
+
++ *Introduce pre-action protocols and improve early case management.* While the CAT is becoming increasingly efficient and cases are progressing more quickly from filing to resolution, there remains scope for more rigorous early case management. Greater use of the CAT's existing case management powers, including costs budgeting and stricter timetabling, could help contain escalating costs in complex proceedings.
+
++ *Strengthen support for class representatives* to ensure the interests of the class are properly represented, key decisions are made with full and frank advice, and the regime remains accessible beyond former litigators or those with extensive legal experience. Class representatives should have access to independent advice, and the CAT should develop clearer guidance through a practice direction or dedicated section of the Guide to Proceedings.
+
++ *The CAT should bring forward the approval of funding arrangements to the certification stage* to provide confidence to all parties as the case progresses. While the CAT already conducts scrutiny of funding arrangements at certification, the current approach creates uncertainty by revisiting these arrangements later during settlement approval. Providing more definitive approval at certification would benefit funders by giving them confidence that their contractual terms will be respected, benefit class representatives by avoiding later disputes, and benefit defendants by making the economics of potential settlement clearer.
+
++ *Improve consumer distribution and take-up.* Class identification should begin much earlier in the process, running in parallel with substantive litigation, to build a more engaged class by the time distribution commences. There is scope to learn from more mature markets like Canada and Australia to ensure the distribution process is sufficiently accessible and well-publicised that consumers who wish to participate can do so without undue difficulty.
+
++ *Invest in institutional capacity and resources.* Operating with just one permanent judge and minimal staff, the CAT has achieved considerable results but requires investment in permanent judicial capacity, specialist economists, and administrative support to handle increasingly complex proceedings sustainably. As the broader court system faces unprecedented strain, strengthening the CAT represents an efficient use of resources that relieves pressure on an overburdened High Court.
+
+8    Realising the benefits of competitive markets
+
+
+---
+
+
+
++
+
+# THE CAT AND CONSUMER PROTECTION
+
+## The creation and evolution of the Competition Appeal Tribunal (CAT)
+
+The Competition Appeal Tribunal (CAT) was created by the enactment of the Competition Act 1998 (CA98), and was described by the House of Lords Constitution Committee as representing 'the first major change to United Kingdom competition law for almost a quarter of a century.'<sup>1</sup> CA98 gave competition authorities, specifically the Office of Fair Trading (OFT) and the sectoral regulators, significant and wide-ranging powers – with the OFT in particular being granted principal responsibility for the day-to-day operation of the regime under the CA98.
+
+CA98 also established the Competition Commission (CC) as a successor organisation to the Monopolies and Mergers Commission (MMC). CC was initially a body of two halves between April 1999 (when founded) and the passing of Enterprise Act 2002, a 'reporting side' (the former MMC) and an 'appeals side' (the CAT).<sup>1</sup> Prior to the passage of CA98, sector regulators and the OFT had themselves been regulated by the judicial review process. However, with the introduction of these wider powers, Parliament no longer viewed this process as a sufficient check on power, and 'thought it necessary by means of sections 45 to 49 of the CA98 to establish a mechanism for appealing from decisions of the OFT and the sectoral regulators'.<sup>1</sup> In this way, the initial focus of the CAT was appeals on the merits in respect of decisions made under the Competition Act 1998 by the OFT and the regulators.
+
+In April 2003, a number of provisions of the Enterprise Act 2002 came into force, changing the previous model. The principal impact of these new provisions was to separate the CCAT from the CC, forming the CAT. Specifically, the CAT was created by Section 12 and Schedule 2 to the Enterprise Act 2002 (which came into force in April 2003). The 2002 decision to make the CAT separate, academics have argued, reflected the 'perceived need for a degree of independence to allow the Tribunal to hear challenges to decisions of the Competition Commission.'<sup>2</sup>
+
+Further changes were made to the UK's competition regime, and to the CAT, with the passage of the Consumer Rights Act 2015 (CRA15). Prior to the passage of this Act, the House of Commons Library identified '12 separate pieces of legislation covering consumer rights, and around 60 pieces of legislation setting out the investigatory powers of consumer law enforcers'.<sup>3</sup> The CRA15 simplified the legislative landscape on consumer rights and competition, introduced an opt-out collective action regime, and had significant impacts on the scope of the CAT's powers, and on its focus. Crucially, the Act extended the CAT's jurisdiction under section 47A of the Competition Act 1998 to include standalone damages claims in addition to follow-on actions, meaning claimants no longer had to wait for a final infringement decision by a competition authority before bringing their case. The CRA15 marked a clear turning point for the CAT, becoming a venue for consumer-focused cases with significantly expanded jurisdiction.
+
+This change was made in line with the then-Government's priorities. In January 2013, the Department for Business, Innovation, and Skills and then-Competition Minister Jo Swinson announced plans to reform the UK's consumer protection regime, arguing in a press release that the reforms would mean 'groups of consumers and companies will find it easier to take collective legal action against businesses acting in an anti-competitive way under new proposals', making 'the Competition Appeal Tribunal the main court for competition actions in the UK', and 'introducing a new opt-out collective actions regime, with protections, for competition law'.<sup>4</sup> Consumer rights were again mentioned in the Queen's Speech in May 2013, confirming that a Bill would establish 'a simple set of consumer rights to promote competitive markets and growth'.<sup>5</sup> Upon the introduction of the Bill, the Government estimated that reform of consumer law would bring quantifiable net benefits of £4bn to the UK economy over 10 years.<sup>6</sup>
+
+While the CAT's scope prior to CRA15 allowed for some collective actions – before these reforms only the consumer organisation Which? could bring forward competition cases on behalf of others, and then only on an opt-in basis – opt-out collective actions were not a feature of the CAT, or the wider UK justice system.
+
+9    Realising the benefits of competitive markets
+
+
+---
+
+
+
+10    Realising the benefits of competitive markets
+
+## Opt-out collective proceedings
+
+Under section 47B of the Competition Act 1998, as amended by the CRA15, collective proceedings may take two forms. Opt-in collective proceedings require class members to actively notify the class representative that they wish to join the claim. Opt-out collective proceedings, by contrast, automatically include all UK-domiciled class members within a defined class unless they take affirmative steps to exclude themselves.
+
+In practice, the opt-out mechanism has come to dominate the collective proceedings landscape, reflecting both the practical advantages of the opt-out mechanism in addressing low-value, high-volume consumer claims and judicial recognition that opt-in proceedings are frequently impractical where individual claim values are modest.
+
+The regime's evolution has been neither linear nor without challenge. Following the first two cases filed in 2016, the regime experienced a four-year period of relative dormancy with limited filings and no certifications, reflecting legal uncertainty about certification standards. The need for better provision of consumer redress was directly linked to the then-Government's support for third-party funding in Parliament, with then-Parliamentary Under-Secretary of State Baroness Neville-Rolfe stating that 'there is a need for claimants to have the option of accessing third-party funding so as to allow those who do not have a large reserve of funds or those who cannot persuade a law firm to act pro bono to be able to bring a collective action case in order to ensure redress for consumers. Blocking access to such funding would result in a collective actions regime that is less effective'.<sup>7</sup>
+
+The Supreme Court's December 2020 judgment in Merricks v Mastercard, which 'significantly lowered the bar for CPO certifications,'<sup>8</sup> marked a watershed moment. Since 2021, when the first opt-out collective proceedings order was granted, the regime has seen sustained growth. As former Law Society President David Greene has observed, the opt-out regime remains "relatively young" and "is taking time to bed in."<sup>9</sup>
+
+The Department for Business and Trade is currently consulting on the operation of the opt-out collective actions regime.<sup>10</sup>
+
+## Role of CAT in the wider competition landscape
+
+The Competition Appeal Tribunal occupies a central judicial position within the UK's broader competition enforcement landscape as the primary specialist forum for competition-related disputes. The CAT's jurisdiction encompasses two main areas of responsibility: hearing appeals against decisions made by the Competition and Markets Authority (CMA) and various sector regulators; and adjudicating private claims for damages arising from breaches of competition law. This dual function positions the CAT as both an appellate body for regulatory decisions, and a first-instance court for private competition actions.
+
+The CMA is now responsible for all anti-competitive practices that affect UK markets and consumers, replacing both the OFT and the CC in 2013.<sup>11</sup> This ultimately consolidated competition enforcement under a single authority.<sup>12</sup> Private competition litigation in the UK has in recent years complemented an increase in regulatory decisions and investigations. In May 2023, Sarah Cardell–CEO of the CMA–commented on this, noting that 'the private enforcement of competition law in the UK has steadily been on the rise', adding that 'a striking feature of the collective proceedings currently before the Tribunal is the number which are backed - and to some extent made possible - by litigation funding firms'.<sup>13</sup>
+
+David Greene, founding Co-President of the Collective Redress Lawyers Association (CORLA) and former President of the Law Society, has similarly observed that the opt-out collective actions regime should be understood as fundamentally 'pro-enterprise. It's not anti-enterprise.'<sup>14</sup> He characterises the mechanism as 'a privatisation exercise, which large corporations quite like, of the enforcement process, because regulators simply do not have the resources to compete with large multinational corporations.' This perspective reframes the CAT's collective proceedings as not a burden on business but as an essential component of fair market competition that alleviates pressure on resource-constrained public enforcement bodies.
+
+---
+
+
+
+11    Realising the benefits of competitive markets
+
++
+
+# THE CAT IN A GLOBAL CONTEXT
+
+Understanding where the UK's collective proceedings regime sits within the international landscape provides important context for assessing its performance and potential. While the CAT represents a relatively young addition to the international family of collective redress mechanisms, it operates within a well-established global ecosystem of collective proceedings regimes that have evolved over decades. The regime's natural comparators are the common law jurisdictions of Canada and Australia, both of which pioneered class action procedures in the early 1990s and have since developed sophisticated jurisprudence over more than thirty years of practice. These jurisdictions share fundamental procedural architecture with the UK: judicial certification processes, opt-out mechanisms for efficiency, robust judicial oversight of settlements, and reliance on third-party funding to facilitate access to justice. The CAT has already drawn extensively from Canadian and Australian precedents in developing its approach to certification standards, settlement approval criteria, and the assessment of funder returns, with practitioners now routinely consulting Canadian counsel to understand how parallel issues have been resolved in more mature regimes.
+
+Crucially, the UK regime incorporates structural safeguards that distinguish it from the US system often invoked in critiques of collective actions. While the US also has a rigorous certification process under Rule 23–with courts required to conduct detailed analysis of numerosity, commonality, typicality and adequacy requirements–the UK system combines this with additional safeguards: maintaining the traditional 'loser pays' costs rule, providing only compensatory (not punitive or treble) damages, prohibiting contingency fees for lawyers, and subjecting all claims to judicial certification before they can proceed. The combination of these safeguards creates a distinctly different litigation environment.
+
+---
+
+
+
+# THE CAT AND CONSUMER PROTECTION
+
+Compensation is determined by judges rather than juries, and the CAT's specialist composition– combining a judge, economist, and lay member with relevant expertise–provides a level of technical sophistication in competition matters that practitioners consistently praise. As one senior litigator observed to the authors of this report, defendants in the CAT are 'amongst the most cosseted defendants in the English court system' given the extensive gatekeeping process involving detailed claim forms running to hundreds of pages, expert evidence, litigation budgets, and multiple opportunities for defendants to challenge jurisdiction and certification–'there is no other type of claim where there is that level of gatekeeping by the court at that stage.'
+
+The comparison reveals both strengths and challenges in the UK's position. In terms of institutional quality and judicial expertise, the CAT stands among the strongest globally, with English courts remaining 'genuinely very impressive and very pragmatic' in handling global and pan-European competition disputes. Leading cases have confirmed the broad scope of the court's jurisdiction even post-Brexit, reinforcing the UK's position as a world-leading litigation centre where English law underpins hundreds of trillions of pounds of business activity internationally. However, the UK regime faces material headwinds in terms of costs and timing. Collective proceedings in the UK are exceptionally expensive to bring, with significant adverse costs exposure and high litigation budgets creating barriers even with third-party funding support. Stakeholder perspectives on the regime's international attractiveness vary, though cost and uncertainty feature prominently in critical assessments.
+
+One experienced international litigation funder with exposure to multiple jurisdictions offered a particularly stark view, ranking the UK at the 'bottom of the pile' when compared with Canada, Australia, the Netherlands, and Portugal, noting that 'cases that would be investment grade in other jurisdictions are often not worth pursuing in the UK' due to the expensive nature and lack of track record of the CAT. Indeed, that funder stated that the CAT's study alone demonstrates that 'negotiated investment returns— whether PACCAR-compliant or not— are at risk of being honoured, an uncertainty that is not tolerable from a risk management perspective.' They doubted the near-term sustainability of the CAT regime if the body 'kept missing the forest for the trees' and injecting unnecessary roadblocks to cases proceeding, as well as allowing 'the intervention of two-faced special interests.' Whilst this represents one perspective rather than universal consensus, it highlights concerns about the regime's current investability and competitive position.
+
+Timing comparisons underscore the challenge. Australian practitioners report having refined their class action process to achieve resolution– from filing through to settlement –in less than three years on average,<sup>15</sup> a benchmark that reflects decades of procedural refinement and judicial experience managing collective disputes. Canada's regime is widely viewed as operating a measured approach to certification, offering a useful benchmark for the UK's evolving standards. By contrast, many CAT collective proceedings face multi-year timelines driven by extensive interlocutory battles over funding arrangements, carriage disputes, and repeated appeals on certification and procedural matters. Interestingly, the Netherlands–whilst initially attracting attention as a potential European hub for collective actions–has encountered more substantial obstacles than simply being slow. Practitioners report cases are stalled, with multiple ECJ referrals and increasing political and judicial resistance. Academic research suggests that delays are characteristic of immature regimes, noting that early iterations of systems in Australia and Ontario faced similar issues with inconsistent decisions and protracted timelines.
+
+The consensus among both practitioners and academics is that the UK is experiencing typical growing pains. Rather than becoming overly concerned about jurisdictional competition from European alternatives, the focus should remain on refining the regime to ensure it continues to provide an effective and attractive forum for collective redress.
+
+12    Realising the benefits of competitive markets
+
+
+---
+
+
+
+The UK's competition-only focus represents a distinctive structural feature rarely seen in peer jurisdictions. Canada, Australia, and the Netherlands operate broad, subject-matter-agnostic collective redress mechanisms that allow consumer claims across contract, tort, data protection, and other areas to proceed collectively. The EU's Representative Actions Directive similarly mandates member states to provide collective redress across a wide range of consumer protection matters, extending well beyond competition law alone. By contrast, the CAT's jurisdiction remains bounded by competition infringements, and this constraint has created practical consequences. The regime has proven effective in filtering cases that aren't properly founded in competition law, with cases like Carolyn Roberts against Thames Water refused certification on jurisdictional grounds, and others requiring amendment before proceeding. However, the limitation generates jurisdictional litigation over boundary questions and leaves what practitioners describe as a gap in this jurisdiction for collective redress unrelated to competition disputes, particularly following Lloyd v Google which confirmed there is no effective mechanism for consumer collective action outside competition law. The international trend is unmistakably toward comprehensive collective redress mechanisms; the UK's competition-only model stands as a comparative outlier among developed common law jurisdictions.
+
+Beyond questions of scope, the quality of the CAT's judgments is widely recognised as superior to many other European jurisdictions. The technical sophistication and clarity of reasoning in CAT decisions compares favourably with courts in jurisdictions such as Spain and Italy, reinforcing the UK's position as a leading forum for complex competition litigation.
+
+Ultimately, international comparisons suggest that the CAT sits in an intermediate position: institutionally strong and procedurally sophisticated, but facing challenges of cost, timing, and market attractiveness that reflect both the regime's relative youth and specific design choices around funding regulation and jurisdictional scope. The UK can draw on areas where other jurisdictions excel while building on its own institutional foundations of judicial quality, procedural rigour, and the global standing of English law. The trajectory of peer jurisdictions suggests that many of the current frictions will diminish as the regime matures, jurisprudence settles, and market participants develop familiarity with procedures and expectations. What remains critical is ensuring that the UK does not inadvertently undermine the regime's fundamentals through reactive reforms that mistake maturation pains for structural flaws. The CAT has the institutional capacity and juridical quality to become a leading forum for collective consumer redress; whether it realises that potential depends on maintaining the balance between access to justice and procedural safeguards that has underpinned successful regimes elsewhere, whilst addressing the practical barriers that currently constrain its effectiveness.
+
+13    Realising the benefits of competitive markets
+
+
+---
+
+
+
+14    Realising the benefits of competitive markets
+
+# CONSUMER CONFIDENCE
+
+Consumer confidence in challenging anti-competitive behaviour forms the bedrock of effective competition enforcement and competitive markets. The CAT's efficacy as a venue for collective actions therefore depends on maintaining public confidence in accessible, efficient redress mechanisms. Without mechanisms that enable consumers to hold large corporations accountable, competition law becomes largely theoretical, except when directly enforced by regulators who often lack the resources to pursue all infringements. The evidence outlined below demonstrates that while most consumers lack confidence to challenge companies alone, collective action mechanisms provide an essential mechanism for maintaining competitive markets and consumer protection that the CAT was designed to offer.
+
+## The confidence gap
+
+The majority of UK consumers feel powerless when facing large corporations. Polling recently commissioned by the International Legal Finance Association (ILFA) found that only a minority of UK adults (out of 1,501 surveyed) feel confident in challenging large companies alone.<sup>16</sup> This sentiment is not unique to the UK: recent YouGov polling found 76% of Australian voters believe there is often one rule for big corporations and another for everyone else.<sup>17</sup> These figures represent a fundamental access to justice problem that undermines the effectiveness of competition enforcement. Over half of consumers lack the basic belief that corporate wrongdoing can be remedied, and more than three-quarters see big business as above the law–explaining why consumers feel unable to take them on.
+
+As ILFA's research showed, the confidence gap is not evenly distributed across society. Income represents the largest divide: 73% of those earning over £83,000 feel confident challenging companies directly, compared to just 30% of those earning under £21,000 (arguably the group most vulnerable to consumer malpractice). This disparity reflects the practical reality that legal action requires significant financial resources that most consumers simply do not possess. Educational attainment creates similar barriers, with 60% of degree holders expressing confidence versus 36% of non-degree holders.
+
+Academic research published in the Journal of Antitrust Enforcement reinforces the critical role of collective mechanisms in competition enforcement. A 2025 study on 'Public redress in UK competition enforcement' identifies that 'victims of smaller' competition infringements, typically consumers, that fall below the cost-benefit threshold for bringing a claim are 'effectively overlooked by the current reliance on private enforcement'.<sup>18</sup>
+
+Age patterns show confidence peaking in middle age (51% for 35-54 year olds) before declining among older consumers, who may be most vulnerable to anti-competitive practices. As the organisation Citizen's Advice argues, people in vulnerable circumstances are both more likely to experience problems in consumer markets, and experience increased harm as a result of them.<sup>19</sup>
+
+These demographic patterns illustrate why individual enforcement of competition law fails to protect the consumers who most need protection. As Sarah Cardell, CEO of the CMA, has observed, people want robust consumer protection so they 'don't feel powerless in the face of large corporations or those who seek to exploit them'.<sup>20</sup> This sentiment was echoed by the former Minister for Employment Rights, Competition and Markets, Justin Madders MP, who championed 'a level playing field' by 'deterring bad actors,' ultimately putting more power in the hands of consumers.<sup>21</sup>
+
+---
+
+
+
+## Competitive markets
+
+For effective collective action through the CAT, consumer confidence must be understood within the broader imperative of maintaining competitive markets. There is a strong, global consensus that effective competition promotes economic growth, improved productivity (and thus higher wages), and better consumer outcomes.
+
+Research conducted by the Organisation for Economic Co-operation and Development (OECD) demonstrates this connection clearly. Their report on how competition policy affects macroeconomic outcomes demonstrates that competition policy plays a significant role in driving UK productivity growth.<sup>22</sup> Competition in markets, enforced by competition agencies and enshrined in law, directly motivates productivity by unleashing innovation and managerial incentives. This productivity then drives economic growth, which translates into more employment opportunities and better consumer welfare.
+
+The CMA's own research demonstrates that competitive markets benefit consumers, establishing this point in their report which explores the state of market competition in the UK.<sup>23</sup> They state that the 'pressure of competition, and the rewards of success, drive firms to keep prices low; to improve the quality of their products and services; to innovate; and to operate more efficiently.', this in turn benefits consumers, 'who get better deals; businesses, which reap the benefits of investment and innovation; and the wider economy, through higher productivity and living standards.'
+
+Research from Citizens Advice draws on the link between consumer confidence and delivering tangible economic growth—suggesting that consumer protections are an enabler, not an inhibitor, of growth.<sup>19</sup> The sentiment of improved consumer experience and lifestyle through competition was also echoed in a keynote speech by the Managing Director of the International Monetary Fund (IMF), Kristalina Georgieva, where she defined healthy competition as a key motivator for businesses and people, allowing them to reach peak performance, which in turn boosts innovation and jobs, and lifts productivity growth and living standards.<sup>24</sup>
+
+Competition within economies leads to increases in productivity, as all firms within the market improve their internal production processes over time, leading to increasing allocative efficiency within the wider economy, both systems being vital to economic growth, as found by the World Bank.<sup>25</sup> The effect on consumers of increased economic efficiency from competition is that it translates into overall economic output, meaning more employment opportunities, and better consumer welfare.
+
+The scale of consumer detriment from weak competition is substantial. The CMA's 2024 Consumer Detriment Survey shows that 72% of UK consumers report some form of detriment—financial loss or poor service—over a typical year, with these harms increasing where competition is weak.<sup>26</sup> This leaves consumers worse off as complacent industry giants exploit weak competition and prioritise profit over effective service. The widespread impact of consumer detriment highlights why effective collective action mechanisms are essential for comprehensive consumer protection.
+
+The previous Government's own analysis reinforces the connection between competitive markets and consumer confidence. Its 2022 response on competition policy noted that 'the consumer is the focus of a competitive market' and that effective competition 'gives all consumers access to better products, with greater choice and lower prices. High consumer standards in turn support consumer confidence in that market system'.<sup>27</sup>
+
+International case studies also illustrate the benefits of collective action in maintaining competitive markets. The Canadian Packaged Bread Class Actions Settlement, which accused Loblaw Companies Limited and its parent company, George Weston, of engaging in an industry-wide scheme to fix the price of bread,<sup>28</sup> provides a compelling example. In the case, the plaintiffs alleged that companies participated in a 14-year industry-wide price-fixing conspiracy between 2001 and 2015, leading to an artificial increase in packaged bread prices. In a landmark decision, an Ontario Superior Court judge approved the $500m settlement, meaning claimants are now able to seek redress.
+
+Judge Ed Morgan described the agreement as 'excellent, fair, and in the best interest of class members'. Without collective action mechanisms, this price-fixing scandal may never have been brought to justice and consumers would have continued to pay inflated prices. Simultaneously, the case stands as a firm deterrent for companies who choose to take part in anti-competitive practices, thus reinforcing the benefits of collective actions in improving consumer protection.
+
+15    Realising the benefits of competitive markets
+
+
+---
+
+
+
+16    Realising the benefits of competitive markets
+
+The case also stood to benefit Canadian markets: by holding the large corporations to account for their price-fixing practices, smaller producers ceased to be unfairly priced out or disadvantaged by the anti-competitive behaviour of industry giants. By addressing the price-fixing scheme, a competitive market can emerge, giving smaller businesses an increased opportunity to break into the market. This levelling of the playing field creates space for innovation and growth within the market, benefiting both businesses and consumers, as the National Audit Office drew out in their 2014 report into the UK competition regime.<sup>29</sup>
+
+By enabling and encouraging mechanisms which support a competitive market, the CAT helps to solve the problem of consumer detriment by providing the foundations for a competition-driven economy, driving growth, standards, and consumer interests. Both by deterring bad actors from seeking to exploit their dominant power and by levelling the playing field which leads to innovation, the CAT is a primary example of an institution which works with the aim of benefitting consumers and small businesses, allowing the market to deliver consumer benefits, including greater choice, improved product quality, innovation, and lower prices.
+
+## Consumer barriers to collective actions
+
+While the need for collective action is clear, significant barriers remain in consumer understanding of the mechanisms available to address anti-competitive practices. Thorndon Partners' research found that only 37% of the UK population understand what happens in a group action settlement.<sup>30</sup> The complexity of procedures emerges as the primary deterrent, with 38% citing complicated processes as the main barrier to participation. Furthermore, 71% of individuals stated they do not know anyone who has made a claim in a settlement, highlighting the relative unfamiliarity of collective action mechanisms within the broader population. This figure is unsurprising given the limited number of CAT collective action settlements concluded to date, but underscores the importance of building public awareness as the regime matures and more cases reach resolution.
+
+Trust patterns within collective actions highlight the importance of institutional credibility. The Court emerges as the most trusted messenger (41%) when communicating with affected consumers, followed by consumer groups like Money Saving Expert and Martin Lewis (40%), and law firms leading claims (35%). Companies accused of wrongdoing command minimal trust (11%), emphasising the need for independent oversight.
+
+## Third-party litigation funding: levelling the playing field
+
+Third-party litigation funding provides the practical mechanism to bridge this confidence gap, levelling the playing field for both consumers and small businesses. Despite consumers' lack of confidence in taking on large corporations alone, collective action mechanisms significantly raise the likelihood that individuals and smaller enterprises will decide to seek redress for wrongdoing.
+
+The interchange fee claims against Mastercard and Visa provide a compelling example: over the past decade, thousands of smaller businesses alongside larger corporates have received compensation through collective settlements—claims that many small enterprises would never have been able to pursue individually. When consumers and small businesses understand how litigation funding operates—with funders covering legal expenses in return for a share of compensation, and claimants paying nothing if cases are unsuccessful— these mechanisms promote fair and competitive markets and embolden those who would otherwise lack the resources to make their claims, fundamentally underpinning the value of collective actions when it comes to access to justice.
+
+The potential of litigation funding to promote competitive markets becomes clear when consumers understand how it operates. While only a minority of consumers feel confident challenging large companies alone, 76% would consider using litigation funding to level the playing field when informed that funders cover legal expenses in return for a share of compensation, with claimants paying nothing if cases are unsuccessful.<sup>31</sup> This substantial increase demonstrates that accessible funding mechanisms can bridge the confidence gap that prevents effective consumer enforcement.
+
+---
+
+
+
+Support for litigation funding remains strong across all demographic groups, including those traditionally excluded from legal redress. Even among the lowest income bracket—those earning under £21,000 who showed just 30% confidence in individual action—65% would consider litigation funding. This finding is particularly significant given that lower-income consumers are often disproportionately affected by anti-competitive practices.
+
+Younger consumers show the highest acceptance of litigation funding (78% for 18-34 year olds), while support among higher earners reaches 89%. The consistency of support across social grades – 84% among professional/managerial classes (AB) and 64% among semi-skilled/unskilled workers (DE) – indicates broad recognition that litigation funding provides necessary access to justice.
+
+Ipsos' recent polling reveals net public support for organisations making a profit from class actions.<sup>32</sup> Critically, support rises markedly with experience: 50% of those who have previously pursued compensation support profit arrangements, climbing to 60% amongst those who have actually joined a third-party class action. This progression demonstrates that familiarity with the mechanism builds confidence.
+
+The importance of third-party funding for collective actions has gained widespread institutional recognition. Consumer group Which? has noted in its recent CJC consultation response that 'third party litigation funding is currently instrumental to bringing legal claims to assert individual consumers' rights and seek large-scale redress. Without third party litigation funding consumers' access to justice will be curtailed, if not effectively extinguished in many cases'.<sup>33</sup> This view has been echoed at the highest levels of government, with Lord Stewart of Dirleton, then-Advocate General for Scotland during the passage of the Litigation Funding Agreements (Enforceability) Bill, observing that third-party litigation funding has come to play 'a key role in enabling ordinary people and small and medium-sized enterprises to bring large, costly claims against better-resourced companies and institutions'.<sup>34</sup>
+
+In their submission to the Civil Justice Council (CJC) review of litigation funding, published in June 2025, Professor Zuckerman and Professor Higgins warned that 'stifling innovation' in the funding sector would ultimately be detrimental to consumers,<sup>35</sup> limiting their opportunities to seek redress. They cite an urgent need to 'reverse the effects' of the PACCAR judgment, in order to avert uncertainty in the sector and continue to promote effective competition enforcement.
+
+## The imperative of effective CAT access
+
+Public recognition of the importance of access to the CAT is substantial. ILFA's research found that 87% of respondents consider it important that consumers have access to the CAT for cases involving anti-competitive practices.<sup>16</sup> This support transcends demographic divisions, with highest support among highest earners (98%) and degree holders (94%), but substantial backing across all groups.
+
+The scale of impact from competition law breaches reinforces why accessible collective mechanisms are essential. The Alex Neill v Sony case involves 8.9 million UK consumers who allegedly overpaid for digital games and content due to allegedly abusive pricing practices—approximately 13% of the UK population. Similarly, Road Haulage Association Ltd v Man SE and Others represents over 11,000 small haulage businesses, many of them family-run operations with only a handful of vehicles, collectively claiming for overcharge on approximately 200,000 trucks. Without collective action mechanisms, these smaller businesses would never have been able to afford the multi-million-pound cost of individual litigation against global manufacturers. Such widespread harm—whether to individual consumers or small enterprises—cannot be addressed through individual actions alone.
+
+17    Realising the benefits of competitive markets
+
+
+---
+
+
+
+Consumers themselves hold nuanced views about the purposes of collective actions. Equal proportions of consumers (51%-49%) identify both holding big companies to account and preventing companies from reoffending in the future as primary objectives of class actions. Additionally, consumers recognise access to justice (42%) and financial redress (46%) as key aims. These findings indicate that consumers view collective actions as serving deterrent and accountability functions that complement traditional regulatory enforcement, rather than simply as vehicles for compensation.
+
+Ipsos' polling reinforces that the regime delivers tangible results whilst maintaining consumer engagement. Among those who actually joined third-party class actions, nearly three-quarters (72%) reported receiving a financial payout from their most recent concluded case.<sup>32</sup>
+
+Importantly, consumers approach these proceedings thoughtfully rather than recklessly. More than four in five (82%) say they would read all or at least look through terms and conditions before joining, with only 6% indicating they would not read them. This counters narratives that collective actions exploit inattentive consumers.
+
+The motivations for participation are predominantly justice-oriented rather than opportunistic. When asked why they would join a class action, the top responses were 'I believed I deserved compensation' (42%) and 'I believed I had suffered some form of harm' (40%). Significantly, one in four (25%) cited 'to help ensure businesses follow the law,' demonstrating that collective actions serve a market-correction function beyond individual redress. Additional motivations included data breaches (25%) and paying more than they should (19%)—each tied to correcting market failures.
+
+## Consumer confidence and the future of the CAT
+
+The evidence demonstrates that consumer confidence in competition enforcement depends fundamentally on accessible collective action mechanisms that the CAT provides. The demographic patterns show that those least able to challenge companies individually—lower-income consumers and older demographics—are precisely those who most need effective collective routes and who benefit most from successful CAT proceedings, particularly opt out proceedings.
+
+The overwhelming support for CAT access, combined with limited understanding of procedures, suggests that consumer confidence depends not just on the existence of collective mechanisms but on their accessibility and comprehensibility. This gap underscores the need for clear communication and education about how collective actions work and how to access settlements. There is a pressing need to build public awareness as the regime matures. The challenge is therefore not whether collective action mechanisms are needed—the evidence shows overwhelming public support—but ensuring they remain accessible, comprehensible, and effectively communicated.
+
+The CAT's evolution since 2015 has mirrored developing and changing consumer needs, with the tribunal becoming increasingly focused on consumer collective actions rather than purely regulatory appeals. This evolution aligns with the evidence of consumer demand for accessible redress mechanisms and the practical reality that individual action is not viable for most consumers facing anti-competitive harm.
+
+These findings support the conclusion that the CAT represents a vital consumer protection mechanism that requires strengthening rather than restriction. Consumer confidence in challenging anti-competitive behaviour depends on maintaining accessible, efficient collective action regimes backed by robust judicial oversight–precisely what an effectively functioning CAT provides, and what reforms should seek to enhance rather than constrain.
+
+18    Realising the benefits of competitive markets
+
+
+---
+
+
+
+19    Realising the benefits of competitive markets
+
+# CHALLENGES FACING THE COLLECTIVE ACTIONS REGIME
+
+Despite its growth, the Competition Appeal Tribunal's collective actions regime faces a series of challenges that have emerged since CRA15 introduced opt-out proceedings. As regimes of this type go, the UK's is relatively young – just ten years old – and many of the difficulties it faces are characteristic of an evolving system still finding its footing. These challenges range from immediate funding disruptions to structural questions about consumer engagement and procedural efficiency. Understanding these challenges, their origins, and their relative severity is essential in order to make informed decisions about the regime's future development.
+
+Moreover, claims of an 'explosion' in litigation fundamentally misrepresent the tribunal's actual caseload. While 64 S47B collective proceedings have been filed since 2015, this figure conflates individual case numbers with the tribunal's substantive workload. When proceedings are grouped by how they are actually managed — with related claims sharing the same class representative and coordinated litigation strategy counted as single matters — the total reduces to 44 distinct matters over ten years.<sup>36</sup> Cases such as the musical instruments claims against five defendants (Casio, Yamaha, Korg, Roland, and Fender) generate five separate case numbers but are managed as a single coordinated proceeding. Similarly, Professor Carolyn Roberts' water company claims involved six case numbers but represented one litigation matter. This means the tribunal has handled approximately 4.4 distinct matters per year, or roughly one every 12 weeks — far from the overwhelming caseload suggested by recent commentary.
+
+*These can be grouped into the following areas:*
+
+* The PACCAR decision's disruption of the litigation funding market upon which the regime depends.
+
+* Carriage disputes and the emergence of multi-representative complexity in claim management.
+
+* Evolving procedural requirements and case management challenges.
+
+* Strategic defendant behaviour designed to increase costs, extend claim duration, and create barriers to case progression.
+
+* Consumer engagement and distribution challenges.
+
+* Institutional capacity constraints limiting the tribunal's ability to manage growing caseloads.
+
+* Sectoral concentration patterns raising questions about the regime's scope and accessibility.
+
+## The PACCAR Decision
+
+The Supreme Court's judgment in R (on the application of PACCAR Inc) v Competition Appeal Tribunal [2023] UKSC 28 has significantly disrupted the litigation funding market upon which collective proceedings depend and directly cuts across the explicit intention behind the introduction of England and Wales' class action regime.<sup>37</sup> By classifying percentage-based litigation funding agreements as unenforceable damages-based agreements in opt-out proceedings, the decision has created immediate and measurable impacts on the regime's operation.
+
+The decision exposes a fundamental disconnect between judicial interpretation and the practical operation of the collective actions regime. As Sebastian Peyer has observed, 'the legal framework for litigation funding remains fragmented and open to interpretation'.<sup>38</sup> The Supreme Court's literal reading of the relevant statutes has caused 'uncertainty and upheaval in the funding market' that arguably contradicts Parliament's original intent.
+
+---
+
+
+
+While the Supreme Court was interpreting the Compensation Act 2006, rather than the CRA15 directly, the practical effect was to undermine the accessibility of the funding mechanisms upon which the collective actions regime depends, creating a situation where technical interpretation in one area of law could effectively paralyse a regime established under different legislation for entirely different policy purposes. The CJC's interim report on litigation funding recognised
+
+The CJC's interim report on litigation funding recognised this disconnect, identifying that third-party funding 'is the means by which collective proceedings become a viable means to secure access to justice consistent with Parliament's policy intentions as they underpin the collective proceedings regime in the CAT'.<sup>39</sup> Crucially, the CJC's primary recommendation was for immediate and standalone legislative reversal of PACCAR, stating this should be the Government's most urgent priority to restore stability to the funding market.
+
+## COLLECTIVE PROCEEDINGS: ANNUAL FILLINGS
+
+<table>
+<thead>
+<tr>
+<th>Year</th>
+<th>Cases Filed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2015</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2016</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>3</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>4</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>8</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>16</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>17</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>11</td>
+</tr>
+<tr>
+<td>2025</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+
+*For all claims with known issue dates*
+
+*Note: Chart shows PACCAR decision impact in July 2023, with a declining trend line from the 2023 peak*
+
+Collective proceedings include all cases classified under representative action or collective proceedings topics, those seeking collective proceedings remedies, or applications for collective proceedings orders under Competition Act 1998 s.47B or permission to bring opt-out collective proceedings.
+
+Solomonic's case filing data of collective proceedings (S47B) starkly demonstrates the severity of this disruption. Following steady growth from 2015, the regime has experienced unprecedented decline in recent years. Filings have collapsed by 82% from 17 cases in 2023 to just 3 cases in the first nine months of 2025.
+
+The impact extends beyond new filings. Existing cases have been forced to restructure funding arrangements, typically converting from percentage-based to multiple-based returns. Cases including Hammond v Amazon, BIRA v Amazon, Kent v Apple, and Commercial and Interregional Card Claims v Mastercard all required renegotiation of funding arrangements.
+
+20    Realising the benefits of competitive markets
+
+
+---
+
+
+
+The conjoined Sony Interactive Entertainment Europe Ltd v Alex Neill Class Representative Court of Appeal hearing in July 2025 addressed six separate cases simultaneously, highlighting the systemic nature of the disruption. The judgment in Sony Interactive Entertainment Europe Ltd v Alex Neill Class Representative,<sup>40</sup> in which the Court of Appeal rejected the defendants' arguments that the LFAs in the conjoined cases were unenforceable, is a welcome one, providing judicial validation of the litigation funding arrangements now in place post-PACCAR. However, it remains the case that PACCAR has had a chilling effect on the litigation funding market, and such hearings have consumed judicial resources that would otherwise advance substantive case management.
+
+Recent CAT decisions including Mark McLaren Class Representative Ltd v MOL show these restructured agreements have generally been accepted by the tribunal, but not without creating additional procedural complexity. Defendants have routinely challenged revised funding arrangements, adding satellite litigation that increases costs and delays for all parties.
+
+Critically, the shift to multiples-based funding creates a new vulnerability: it gives defendants a specific cash target to aim for through procedural challenges. Recent analysis of litigation funding economics demonstrates why this is so problematic. For cases with the expected 3-3.5 year duration typical of CAT proceedings, funders require returns of 2.55x-2.75x their invested capital on successful cases simply to achieve market-comparable portfolio returns when accounting for the 39% loss ratio across litigation funding portfolios.<sup>41</sup> This means defendants can calculate precisely how much capital they need to exhaust through procedural challenges to make a case unviable – a vulnerability that did not exist with percentage-based arrangements that scaled with claim value.
+
+By exhausting the funder's committed capital through protracted preliminary disputes, defendants can effectively win cases before reaching a judgment on the merits – a dynamic that did not exist with percentage-based arrangements where funding scaled with the claim value. The structure can also lead to significantly reduced returns for claimants as typically the longer the claim continues, the higher the multiple returns to funders are. This in turn frequently leads to defendants being able to secure very low settlements as the claimants' funding demands increase and their likely returns dwindle. Knowledge of funding arrangements by defendants–which is required by the CAT in opt-out claims–can therefore lead to poor defendant behaviour with defendants taking every opportunity to make expensive and time consuming interlocutory applications, appealing every judgment and seeking to extend the procedural timetable. The inability of claimants to recover any part of the funding multiples or success fees as adverse costs means that there is no effective deterrent to such behaviour.
+
+The restructuring burden imposed by the PACCAR decision has been substantial, with the Road Haulage Association Limited v Man SE and Others truck cartel proceedings alone requiring 376 days from the PACCAR judgment to CPO grant, with three additional hearing days dedicated to funding structure scrutiny.
+
+The funding market's response to PACCAR has extended beyond mere restructuring. Chris Bogart, CEO of Burford Capital – the world's largest litigation funder – has been explicit about the chilling effect: 'To invest, you have to have a higher level of certainty. What PACCAR, and the government non-response to it, has done is to create uncertainty. That means you're likely to see a lower allocation of capital to [that] market.' The market disruption is evidenced not only in reduced investment appetite but in operational responses that threaten London's position as a legal hub. Burford has ceased naming London as an arbitral seat for international contracts, instead migrating dispute resolution activity to Singapore, Paris, and New York due to what Bogart describes as a 'less predictable dynamic' in the UK market<sup>42</sup>.
+
+21    Realising the benefits of competitive markets
+
+
+---
+
+
+
+## Carriage Disputes and Multi-Representative Complexity
+
+An emerging challenge that adds procedural complexity is the rise of carriage disputes, where multiple class representatives compete for the right to bring the same claim. The carriage dispute between BIRA Trading Limited and Professor Andreas Stephan, both seeking to represent merchants against Amazon, demonstrates these challenges.
+
+The dispute required three days of hearings in November 2024 and took 3.5 months from final preparations to judgment (October 2024 to January 2025). During these proceedings, Professor Stephan's litigation funding agreement was scrutinised by the Tribunal, which expressed concerns about termination provisions that it felt gave excessive power to the funder. The agreement was subsequently amended to address these concerns.
+
+Whilst the CAT has adapted its procedures to manage carriage disputes more efficiently–moving away from costly "rolled-up" hearings that combined carriage and certification–these preliminary contests remain resource-intensive. They can require substantial upfront investment in sophisticated economic methodologies, effectively creating a "shadow certification" stage that raises both the bar and the costs for prospective class representatives before the merits of their claims are even considered.
+
+## Procedural Complexity
+
+The regime is still in its infancy, with final judgment having been handed down in only one opt-out claim so far (two more judgments in the Kent and McLaren opt-outs are presently awaited), and 67% of all collective proceedings in the CAT still ongoing.
+
+Unsurprisingly therefore the approach to certification of claims, and their administration, has evolved and continues to evolve, there is now a clearer landscape within which to administer claims. While the Supreme Court's 2020 Merricks judgment established a 'low threshold' for certification,<sup>8</sup> subsequent CAT decisions have seen increasingly rigorous scrutiny of non-merits issues. The 2025 decision in Riefa v Apple and Amazon, refusing certification based on concerns about the class representative's independence and understanding of funding arrangements, demonstrates this changing approach.
+
+The certification process initially became less predictable than originally envisioned. Academic Cento Veljanovski (2019) found the CAT imposed a 'higher than expected evidential hurdle',<sup>43</sup> while Higgins (2016) warned at the start of the regime that procedural flaws like broad judicial discretion and unresolved intra-class conflicts mean the CAT's system will 'act as a drag on meritorious and unmeritorious claims alike'.<sup>44</sup> This approach drew criticism from higher courts, with the Court of Appeal in Merricks criticising the CAT for conducting what it termed a 'mini-trial' at the certification stage, arguing that this represented an inappropriately deep examination of the merits at a preliminary procedural stage.<sup>45</sup> However, following the Supreme Court's landmark decision in Merricks in December 2020, the CAT has adopted a more balanced approach to certification, with significantly more claims being certified while still maintaining its gatekeeping function.
+
+However, specific cases illustrate that delays still impact cases. Evans v Barclays, concerning alleged foreign exchange manipulation, has been mired in appellate proceedings for 34 months following the Court of Appeal's remittal of carriage issues back to the CAT. Neill v Sony experienced 21-23 months of procedural delays directly attributable to PACCAR-related funding challenges. These timelines contrast sharply with Commercial Court proceedings, where similar complex claims typically progress to trial within 18-24 months.
+
+### CAT COLLECTIVE PROCEEDINGS: OUTCOMES
+
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Number of Cases</th>
+<th>Percentage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ongoing</td>
+<td>43 cases</td>
+<td>67%</td>
+</tr>
+<tr>
+<td>Judgment</td>
+<td>11 cases</td>
+<td>17%</td>
+</tr>
+<tr>
+<td>Settlement</td>
+<td>8 cases</td>
+<td>13%</td>
+</tr>
+<tr>
+<td>Withdrawn</td>
+<td>2 cases</td>
+<td>3%</td>
+</tr>
+</tbody>
+</table>
+
+*For all claims with known issue dates*
+
+22    Realising the benefits of competitive markets
+
+
+---
+
+
+
+Case duration data suggests proceedings extend significantly longer than comparable jurisdictions. Australian class actions typically resolve from filing to settlement in three years.<sup>46</sup> UK proceedings, particularly standalone cases, often extend considerably longer due to multiple interlocutory applications, appeals, and the complexity of establishing liability from first principles. The dominance of standalone over follow-on cases–84% of current proceedings according to Solomonic–has altered the regime's complexity profile, as these cases require extensive disclosure and economic evidence to establish liability rather than simply calculating damages.
+
+Settlement approval processes add further complexity. The Merricks settlement highlighted the potential for stakeholder conflict. The CAT's judgment emphasised that the 'just and reasonable' test applies exclusively to class members' interests, not funders or other stakeholders. While this protects consumers, it creates uncertainty for parties negotiating settlements and can lead to protracted disputes about distribution.
+
+In fact, some of the most procedurally complex and resource heavy cases handled by the CAT in recent years have not been opt-outs but rather waves of multi-party 'opt-in' claims which it has been difficult if not impossible for the CAT to administer together and in a consistent way. The CAT's 'Umbrella Proceedings' approach for the interchange fee claims, including issues based trials and expert led processes, and its 'waves' strategy for truck cases, while intended to achieve procedural economy, have also created unexpected inefficiencies. For example, the interchange umbrella proceedings have resulted in endless and costly case management conferences involving large numbers of parties.
+
+Had the opt-out regime existed in 2012 when the first interchange claims were brought by merchants, the time and resource taken up administering several sets of claims by individual merchants issued at different times and heard by different judges could well have been avoided, as could the resulting appeals and subsequent waves of claims which continue to be issued.
+
+The Tribunal's decision to order three consecutive trials in the interchange cases, which may in fact shift to four trials, rather than a single determinative hearing, has removed settlement pressure as defendants face no immediate jeopardy – the case has also been subject to several changes of tribunal members starting out with Roth J chairing the panel, followed by Smith J, followed by Green J. This contrasts sharply with the Royal Mail v DAF approach, where a single trial and judgment provided clear resolution data points that facilitated broader settlement discussions in the cases that followed on as part of the First Wave and also (to a degree) the Second Wave (the Second Wave has a broader range of market participants and so not all relevant issues were addressed by the Royal Mail v. DAF trial, such as pass on via hauliers).
+
+## Defendant Behaviour and Strategic Litigation
+
+Beyond systemic challenges, the regime faces tactical obstacles from defendant behaviour designed to increase costs and create procedural hurdles. Defendants routinely deploy multiple procedural challenges that, while sometimes legitimate individually, cumulatively create significant barriers to case progression.
+
+Security for costs applications have become a defensive tool, requiring class representatives and funders to demonstrate adequate resources, and creating additional certification hurdles. These applications, even when unsuccessful, consume time and resources whilst creating uncertainty about case viability.
+
+Strategic use of jurisdiction and service challenges, strike-out applications and appeals on interlocutory matters have become commonplace. Data from Solomonic reveals that defendants have brought 27 strike-out and summary judgment applications across 56 claims since the regime's inception, with nearly half (48%) ultimately failing. Yet even unsuccessful applications consume months of case time and substantial costs before dismissal, demonstrating that deterring claims rather than succeeding on the merits may be the primary objective. Defendants increasingly challenge multiple aspects of funding arrangements post-PACCAR, turning what were previously straightforward commercial agreements into contested legal battlegrounds. The satellite litigation this generates—distinct from the substantive competition law claims—can consume months of case time and substantial costs before the merits are even addressed.
+
+23    Realising the benefits of competitive markets
+
+
+---
+
+
+
+The volume of procedural challenges has escalated sharply in recent years. Applications to amend the collective proceedings order or statement of case quadrupled from three applications affecting five claims in 2023 to twelve applications affecting thirteen claims in 2024. This proliferation of amendment applications, alongside other procedural tactics, creates a web of preliminary battles that must be fought before reaching the substantive competition law issues at the heart of these cases.
+
+The cumulative effect of these tactics is to test claimant and funder resolve. The pattern of procedural challenges raises questions about whether the current rules adequately balance legitimate defence rights with the need for case progression and fair settlement. While defendants are entitled to a robust defence, the proliferation of preliminary challenges creates particular disadvantages for claimants who must fund responses to multiple applications, with increasingly steep multiples operating on that funding, before any determination of liability.
+
+In the first wave of interchange litigation, led by Sainsbury's and other large corporate claimants, it was widely expected that the 2020 Supreme Court judgment would lead to widespread settlements of existing and fresh interchange claims. However, this did not happen; instead the card schemes came up with new arguments on liability (rejected by the CAT in a recent judgment), and they continue to seek to appeal every judgment. Settlements of these claims have taken place at as late a stage in the litigation as possible in order to exert maximum cost pressure on the claimants and funders, and to create procedural difficulties for those claimants continuing to litigate.
+
+The CAT has begun addressing defendant tactics through cost sanctions for unsuccessful applications and tighter case management, but the fundamental problem remains: defendants with deep resources can impose substantial costs on claimants before any determination of liability. This potentially deters meritorious claims from proceeding in the full knowledge that they will never be ordered to pay any part of the funding multiple or any success fee being borne by the claimants. Until such time as judges have the discretion to order poorly behaved defendants to pay not only a successful claimants' adverse costs but also some or all of its funding costs, there appears to be no deterrent to such behaviour. Strict and regular case management may be the only answer, but that of course imposes resource strain on an already stretched CAT.
+
+## Consumer Engagement and Distribution Effectiveness
+
+Evidence from completed settlements reveals systemic challenges in achieving meaningful participation from consumers. The Merricks settlement is often cited by the regime's critics due to the anticipated 5-10% take-up from 44 million class members.
+
+Academic analysis confirms these challenges are not unique to the UK. Academics have noted that take-up rates 'seldom exceed 75%' even in best-case scenarios, while typical rates remain far lower.⁴⁴ The combination of low individual claim values, limited consumer awareness, and complex claiming processes can create barriers to participation.
+
+The increasing reliance on cy-près distributions to charitable organisations, while ensuring funds serve a public purpose, represents a departure from direct consumer compensation. This has led some critics to characterise the regime as serving primarily the interests of legal professionals and funders rather than consumers. However, international evidence suggests low take-up rates are common across opt-out regimes, with improvements typically occurring as systems mature and distribution mechanisms become more sophisticated. It is also important to recognise that private enforcement actions do not only serve to provide redress to claimants but also to deter defendants from anti-competitive behaviour, and to bring such anti-competitive behaviour to public attention.
+
+24    Realising the benefits of competitive markets
+
+
+---
+
+
+
+## Institutional Capacity
+
+The CAT's institutional structure presents a fundamental resource challenge that constrains its ability to manage the growing complexity and scale of collective proceedings. The tribunal operates with a single permanent full-time judge (the President), supported by part-time judicial members drawn from a specialist competition panel, a small administrative staff, and a limited budget. The CAT's Annual Reports acknowledge it is operating at 'very full capacity,' with the rise of complex multi-party proceedings stretching these limited resources.<sup>47</sup> While the tribunal has demonstrated it can handle significant volumes– managing 467 hearing days in 2022–and has innovated through mechanisms such as the Umbrella Proceedings Practice Direction, the resource constraints remain acute.
+
+The contrast with established jurisdictions is notable: courts in Australia and Canada, having handled group litigation for decades with more substantial permanent judicial infrastructure, demonstrate greater procedural efficiency and consistency. Despite operating with limited resources, the CAT delivers substantial output across collective proceedings, regulatory appeals, and competition damages claims–an achievement that, whilst impressive, is not indefinitely sustainable without investment in permanent capacity.
+
+The CAT's sustainability challenge is compounded by its dual mandate. Beyond collective proceedings, the tribunal must hear statutory appeals from the CMA and regulatory decisions—a non-discretionary workload that cannot be managed down. The 467 hearing days recorded in 2022 reflected demands across both jurisdictions. Once PACCAR is resolved and collective actions return to growth, the tribunal will face simultaneous pressure from expanding private enforcement and continuing regulatory appeals. Unlike single-mandate courts, the CAT cannot defer or discourage one category of work to accommodate another, making the resource constraint particularly acute and the sustainability question increasingly urgent as the regime matures.
+
+## SECTORAL PATTERNS
+
+### Collective Proceedings: Party Sectors
+
+<table>
+<thead>
+<tr>
+<th>Year</th>
+<th>Technology/Media/Telecoms</th>
+<th>Consumer</th>
+<th>Banking/Finance</th>
+<th>Manufacturing</th>
+<th>Logistics</th>
+<th>Professional Services</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2015</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2016</td>
+<td>0</td>
+<td>1</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>0</td>
+<td>2</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>0</td>
+<td>2</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>2</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>8</td>
+<td>4</td>
+<td>6</td>
+<td>3</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>16</td>
+<td>3</td>
+<td>4</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2025*</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+
+🧩 Solomonic
+
+For all claims with known issue dates
+
+25    Realising the benefits of competitive markets
+
+
+---
+
+
+
+The increasing concentration of recent cases in the tech sector–with claims against major platforms representing nearly £30bn in aggregate value according to estimates–raises questions about the regime's scope and purpose.⁴⁸ This sectoral focus reflects increasing competition concerns in unregulated digital markets worldwide. However, it also suggests potential limitations in the regime's application across the broader economy.
+
+## COLLECTIVE PROCEEDINGS: PARTY SECTOR DISTRIBUTION
+
+Each square = ~ 1.3 parties / 131 parties (2015-2025)
+
+For all claims with known issue dates
+
+<table>
+<tr>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td></tr>
+<tr>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td></tr>
+<tr>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+</tr>
+<tr>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+</tr>
+<tr>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+<td style="background-color: #2c3e50;"></td>
+</tr>
+<tr>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #52c4e5;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+<td style="background-color: #8e44ad;"></td>
+</tr>
+<tr>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+</tr>
+<tr>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+<td style="background-color: #d3d3d3;"></td>
+</tr>
+</table>
+
+**Legend:**
+- ■ Tech/Media/Telecoms (26%)
+- ■ Manufacturing (8%)
+- ■ Other Sectors/Unknown (19%)
+- ■ Consumer (13%)
+- ■ Logistics (8%)
+- ■ Utilities (5%)
+- ■ Banking/Finance (13%)
+- ■ Professional Services (7%)
+
+The restriction of opt-out proceedings to competition law claims, unlike broader collective action regimes in other jurisdictions, creates potential incentives for creative pleading. Cases involving data protection, consumer protection, or environmental issues are increasingly framed as competition law violations to access the opt-out mechanism. This boundary-pushing creates legal uncertainty and may distort substantive, valuable competition law development.
+
+The unexpected predominance of standalone over follow-on cases also departs from the Government's original expectations for the regime. While the CRA15 deliberately extended the CAT's jurisdiction to include standalone claims alongside the new opt-out mechanism, government impact assessments anticipated that follow-on cases would predominate, leveraging existing regulatory findings to reduce costs and complexity. However, Brexit fundamentally altered this landscape.
+
+Under post-Brexit law, European Commission competition decisions remain binding on UK courts only for investigations formally commenced before 31 December 2020 under the "continued competence" provisions of the Withdrawal Agreement. For investigations initiated after that date, EC decisions are not binding on UK courts—they may be treated as persuasive evidence, but they do not provide the automatic basis for establishing liability that previously made follow-on claims viable. This means that even where the European Commission has found clear infringements affecting UK markets, UK claimants must nevertheless establish liability from first principles in standalone proceedings. Standalone proceedings are a process that defendants typically seek to make as protracted and expensive as possible through extensive disclosure requests and procedural challenges.
+
+This leaves claimants dependent primarily on CMA enforcement decisions, which remain considerably more limited in volume than the pipeline of European Commission cartel decisions that previously underpinned much of the UK's follow-on litigation. The result is that the complexity, risk, and duration of proceedings have increased substantially beyond original projections, whilst the expected pathway for lower-cost follow-on claims has been significantly narrowed. The CMA's resource constraints, combined with its post-Brexit expansion into global merger control and repositioning toward complex cases in emerging sectors such as digital markets, mean it cannot replicate the scale of cross-border cartel investigations that the European Commission previously conducted with effects in the UK, creating an enforcement gap that the collective actions regime was not originally designed to fill alone.
+
+26    Realising the benefits of competitive markets
+
+
+---
+
+
+
+## Looking Forward
+
+The challenges facing the CAT's collective actions regime are substantial but not insurmountable. As a ten-year-old system with the first opt-out claim achieving certification only 4 years ago, it remains in relative infancy compared to established regimes in Canada (40+ years) and Australia (30+ years). Many current difficulties reflect growing pains rather than fundamental flaws.
+
+The international experience suggests that with appropriate refinements, collective action regimes can effectively balance access to justice with legal certainty. The UK's challenge is to learn from both its own experience and international best practice to build a regime that truly serves its intended beneficiaries, whilst maintaining commercial viability for those who fund and manage these complex proceedings.
+
+27    Realising the benefits of competitive markets
+
+
+---
+
+
+
+28    Realising the benefits of competitive markets
+
+# OPPORTUNITIES
+
+## Competition Enforcement and Economic Growth
+
+The Government has made achieving greater competition a key priority, noting its vital role in driving growth and productivity. As leading competition experts have noted, effective competition policy is fundamentally 'pro-business, pro-worker, pro-growth' and not punitive. Lord Tyrie, former chair of the CMA, has emphasised that 'competition is the lifeblood of free enterprise and healthy businesses'.<sup>49</sup>
+
+However, the CMA's 2024 State of UK Competition Report 2024 highlighted that, since 1997, average markups in Great Britain have risen by about 10%—pointing to a potential decrease in competition.<sup>23</sup> Not only does this directly impact consumers and small businesses through an increase in price, it is likely also to decrease innovation by increasing barriers to entry. Over time, weaker competition can also reduce overall productivity growth, entrench market power in a few dominant firms, and disproportionately burden low-income households, who are least able to absorb higher costs.
+
+Recent analysis by the Institute for Public Policy Research (IPPR) demonstrates the significant economic opportunities at stake, estimating that Apple and Google's app store duopoly could be costing the UK economy up to £2.4bn annually. The research suggests that in a more competitive ecosystem, up to £1.4bn in revenue could be redirected to UK app developers, potentially rising to £3.3bn by 2029—providing a substantial boost to British tech businesses, jobs, and regional economies.<sup>50</sup>
+
+There is no single solution to this problem. The Government has recognised this in recent years and has increasingly taken steps to strengthen competition policy. For example, in relation to large digital platforms, the establishment of the Digital Markets Unit (DMU) within the CMA reflects an attempt to create a more proactive regulatory framework, targeting firms with Strategic Market Status where they have a dominant position. Similarly to the collective actions regime, the DMU is still in its infancy, but this highlights a recognition that rising markups and reduced competition cannot be addressed through consumer choice alone, but require active, ongoing policy intervention.
+
+## Cases and Targets
+
+The collective proceedings regime remains in its infancy, with the vast majority of cases yet to reach final judgment. Yet even at this early stage, the profile of defendants and nature of claims reveal its potential as a mechanism for redistributing wealth from large corporations engaged in anti-competitive conduct to affected consumers and small businesses—a transfer that could represent billions of pounds.
+
+The collective proceedings regime encompasses 64 S47B cases as of October 2025. Analysis of these cases reveals a striking concentration of claims against the world's largest technology companies, alongside notable actions concerning UK utilities and financial services providers.
+
+More than two-thirds of collective proceedings (68%) target companies featured on the Forbes Global 2000 list, which ranks the world's largest public corporations by a composite measure of sales, profits, assets, and market capitalisation. This concentration reflects the regime's effectiveness in providing access to justice against corporate defendants with sufficient scale to generate widespread consumer harm, while also possessing the resources to vigorously defend complex litigation.
+
+The dominance of major tech platforms is particularly pronounced. The five largest technology companies by market capitalisation—Apple, Microsoft, Amazon, Google (Alphabet), and Meta—are defendants in 43% of all collective proceedings filed to date.
+
+---
+
+
+
+Collectively, these five companies command a combined market valuation exceeding $18trn as of October 2025, representing approximately one-fifth of the entire S&P 500 index and surpassing the total market capitalisation of all publicly traded companies in the European Union.
+
+This concentration of claims against dominant technology platforms reflects both the unprecedented market power these firms wield across multiple sectors and the cross-border nature of digital markets, which can generate large proposed classes of affected UK consumers. The global reach of these companies' operations also means that alleged competition law infringements may impact millions of UK users, making collective proceedings an economically viable mechanism for redress where individual claims would be impractical.
+
+This defendant profile underscores several key characteristics of the collective proceedings regime. First, it demonstrates that the mechanism is being deployed primarily against sophisticated multinational corporations with substantial litigation resources. Second, the prevalence of technology sector claims reflects both the digital transformation of consumer markets and the unprecedented concentration of market power in platform businesses. Third, the increasing presence of UK infrastructure and utility companies illustrates that collective proceedings serve a regulatory complementary function in sectors subject to economic regulation, allowing consumers to seek redress for competition law breaches that may not be fully addressed through sector-specific enforcement mechanisms.
+
+> *"Effective collective actions make rule-breakers pay for the harm they cause, show newcomers the rules actually get enforced, and push companies to design better, safer products."*
+
+**DR RACHAEL KENT**
+
+*Class Representative in the £1.5bn collective against Apple*
+
+Beyond direct compensation, the potential benefits of cases against defendants such as these also lie in their broader systemic impact. The very prospect of multi-billion-pound claims may incentivise firms to alter their practices, strengthening compliance and reducing the likelihood of future anti-competitive behaviour.
+
+This was a central factor in the CAT's creation, with the Government acknowledging that collective actions are a vital route to enable consumers to secure justice where competition law has been violated.¹⁰ Importantly, for opt-out cases, members of a class automatically eligible for redress are able to achieve this without taking any proactive steps to secure it themselves. In this way, the CAT's collective action regime has the potential not only to deliver financial redress but also to drive structural improvements in market fairness whilst improving access to justice in a broader sense.
+
+29    Realising the benefits of competitive markets
+
+
+---
+
+
+
+## The Economic Value of Collective Actions
+
+Quantifying the economic value of the collective actions regime is inherently challenging because a substantial part of its value–deterrence–involves measuring something that doesn't happen. Unlike direct compensation, which can be counted in damages awards, deterrence requires estimating the anti-competitive conduct that is prevented: cartels that never form, price-fixing agreements that are abandoned, and exclusionary abuses that are not pursued because companies fear the financial consequences of getting caught and sued.
+
+Rather than applying uniform assumptions across the entire economy, a credible assessment requires recognising that different sectors face different levels of risk from anti-competitive conduct and varying degrees of regulatory oversight. To establish an evidence-based foundation for this analysis, we have examined all collective proceedings filed at the Competition Appeal Tribunal between 2015 and 2025 to identify which sectors of the UK economy have actually been party to this form of litigation, per Solomonic's analysis.
+
+Our analysis uses Gross Value Added (GVA)–the definitive measure of an industry's contribution to the economy–to quantify the scale of economic activity where collective proceedings have been brought. By mapping the sectors that have generated at least three collective proceedings cases over the past decade to their corresponding Standard Industrial Classification (SIC) 2007 sections, we can extract official Office for National Statistics data to calculate their combined economic footprint.
+
+### TABLE 1: GROSS VALUE ADDED OF SECTORS SUBJECT TO COLLECTIVE PROCEEDINGS (2023)
+
+<table>
+<thead>
+<tr>
+<th>SECTOR</th>
+<th>PARTIES REPRESENTED (2015 - 2025)</th>
+<th>SIC 2007 SECTION</th>
+<th>SECTOR NAME</th>
+<th>GVA 2023 (£BN)</th>
+<th>% OF UK GVA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Technology/ Media/Telecoms</td>
+<td>34 (26.0%)</td>
+<td>J</td>
+<td>Information and Communication</td>
+<td>139.8</td>
+<td>5.9%</td>
+</tr>
+<tr>
+<td>Consumer</td>
+<td>17 (13.0%)</td>
+<td>G</td>
+<td>Wholesale and Retail Trade</td>
+<td>234.5</td>
+<td>9.9%</td>
+</tr>
+<tr>
+<td>Banking/Finance</td>
+<td>17 (13.0%)</td>
+<td>K</td>
+<td>Financial and Insurance Activities</td>
+<td>208.5</td>
+<td>8.8%</td>
+</tr>
+<tr>
+<td>Manufacturing</td>
+<td>10 (7.6%)</td>
+<td>C</td>
+<td>Manufacturing</td>
+<td>215.6</td>
+<td>9.1%</td>
+</tr>
+<tr>
+<td>Logistics</td>
+<td>10 (7.6%)</td>
+<td>H</td>
+<td>Transportation and Storage</td>
+<td>139.6</td>
+<td>5.9%</td>
+</tr>
+<tr>
+<td>Professional Services</td>
+<td>9 (6.9%)</td>
+<td>M</td>
+<td>Professional, Scientific & Technical</td>
+<td>196.6</td>
+<td>8.3%</td>
+</tr>
+<tr>
+<td>Utilities</td>
+<td>7 (5.3%)</td>
+<td>D & E</td>
+<td>Energy, Water & Waste</td>
+<td>82.8</td>
+<td>3.5%</td>
+</tr>
+<tr>
+<td>Construction/ Infrastructure</td>
+<td>3 (2.3%)</td>
+<td>F</td>
+<td>Construction</td>
+<td>142.8</td>
+<td>6.0%</td>
+</tr>
+<tr>
+<td><strong>Total GVA-SPCS</strong></td>
+<td><strong>107 parties</strong></td>
+<td></td>
+<td></td>
+<td><strong>£1,360.2bn</strong></td>
+<td><strong>57.4%</strong></td>
+</tr>
+</tbody>
+</table>
+
+Sources: Solomonic collective proceedings data (2015-2025); Office for National Statistics, Regional gross value added (balanced) by industry<sup>51</sup>
+
+Note: Insurance sector cases (2) are included within Section K (Financial and Insurance Activities). Shipping/Maritime cases (1) are included within Section H (Transportation and Storage). Analysis excludes 24 cases in sectors with fewer than 3 filings or in unspecified categories.
+
+30    Realising the benefits of competitive markets
+
+
+---
+
+
+
+This reveals that collective proceedings have been concentrated in eight major sectors of the UK economy, which together represent £1,360.2bn in annual economic output–equivalent to 57.4% of the entire UK economy. The concentration of cases in technology, consumer-facing retail, and financial services reflects both the sectors' inherent susceptibility to competition issues and their direct interface with large numbers of consumers or businesses who can form a defined class for collective redress.
+
+**The regime's annual economic impact can be expressed through the following framework:**
+
+EV = GV A X OR<sub>avg</sub> X DR<sub>avg</sub> X A
+
+EV: Economic Value attributed to collective actions (central estimate).
+
+GV A: Total Gross Value Added across sectors (£1,050bn).
+
+OR<sub>avg</sub>: Weighted average Overcharge Rate from anti-competitive practices (18.1%).
+
+DR<sub>avg</sub>: Weighted average Deterrence Rate from all enforcement (approx. 24.5%).
+
+A: Attribution percentage to collective actions (20-40%, median: 30%).
+
+Whilst this economic footprint is substantial, it is important to recognise that the presence of collective proceedings in these sectors does not mean the regime is operating comprehensively across all activities within them. Rather, this figure identifies the broad areas of economic activity where the regime has demonstrated relevance and where its potential deterrent effects–once fully realised–could have significant macroeconomic impact.
+
+The analysis applies overcharge rates drawn from academic research, including meta-analyses by Connor and Lande showing median cartel overcharges of 22-25%,<sup>52</sup> and bias-corrected studies by Boyer & Kotchoni (2015) finding mean overcharges of 15-16%<sup>53</sup>. This approach uses a weighted average of 18.1%. Manufacturing and logistics sectors, which have seen significant cartel enforcement including the trucks cartel that resulted in over €3.5bn in European Commission fines, receive higher estimates (25%), while heavily regulated sectors like utilities and telecommunications receive lower estimates (8-12%).
+
+It is important to note that these overcharge rates are derived from studies of cartel conduct–specifically, hard-core price-fixing agreements. However, collective proceedings at the CAT address a broader spectrum of competition law violations, including abuse of dominance, exclusionary practices, and various forms of anti-competitive agreement that fall outside the traditional cartel definition. Academic research suggests that consumer harm from abuse of dominance can be comparable to, or in some cases exceed, that from cartels, particularly where dominant firms can sustain exploitative practices over extended periods. By using cartel overcharge rates as our baseline, this analysis adopts a deliberately conservative approach that likely understates the total economic harm deterred across all forms of anti-competitive conduct addressed by the collective actions regime.
+
+The CMA has noted in its research that deterrent effects are a multiple of the direct impact of competition enforcement, with the potential to increase GDP in the long run.<sup>54</sup> Within this, the CMA highlighted that for cartels, the ratio of cartels deterred to cartel enforcement actions was estimated to be between 4.6:1 and 28:1, based on the literature. The attribution rates (20-40%) used in this framework are informed by US research indicating that private enforcement deters approximately three to four times more conduct than public enforcement alone,<sup>55</sup> but adjusted downward to reflect the UK's stronger public enforcement tradition and more active sector regulation.
+
+Working from this foundation, the regime's annual economic impact is estimated to fall between £12.1bn and £24.2bn per year, with a median estimate of approximately £18.1bn annually.
+
+31    Realising the benefits of competitive markets
+
+
+---
+
+
+
+This range reflects different assumptions about the proportion of total deterrence attributable specifically to collective actions, as distinct from the broader enforcement ecosystem including the Competition and Markets Authority, sector regulators, and individual damages claims.
+
+To put this in perspective, the regime's estimated annual economic impact–once it reaches maturity–would be equivalent to between £420 and £840 per UK household, with a central estimate of approximately £630 per household, that would otherwise be lost to inflated prices, reduced choice, and stifled innovation. However, this economic value can only be realised if the regime is given the time and regulatory support to mature.
+
+## Business Costs and Proportionality
+
+The collective actions regime also inevitably imposes costs on defendants. The Government's 2015 impact assessment of the opt-out regime projected annual business costs of £30.8 million, while more recent government statements reference 'hundreds of millions of pounds' spent on legal fees over the regime's first decade.<sup>10</sup> While it is appropriate to monitor whether the system operates proportionately, these figures require careful interpretation. They span ten years of regime development, include costs for both meritorious and unmeritorious claims (many of which were dismissed or settled), and reflect the broader costs of defending against any form of competition law enforcement, not a unique feature of the collective actions mechanism.
+
+However, some claims about business costs lack credibility and should be treated with appropriate scepticism. Business lobby groups, including Fair Civil Justice–which is supported by the US Chamber of Commerce Institute for Legal Reform–have suggested the regime poses an economic cost of up to £18bn. Such figures appear to conflate the aggregate value of claims filed (which includes many unmeritorious claims that will be dismissed or settled for far less) with actual economic costs, and extrapolate worst-case scenarios without accounting for the regime's built-in safeguards, including rigorous certification requirements, the 'loser pays' costs rule, and judicial case management.
+
+The regime's first decade provides a more nuanced picture. While defence costs are substantial–particularly for complex standalone cases–the system has not produced the litigation explosion some feared. The true costs to business should be assessed against the regime's demonstrable benefits in deterring anti-competitive conduct across sectors representing over half the UK economy, alongside the broader economic value of maintaining competitive markets that drive innovation, productivity, and consumer welfare.
+
+## Complementary Enforcement and Systemic Benefits
+
+The collective action regime can support and complement government interventions by providing consumers and businesses with a mechanism to seek redress when anti-competitive behaviour causes harm. This not only strengthens deterrence by increasing the potential costs of misconduct for dominant firms, but also empowers smaller market participants who might otherwise lack the resources to challenge unfair practices individually. In doing so, the regime enhances the credibility of the wider competition framework, reinforcing the Government's efforts to ensure that markets remain open, fair, and dynamic.
+
+Ensuring a strong deterrence within competition regimes is also vital to their success. The combination of proactive regulatory interventions, such as the Digital Markets Unit, and reactive enforcement mechanisms, such as collective actions before the CAT, creates a complementary system to deliver on this: one that raises the costs of misconduct while reinforcing incentives for firms to compete fairly and innovate.
+
+A number of CAT cases already directly build on the broader work of the CMA—for example, the Clare Mary Joan Spottiswoode CBE v. Airwave Solutions Limited and Ors (Motorola) claim is loosely based on a CMA investigation that found that the emergency services were overpaying for network services due to Motorola's dominance in pricing negotiations.<sup>56</sup> Similarly, multiple collective proceedings concerning Apple's App Store and Google's Play Store commission structures address competition concerns in digital markets that are subject to parallel regulatory scrutiny by the CMA through its Strategic Market Status investigations into mobile ecosystems under the Digital Markets, Competition and Consumers Act 2024.
+
+These parallel streams of enforcement—private collective actions before the CAT and proactive regulatory interventions by the CMA—illustrate the regime's capacity to work alongside, rather than duplicate, public enforcement efforts whilst addressing gaps where regulatory action alone may be insufficient.
+
+32    Realising the benefits of competitive markets
+
+
+---
+
+
+
+## Expanding the regime's scope
+
+The benefits identified in this report would be amplified should the CAT's regime be expanded beyond competition claims. The current limitation to competition law represents an increasingly artificial constraint, forcing legitimate collective grievances into ill-fitting jurisdictional boxes. Cases like Carolyn Roberts demonstrate this inefficiency, where claims that clearly merit collective redress can only be artificially framed as competition issues, generating costly jurisdictional disputes that benefit no party whilst delaying justice for consumers.
+
+The contrast with international approaches highlights this missed opportunity. The European Representative Actions Directive mandates collective redress across multiple areas including data privacy, consumer protection, and financial services, while Australia makes no distinction between consumer and business access to class actions. The UK's narrow approach means large-scale consumer actions involving data breaches, financial mis-selling, or environmental harm must navigate the costly group litigation regime with its prohibitive book-building requirements–precisely the barrier the opt-out mechanism was designed to overcome.
+
+Expansion would deliver multiple efficiency gains: reducing costs from jurisdictional disputes, improving access to justice across a wider range of mass harms, and allowing the CAT to focus its expertise on case management rather than boundary policing. With the mechanism now tested through nearly a decade of operation, maintaining its experimental limitations represents a failure to capitalise on a proven framework that could deliver meaningful redress across the full spectrum of collective harms affecting UK consumers and businesses.
+
+## Relieving pressure on an overburdened court system
+
+Critics who characterise the CAT as 'overwhelmed' overlook a fundamental question: what is the alternative? The UK's court system is experiencing unprecedented strain, with Commercial Court trial waiting times now extending from October 2026 to January 2027, while the London Circuit Commercial Court faces similar delays stretching into 2026. The Government has acknowledged that even operating at maximum capacity, backlogs across the system would continue to grow, describing the situation as requiring 'once-in-a-generation reform.' Against this backdrop, the CAT represents not a burden on the justice system but essential relief from it, providing a specialist forum designed specifically to handle the complex, multi-party competition litigation that would otherwise add to the High Court's mounting pressures.
+
+Without the CAT, collective competition claims would face two equally problematic paths: either they would be forced into an already overwhelmed High Court system with waiting times stretching years into the future, or they would simply not be brought at all due to the prohibitive costs and complexity of the Group Litigation Order regime. Neither outcome serves consumers, competition policy, or judicial efficiency. The CAT's specialist expertise, streamlined procedures, and dedicated resources make it far more efficient at processing these technically complex claims than the High Court could ever be. Restricting or undermining the CAT regime at precisely the moment when the broader court system faces a capacity crisis would be counterproductive, forcing cases back into a system manifestly unable to accommodate them whilst simultaneously denying consumers access to justice for large-scale competition harms.
+
+33    Realising the benefits of competitive markets
+
+
+---
+
+
+
+34    Realising the benefits of competitive markets
+
+# POLICY RECOMMENDATIONS
+
+The challenges facing the CAT's collective actions regime are significant, but they are not insurmountable. The regime is barely a decade old, and many of the difficulties identified in this report are symptomatic of an immature system finding its feet rather than fundamental design flaws. With targeted reforms that build on the regime's existing strengths whilst addressing its most acute pressure points, the CAT can be positioned as a genuinely effective mechanism for mass consumer redress. The recommendations that follow are designed to nurture - not overhaul -the regime and to ensure it remains an investable proposition, acts as a deterrent for bad actors, and delivers meaningful outcomes for consumers accordingly.
+
+## 1. Expansion of the regime
+
+The current limitation of the regime to competition law infringements creates artificial barriers and has resulted in some claimants seeking to contort legitimate consumer claims into competition frameworks with expensive and time consuming consequences.Cases such as Professor Carolyn Roberts v Thames Water, which sought to frame environmental compliance failures as competition law abuses, which frames data privacy practices as an abuse of dominance, illustrate the regime being used as a proxy for a general consumer redress mechanism that does not formally exist elsewhere in English law. The result is wasted time and costs arguing jurisdictional boundaries rather than substantive issues, and cases that might have clear merit on consumer protection, data privacy, or environmental grounds are forced to navigate the narrower confines of competition law.
+
+While the original justification for the regime centred on promoting competition enforcement, the case for expansion rests on broader principles. Access to justice and the rule of law are fundamental to maintaining investment confidence and economic stability. As David Greene, founding Co-President of CORLA and former President of the Law Society, has observed, 'it's vital to have a system in which individual consumers have access to justice, because that just reinforces the rule of law in our justice process, which is a huge attraction to others wanting to come to London to resolve disputes.'<sup>14</sup> These principles are directly served by widening the types of claims that can be brought collectively. Moreover, the current jurisdictional limitations waste precious judicial and party resources on threshold arguments about whether claims properly fall within competition law, rather than addressing the substantive merits of consumer grievances.
+
+Consumer groups including Which? have argued that limiting collective proceedings creates 'an inequity in access to justice' by providing redress only to 'those who have the financial capability and resources to bring civil proceedings'.<sup>57</sup> Expanding the regime to cover data privacy breaches, consumer protection violations, and other mass harms would reduce satellite litigation over jurisdiction, provide genuine access to justice for consumers in sectors currently excluded, and position the CAT as a comprehensive hub for collective redress rather than a competition-law niche. Support for such expansion can also be found in recent House of Lords debates on both PACCAR and the Digital Markets, Competition and Consumers Act 2024, where several peers called for widening the CAT regime's scope.
+
+There is also a question, raised in comparison with Australia's representative actions regime, about whether the CAT's primary focus on consumer redress should be expanded to fully accommodate business claimants. The regime does not formally exclude businesses from bringing collective proceedings– as demonstrated by cases such as Road Haulage Association v Man SE and Others, which was certified on an opt-in basis–but it was designed principally with consumer protection in mind.
+
+---
+
+
+
+In Australia, by contrast, there is no such conceptual distinction: representative actions are available to all claimants facing collective action problems, including large pension funds in securities actions as well as individual consumers. Businesses, particularly SMEs, can face precisely the same barriers to justice as individual consumers when they suffer small individual losses from the same wrongful conduct. Clarifying that businesses can access the opt-out mechanism, where appropriate, would broaden the regime's utility without undermining its consumer protection focus.
+
+## 2. Resolve the uncertainty by reversing PACCAR
+
+A most pressing reform is the legislative reversal of the Supreme Court's decision in PACCAR. As detailed in Chapter 3, the uncertainty created by this judgment has created a funding crisis that threatens the regime's very existence. The 35% decline in CAT filings from 2023 to 2024, and the further collapse to just three cases in the first seven months of 2025, is stark evidence of the chilling effect on the market. Whilst the CAT has pragmatically approved revised funding structures using multiple-of-capital arrangements, the instability persists. Satellite litigation over funding enforceability continues to consume time and resources that should be devoted to substantive issues.
+
+The Civil Justice Council's recommendation for retrospective standalone legislative reversal must be adopted as a matter of urgency. Without a stable funding environment, no amount of procedural tinkering will restore confidence. Funders require certainty that their contractually agreed returns will largely be upheld, not retrospectively rewritten by the courts save in exceptional circumstances where, for example, there is a genuine danger that the class will be severely under compensated if the funding terms are honoured. This is not about protecting excessive profits, but about providing the baseline predictability necessary for any commercial investment decision. The government's consultation on the opt-out regime provides an ideal opportunity to correct this legislative anomaly and restore the regime's foundations before further damage is done.
+
+## 3. Introduce Pre-Action Protocols and Improve Early Case Management
+
+More rigorous early case management by the CAT itself could deliver significant gains. Practitioners interviewed for this report drew comparisons with other courts' approaches to case management. The Technology and Construction Court was identified as operating efficient processes where judges establish clear timetables from the outset and maintain firm control over proceedings. The commercial courts were also cited as operating more swiftly, with stricter timetabling and less prolonged procedural wrangling.
+
+Challenges remain in managing multi-party collective proceedings efficiently. Umbrella proceedings and wave approaches, designed to achieve procedural economy by grouping related claims, have produced mixed results. While these innovations aim to avoid duplicative hearings and enable coordinated case management, they can also generate repeated case management conferences as the tribunal seeks to accommodate the interests of numerous parties. The Interchange and Trucks litigation illustrate both the potential and the pitfalls of these approaches. Some of the procedural decisions in the Trucks cases, particularly around expert-led disclosure, were described by interviewees as having 'slowed proceedings down significantly and vastly increased costs.' Finding the right balance between coordination and efficiency is an ongoing challenge, and there may be merit in running lead cases to trial to establish key principles before addressing the broader cohort of claims.
+
+As the Tribunal gains experience and develops a body of procedural precedent, case management practices will inevitably become more refined. Empirical analysis of which procedural innovations have succeeded and which have proved unwieldy would assist both the Tribunal and practitioners in identifying best practices.
+
+Greater use of the CAT's existing case management powers, including costs budgeting and stricter timetabling, could help contain the costs that can escalate in complex multi-party proceedings.
+
+35    Realising the benefits of competitive markets
+
+
+---
+
+
+
+Early scrutiny of distribution strategies at the certification stage could also prove valuable, helping to avoid expensive and complex distribution processes further down the line, while addressing the ongoing challenge of take-up rates. Where class representatives can demonstrate realistic, evidence-based plans for identifying and engaging class members from the outset, the Tribunal can be satisfied that cases are not merely theoretical exercises in aggregate deterrence but will deliver practical compensation to consumers.
+
+The Civil Justice Council also recommended in its final report that judges be granted discretion to award funding costs and ATE premia against defendants in exceptional circumstances–particularly where defendants pursue a "strategy of attrition" through repeated unmeritorious procedural applications designed to exhaust claimant resources. This would provide a meaningful deterrent against the tactical behaviour that post-PACCAR funding structures have enabled defendants to exploit.
+
+Consideration should also be given to involving specialist costs judges or independent cost draftsmen to assist the CAT in assessing the reasonableness of litigation budgets and costs claims, bringing additional expertise to these technically complex assessments. However, care must be taken to ensure such measures don't inadvertently increase costs–as one practitioner noted, adding independent advisors to the process creates additional fees that could reduce class recoveries.
+
+Similarly, a more streamlined approach, potentially involving running lead cases to trial rather than attempting to manage the entire cohort simultaneously, could provide earlier resolution and clearer precedents. Further guidance on efficient case management practices, informed by empirical analysis of which procedural innovations have succeeded and which have not, would assist both the Tribunal and practitioners in avoiding the pitfalls that have characterised some of the more unwieldy proceedings to date.
+
+## 4. Strengthen Support for Class Representatives
+
+The role of the class representative has come under increasing scrutiny following decisions such as Riefa v Apple, which saw significant criticism of the PCR and her advising law firm and has thus raised the bar for what is expected of individuals stepping forward to represent potentially millions of absent class members. While heightened expectations for class representatives are understandable, given the sums at stake and the representative's fiduciary-like duties to the class, there is a risk of creating standards that are impossible for non-professional litigants to meet.
+
+The expectations placed on class representatives have rightly professionalised, but as practitioners observe, they are not 'unicorns.' One person cannot simultaneously be the subject-matter expert, project manager, spokesperson, risk steward, and translator between legal strategy and public understanding without a robust support team. The role demands strategy and budget governance over years, coordination of experts in economics, product design and behavioural science, and sustained public communication to help class members understand how market practices affect them.
+
+The solution is not to lower standards, but to provide better support structures and clearer guidance. Class representatives should have access to advisory committees of senior, independent figures who can provide oversight and guidance throughout the litigation. The CAT should develop clearer guidance for class representatives through a practice direction or dedicated section of the Guide to Proceedings. A consolidated guide setting out what is expected, what support structures should be in place, and how the representative's team should be organised would provide valuable clarity.
+
+36    Realising the benefits of competitive markets
+
+
+---
+
+
+
+37    Realising the benefits of competitive markets
+
+Such guidance should address:
+
++ The acceptable division of responsibilities between the CR and their support team.
+
++ How class representatives can obtain independent advice on funding arrangements.
+
++ The governance structures needed for complex, multi-year proceedings.
+
++ How to manage conflicts between representatives, funders, and lawyers.
+
++ What constitutes adequate understanding versus technical mastery of case details.
+
+There is also a strong case for continuing to recognise established consumer organisations as suitable class representatives. Bodies such as Which?, with decades of experience advocating for consumer interests, possess the institutional knowledge, independence, and credibility that the regime requires. Similarly, not-for-profit organisations specifically constituted to support collective actions–such as the Association of Consumer Support Organisations (ACSO), which is currently serving as class representative in collective proceedings against Amazon concerning alleged anti-competitive pricing practices–can provide the robust governance structures and accountability that the CAT expects. Organisational class representatives can offer continuity, institutional memory, and governance frameworks that may be more difficult to establish with individual representatives, particularly in cases spanning many years. Encouraging such entities to serve as class representatives, and ensuring they have the necessary support and guidance, could help address the suitability concerns that have emerged in recent certification decisions.
+
+The goal should be clear: individuals with integrity, independence, and judgment to represent the class, supported by professional advisors and clear procedural guidance, rather than expecting any single person to master every technical aspect of complex, multi-year litigation.
+
+## 5. Provide Earlier Certainty on Funding Arrangements
+
+While the CAT already conducts scrutiny of funding arrangements at certification and requires detailed budgeting from class representatives, the current approach creates uncertainty by revisiting these arrangements later during settlement approval. At certification, the Tribunal typically applies a relatively light-touch review, only intervening if funding terms appear particularly problematic. This approach, however, leaves all parties uncertain about whether contractually agreed funding arrangements will ultimately be upheld.
+
+A more definitive approach would be to conduct comprehensive approval of funding arrangements at the certification stage–or even earlier at the carriage stage in cases involving competing class representatives. If the CAT is satisfied that the proposed funding arrangements are reasonable, fair to the class, and provide adequate adverse costs protection, that determination should provide certainty going forward, absent exceptional circumstances.
+
+This early approval would benefit funders by giving them confidence that their contractual terms will be respected, benefit class representatives by avoiding later disputes, and benefit defendants by making the economics of potential settlement clearer. The CAT would retain oversight to ensure class interests remain protected, but without the current practice of retrospective reassessment based on hindsight.
+
+Additionally, consideration should be given to protecting funders from factors beyond their control, such as low consumer take-up rates. When participation rates fall short despite reasonable distribution efforts, unclaimed settlement funds could be recycled to support ongoing litigation costs rather than automatically reducing funder returns based on circumstances outside their influence. This would maintain the commercial viability of funding while ensuring the regime remains both investable and capable of delivering meaningful access to justice for consumers and businesses who would otherwise be unable to seek redress.
+
+---
+
+
+
+## 6. Improve Consumer Distribution and Take-Up
+
+While the opt-out collective actions regime serves the dual purposes of deterrence and compensation, both objectives are potentially undermined by low consumer take-up rates. As one practitioner observed, the regime is about 'deterrence, with large sums of money, and consumer power to harness deterrence.' Individual per-consumer recovery may be 'kind of a bonus,' but the deterrent effect of large aggregate awards requires that defendants face genuine financial consequences. When the vast majority of settlement funds remain undistributed because consumers do not come forward, the deterrent signal is weakened, and the regime's legitimacy as a mechanism for both punishment and redress is undermined.
+
+That said, there are practical steps that can improve outcomes, and there are encouraging signs of progress. Polling by Ipsos found that more than three in five Britons (61%) recall seeing promotions encouraging people to join a class action in the past year—evidence that outreach efforts are achieving meaningful visibility.³²
+
+One proposal raised during the research for this report is to begin the process of class identification much earlier in the litigation lifecycle. At present, the clock starts ticking on distribution only after settlement or judgment, creating an intense, short window to identify class members, verify eligibility, and secure participation. If class identification and engagement efforts began earlier, running in parallel with the substantive litigation at a low cost, it may be possible to build a more engaged class by the time distribution commences. Technological solutions, including secure digital claims platforms and targeted advertising through the channels consumers actually use, will also be essential.
+
+The CAT itself is increasingly alive to distribution challenges and has begun to probe these issues more rigorously at both certification and settlement approval. The Tribunal's insistence in recent cases that claimants provide evidence-based projections of likely take-up, supported by independent research, is a welcome development. However, there is a balance to be struck. Distribution mechanisms must be practical and consumer-friendly without being so onerous in their verification requirements that they deter participation. The objective should not be to achieve 100% take-up, but to ensure that the process is sufficiently accessible and well-publicised that consumers who wish to participate can do so without undue difficulty. Learning from international experience, particularly jurisdictions like Canada and Australia with mature representative actions regimes, will be valuable in refining best practices for the UK context.
+
+## 7. Invest in Capacity and Resources
+
+The CAT's achievements are particularly remarkable given it operates with one permanent full-time judge (the President), part-time judicial members, small administrative staff, and limited budget.
+
+Sustainable operation requires substantial investment across several areas. The tribunal needs permanent judicial capacity beyond the single President, additional specialist panel members—including economists with competition expertise and retired competition practitioners who bring practical market knowledge—and expanded administrative support with competition law experience. Enhanced case management infrastructure would further support the tribunal's effectiveness. Consideration should also be given to appointment terms for part-time chairs, as non-renewable time limits can result in experienced members leaving just as they develop deep expertise in the tribunal's remit.
+
+The CAT's dual mandate—both collective proceedings and non-discretionary regulatory appeals—creates unique pressures as collective actions return to growth post-PACCAR. Without investment addressing both jurisdictions, the tribunal risks being unable to fulfil Parliament's vision for effective regulatory oversight or accessible collective redress. As the broader court system faces unprecedented strain, strengthening the CAT's specialist capacity represents efficient resource allocation, preventing complex competition claims from adding to the High Court's mounting pressures whilst providing essential technical expertise. As outlined, with appropriate investment, the regime has the potential to deter £12.1-24.2bn annually in anti-competitive conduct once it reaches maturity.
+
+38    Realising the benefits of competitive markets
+
+
+---
+
+
+
+39    Realising the benefits of competitive markets
+
++
+
+# CONCLUSION
+
+After a decade of operation, the Competition Appeal Tribunal's opt-out collective actions regime stands at a defining moment. The regime that was designed to empower consumers and small businesses to challenge anti-competitive behaviour by the world's largest corporations has demonstrated its vital importance, with parties from sectors representing at least 57.4% of UK economic output involved in collective proceedings and billions of pounds in potential compensation at stake. Yet this promising mechanism is now under threat—not from the mythical flood of litigation that critics often invoke, but from a dramatic reduction in case filings. New collective proceeding filings have collapsed, falling from 17 cases in 2023 to just 3 cases in the first nine months of 2025. Claims that the CAT is 'overwhelmed' are contradicted by the evidence: case filings have materially reduced, hearing days have declined by 59% from their 2022 peak, and the regime faces underutilisation—particularly due to the PACCAR decision's chilling effect on funding—not overload from excessive litigation.
+
+The international perspective provides crucial context for understanding where the UK regime sits today, particularly given the relatively early stage in the regime's development at which the Government has decided to conduct its review. Canada and Australia demonstrate that collective redress mechanisms require decades to mature—their early years were marked by similar and different procedural uncertainties, lengthy timelines, and jurisdictional disputes. What distinguishes successful regimes from failed ones is not the absence of challenges but the willingness to address them constructively. The UK has advantages that many jurisdictions lack: world-class judicial expertise in the CAT, a sophisticated legal profession, and institutional foundations that command global respect. Once mature, the regime has the potential to deter up to £24.2bn in anti-competitive harm annually—equivalent to protecting UK households from roughly £840 each in inflated prices, reduced choice, and stifled innovation. As practitioners who contributed to this report emphasised, a collective actions regime's true effectiveness lies principally in its capacity to deter anti-competitive conduct and maintain market integrity, rather than being assessed solely through the lens of individual case outcomes. These are not abstract benefits but real impacts that will only be realised if the regime is given the time and support to develop.
+
+The recommendations in this report chart a pragmatic path forward that builds on what is working whilst addressing clear weaknesses. Expanding beyond competition-only claims to other forms of class redress benefiting consumers and small businesses would reduce wasteful jurisdictional disputes and extend redress mechanisms to other wrongful conduct. Strengthening case management would help accelerate proceedings without sacrificing rigour. Supporting class representatives would ensure proceedings are conducted in the best interests of class members. Improving distribution mechanisms would ensure settlements reach consumers more effectively. Most critically, resolving the funding uncertainty created by PACCAR through immediate legislative action is essential and cannot wait. Together, these measures would provide the support and stability necessary for the regime to mature into the effective consumer protection mechanism Parliament intended.
+
+---
+
+
+
++
+
+# SOURCES
+
+1. The Committee Office & House of Lords. House of Lords - Constitution - Minutes of Evidence. https://publications.parliament.uk/pa/ld200304/ldselect/ldconst/68/3111202.htm (2004).
+
+2. Scott, A., Hviid, M., Lyons, B. & Bright, C. The Competition Appeal Tribunal and judicial review. in Merger Control in the united kingdom 327–344 (Oxford University PressOxford, 2006).
+
+3. https://researchbriefings.files.parliament.uk/documents/SN06588/SN06588.pdf.
+
+4. Department for Business. New help for consumers and businesses to take action against price fixing. GOV.UK https://www.gov.uk/government/news/new-help-for-consumers-and-businesses-to-take-action-against-price-fixing (2013).
+
+5. Prime Minister's Office. The Queen's Speech 2013. GOV.UK https://www.gov.uk/government/speeches/the-queens-speech-2013 (2013).
+
+6. Great Britain: Department for Business, Innovation and Skills. Consumer Rights Bill: Statement on Policy Reform and Responses to Pre-Legislative Scrutiny. (TSO, Norwich, England, 2014).
+
+7. House of Lords & Westminster. Lords Hansard Text for 03 Nov 2014 (pt 0001). (The Stationery Office Ltd, 2014).
+
+8. Merricks v Mastercard – UK Supreme Court Clarifies Low Bar for Class Action Certification. https://www.skadden.com/insights/publications/2021/01/merricks-v-mastercard.
+
+9. Rigby, B. UK Competition Appeal Tribunal regime must be given more time to bed in. The Global Legal Post https://www.globallegalpost.com/news/uk-competition-appeal-tribunal-regime-must-be-given-more-time-to-bed-in-1886011287.
+
+10. Opt-out collective actions regime review: call for evidence. GOV.UK https://www.gov.uk/government/calls-for-evidence/opt-out-collective-actions-regime-review-call-for-evidence/opt-out-collective-actions-regime-review-call-for-evidence.
+
+11. Shalchi, A. & Mor, F. The UK competition regime. House of Commons Library https://commonslibrary.parliament.uk/research-briefings/sn04814/ (2021).
+
+12. Barling, G. Reforming the UK Competition Regime – assessing the impact of new legislation and challenges ahead for the CMA. Preprint at https://www.catribunal.org.uk/sites/cat/files/2018-01/Reforming_the_UK_Competition_Regime_%E2%80%93_assessing_the_impact_of_new_legislation_and_challenges_ahead_for_the_CMA_100913.pdf.
+
+13. Cardell, S. Private actions and public enforcement. GOV.UK https://www.gov.uk/government/speeches/private-actions-and-public-enforcement (2023).
+
+14. Rozenberg, J. Consumer protection? A Lawyer Writes https://rozenberg.substack.com/p/consumer-protection (2025).
+
+15. Morabito, V. An empirical study of Australia's class action regimes, fifth report: The first twenty-five years of class actions in Australia. SSRN Electron. J. (2017) doi:10.2139/ssrn.3005901.
+
+16. Polling Research: Strong Support for Litigation Funding from UK Business Leaders and Consumers. https://www.ilfa.com/polling-research-litigation-funding-uk.
+
+17. YouGov. Balancing the power. Preprint at http://www.associationoflitigationfunders.com.au/uploads/5/0/7/2/50720401/yougovwhitepaperbalancingthepower.pdf (2025).
+
+18. Bacharis, G. & Kwan, J. Public redress in UK competition enforcement: a study of rationales and techniques. J. Antitrust Enforc. jnae056 (2025).
+
+19. How to deliver tangible growth in consumer markets. Citizens Advice https://www.citizensadvice.org.uk/policy/publications/how-to-deliver-tangible-growth-in-consumer-markets/.
+
+20. Cardell, S. The CMA at 10: Past reflections and a look ahead to the next decade of promoting competition and protecting consumers. GOV.UK https://www.gov.uk/government/speeches/the-cma-at-10-past-reflections-and-a-look-ahead-to-the-next-decade-of-promoting-competition-and-protecting-consumers (2024).
+
+21. CMA to boost consumer and business confidence as new consumer protection regime comes into force. GOV.UK https://www.gov.uk/government/news/cma-to-boost-consumer-and-business-confidence-as-new-consumer-protection-regime-comes-into-force (2025).
+
+22. Factsheet on competition and macro-economic outcomes. OECD https://www.oecd.org/en/publications/factsheet-on-competition-and-macro-economic-outcomes_660b93ab-en.html (2014).
+
+23. The State of UK Competition Report 2024. GOV.UK https://www.gov.uk/government/publications/the-state-of-uk-competition-report-2024/the-state-of-uk-competition-report-2024.
+
+24. From Fragmentation to Cooperation: Boosting Competition and Shared Prosperity. IMF https://www.imf.org/en/News/Articles/2021/12/06/sp120621-keynote-address-at-the-oecd-global-forum-on-competition (2021).
+
+25. Markets and Competition Policy. World Bank https://www.worldbank.org/en/topic/competition-policy.
+
+26. Consumer detriment survey 2024. GOV.UK https://www.gov.uk/government/publications/consumer-detriment-survey-2024 (2025).
+
+27. Reforming competition and consumer policy: government response. GOV.UK https://www.gov.uk/government/consultations/reforming-competition-and-consumer-policy/outcome/reforming-competition-and-consumer-policy-government-response.
+
+28. Canadian Packaged Bread Class Actions Settlement. https://www.canadianbreadsettlement.ca/.
+
+29. The UK competition regime. National Audit Office (NAO) https://www.nao.org.uk/reports/the-uk-competition-regime/ (2016).
+
+30. Thorndon Partners. Beyond Dispute: Collective settlementtake-up rates in the UK. Preprint at https://thorndonpartners.com/wp-content/uploads/2025/05/Collective-settlement-take-up-rates-in-the-UK-Thorndon-Partners.pdf (2025).
+
+31. Polling Research: Strong Support for Litigation Funding from UK Business Leaders and Consumers. https://www.ilfa.com/polling-research-litigation-funding-uk.
+
+32. Ipsos. Class Actions: research investigating the British public's perceptions and understanding of mass litigation. Ipsos https://www.ipsos.com/en-uk/class-actions-research-investigating-british-publics-perceptions-and-understanding-mass-litigation (2025).
+
+33. Anderson, L. Submission: CJC Review of Litigation Funding Consultation. https://www.judiciary.uk/wp-content/uploads/2025/05/Lucy-Anderson-Which-Consumers-Association.pdf (2025).
+
+34. Litigation Funding Agreements (Enforceability) Bill [H - Hansard - UK Parliament. https://hansard.parliament.uk/lords/2024-04-15/debates/9FA88FD0-CD85-4645-BFCE-C1AF89F45109/LitigationFundingAgreements(Enforceability)Bill(HL).
+
+35. Zuckerman, A., Higgins, A. & Nayer, R. Submission: CJC Review of Litigation Funding Consultation. Preprint at https://www.judiciary.uk/wp-content/uploads/2025/05/Ravi-Nayer-Andrew-Higgins-and-Adrian-Zuckerman.pdf (2025).
+
+36. Collective Proceedings in the UK's Competition Appeal Tribunal (CAT). https://assets.contentstack.io/v3/assets/blt3de4d56151f717f2/blt1dee86f899c39a92/68e6404d7173c45056eb88f6/Simmons_Simmons_LLP_Tracking_Collective_Proceedings_in_the_UK_(As_at_7_October_2025).pdf.
+
+37. R (on the Application of PACCAR Inc and Others) (Appellants) Competition Appeal Tribunal and Others (Respondents). (2023).
+
+38. Peyer, S. Time for parliament to act? The PACCAR decision of the UK Supreme Court: R (on the application of PACCAR inc and others) (appellants) v Competition Appeal Tribunal and others (respondents) [2023] UKSC 28. Leg. Stud. (Soc. Leg. Scholars) 44, 566–571 (2024).
+
+39. Review of Litigation Funding: Interim Report and Consultation. https://www.judiciary.uk/wp-content/uploads/2024/10/CJC-Review-of-Litigation-Funding-Interim-Report.pdf (2024).
+
+40. Sony Interactive -v- Alex Neill; Visa -v- Commercial and Interregional; Mastercard -v- Commercial and Interregional; Apple -v- Rachael Kent; and Apple -v- Justin Gutmann. Courts and Tribunals Judiciary https://www.judiciary.uk/judgments/sony-interactive-v-alex-neill-visa-v-commercial-and-interregional-mastercard-v-commercial-and-interregional-and-apple-v-rachael-kent-and-apple-v-justin-gutmann/ (2025).
+
+41. Trayhurn, L. & Southwood, S. Stakeholder Returns in the Competition Appeal Tribunal. (2025).
+
+42. Rothwell, R. 'Fewer dollars' for UK economy as litigation funding giant Burford spurns English law. Law Gazette https://www.lawgazette.co.uk/news/fewer-dollars-for-uk-economy-as-top-lit-funder-spurns-english-law/5123346.article (2025).
+
+43. Veljanovski, C. Collective certification in UK competition law commonality, costs and funding. SSRN Electron. J. (2018) doi:10.2139/ssrn.3191027.
+
+44. Higgins, A. Driving with the handbrake on: Competition class actions under the consumer rights act 2015: Competition class actions under the consumer rights act 2015. Mod. Law Rev. 79, 442–467 (2016).
+
+45. Versteeg, R. & Malina, A. Collective proceedings in the Competition Appeal Tribunal: taking stock and looking ahead. Compet. Law J. 18, 104–115 (2019).
+
+46. Ashurst. Class actions in Australia. Preprint at https://www.ashurst.com/-/media/Ashurst/Documents/SXA-documents/What-we-do/Services/Ashurst-Class-Actions-Guide.pdf?rev=c1bb83521b9c4069be035e2e21654b45 (2025).
+
+47. Annual Report and Accounts 2022-2023. https://www.catribunal.org.uk/sites/cat/files/2024-04/WEB%20ACCESSIBLE%20VERSION%20CAT%20&%20CS%20ARA%2022-23.pdf (2024).
+
+48. Hurst, B. & Koponen, J. Tech Class Actions: The Headlines from across Europe. On the Record https://uklitigation.cooley.com/tech-class-actions-the-headlines-from-across-europe/ (2024).
+
+49. Fair play: How competition policy can drive growth. IPPR https://www.ippr.org/articles/fair-play (2025).
+
+50. Dibb, G. & Valletti, T. How competition policy can drive growth. https://ippr-org.files.svdcdn.com/production/Downloads/Fair_play_May25.pdf?dm=1747212831.
+
+51. Regional gross value added (balanced) by industry: all ITL regions. Office for National Statistics (2025).
+
+52. Lande, R. H. & Connor, J. M. Cartel overcharges and optimal cartel fines. SSRN Electron. J. (2008) doi:10.2139/ssrn.1285455.
+
+53. Boyer, M. & Kotchoni, R. How much do cartel overcharge? Review of Industrial Organization 47, 119–153 (2015).
+
+54. Wider Benefits of Competition Policy and Enforcement, CMA Microeconomics Unit literature review. GOV.UK https://www.gov.uk/government/publications/wider-benefits-of-competition-policy-and-enforcement/wider-benefits-of-competition-policy-and-enforcement-cma-microeconomics-unit-literature-review.
+
+55. American Antitrust Institute. The vital role of private antitrust enforcement in the U.s. commentary on the 2019 antitrust annual report: Class action filings in federal court. SSRN Electron. J. (2021) doi:10.2139/ssrn.3860356.
+
+56. Sanger, C., Lawrence, J., Shepard, M. & Wickham, P. Year in review: class actions in United Kingdom (England & Wales). Lexology https://www.lexology.com/library/detail.aspx?g=e569ca10-0ebe-4821-aba3-539267e30085 (2025).
+
+57. Which? Written Evidence Committee Stage (House of Commons) Digital Markets, Competition Consumers Bill. Preprint at https://bills.parliament.uk/publications/51760/documents/3634 (2023).
+
+40        Realising the benefits of competitive markets
+
+
+---
+
+
+
+# STEPHENSON HARWOOD
+
++ stephensonharwood.com
+
+© Stephenson Harwood LLP 2025. Any reference to Stephenson Harwood in this document means Stephenson Harwood LLP and/ or its affiliated undertakings. Any reference to a partner is used to refer to a member of Stephenson Harwood LLP.
+
+41 Realising the benefits of competitive markets

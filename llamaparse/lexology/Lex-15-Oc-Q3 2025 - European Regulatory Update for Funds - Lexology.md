@@ -1,0 +1,130 @@
+
+
+16/10/2025, 07:08    Q3 2025 - European Regulatory Update for Funds - Lexology
+
+# Q3 2025 - European Regulatory Update for Funds
+
+**Fried Frank Harris Shriver & Jacobson LLP**
+
+**European Union, United Kingdom** October 15 2025
+
+The third quarter of 2025 saw several regulatory developments and announcements, including the launch of a number of consultations in the UK and continental Europe.
+
+In this update, we outline the following, which will be of interest to private fund managers active in and/or marketing into Europe:
+
+1. EU update - ESMA Consultation on Integrated Reporting
+2. EU update - ESMA note on sustainability-related claims
+3. UK update - 2025 Mansion House Speech
+4. UK update - UK Sustainability Reporting
+5. UK update - FCA/PRA/HMT SMCR consultation launch
+6. UK update - FCA intended consultation on client categorisation
+
+## 1. EU update - ESMA Consultation on Integrated Reporting
+
+The European Securities and Markets Authority ("**ESMA**") has launched a discussion paper intended to gather feedback and input from the industry with a view to integrating fund reporting and reducing the burden on managers.
+
+The paper notes that fund reporting is now subject to significant fragmentation due to the coexistence of several reporting regimes at national and European level, and outlines options for improving different aspects of reporting, such as the scope of data, reporting processes and systems to ensure more efficient reporting and sharing of data between the authorities. Among the possibilities, there are proposals related to the integration of multiple reporting templates and the centralisation of reporting processes and infrastructures.
+
+Recommendations will be published in a final report, expected in April 2026.
+
+## 2. EU update - ESMA note on sustainability-related claims
+
+In July, the European Securities and Markets Authority ("**ESMA**") published a note entitled "Thematic notes on clear, fair & not misleading sustainability-related claims" aimed at "addressing greenwashing risks in support of sustainable investments." The guidance in the note explains and clarifies ESMA's expectations in relation to sustainability-related claims and is a reminder of ESMA's focus on potential greenwashing activities by market participants.
+
+The note sets out four principles for firms to follow in relation to sustainability claims, which are not intended to create additional requirements but instead "to remind market participants about their responsibility to make claims only to the extent that they are clear, fair and not misleading." These principles apply to "non-regulatory oral and written communications" and state that such information should be:
+
+* **Accurate:** Sustainability claims should fairly and accurately represent the relevant sustainability profile, without exaggeration. Omission, cherry-picking and vagueness should be avoided. ESG terminology and non-textual imagery or sounds used should be consistent with the sustainability profile.
+
+https://www.lexology.com/library/detail.aspx?g=fde44a40-3b28-43a2-886c-d5d98accda82    1/4
+
+
+---
+
+
+
+16/10/2025, 07:08                    Q3 2025 - European Regulatory Update for Funds - Lexology
+
+* **Accessible:** Sustainability claims should be based on easy-to-access information and be easy to understand without being simplistic. Substantiation and further information should be easy to find.
+* **Substantiated:** Sustainability claims should be substantiated with clear and credible reasoning, facts and processes, and based on methodologies that are fair, proportionate and meaningful.
+* **Up to Date:** Sustainability claims should be based on up-to-date information with material changes disclosed in a timely manner. The disclosure of relevant dates and perimeters is suggested.
+
+The note also sets out what it considers to be good and poor practices based on these principles in "Do's and Don'ts" tables and accompanying practical examples, for example:
+
+* Firms should clarify how the criteria for the ESG credential are met (how they are measured and monitored) and how they are material for the ESG profile of the product, but should not reference ESG credentials for products that do not take sustainability into account or exaggerate the meaning of a credential.
+* Where firms make claims about labels and awards, they should clarify if the labels' underlying criteria are focused solely on having in place processes, and/or if they also require delivering on specific positive sustainability outcomes. ESMA clarifies that regulatory disclosure regimes such as the SFDR should not be used as labels, and a product's disclosures should not give the impression that SFDR designations are credentials.
+
+## 3. UK update - 2025 Mansion House Speech
+
+The UK Chancellor of the Exchequer Rachel Reeves delivered her second Mansion House Speech on 15 July 2025. In her speech, the Chancellor announced new targets for the FCA and the PRA to cut times on authorisations and approvals. On the same day, the FCA published the outline of a plan to speed up processes for firms and individuals seeking authorisation:
+
+* a new statutory target, reflected in proposed statutory deadlines published and consulted on by the Government, for new firm authorisations and variations of permission applications to be completed in four months (currently six) for complete applications, and 10 months (currently 12) for incomplete applications;
+* three voluntary targets, as promised by the Chief Executive of the FCA to the Chancellor in a letter dated 15 July 2025:
+  - for variation of permission applications where the new permissions closely align with the firm's existing business model, a target of three months for complete applications and six months for incomplete applications;
+  - for payments and e-money authorisations and registrations, a target of three months for complete applications and 10 months for incomplete applications; and
+  - for senior manager regime applications, a target of at least half being completed within 35 days, with a proposed statutory deadline of two months (currently three) for all applications.
+
+The FCA notes that the targets also give firms some time to address feedback and remedy issues, reducing, but not eliminating, the risk of increased refusals.
+
+Additionally, the Chancellor also confirmed that the government has decided not to pursue a UK green taxonomy, as first proposed in a November 2024 consultation. However, the Treasury's response to the consultation highlights that the recent consultations on the UK Sustainability Reporting Standards ("UK SRS") and related sustainable finance matters demonstrate the government's continued commitment to helping the UK accelerate investment into the global transition to net zero. Please see update 4 below for an update regarding the UK SRS.
+
+https://www.lexology.com/library/detail.aspx?g=fde44a40-3b28-43a2-886c-d5d98accda82    2/4
+
+
+---
+
+
+
+16/10/2025, 07:08                Q3 2025 - European Regulatory Update for Funds - Lexology
+
+The Chancellor also announced her intention to streamline the Senior Managers' and Certification Regime (the "SMCR") by reducing its burden on firms "by 50%" and by reducing approval times. Please see update 5 below for an update regarding the two-phase consultations regarding these reforms.
+
+## 4. UK update - UK Sustainability Reporting
+
+On 26 June 2025, the Department for Business and Trade ("DBT") published a consultation on the government's draft UK Sustainability Reporting Standards ("UK SRS"). The consultation ran until 17 September 2025. Separately, the FCA has announced (i) plans to consult later in 2025 on how listed companies will adopt these standards and (ii) that it is beginning work to consider how to streamline and enhance its sustainability reporting framework for asset managers, life insurers and FCA-regulated pension providers.
+
+The UK SRS are based on IFRS S1 (General Requirements for Disclosure of Sustainability-related Financial Information) and IFRS S2 (Climate-related Disclosures), introduced by the International Sustainability Standards Board ("ISSB"). IFRS S1 and S2 have been designed with international comparability in mind and have already been adopted in several jurisdictions.
+
+The UK government considers the UK SRS to be the next step for UK sustainability reporting, building on the existing TCFD (Task Force on Climate-related Financial Disclosures) reporting framework for listed companies, certain FCA-regulated entities and large companies.
+
+Further consultations are expected to follow, focusing on (1) assurance over sustainability-related financial disclosures and (2) transition plan requirements which could be taken forward alongside UK SRS reporting.
+
+## 5. UK update - FCA/PRA/HMT SMCR consultation launch
+
+On the same day as the Chancellor's Mansion House speech, the Financial Conduct Authority (the "FCA") and the Prudential Regulation Authority (the "PRA") launched separate but similar consultations on a two-phase reform of the SMCR. Phase I encompasses a number of proposals that are within the existing legislative framework and can therefore be implemented by the FCA and the PRA relatively quickly. Phase II focuses on changes that could be made to the primary legislation to facilitate the creation of a more proportionate regime by the FCA and the PRA.
+
+The consultations both include detailed proposals in respect of Phase I informed by responses to the regulators' joint discussion paper of 2023, including the raising of the thresholds applicable to enhanced SMCR firms, the extension of regulatory deadlines and a faster approval process. With respect to Phase II, the consultations identify the changes that each regulator wishes to explore as part of the HM Treasury's legislative reform and invite views on the likely impact of such changes.
+
+Whilst he desire to streamline the regime and ensure its proportionate application is laudable, the HM Treasury and the two regulators will be keen to ensure this exercise does not reduce the efficacy and undermine the aims of the SMCR upon its introduction in 2016.
+
+The deadline for responses to the consultation papers is 7 October 2025 and it is expected that the new rules will come into force in mid-2026.
+
+## 6. UK update - FCA intended consultation on client categorisation
+
+In July 2025, the FCA announced its intention to consult on reforms to the client categorisation regime, particularly the elective professional client categorisation rules. The proposed changes aim to modernise the framework to better reflect the sophistication and experience of certain investors, especially high-net-worth
+
+https://www.lexology.com/library/detail.aspx?g=fde44a40-3b28-43a2-886c-d5d98accda82    3/4
+
+
+---
+
+
+
+16/10/2025, 07:08                Q3 2025 - European Regulatory Update for Funds - Lexology
+
+individuals and wholesale clients. While the current rules provide important protections for retail clients, the FCA acknowledged that they may also constrain the investment opportunities for more sophisticated investors.
+
+This is a welcome development from the perspective of the UK private fund management community, as the current elective professional client criteria are ill-suited in a private funds context.
+
+The FCA is expected to publish the consultation paper before the end of 2025. It will be interesting to see whether the FCA is inspired by similar changes currently being considered in the EU as part of the Retail Investment Strategy, or whether it charters its own course.
+
+**Fried Frank Harris Shriver & Jacobson LLP** - Gregg Beechey, Zac Mellor-Clark, Ollie Burrows, Nishkaam Paul and Stephanie Leslie
+
+Fried Frank's 750 lawyers are located in the key financial and government centers of New York, Washington, DC, London, Frankfurt and Brussels. We proudly serve many of the world's leading corporations, investment funds and financial institutions. Three key elements define the success of Fried Frank: Our clients, our people and our performance. By delivering excellence to our clients, we achieve success for all. While doing so, we are committed to being a workplace of inclusion, where talented professionals from all backgrounds can collaborate, thrive and guide our clients forward.
+
+Click here to read the latest news, legal developments and thought leadership from our lawyers. Visit www.friedfrank.com to learn more about Fried Frank.
+
+Powered by
+
+LEXOLOGY.
+
+https://www.lexology.com/library/detail.aspx?g=fde44a40-3b28-43a2-886c-d5d98accda82                4/4

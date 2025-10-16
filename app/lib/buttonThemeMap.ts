@@ -57,6 +57,11 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
     text: "#ffffff",
     border: "#0968f6",
   },
+      "lexology-intelligence-update": {
+    background: "#256671",
+    text: "#ffffff",
+    border: "#256671",
+  },
   "english-gcse-revision": {
     background: "#525fe1",
     text: "#ffffff",

@@ -95,10 +95,19 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Discuss Pitch",
-    url: "",
     author: "Emily Ellis",
     workLabel: "pitch",
-
+  },
+    "lexology-intelligence-update": {
+    pdfPath: "/papers/Q3 2025 - European Regulatory Update for Funds - Lexology.pdf",
+    agentId: "agent_3701k7mtt5vxe7srv6wqamef1rv2",
+    agentName: "Lexology Intelligence Update",
+    region: "eu-residency",
+    auth: "signed",
+    talkLabel: "Daily Update",
+    author: "Lexology",
+    workLabel: "intelligence",
+    screenshotPath: "/screenshots/lexology-intelligence.png",
   },
   "english-gcse-revision": {
   pdfPath: "/papers/Edexcel Anthology Conflict.130684367.pdf",

@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import DialogueBar from "@/app/components/DialogueBarRedirect";
+import DialogueBar from "@/app/components/DialogueBarTalkButton";
 import { docMap } from "@/app/lib/docMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 
