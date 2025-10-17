@@ -9,17 +9,97 @@ import {
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import DialogueBar from "@/app/components/DialogueBarTalkButton";
-import { docMap } from "@/app/lib/docMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ScreenshotPage() {
   const { slug } = useParams<{ slug: string }>();
+  // debug: log slug and env availability (don't print secrets)
+  console.log('[ScreenshotPage] slug:', slug);
+  console.log('[ScreenshotPage] NEXT_PUBLIC_SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log('[ScreenshotPage] NEXT_PUBLIC_SUPABASE_ANON_KEY set:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const sp = useSearchParams();
-  const entry = useMemo(() => (slug ? docMap[slug] : undefined), [slug]);
+  // agent_map is the single source of truth for screenshot/agent metadata
+  const [entry, setEntry] = useState<any | null>(null);
+  const [clientAgentId, setClientAgentId] = useState<string | null>(null);
+  const [clientScreenshot, setClientScreenshot] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  // fetch client_map row by key, fallback to agent_id if slug looks like an agent id
+  useEffect(() => {
+    if (!slug) return;
+    let mounted = true;
+    (async () => {
+      setIsFetching(true);
+      setFetchError(null);
+      console.log('[ScreenshotPage] starting agent_map fetch for slug:', slug);
+      try {
+        // try lookup by key first
+        let res = await supabase
+          .from("agent_map")
+          .select("agent_id, background_image, screenshot_path, region, auth, talk_label, pdf_path, agent_name, url, author, work_label")
+          .eq("key", slug)
+          .maybeSingle();
+        console.log('[ScreenshotPage] agent_map.byKey response:', res);
+        let data = res.data as any;
+        // if not found and slug looks like an agent id, try agent_id lookup
+        if (!data && slug.startsWith("agent_")) {
+          console.log('[ScreenshotPage] no row by key, falling back to agent_id lookup for:', slug);
+          const alt = await supabase
+            .from("agent_map")
+            .select("agent_id, background_image, screenshot_path")
+            .eq("agent_id", slug)
+            .maybeSingle();
+          console.log('[ScreenshotPage] agent_map.byAgentId response:', alt);
+          data = alt.data as any;
+        }
+        if (!mounted) return;
+        console.log('[ScreenshotPage] resolved agent_map data:', data);
+        if (data) {
+          // Use client_map row as the single source of truth
+          setClientAgentId(data.agent_id ?? null);
+          setClientScreenshot(data.background_image ?? data.screenshot_path ?? null);
+          setEntry({
+            agentId: data.agent_id ?? undefined,
+            screenshotPath: data.screenshot_path ?? data.background_image ?? undefined,
+            region: data.region ?? undefined,
+            auth: data.auth ?? undefined,
+            talkLabel: data.talk_label ?? undefined,
+            pdfPath: data.pdf_path ?? undefined,
+            agentName: data.agent_name ?? undefined,
+            url: data.url ?? undefined,
+            author: data.author ?? undefined,
+            workLabel: data.work_label ?? undefined,
+          });
+          console.log('[ScreenshotPage] set entry from agent_map:', { agentId: data.agent_id, screenshot: data.screenshot_path ?? data.background_image });
+        } else {
+          // no client_map row found
+          setEntry(null);
+          console.log('[ScreenshotPage] no agent_map row found for slug:', slug);
+        }
+      } catch (e) {
+  console.error("Failed to fetch agent_map row:", e);
+  // Provide a developer-friendly error message to help diagnose 404/CORS issues
+  const err: any = e;
+  setFetchError(err?.message ?? String(err));
+      }
+      if (mounted) setIsFetching(false);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
   const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
 
   const queryAgent = sp?.get("agentId") ?? "";
-  const agentId = queryAgent || entry?.agentId || "";
+  // prefer explicit query param, then client_map agent id, then entry
+  const agentId = queryAgent || clientAgentId || entry?.agentId || "";
   const region = (sp?.get("region") as
     | "us"
     | "eu-residency"
@@ -30,7 +110,7 @@ export default function ScreenshotPage() {
     | "signed"
     | "public";
   const talkLabel = entry?.talkLabel;
-  const screenshot = entry?.screenshotPath ?? sp?.get("img") ?? null;
+  const screenshot = clientScreenshot ?? entry?.screenshotPath ?? sp?.get("img") ?? null;
   const useSignedUrl = auth !== "public";
 
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
@@ -38,6 +118,41 @@ export default function ScreenshotPage() {
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragPos || !dragContainerRef.current) return;
+    const inset = 12;
+
+    const clampPosition = () => {
+      setDragPos((prev) => {
+        if (!prev || !dragContainerRef.current) return prev;
+        const el = dragContainerRef.current;
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
+        const maxX = Math.max(inset, window.innerWidth - width - inset);
+        const maxY = Math.max(inset, window.innerHeight - height - inset);
+        const clampedX = Math.min(Math.max(prev.x, inset), maxX);
+        const clampedY = Math.min(Math.max(prev.y, inset), maxY);
+        if (clampedX === prev.x && clampedY === prev.y) return prev;
+        return { x: clampedX, y: clampedY };
+      });
+    };
+
+    clampPosition();
+
+    const handleResize = () => clampPosition();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    const observer = new ResizeObserver(() => clampPosition());
+    observer.observe(dragContainerRef.current);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+      observer.disconnect();
+    };
+  }, [dragPos]);
 
   if (!agentId) {
     return (
@@ -111,42 +226,6 @@ export default function ScreenshotPage() {
     setDragging(false);
     event.preventDefault();
   }
-
-  useEffect(() => {
-    if (!dragPos || !dragContainerRef.current) return;
-    const inset = 12;
-
-    const clampPosition = () => {
-      setDragPos((prev) => {
-        if (!prev || !dragContainerRef.current) return prev;
-        const el = dragContainerRef.current;
-        const width = el.offsetWidth;
-        const height = el.offsetHeight;
-        const maxX = Math.max(inset, window.innerWidth - width - inset);
-        const maxY = Math.max(inset, window.innerHeight - height - inset);
-        const clampedX = Math.min(Math.max(prev.x, inset), maxX);
-        const clampedY = Math.min(Math.max(prev.y, inset), maxY);
-        if (clampedX === prev.x && clampedY === prev.y) return prev;
-        return { x: clampedX, y: clampedY };
-      });
-    };
-
-    clampPosition();
-
-    const handleResize = () => clampPosition();
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
-
-    const observer = new ResizeObserver(() => clampPosition());
-    observer.observe(dragContainerRef.current);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-      observer.disconnect();
-    };
-  }, [dragPos]);
-
   return (
     <main
       style={{
