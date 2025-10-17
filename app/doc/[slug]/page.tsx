@@ -38,35 +38,45 @@ export default function DocPage() {
     setIsTouch(matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  // If docMap didn't contain the slug, attempt to fetch metadata from Supabase.agent_map (by key)
+  // If docMap didn't contain the slug, or the entry is partial, attempt to fetch metadata from Supabase.agent_map (by key)
   useEffect(() => {
-    if (entry) return; // already have data from docMap
+    // Only skip fetching when we have a complete entry (both pdfPath and agentId).
+    // This ensures we still fetch agent_map when docMap provided a partial entry (e.g. agentId but no pdfPath).
+    if (entry && entry.pdfPath && entry.agentId) return;
     if (!slug) return;
     let mounted = true;
     (async () => {
       try {
-        const { data } = await supabase
+        // use maybeSingle to avoid throwing when no row exists; include background_image
+        const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
           )
           .eq("key", slug)
-          .single();
+          .maybeSingle();
+        console.log("[DocPage] agent_map.byKey response", { slug, status, error, data });
         if (!mounted) return;
         if (data) {
-          setEntry({
-            pdfPath: data.pdf_path ?? "",
-            agentId: data.agent_id,
-            region: data.region ?? "us",
-            auth: data.auth ?? "signed",
-            talkLabel: data.talk_label ?? undefined,
-            screenshotPath: data.screenshot_path ?? undefined,
-            url: data.url ?? undefined,
-            author: data.author ?? undefined,
-            workLabel: data.work_label ?? undefined,
-          });
+          // merge with any existing partial entry
+          setEntry((prev: any) => ({
+            ...(prev ?? {}),
+            pdfPath: data.pdf_path ?? prev?.pdfPath ?? "",
+            agentId: data.agent_id ?? prev?.agentId ?? "",
+            region: data.region ?? prev?.region ?? "us",
+            auth: data.auth ?? prev?.auth ?? "signed",
+            talkLabel: data.talk_label ?? prev?.talkLabel,
+            screenshotPath: data.screenshot_path ?? prev?.screenshotPath,
+            url: data.url ?? prev?.url,
+            author: data.author ?? prev?.author,
+            workLabel: data.work_label ?? prev?.workLabel,
+            backgroundImage: data.background_image ?? prev?.backgroundImage,
+          }));
+          console.log('[DocPage] setEntry from agent_map', { slug, pdfPath: data.pdf_path, agentId: data.agent_id });
         }
       } catch (e) {
+        // log error for debugging
+        console.error('[DocPage] agent_map fetch error', (e as any)?.message ?? e);
         // ignore and allow fallback to 'Unknown' below
       }
     })();
@@ -78,11 +88,27 @@ export default function DocPage() {
   const sp = useSearchParams();
   const debug = sp?.get("debug") === "1";
 
+  // runtime debug logs (enabled with ?debug=1)
+  if (debug) {
+    console.log('[DocPage] debug', {
+      slug,
+      entry,
+      pdfPath: entry?.pdfPath ?? undefined,
+      agentId: entry?.agentId ?? undefined,
+      region: entry?.region ?? undefined,
+      auth: entry?.auth ?? undefined,
+      isFetching: !!(entry == null),
+      fetchError: null,
+    });
+  }
+
   // inside return JSX, near the end:
   {debug && <MobileConsole enabled={true} />}
 
   const { pdfPath = "", agentId = "", region = "us", auth = "signed", talkLabel } = entry || {};
   const useSignedUrl = auth !== "public";
+  // resolve pdfUrl for viewer (encode site-relative paths)
+  const pdfUrl = pdfPath ? (pdfPath.startsWith("http") ? pdfPath : encodeURI(pdfPath)) : "";
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
   const dragPointerId = useRef<number | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });

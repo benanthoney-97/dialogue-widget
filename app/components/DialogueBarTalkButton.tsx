@@ -89,13 +89,19 @@ export default function DialogueBarTalkButton({
     async function fetchAgentMap() {
       if (!agentId) return;
       try {
-        const { data } = await supabase
+        console.log('[DialogueBar] fetching agent_map for agentId:', agentId);
+        const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "idx, key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image"
           )
           .eq("agent_id", agentId)
-          .single();
+          .maybeSingle();
+        console.log('[DialogueBar] agent_map.byAgentId response', { agentId, status, error, data });
+        if (error) {
+          // Log warning but don't throw
+          console.warn('[DialogueBar] agent_map lookup returned error', { agentId, status, error });
+        }
         if (data) setAgentMap(data as any);
       } catch (e) {
         // ignore - keep using passed agentId as fallback
@@ -492,7 +498,6 @@ export default function DialogueBarTalkButton({
           console.log("insertContactRequest result", result);
         }
       } catch (e) {
-        console.error("Failed to insert contact request in Supabase (exception)", e);
       }
       // Optionally still call webhook for legacy/other flows
       const payload = {
@@ -515,7 +520,6 @@ export default function DialogueBarTalkButton({
       postSummaryOrContact,
     ]
   );
-      console.log("Contact request submitted successfully");
 
   useEffect(() => {
     if (!contactOpen) return;

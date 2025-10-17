@@ -455,7 +455,6 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
           console.error("Supabase insert error:", result.error, result);
         }
       } catch (e) {
-        console.error("Failed to insert contact request in Supabase (exception)", e);
       }
       // Optionally still call webhook for legacy/other flows
       const payload = {
