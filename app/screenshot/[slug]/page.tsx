@@ -19,10 +19,7 @@ const supabase = createClient(
 
 export default function ScreenshotPage() {
   const { slug } = useParams<{ slug: string }>();
-  // debug: log slug and env availability (don't print secrets)
-  console.log('[ScreenshotPage] slug:', slug);
-  console.log('[ScreenshotPage] NEXT_PUBLIC_SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log('[ScreenshotPage] NEXT_PUBLIC_SUPABASE_ANON_KEY set:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  // debug logs removed
   const sp = useSearchParams();
   // agent_map is the single source of truth for screenshot/agent metadata
   const [entry, setEntry] = useState<any | null>(null);
@@ -37,7 +34,7 @@ export default function ScreenshotPage() {
     (async () => {
       setIsFetching(true);
       setFetchError(null);
-      console.log('[ScreenshotPage] starting agent_map fetch for slug:', slug);
+  // starting agent_map fetch for slug
       try {
         // try lookup by key first
         let res = await supabase
@@ -45,21 +42,21 @@ export default function ScreenshotPage() {
           .select("agent_id, background_image, screenshot_path, region, auth, talk_label, pdf_path, agent_name, url, author, work_label")
           .eq("key", slug)
           .maybeSingle();
-        console.log('[ScreenshotPage] agent_map.byKey response:', res);
+  // agent_map.byKey response available
         let data = res.data as any;
         // if not found and slug looks like an agent id, try agent_id lookup
         if (!data && slug.startsWith("agent_")) {
-          console.log('[ScreenshotPage] no row by key, falling back to agent_id lookup for:', slug);
+          // falling back to agent_id lookup for slug
           const alt = await supabase
             .from("agent_map")
             .select("agent_id, background_image, screenshot_path")
             .eq("agent_id", slug)
             .maybeSingle();
-          console.log('[ScreenshotPage] agent_map.byAgentId response:', alt);
+          // agent_map.byAgentId response available
           data = alt.data as any;
         }
         if (!mounted) return;
-        console.log('[ScreenshotPage] resolved agent_map data:', data);
+  // resolved agent_map data
         if (data) {
           // Use client_map row as the single source of truth
           setClientAgentId(data.agent_id ?? null);
@@ -76,11 +73,11 @@ export default function ScreenshotPage() {
             author: data.author ?? undefined,
             workLabel: data.work_label ?? undefined,
           });
-          console.log('[ScreenshotPage] set entry from agent_map:', { agentId: data.agent_id, screenshot: data.screenshot_path ?? data.background_image });
+          // set entry from agent_map
         } else {
           // no client_map row found
           setEntry(null);
-          console.log('[ScreenshotPage] no agent_map row found for slug:', slug);
+          // no agent_map row found for slug
         }
       } catch (e) {
   console.error("Failed to fetch agent_map row:", e);
