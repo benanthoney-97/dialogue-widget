@@ -8,6 +8,12 @@ import { docMap } from "@/app/lib/docMap";
 import { buttonThemeMap, defaultButtonTheme } from "@/app/lib/buttonThemeMap";
 import { useSearchParams } from "next/navigation";
 import MobileConsole from "@/app/components/MobileConsole";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Client-only PDF.js viewer
 const PDFJSViewer = dynamic(() => import("@/app/components/PDFJSViewer"), {
@@ -17,7 +23,8 @@ const PDFJSViewer = dynamic(() => import("@/app/components/PDFJSViewer"), {
 export default function DocPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug || "";
-  const entry = useMemo(() => docMap[slug], [slug]);
+  // entry: prefer docMap but allow runtime lookup from Supabase.agent_map by key
+  const [entry, setEntry] = useState<any>(() => docMap[slug] ?? null);
   const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
 
   // Defer anything that depends on window to avoid hydration swaps
@@ -31,36 +38,50 @@ export default function DocPage() {
     setIsTouch(matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  if (!entry) {
-    return (
-      <main
-        style={{
-          minHeight: "100dvh",
-          display: "grid",
-          placeItems: "center",
-          padding: 16,
-        }}
-      >
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid rgba(0,0,0,.1)",
-            borderRadius: 12,
-          }}
-        >
-          Unknown document slug: <code>{slug}</code>
-        </div>
-      </main>
-    );
-  }
+  // If docMap didn't contain the slug, attempt to fetch metadata from Supabase.agent_map (by key)
+  useEffect(() => {
+    if (entry) return; // already have data from docMap
+    if (!slug) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("agent_map")
+          .select(
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label"
+          )
+          .eq("key", slug)
+          .single();
+        if (!mounted) return;
+        if (data) {
+          setEntry({
+            pdfPath: data.pdf_path ?? "",
+            agentId: data.agent_id,
+            region: data.region ?? "us",
+            auth: data.auth ?? "signed",
+            talkLabel: data.talk_label ?? undefined,
+            screenshotPath: data.screenshot_path ?? undefined,
+            url: data.url ?? undefined,
+            author: data.author ?? undefined,
+            workLabel: data.work_label ?? undefined,
+          });
+        }
+      } catch (e) {
+        // ignore and allow fallback to 'Unknown' below
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [slug, entry]);
   // inside component:
-const sp = useSearchParams();
-const debug = sp?.get("debug") === "1";
+  const sp = useSearchParams();
+  const debug = sp?.get("debug") === "1";
 
-// inside return JSX, near the end:
-{debug && <MobileConsole enabled={true} />}
+  // inside return JSX, near the end:
+  {debug && <MobileConsole enabled={true} />}
 
-  const { pdfPath, agentId, region = "us", auth = "signed", talkLabel } = entry;
+  const { pdfPath = "", agentId = "", region = "us", auth = "signed", talkLabel } = entry || {};
   const useSignedUrl = auth !== "public";
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
   const dragPointerId = useRef<number | null>(null);

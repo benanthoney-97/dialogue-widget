@@ -209,7 +209,7 @@ export default function DocumentsPage() {
                           }
                         }}
                       >
-                        {copiedIdx === i ? 'Copied' : 'Copy link'}
+                        {copiedIdx === i ? 'Copied' : 'Share'}
                       </button>
                     </td>
                   </tr>

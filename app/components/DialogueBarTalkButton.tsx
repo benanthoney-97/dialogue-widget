@@ -8,17 +8,24 @@ import {
   useRef,
   type CSSProperties,
 } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
 import Image from "next/image";
-import { docMap } from "@/app/lib/docMap";
+// metadata now comes from Supabase agent_map; docMap is no longer used here
 import { insertContactRequest } from "@/app/lib/contactRequests";
 import { insertSummaryRequest } from "@/app/lib/summaryRequests";
+
 
 const POST_CALL_BASE =
   process.env.NEXT_PUBLIC_POST_CALL_BASE_URL?.replace(/\/$/, "") ?? "";
 const POST_CALL_ENDPOINT = POST_CALL_BASE
   ? `${POST_CALL_BASE}/api/eleven/post-call`
   : "/api/eleven/post-call";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Props = {
   agentId: string;
@@ -43,6 +50,60 @@ export default function DialogueBarTalkButton({
   title = "",
   talkLabel = "Talk",
 }: Props) {
+  const [theme, setTheme] = useState<{
+    background?: string;
+    text_color?: string;
+    border?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchTheme() {
+      if (!agentId) return;
+      const { data, error } = await supabase
+        .from("theme_map")
+        .select("background, text_color, border")
+        .eq("agent_id", agentId)
+        .single();
+      if (data) setTheme(data);
+    }
+    fetchTheme();
+  }, [agentId]);
+  // load agent metadata from Supabase agent_map (if present)
+  const [agentMap, setAgentMap] = useState<null | {
+    idx?: number;
+    key?: string | null;
+    pdf_path?: string | null;
+    agent_id?: string | null;
+    agent_name?: string | null;
+    region?: string | null;
+    auth?: string | null;
+    talk_label?: string | null;
+    screenshot_path?: string | null;
+    author?: string | null;
+    work_label?: string | null;
+    url?: string | null;
+    client_id?: number | null;
+  }>(null);
+
+  useEffect(() => {
+    async function fetchAgentMap() {
+      if (!agentId) return;
+      try {
+        const { data } = await supabase
+          .from("agent_map")
+          .select(
+            "idx, key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id"
+          )
+          .eq("agent_id", agentId)
+          .single();
+        if (data) setAgentMap(data as any);
+      } catch (e) {
+        // ignore - keep using passed agentId as fallback
+        // console.debug('No agent_map row found for', agentId, e?.toString?.());
+      }
+    }
+    fetchAgentMap();
+  }, [agentId]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
   const [isNarrow, setIsNarrow] = useState(false);
@@ -148,9 +209,17 @@ export default function DialogueBarTalkButton({
     []
   );
 
+  // prefer region from agent_map if available
+  const effectiveAgentId = agentMap?.agent_id || agentId;
+  const effectiveServerLocation = (agentMap?.region as
+    | "us"
+    | "eu-residency"
+    | "in-residency"
+    | "global") || serverLocation;
+
   const conversationOptions = useMemo(
     () => ({
-      serverLocation,
+      serverLocation: effectiveServerLocation,
       onConnect: handleConversationConnect,
       onDisconnect: handleConversationDisconnect,
       onError: handleConversationError,
@@ -158,7 +227,7 @@ export default function DialogueBarTalkButton({
       micMuted,
     }),
     [
-      serverLocation,
+      effectiveServerLocation,
       handleConversationConnect,
       handleConversationDisconnect,
       handleConversationError,
@@ -217,11 +286,14 @@ export default function DialogueBarTalkButton({
       setWasMutedBeforePause(false);
       await ensureMicPerms();
 
-      if (useSignedUrl) {
+      const effectiveUseSignedUrl = agentMap?.auth === "signed" ? true : useSignedUrl;
+      const effectiveAgent = agentMap?.agent_id || agentId;
+
+      if (effectiveUseSignedUrl) {
         const res = await fetch('/api/eleven/get-signed-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agent_id: agentId })
+          body: JSON.stringify({ agent_id: effectiveAgent })
         });
         let data;
         try {
@@ -237,7 +309,7 @@ export default function DialogueBarTalkButton({
           connectionType: "websocket",
         });
       } else {
-        await startSession({ agentId, connectionType: "websocket" });
+        await startSession({ agentId: effectiveAgent, connectionType: "websocket" });
       }
 
       const latestId = getId?.();
@@ -277,21 +349,32 @@ export default function DialogueBarTalkButton({
   }
 
   const connected = String(status) === "connected";
-  const effectiveTalkLabel = talkLabel?.trim() ? talkLabel.trim() : "Talk";
-  const talkBackground = buttonColor;
-  const talkTextColor = buttonTextColor;
+  // prefer talk label from agent_map if present
+  const effectiveTalkLabel = (agentMap?.talk_label || talkLabel)?.trim()
+    ? (agentMap?.talk_label || talkLabel)!.trim()
+    : "Talk";
+  const talkBackground = theme?.background || buttonColor;
+  const talkTextColor = theme?.text_color || buttonTextColor;
   const talkIdleAriaLabel = `Connect and ${effectiveTalkLabel}`;
   const talkActiveAriaLabel = effectiveTalkLabel;
-  const cardBorderColor = buttonBorderColor ?? buttonColor ?? "#525fe1";
-  const agentMatch = useMemo(() => {
-    for (const [slug, entry] of Object.entries(docMap)) {
-      if (entry.agentId === agentId)
-        return { slug, entry };
-    }
-    return undefined;
-  }, [agentId]);
-  const agentSlug = agentMatch?.slug ?? "";
-  const agentEntry = agentMatch?.entry;
+  const cardBorderColor = theme?.border || buttonBorderColor || buttonColor || "#525fe1";
+  // derive frontend metadata from agent_map row if present
+  const agentSlug = agentMap?.key || "";
+  const agentEntry = agentMap
+    ? {
+        pdfPath: agentMap.pdf_path ?? undefined,
+        agentId: agentMap.agent_id ?? undefined,
+        agentName: agentMap.agent_name ?? undefined,
+        region: agentMap.region ?? undefined,
+        auth: agentMap.auth ?? undefined,
+        talkLabel: agentMap.talk_label ?? undefined,
+        url: agentMap.url ?? undefined,
+        screenshotPath: agentMap.screenshot_path ?? undefined,
+        author: agentMap.author ?? undefined,
+        workLabel: agentMap.work_label ?? undefined,
+      }
+    : undefined;
+
   const contactAuthorLabel = agentEntry?.author?.trim()
     ? agentEntry.author.trim()
     : "the author";
@@ -397,7 +480,7 @@ export default function DialogueBarTalkButton({
       });
       try {
         const result = await insertContactRequest({
-          agent_id: agentId,
+          agent_id: effectiveAgentId,
           name: contactName,
           user_email: contactEmail,
           phone: contactPhone,
@@ -454,7 +537,7 @@ export default function DialogueBarTalkButton({
       if (agentId && summaryEmail && conversationId) {
         try {
           await insertSummaryRequest({
-            agent_id: agentId,
+            agent_id: effectiveAgentId,
             user_email: summaryEmail,
             conversation_id: conversationId,
           });
