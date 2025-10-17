@@ -113,6 +113,15 @@ export const docMap: Record<string, DocEntry> = {
     url: "https://www.ukveinclinic.com/thank-you",
     talkLabel: "Prepare for call",
   },
+    "probate-for-executors": {
+    pdfPath: "",
+    agentId: "agent_5801k7s0dysqesnajqwyp00dz75d",
+    region: "eu-residency",
+    auth: "signed",
+    url: "https://www.mishcon.com/guides/a-guide-to-probate-for-executors",
+    talkLabel: "Prepare for call",
+    screenshotPath: "/screenshots/Screenshot 2025-10-17 at 12.55.19.png",
+  },
   "uk-vein-clinic-knowledge-centre-agent": {
     pdfPath: "",
     agentId: "agent_0401k6bc69vqfk8t1vp96f1xyym2",

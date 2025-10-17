@@ -6,12 +6,14 @@ import { docMap } from "@/app/lib/docMap";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import Sidebar from "../../Sidebar";
+import DialogueBar from "@/app/components/DialogueBarTalkButton";
 
 // This page will be at /client/[client]/conversation/[conversation_id]
 export default function ConversationWithBriefingPage({ params }: { params: { conversation_id: string } }) {
   const [row, setRow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [agentBg, setAgentBg] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { conversation_id } = params;
@@ -380,6 +382,56 @@ export default function ConversationWithBriefingPage({ params }: { params: { con
         return;
       }
       setRow(data);
+      // fetch agent_map background_image for this agent (if present)
+      // background_image may be a full public URL OR a Supabase storage path.
+      // Set NEXT_PUBLIC_BG_BUCKET to override the bucket name (default: 'background_images').
+      try {
+        const agentId = data.agent_id;
+        if (agentId) {
+          const { data: agentData, error: agentError } = await supabase
+            .from('agent_map')
+            .select('background_image')
+            .eq('agent_id', agentId)
+            .maybeSingle();
+          if (!agentError && agentData?.background_image) {
+            const bgVal: string = agentData.background_image;
+            let publicUrl: string | null = null;
+            if (/^https?:\/\//i.test(bgVal)) {
+              // already a URL
+              publicUrl = bgVal;
+            } else {
+              // resolve via Supabase storage public URL
+              const bucket = (process.env.NEXT_PUBLIC_BG_BUCKET as string) || 'background_images';
+              // strip leading bucket prefix if present
+              let path = bgVal.replace(/^\/+/, '');
+              if (path.startsWith(bucket + '/')) {
+                path = path.slice(bucket.length + 1);
+              }
+              try {
+                // getPublicUrl is synchronous in some SDK versions and returns { data: { publicUrl } }
+                // but older/newer SDKs might use publicURL casing; check both.
+                // Cast to `any` so we can safely check both property casings across SDK versions.
+                // @ts-ignore
+                const urlResp = supabase.storage.from(bucket).getPublicUrl(path);
+                const urlData = (urlResp?.data ?? urlResp) as any;
+                publicUrl = urlData?.publicUrl ?? urlData?.publicURL ?? null;
+              } catch (e) {
+                console.error('Failed to resolve storage public URL for', bgVal, e);
+                publicUrl = null;
+              }
+            }
+
+            setAgentBg(publicUrl);
+          } else {
+            setAgentBg(null);
+          }
+        } else {
+          setAgentBg(null);
+        }
+      } catch (e) {
+        console.error('Failed to load agent_map background_image', e);
+        setAgentBg(null);
+      }
       setLoading(false);
     }
     if (conversation_id) fetchRow();
