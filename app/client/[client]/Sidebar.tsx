@@ -39,8 +39,8 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Library",
-      href: `/client/${clientId}/library`,
+      label: "Prepare",
+      href: `/client/${clientId}/prepare`,
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="3" y="3" width="16" height="4" rx="1" fill="#22325a" stroke="#7ea0e6" strokeWidth="1"/>

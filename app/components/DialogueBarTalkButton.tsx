@@ -89,7 +89,6 @@ export default function DialogueBarTalkButton({
     async function fetchAgentMap() {
       if (!agentId) return;
       try {
-        console.log('[DialogueBar] fetching agent_map for agentId:', agentId);
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
@@ -97,10 +96,8 @@ export default function DialogueBarTalkButton({
           )
           .eq("agent_id", agentId)
           .maybeSingle();
-        console.log('[DialogueBar] agent_map.byAgentId response', { agentId, status, error, data });
         if (error) {
           // Log warning but don't throw
-          console.warn('[DialogueBar] agent_map lookup returned error', { agentId, status, error });
         }
         if (data) setAgentMap(data as any);
       } catch (e) {
