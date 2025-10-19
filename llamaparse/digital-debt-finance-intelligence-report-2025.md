@@ -157,12 +157,12 @@ While our data shows us that our 2024 UK and European sponsor-backed and corpora
 <td>4%</td>
 </tr>
 <tr>
-<td>Infrastructure, construction and transport</td>
-<td>11%</td>
-</tr>
-<tr>
 <td>Life Sciences</td>
 <td>4%</td>
+</tr>
+<tr>
+<td>Infrastructure, construction and transport</td>
+<td>11%</td>
 </tr>
 <tr>
 <td>Consumer, food and retail</td>
@@ -190,38 +190,37 @@ The same also goes for borrowers. With more options available, borrowers have be
 In 2024, we've seen sponsored and non-sponsored borrowers have been predominantly using solo traditional bank lenders (34% of deals) and unitranche structures where the majority of the debt is provided by an alternative lender (32% of deals). What's clear from the data is that club deals are in a minority in many markets, indicating that sponsors and corporate borrowers are favouring an exclusive lending relationship.
 
 <table>
-<thead>
-<tr>
-<th>Lender Type</th>
-<th>Percentage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Lender group diversification: 2024 sponsor-backed deals</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Solo bank lender</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Solo credit fund lender*</td>
-<td>22%</td>
-</tr>
-<tr>
-<td>Bank club</td>
-<td>10%</td>
-</tr>
-<tr>
-<td>Credit fund club</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>Credit fund/bank club</td>
-<td>2%</td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th colspan="2">Lender group diversification: 2024 sponsor-backed deals</th>
+    </tr>
+    <tr>
+      <th>Lender Type</th>
+      <th>Percentage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Solo bank lender</td>
+      <td>34%</td>
+    </tr>
+    <tr>
+      <td>Solo credit fund lender* <br><small>(*Most deals originated with a solo credit fund have flexibility to add an RCF lender post-closing.)</small></td>
+      <td>22%</td>
+    </tr>
+    <tr>
+      <td>Bank club</td>
+      <td>10%</td>
+    </tr>
+    <tr>
+      <td>Credit fund club</td>
+      <td>2%</td>
+    </tr>
+    <tr>
+      <td>Credit fund / bank club</td>
+      <td>32%</td>
+    </tr>
+  </tbody>
 </table>
 
 > "We've observed fewer club deals in France over the past few years when compared to underwriting or co-underwriting mandates. However, there was a notable increase in club deals in Q3 2024, with even more in Q4 2024."
@@ -230,7 +229,7 @@ In 2024, we've seen sponsored and non-sponsored borrowers have been predominantl
 Partner  
 France
 
-*Note that most deals that are originated with a solo credit fund have the flexibility built in to add an RCF lender post-closing.
+
 
 6 | DLAPIPER.COM                                    DLAPIPER.COM | 7
 
@@ -261,8 +260,8 @@ Netherlands
 <thead>
 <tr>
 <th>Year</th>
-<th>Traditional bank lenders</th>
 <th>Private credit funds</th>
+<th>Traditional bank lenders</th>
 </tr>
 </thead>
 <tbody>
@@ -309,8 +308,8 @@ UK
 <thead>
 <tr>
 <th>Period</th>
-<th>Refinancing</th>
 <th>Acquisitions</th>
+<th>Refinancing</th>
 </tr>
 </thead>
 <tbody>
@@ -413,8 +412,8 @@ Although there have been movements, mid-market pricing has remained relatively s
 <thead>
 <tr>
 <th>Year</th>
-<th>Continental Europe</th>
-<th>UK</th>
+<th>Continental Europe (Margin %)</th>
+<th>UK (Margin %)</th>
 </tr>
 </thead>
 <tbody>
@@ -431,12 +430,12 @@ Although there have been movements, mid-market pricing has remained relatively s
 <tr>
 <td>2023</td>
 <td>6.63</td>
-<td>6</td>
+<td>6.5</td>
 </tr>
 <tr>
 <td>2024</td>
-<td>6.5</td>
 <td>6</td>
+<td>6.5</td>
 </tr>
 </tbody>
 </table>
@@ -447,25 +446,25 @@ Although there have been movements, mid-market pricing has remained relatively s
 <thead>
 <tr>
 <th>Year</th>
-<th>Large</th>
-<th>Small</th>
+<th>Large (Margin %)</th>
+<th>Small (Margin %)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>2021</td>
 <td>6</td>
-<td>7.06</td>
+<td>6</td>
 </tr>
 <tr>
 <td>2022</td>
 <td>5.75</td>
-<td>6.63</td>
+<td>7.06</td>
 </tr>
 <tr>
 <td>2023</td>
 <td>6</td>
-<td>6.5</td>
+<td>6.63</td>
 </tr>
 <tr>
 <td>2024</td>
@@ -505,133 +504,6 @@ We continue to see a difference in the pricing between small deals (below EUR50 
 We've also seen a slight tightening in pricing across our UK and European sponsor-backed senior deals in 2024, by 25bps – a continuing pricing trend across debt structures.
 
 12 | DLAPIPER.COM
-<page_header>
-Part two
-</page_header>
-
-# Deal economics
-
-In 2024, the debt finance market experienced a notable shift in pricing dynamics, driven by a combination of macroeconomic factors and changing sentiment among market participants. Higher interest rates and tighter monetary policies globally have increased the cost of borrowing – resulting in lenders taking a measured approach to pricing.
-
-In the UK we've seen median pricing across our 2024 unitranche deals hold at 2023 levels. While there's been a strong appetite to transact from lenders, and healthy competition for quality assets, some deals this year have required lenders to increase pricing to reflect risk.
-
-By contrast, across our European unitranche deals and senior debt deals generally, we've seen pricing come down. Although base rates have been on a downward trend this year, there's continued to be a great deal of caution in the market around debt serviceability. In Q4 2024, market dynamics resulted in certain jurisdictions reaching an all-time low for margin as well as other yield components such as upfront fees/payments.
-
-> Relatively unexciting pricing changes reflecting what was, in retrospect, an unexciting year in the transactional markets. Do we have the nerve to hope for an exciting year in 2025, or would we prefer steady growth?
-
-**Sarah Day**  
-Partner  
-UK
-
-> As interest rates have come down, this has reassured market participants. There's now a strong belief that this will create new opportunities and less tension on business plans.
-
-**Sophie Lok**  
-Partner  
-France
-
-## Pricing
-
-Margins have come down across our unitranche deals in 2024, but this hasn't been the case in all regions. While in the UK we've seen median pricing hold at 2023 levels, the dip in pricing across Europe was slightly more prominent at 63bps. When we look closer at the pricing in the UK, we can see that some deals closed in H2 did drive pricing upwards slightly and this coincides with when we've also seen grounds for optimism and deal activity improve.
-
-Although there have been movements, mid-market pricing has remained relatively stable when compared to the large cap arena.
-
-**Opening margin (median): unitranche deals**
-
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Continental Europe</th>
-<th>UK</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>6.75</td>
-<td>6.25</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>6.75</td>
-<td>6</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>6.63</td>
-<td>6</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>6.5</td>
-<td>6</td>
-</tr>
-</tbody>
-</table>
-
-**Opening margin (median): UK and Continental Europe unitranche deals by debt size**
-
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Large</th>
-<th>Small</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>6</td>
-<td>7.06</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>5.75</td>
-<td>6.63</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>6</td>
-<td>6.5</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>6.25</td>
-<td>6.5</td>
-</tr>
-</tbody>
-</table>
-
-We continue to see a difference in the pricing between small deals (below EUR50 million) and larger deals (above EUR150 million) in the unitranche space, but we've moved away from the level of difference we saw in 2022.
-
-**Opening margin (median): sponsor-backed senior deals**
-
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Margin (%)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2022</td>
-<td>4.25</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>4.75</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>4.5</td>
-</tr>
-</tbody>
-</table>
-
-We've also seen a slight tightening in pricing across our UK and European sponsor-backed senior deals in 2024, by 25bps – a continuing pricing trend across debt structures.
-
 <page_footer>
 12 | DLAPIPER.COM
 
@@ -657,61 +529,17 @@ It's increasingly common to see the margin ratchet at the top of the grid when t
 
 ### Post-closing lock-in period
 
-<table>
-<thead>
-<tr>
-<th>Period</th>
-<th>2021</th>
-<th>2022</th>
-<th>2023</th>
-<th>2024</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>&lt;6 Months</td>
-<td>16%</td>
-<td>7%</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr>
-<td>6 Months</td>
-<td>13%</td>
-<td>28%</td>
-<td>32%</td>
-<td>-</td>
-</tr>
-<tr>
-<td>9 Months</td>
-<td>-</td>
-<td>38%</td>
-<td>33%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>12 Months</td>
-<td>51%</td>
-<td>39%</td>
-<td>43%</td>
-<td>44%</td>
-</tr>
-<tr>
-<td>&gt;12 Months</td>
-<td>-</td>
-<td>13%</td>
-<td>32%</td>
-<td>3%</td>
-</tr>
-<tr>
-<td>&gt;12</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>5%</td>
-</tr>
-</tbody>
-</table>
+| Lock-in Period | 2021 | 2022 | 2023 | 2024 |
+|---------------|------|------|------|------|
+| <6 months     | –    | –    | 16%  | 7%   |
+| 6 months      | 13%  | 28%  | 38%  | 32%  |
+| 9 months      | 33%  | 28%  | 13%  | 39%  |
+| 12 months     | 51%  | 43%  | 44%  | 32%  |
+| >12 months    | 3%   | –    | 5%   | –    |
+
+**Key insights:**  
+- There’s been a **gradual shortening of post-closing lock-in periods** (“ratchet holidays”), letting borrowers benefit from ratchet step-downs earlier.  
+- Deals with lock-in periods **shorter than 12 months grew from 46% in 2021 to 78% in 2024.**
 
 Across our sponsor-backed deals we've seen a gradual shortening of the lock-in period post-closing (aka the 'ratchet holiday'), giving borrowers the opportunity to benefit from the ratchet step-downs at an earlier stage.
 
@@ -719,82 +547,18 @@ Of the deals that include a lock-in period, we've seen the proportion with a per
 
 ### Step-downs
 
-<table>
-<thead>
-<tr>
-<th>Steps</th>
-<th>2021</th>
-<th>2022</th>
-<th>2023</th>
-<th>2024</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2</td>
-<td>24%</td>
-<td>19%</td>
-<td>-</td>
-<td>-</td>
-</tr>
-<tr>
-<td>3</td>
-<td>14%</td>
-<td>5%</td>
-<td>42%</td>
-<td>48%</td>
-</tr>
-<tr>
-<td>4</td>
-<td>-</td>
-<td>-</td>
-<td>24%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>5</td>
-<td>-</td>
-<td>-</td>
-<td>39%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>&gt;5</td>
-<td>-</td>
-<td>65%</td>
-<td>20%</td>
-<td>-</td>
-</tr>
-<tr>
-<td>Additional</td>
-<td>-</td>
-<td>-</td>
-<td>7%</td>
-<td>8%</td>
-</tr>
-<tr>
-<td>More</td>
-<td>-</td>
-<td>-</td>
-<td>10%</td>
-<td>3%</td>
-</tr>
-<tr>
-<td>Final</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>4%</td>
-</tr>
-<tr>
-<td>Last</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td>3%</td>
-</tr>
-</tbody>
-</table>
+| Steps      | 2021 | 2022 | 2023 | 2024 |
+|------------|------|------|------|------|
+| 2 steps    | 24%  | 14%  | 5%   | 19%  |
+| 3 steps    | 42%  | 48%  | 65%  | 39%  |
+| 4 steps    | 24%  | 26%  | 20%  | 39%  |
+| 5 steps    | 7%   | 8%   | 10%  | –    |
+| >5 steps   | 3%   | 4%   | –    | 3%   |
+
+**Key insights:**  
+- **3-step structures** dominate, peaking at **65% in 2023** before falling back to **39% in 2024**.  
+- Deals with **4 step-downs** increased to **39% in 2024**, indicating a shift towards more complex ratchet structures.  
+- Use of **2 steps** dropped sharply in 2023 but rebounded to **19%** in 2024.
 
 In 2024 we've seen a shift in the overall number of step-downs on our sponsor-backed deals, with a growing proportion with four step-downs, indicating greater flexibility for borrowers and their access to reduced pricing.
 
@@ -806,49 +570,29 @@ Sponsors seeking greater flexibility have increasingly drawn inspiration from th
 
 These "cov-loose" structures, characterised by their relaxed requirements, have become increasingly prevalent, reshaping the landscape of mid-market lending. This shift has been driven by several factors, including increased competition among lenders, the influx of private equity capital, and the desire for more borrower-friendly terms. That said, in today's challenging market, where debt serviceability remains at the forefront of minds, our data shows us that market conditions have influenced dynamics.
 
-### Opening leverage
+## Opening leverage
 
-As interest rates rose over the course of 2022/2023, we saw leverage multiples come down, as sponsors and borrowers exercised greater caution around their debt capacity. This trend has continued into 2024, with leverage multiples gradually decreasing.
+As interest rates rose over the course of 2022/2023, leverage multiples came down as sponsors and borrowers exercised greater caution around their debt capacity.  
+This trend has continued into 2024, with leverage multiples gradually decreasing.
 
-#### Leverage by debt structure
-(Purely illustrative)
+### Leverage by debt structure (purely illustrative)
 
-<table>
-<thead>
-<tr>
-<th>Debt Type</th>
-<th>Leverage (x)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Senior</td>
-<td>5</td>
-</tr>
-<tr>
-<td>Stretched senior</td>
-<td>6</td>
-</tr>
-<tr>
-<td>Unitranche</td>
-<td>6</td>
-</tr>
-<tr>
-<td>First out last out</td>
-<td>6</td>
-</tr>
-<tr>
-<td>PIK</td>
-<td>8</td>
-</tr>
-</tbody>
-</table>
+| Debt Structure         | Bank | Bank or Private Credit | Private Credit | PIK | Total Leverage (x) |
+|------------------------|------|------------------------|----------------|-----|--------------------|
+| Senior                | 4.0  | –                      | –              | –   | 4.0                |
+| Stretched senior      | –    | 5.0                    | –              | –   | 5.0                |
+| Unitranche           | 0.5  | –                      | 5.0            | –   | 5.5                |
+| First out / last out | 1.5  | –                      | 4.0            | –   | 5.5                |
+| PIK                  | 1.5  | –                      | 4.0            | 2.0 | 7.5                |
 
-Legend:
-* Bank
-* Bank or private credit  
-* Private credit
-* PIK
+**Legend:**  
+- 🟣 Bank  
+- 🔴 Bank or private credit  
+- ⚫ Private credit  
+- 🩷 PIK  
+
+**Key insight:**  
+Leverage levels are highest in **PIK structures (~7.5x)**, with **unitranche** and **first out / last out** structures around **5.5x**. The decline in leverage reflects the market’s more cautious stance amid rising rates.
 
 ### Deleveraging profile
 
@@ -990,8 +734,8 @@ Although risks are present, PIK isn't inherently adverse. In certain circumstanc
 <thead>
 <tr>
 <th>Year</th>
-<th>Yes</th>
 <th>No</th>
+<th>Yes</th>
 </tr>
 </thead>
 <tbody>
@@ -1086,8 +830,8 @@ Interestingly, we continue to see differing approaches when we compare UK and Eu
 </tr>
 <tr>
 <td>Max PIK</td>
-<td>54%</td>
 <td>6%</td>
+<td>54%</td>
 </tr>
 <tr>
 <td>Min cash only</td>
@@ -1155,8 +899,8 @@ While PIK income is recognised as income each quarter, credit funds don't techni
 <thead>
 <tr>
 <th>Region</th>
-<th>PIK toggle</th>
-<th>No PIK toggle</th>
+<th>PIK toggle (Margin %)</th>
+<th>No PIK toggle (Margin %)</th>
 </tr>
 </thead>
 <tbody>
@@ -1222,51 +966,6 @@ The median premium rates that we've seen have been slightly higher in the UK whe
 In addition, our data has enabled us to track the pricing differences between those deals with and without PIK toggles. It's evident from our 2024 data that, in addition to the premium, funds are achieving enhanced pricing on deals with PIK toggle flexibilities in the region of an extra 50–75bps.
 
 While PIK income is recognised as income each quarter, credit funds don't technically receive the cash payments until the loan matures or is refinanced. This creates a liquidity challenge for funds that have to make distributions to their investors during this period. The slight margin increase that we've observed on deals with PIK toggle helps to mitigate this cashflow issue for credit funds.
-
-### Opening margin: 2024 unitranche deals
-
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>PIK toggle</th>
-<th>No PIK toggle</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>UK</td>
-<td>6.75%</td>
-<td>5.88%</td>
-</tr>
-<tr>
-<td>Continental Europe</td>
-<td>5.75%</td>
-<td>5%</td>
-</tr>
-</tbody>
-</table>
-
-### Premium (median)
-
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>Premium</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>UK</td>
-<td>0.5%</td>
-</tr>
-<tr>
-<td>Continental Europe</td>
-<td>0.25%</td>
-</tr>
-</tbody>
-</table>
 
 > "PIK can be a very effective tool, when used judiciously, for investing in future growth prospects of a company by relieving immediate debt servicing requirements."
 >
@@ -1666,8 +1365,8 @@ The SLL market has experienced a notable flattening in 2024, despite the continu
 <thead>
 <tr>
 <th>Period</th>
-<th>Yes</th>
 <th>No</th>
+<th>Yes</th>
 </tr>
 </thead>
 <tbody>
@@ -1715,11 +1414,11 @@ Sleeper SLLs are loans where the KPIs and related targets haven't been agreed at
 <tbody>
 <tr>
 <td>Yes</td>
-<td>38%</td>
+<td>62%</td>
 </tr>
 <tr>
 <td>No</td>
-<td>62%</td>
+<td>38%</td>
 </tr>
 </tbody>
 </table>
@@ -1759,40 +1458,18 @@ The increasing engagement with the ESG agenda appears to be more influenced by s
 
 In the UK, margin ratchets continue, in the main, to have an upside only from a borrower's perspective (ie decreases in margin only) although that would seem to be changing such that upward margin adjustments are also now frequently included. In general, mainland Europe appears to have moved in that direction more quickly, with the majority of disclosed deals now including the margin uplift.
 
-### Margin adjustments: 2021-2024 deals
+## Margin adjustments: 2021–2024 deals
 
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Percentage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>~~57%~~</td>
-<td>52%</td>
-</tr>
-<tr>
-<td>Reduction in margin only</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Reduction and increase in margin</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Unknown</td>
-<td>12%</td>
-</tr>
-<tr>
-<td>7%</td>
-<td>7%</td>
-</tr>
-</tbody>
-</table>
+| Category                              | Continental Europe | UK  |
+|---------------------------------------|--------------------|-----|
+| Unknown                               | 7%                 | 12% |
+| Reduction and increase in margin      | 52%                | 31% |
+| Reduction in margin only              | 41%                | 57% |
 
-■ Continental Europe ■ UK
+**Key insights:**  
+- In **Continental Europe**, most deals (52%) involved **both reduction and increase in margin**.  
+- In the **UK**, the dominant trend (57%) was a **reduction in margin only**.  
+- A small proportion of deals remain **unknown** in both regions.
 
 *Note that some of the details associated with ESG margin ratchets may be agreed post-closing and we may not be involved in the documentation process. For transparency, this data has been recorded as "unknown".*
 
@@ -1843,7 +1520,7 @@ INTERNATIONAL DEBT FINANCE INTELLIGENCE REPORT 2025
 
 # Part seven
 
-## Region under the spotlight: ~~Norway~~
+## Region under the spotlight: Norway
 
 In 2024 the Norwegian financial landscape showed resilience and adaptability in the face of economic challenges and global trends. We saw marked recovery in key sectors such as private credit, a proactive approach to sustainability through ESG practices and notable advancements in fintech. However, challenges in the commercial real estate sector and the broader impact of inflation and interest rate fluctuations continue to pose challenges.
 
@@ -1885,7 +1562,7 @@ The fintech sector in Norway has been vibrant, with significant events fostering
 
 The Norwegian payment application Vipps became the first service to leverage a more open iOS ecosystem, allowing users to perform contactless payments and set the app as the default payment option on iPhones. This development followed Apple's compliance with EU regulations aimed at fostering competition and innovation in digital payment services.
 
-~~Børge Grøttjord~~
+Børge Grøttjord
 Partner
 Norway
 
@@ -2075,52 +1752,30 @@ Market conditions play a crucial role in this convergence. In this section, we t
 
 The use of soft-capped, grower baskets throughout the permitted definitions in a facilities agreement, so that each basket's upper limit is linked to the business's current adjusted EBITDA (the greater of GBP/EUR X million and Y% adjusted EBITDA) is well entrenched in the mid-market. Filtering our data by lender type shows this is common for the vast majority of fund deals, while it's still very much deal specific on bank deals. As you would expect, we see greater convergence between lenders when we look at deals with a similar debt size.
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th colspan="2">Fund deals</th>
-<th colspan="2">Bank deals</th>
-</tr>
-<tr>
-<th></th>
-<th>Hard capped</th>
-<th>Soft-capped / EBITDA-linked</th>
-<th>Hard capped</th>
-<th>Soft-capped / EBITDA-linked</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>40%</td>
-<td>60%</td>
-<td>65%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>40%</td>
-<td>60%</td>
-<td>50%</td>
-<td>50%</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>58%</td>
-<td>42%</td>
-<td>50%</td>
-<td>50%</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>67%</td>
-<td>33%</td>
-<td>43%</td>
-<td>57%</td>
-</tr>
-</tbody>
-</table>
+## Hard capped vs soft-capped / EBITDA-linked deals (2021–2024)
+
+### Fund deals
+
+| Year | Hard capped | Soft-capped / EBITDA-linked |
+|------|-------------|-----------------------------|
+| 2021 | 40%         | 60%                         |
+| 2022 | 60%         | 40%                         |
+| 2023 | 42%         | 58%                         |
+| 2024 | 33%         | 67%                         |
+
+### Bank deals
+
+| Year | Hard capped | Soft-capped / EBITDA-linked |
+|------|-------------|-----------------------------|
+| 2021 | 65%         | 35%                         |
+| 2022 | 50%         | 50%                         |
+| 2023 | 57%         | 43%                         |
+| 2024 | 63%         | 37%                         |
+
+**Key insights:**  
+- **Fund deals** have shifted significantly toward **soft-capped / EBITDA-linked structures**, rising from **60% in 2021 to 67% in 2024**.  
+- **Bank deals** remain more likely to be **hard capped**, but soft-capped deals have fluctuated between **35% and 50%**.  
+- The divergence highlights a growing structural difference between **private credit** and **bank-led** transactions.
 
 ### One way increase
 
@@ -2182,166 +1837,59 @@ The mechanism of carrying forward and back unused basket amounts has gained incr
 
 **CARRY FORWARD:** The carry forward of unused basket amounts allows a borrower to utilise unspent capacity from one financial period in subsequent periods. This flexibility is particularly advantageous in volatile markets, where financial performance can fluctuate. Our analysis indicates that carry forward provisions have been consistently prevalent in fund deals in recent years and are growing in prevalence across bank deals. There's also a notable trend towards permitting 100% carry forward of unused amounts.
 
-## Fund deals
+## Carry forward of unused amounts (2021–2024)
 
-Year
-No carry forward
-50% carry forward
-100% carry forward
+### Fund deals
 
-2021
-27%
-7%
-67%
+| Year | No  | 50% carry forward | 100% carry forward |
+|------|-----|-------------------|--------------------|
+| 2021 | 27% | 7%                | 67%               |
+| 2022 | 33% | 7%                | 60%               |
+| 2023 | 24% | 19%               | 57%               |
+| 2024 | 23% | 9%                | 68%               |
 
-2022
-33%
-7%
-60%
+### Bank deals
 
-2023
-24%
-19%
-57%
+| Year | No  | 50% carry forward | 100% carry forward |
+|------|-----|-------------------|--------------------|
+| 2021 | 65% | 12%               | 24%               |
+| 2022 | 60% | 10%               | 30%               |
+| 2023 | 50% | –                 | 50%               |
+| 2024 | 42% | 11%              | 47%               |
 
-2024
-23%
-9%
-68%
-
-## Bank deals
-
-Year
-No carry forward
-50% carry forward
-100% carry forward
-
-2021
-65%
-12%
-24%
-
-2022
-60%
-10%
-30%
-
-2023
-50%
-50%
-10%
-
-2024
-42%
-11%
-47%
+**Key insights:**  
+- **Fund deals** consistently favour **100% carry forward**, rising from **57% in 2023 to 68% in 2024**.  
+- **Bank deals** show a more balanced mix, but **“No carry forward”** remains significant even in 2024 (**42%**).  
+- The prevalence of **partial (50%) carry forward** remains limited across both deal types.
 
 **CARRY BACK:** Conversely, carry back provisions enable borrowers to use future capacity to cover current shortfalls. While less common than carry forward provisions, carry back mechanisms are gaining traction. Our data indicates that the mid-market is showing signs of acceptance by the growing percentage of deals (in particular fund deals) permitting the carry back of 50% of unused amounts. Banks are, however, continuing to exercise caution.
 
 The increasing adoption of these provisions underscores a broader shift towards more borrower-friendly terms in the mid-market. Lenders are balancing the need to protect their interests with the operational realities faced by borrowers. This balance is crucial in maintaining the viability of leveraged finance markets, particularly in the face of economic uncertainty.
 
-<table>
-    <thead>
-    <tr>
-        <th></th>
-        <th></th>
-        <th></th>
-        <th></th>
-        <th>Fund deals</th>
-        <th></th>
-        <th></th>
-    </tr>
-<tr>
-        <th rowspan="2"></th>
-        <th></th>
-        <th rowspan="2">7%
+## Carry back of unused amounts (2021–2024)
 
-27%</th>
-        <th rowspan="2"></th>
-        <th colspan="3" rowspan="2">27%</th>
-        <th rowspan="2"></th>
-        <th rowspan="2"></th>
-    </tr>
-<tr>
-        <th></th>
-    </tr>
-<tr>
-        <th rowspan="2"></th>
-        <th></th>
-        <th rowspan="2"></th>
-        <th rowspan="2"></th>
-        <th colspan="3" rowspan="2">47% 43%</th>
-        <th rowspan="2"></th>
-        <th rowspan="2">47%
-50%</th>
-    </tr>
-<tr>
-        <th></th>
-    </tr>
-<tr>
-        <th rowspan="3"></th>
-        <th rowspan="3"></th>
-        <th rowspan="3"></th>
-        <th></th>
-        <th colspan="3" rowspan="3"><s>67%</s></th>
-        <th rowspan="2"></th>
-        <th rowspan="3"></th>
-    </tr>
-<tr>
-        <th rowspan="2"></th>
-    </tr>
-<tr>
-        <th></th>
-    </tr>
-    </thead>
-    <tr>
-        <td></td>
-<td></td>
-<td>67%</td>
-<td></td>
-<td>53%</td>
-<td></td>
-<td>57%</td>
-<td></td>
-<td>53%
-50%</td>
-    </tr>
-<tr>
-        <td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-    </tr></table>
+### Fund deals
 
-Year
-No carry back
-50% carry back
-100% carry back
+| Year | No  | 50% carry back | 100% carry back |
+|------|-----|----------------|-----------------|
+| 2021 | 67% | 27%            | 7%              |
+| 2022 | 53% | 47%            | –              |
+| 2023 | 57% | 43%            | –              |
+| 2024 | 50% | 50%            | –              |
 
-2021
-88%
-12%
-0%
+### Bank deals
 
-2022
-90%
-10%
-0%
+| Year | No  | 50% carry back | 100% carry back |
+|------|-----|----------------|-----------------|
+| 2021 | 88% | 12%            | –              |
+| 2022 | 90% | 10%            | –              |
+| 2023 | 85% | 10%            | 5%             |
+| 2024 | 95% | 5%             | –              |
 
-2023
-85%
-10%
-5%
-
-2024
-95%
-5%
-0%
+**Key insights:**  
+- **Fund deals** show a steady increase in the use of **50% carry back**, reaching **50% in 2024**.  
+- **Bank deals** overwhelmingly feature **no carry back**, rising from **88% in 2021 to 95% in 2024**.  
+- Full (**100%**) carry back remains rare across both deal types.
 
 # Excess cash sweep
 
@@ -2355,75 +1903,30 @@ Despite jurisdictional variances, our data points towards a downward trend even 
 Partner  
 Spain
 
-## Prevalence of cash sweeps
+## Prevalence of cash sweeps (2021–2024)
 
 ### Fund deals
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Yes</th>
-<th>No</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>100%</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>80%</td>
-<td>20%</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>91%</td>
-<td>9%</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>83%</td>
-<td>17%</td>
-</tr>
-</tbody>
-</table>
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 100% | –    |
+| 2022 | 80%  | 20%  |
+| 2023 | 91%  | 9%   |
+| 2024 | 83%  | 17%  |
 
 ### Bank deals
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Yes</th>
-<th>No</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>29%</td>
-<td>71%</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>60%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>43%</td>
-<td>57%</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>26%</td>
-<td>74%</td>
-</tr>
-</tbody>
-</table>
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 29%  | 71%  |
+| 2022 | 60%  | 40%  |
+| 2023 | 43%  | 57%  |
+| 2024 | 26%  | 74%  |
+
+**Key insights:**  
+- **Fund deals** almost always include a cash sweep, with **100%** in 2021 and still **83%** in 2024.  
+- **Bank deals** are far more varied, peaking at **60%** in 2022 before dropping to **26%** in 2024.  
+- The gap between fund and bank approaches highlights structural differences in cash sweep practices.
 
 44 | DLAPIPER.COM                                                                                DLAPIPER.COM | 45
 
@@ -2446,54 +1949,30 @@ Credit funds have been instrumental in promoting EBITDA cure flexibility to attr
 
 **33%** Of the 2024 UK and European deals that permit an EBITDA cure, 33% require EBITDA cure amounts (either in whole or part) to be prepaid.
 
-### Prevalence of EBITDA cures
+## Prevalence of EBITDA cures (2021–2024)
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th colspan="2">Fund deals</th>
-<th colspan="2">Bank deals</th>
-</tr>
-<tr>
-<th></th>
-<th>Yes</th>
-<th>No</th>
-<th>Yes</th>
-<th>No</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2024</td>
-<td>65%</td>
-<td>35%</td>
-<td>18%</td>
-<td>82%</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>67%</td>
-<td>33%</td>
-<td>9%</td>
-<td>91%</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>40%</td>
-<td>60%</td>
-<td>16%</td>
-<td>84%</td>
-</tr>
-<tr>
-<td>2021</td>
-<td>81%</td>
-<td>19%</td>
-<td>18%</td>
-<td>82%</td>
-</tr>
-</tbody>
-</table>
+### Fund deals
+
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 81%  | 19%  |
+| 2022 | 40%  | 60%  |
+| 2023 | 67%  | 33%  |
+| 2024 | 65%  | 35%  |
+
+### Bank deals
+
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 18%  | 82%  |
+| 2022 | 16%  | 84%  |
+| 2023 | 9%   | 91%  |
+| 2024 | 18%  | 82%  |
+
+**Key insights:**  
+- **Fund deals** consistently include EBITDA cure rights more often than bank deals, peaking at **81%** in 2021.  
+- The prevalence dipped to **40%** in 2022 but has since rebounded to **65%** in 2024.  
+- **Bank deals** show limited adoption, with cure rights consistently below **20%**.
 
 > "With the exception of a spike in 2022, there has been a reasonably slow and steady increase in the availability of EBITDA cures in private credit deals over the past few years; with availability of EBITDA cures in bank deals being relatively flat over the period (albeit 2024 representing a high point). In either case, we would expect EBITDA cures to be subject to relatively customary parameters (ie. no overcure and usually one time only)."
 
@@ -2540,66 +2019,30 @@ In our previous report we noted that there had been an increase in the number of
 
 When we look closer at deal data from 2024, we've seen a **further increase from 11% to 20% of deals**. We can also see the data leans towards deals closed by traditional bank lenders who are taking a more cautious approach in the current market.
 
-### Prevalence of deemed cures
+## Prevalence of deemed cures (2021–2024)
 
-Year
-Fund deals - Yes
-Fund deals - No
-Bank deals - Yes
-Bank deals - No
+### Fund deals
 
-2024
-20%
-80%
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 33%  | 67%  |
+| 2022 | 20%  | 80%  |
+| 2023 | 29%  | 71%  |
+| 2024 | 20%  | 80%  |
 
-<table>
-    <thead>
-    <tr>
-        <th colspan="7">56% 44%</th>
-    </tr>
-<tr>
-        <th></th>
-        <th colspan="3"></th>
-        <th colspan="3"></th>
-    </tr>
-<tr>
-        <th colspan="7">53% 47%</th>
-    </tr>
-<tr>
-        <th colspan="3"></th>
-        <th colspan="4"></th>
-    </tr>
-<tr>
-        <th colspan="7">67% 33%</th>
-    </tr>
-<tr>
-        <th colspan="5"></th>
-        <th colspan="2"></th>
-    </tr>
-<tr>
-        <th colspan="7">69% 31%</th>
-    </tr>
-    </thead>
-    <tr>
-        <td colspan="2"></td>
-        <td colspan="4"></td>
-<td></td>
-    </tr>
-<tr>
-        <td colspan="7"></td>
-    </tr></table>
+### Bank deals
 
-2023
-29%
-71%
+| Year | Yes  | No   |
+|------|------|------|
+| 2021 | 69%  | 31%  |
+| 2022 | 67%  | 33%  |
+| 2023 | 53%  | 47%  |
+| 2024 | 56%  | 44%  |
 
-2022
-20%
-80%
-
-2021
-33%
-67%
+**Key insights:**  
+- **Fund deals** consistently show lower prevalence of deemed cures, staying between **20%–33%** across 2021–2024.  
+- **Bank deals** show much higher adoption, peaking at **69%** in 2021 and remaining above **50%** throughout the period.  
+- The gap between bank and fund approaches underscores structural differences in covenant flexibility.
 
 > "Private credit funds have accepted deemed equity cures, whereas German bank lenders continue to have reservations. From a strictly legal perspective, there's good reason to argue that German law would limit the right of a lender to accelerate a financing based on principles of good faith if the borrower complies again at the next financial covenant test date and the lender has not taken any enforcement action in the meantime."
 
@@ -2615,39 +2058,19 @@ As has been the case for several years, LMA-style EBITDA adjustments attributabl
 
 Across the UK and Europe, we've generally seen a growing proportion of deals provide for forward looking pro forma EBITDA adjustments related cost savings/ synergies resulting from group initiatives (being restructurings, reorganisations and other operational improvements). Based on deal data, we see a clear trend that group initiatives are also becoming a recurring feature, especially in the upper-mid market in the adjustment toolbox for private credit fund deals and bank deals.
 
-#### Group initiatives: sponsor-backed deals
+## Group initiatives: sponsor-backed deals (2021–2024)
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Fund deals</th>
-<th>Bank deals</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>64%</td>
-<td></td>
-</tr>
-<tr>
-<td>2022</td>
-<td>71%</td>
-<td></td>
-</tr>
-<tr>
-<td>2023</td>
-<td>92%</td>
-<td>67%</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>95%</td>
-<td>89%</td>
-</tr>
-</tbody>
-</table>
+| Year | Fund deals | Bank deals |
+|------|------------|------------|
+| 2021 | 64%        | 71%        |
+| 2022 | 92%        | 67%        |
+| 2023 | 77%        | 95%        |
+| 2024 | 89%        | 79%        |
+
+**Key insights:**  
+- **Fund deals** peaked at **92%** in 2022 and remain high at **89%** in 2024.  
+- **Bank deals** reached their highest level (**95%**) in 2023 before dropping slightly to **79%** in 2024.  
+- Both deal types show a consistent trend toward including group initiatives in sponsor-backed structures.
 
 ### Cost synergies vs revenue synergies
 
@@ -2690,11 +2113,11 @@ Of the deals where we've seen sponsors gain greater flexibility in recent years,
 </tr>
 <tr>
 <td>15 months</td>
-<td>24%</td>
+<td>3%</td>
 </tr>
 <tr>
 <td>18 months</td>
-<td>3%</td>
+<td>24%</td>
 </tr>
 </tbody>
 </table>
@@ -2799,118 +2222,38 @@ It's clear to see from the data that traditional bank lenders tend to exercise g
 
 Our mid-market data from across the UK and Europe shows that banks have been fairly consistent in recent years, offering up to 15% of EBITDA, showing some signs of flex in 2022. However, we see funds offering a greater level of flexibility in the region of up to 20% of EBITDA.
 
-### Fund deals
+## Fund deals by % of EBITDA (2021–2024)
 
-<table>
-<thead>
-<tr>
-<th>% of EBITDA</th>
-<th>2021</th>
-<th>2022</th>
-<th>2023</th>
-<th>2024</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>< 10%</td>
-<td>23%</td>
-<td>33%</td>
-<td>47%</td>
-<td>68%</td>
-</tr>
-<tr>
-<td>>10% < 15%</td>
-<td>~~20%~~ 14%</td>
-<td>26%</td>
-<td>54%</td>
-<td>38%</td>
-</tr>
-<tr>
-<td>>15% < 20%</td>
-<td></td>
-<td>23%</td>
-<td></td>
-<td>20%</td>
-</tr>
-<tr>
-<td>> 20%</td>
-<td></td>
-<td></td>
-<td>14%</td>
-<td>13%</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>5%</td>
-</tr>
-</tbody>
-</table>
+| % of EBITDA         | 2021 | 2022 | 2023 | 2024 |
+|---------------------|------|------|------|------|
+| ≤ 10%              | 23%  | 20%  | 14%  | 0%   |
+| >10% ≤ 15%         | 47%  | 23%  | 33%  | 26%  |
+| >15% ≤ 20%         | 20%  | 54%  | 38%  | 68%  |
+| > 20%             | 13%  | 5%   | 14%  | 5%   |
 
-### Bank deals
+**Key insights:**  
+- Deals where covenants are set at **>15% ≤ 20% of EBITDA** have surged, reaching **68% in 2024**.  
+- The share of deals with **≤10%** thresholds has fallen to **0%** by 2024.  
+- Mid-range covenants (**>10% ≤ 15%**) remain consistent but slightly declined from the **47% peak in 2021** to **26% in 2024**.
 
-<table>
-<thead>
-<tr>
-<th>% of EBITDA</th>
-<th>2021</th>
-<th>2022</th>
-<th>2023</th>
-<th>2024</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>< 10%</td>
-<td>26%</td>
-<td>74%</td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>>10% < 15%</td>
-<td>18%</td>
-<td>59%</td>
-<td>54%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>>15% < 20%</td>
-<td>8%</td>
-<td></td>
-<td>41%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>> 20%</td>
-<td>6%</td>
-<td></td>
-<td></td>
-<td>23%</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>15%</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>6%</td>
-</tr>
-</tbody>
-</table>
+## Bank deals by % of EBITDA (2021–2024)
+
+| % of EBITDA         | 2021 | 2022 | 2023 | 2024 |
+|---------------------|------|------|------|------|
+| ≤ 10%              | 6%   | 18%  | 26%  | 8%   |
+| >10% ≤ 15%         | 59%  | 41%  | 74%  | 54%  |
+| >15% ≤ 20%         | 35%  | 35%  | 0%   | 23%  |
+| > 20%             | 6%   | 6%   | 0%   | 15%  |
+
+**Key insights:**  
+- **>10% ≤ 15% EBITDA** remains the most common range, though it declined from **74% in 2023** to **54% in 2024**.  
+- Deals with **≤10%** thresholds have remained low, peaking at **26%** in 2023 before dropping again.  
+- The **>15% ≤ 20%** range peaked at **35%** in 2021–2022 but declined in subsequent years.  
+- Deals above **20% EBITDA** are rare but slightly increased to **15%** in 2024.
 
 > Last year, our data showed that caps on exceptional item adjustments made their way from mainland Europe to the UK market. In 2024, the landscape of exceptional items has further evolved, with a marked shift towards greater scrutiny and transparency. Sponsors continue to push for flexibility, while lenders demand clarity, leading to a balanced yet stringent approach in deal structuring."
 
-~~Adam Abou Habaga~~  
+Adam Abou Habaga
 Partner  
 Netherlands
 
@@ -2966,7 +2309,7 @@ However, as a general rule of thumb, transaction costs (for transactions permitt
 
 > We're now starting to see exceptional items being capped in Spanish mid-market deals. They're often included in the total cap of synergies and subject to strict scrutiny."
 
-~~Cesar Herrero Mazario~~  
+Cesar Herrero Mazario
 Partner  
 Spain
 
@@ -3045,47 +2388,19 @@ Transfer provisions often impose a requirement on the borrower to act reasonably
 
 One point to note is that the deemed consent/ reasonableness requirement is generally not applicable to transfers to certain entity types, such as industry/ sponsor competitors and loan-to-own investors.
 
-<table>
-<thead>
-<tr>
-<th>Year</th>
-<th>Failure to deliver quarterly accounts/compliance certificate</th>
-<th>Financial covenant breach</th>
-<th>Insolvency related events</th>
-<th>Non-payment</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2021</td>
-<td>78%</td>
-<td>100%</td>
-<td>100%</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>2022</td>
-<td>72%</td>
-<td>64%</td>
-<td>100%</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>2023</td>
-<td>39%</td>
-<td>68%</td>
-<td>100%</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>2024</td>
-<td>39%</td>
-<td>61%</td>
-<td>100%</td>
-<td>100%</td>
-</tr>
-</tbody>
-</table>
+## What constitutes a material Event of default? (2021–2024)
+
+| Year | Failure to deliver quarterly accounts / compliance certificate | Financial covenant breach | Insolvency related events | Non-payment |
+|------|---------------------------------------------------------------|---------------------------|---------------------------|-------------|
+| 2021 | 78%                                                          | 72%                      | 100%                      | 100%        |
+| 2022 | 64%                                                          | 64%                      | 100%                      | 100%        |
+| 2023 | 39%                                                          | 68%                      | 100%                      | 100%        |
+| 2024 | 46%                                                          | 61%                      | 100%                      | 100%        |
+
+**Key insights:**  
+- **Insolvency-related events** and **non-payment** remain universally defined as material events of default (**100% across all years**).  
+- **Financial covenant breaches** show a slight decline, from **72% in 2021** to **61% in 2024**.  
+- **Failure to deliver quarterly accounts or compliance certificates** has seen the most significant drop, from **78%** to **46%** over the same period.
 
 > "There's a delicate balance to be struck on deals between the borrower's desire to control who owns its debt and the lenders' ability to manage their exposure if necessary. This balance becomes more nuanced in relationship-led take-and-hold financings and also where a borrower is able to choose from a broader range of financing options. Transferring to competitors is generally a no-go and, in some sectors, is also backed by regulatory restrictions."
 >
@@ -3719,7 +3034,7 @@ INTERNATIONAL DEBT FINANCE INTELLIGENCE REPORT 2025
 
 As we said at the start, 2024 didn't quite deliver on the level of deal activity that a lot of people were hoping for. While the prospects for a pick-up in M&A activity look positive, 2025 is unlikely to be without its challenges given the present tensions and uncertainties across the globe. With large amounts of capital waiting to be deployed, it will be imperative that lenders continue to provide competitive terms to win mandates. Knowing "what's market" during this period of change will be key.
 
-~~Matthew Christmas~~  
+Matthew Christmas
 Partner  
 UK
 
@@ -3727,7 +3042,7 @@ UK
 
 > ESG remains an important consideration for many market participants, even in the face of political headwinds. Maximising impact and credibility of ESG finance products will require continued focus on transparency, together with development and maintenance of robust frameworks in which market participants can operate within with confidence. Regulators and key industry bodies such as the LMA, APLMA and the LSTA, both individually and in collaboration, will continue to play a crucial role in shaping these frameworks. Collectively these frameworks will be key in increasing attractiveness of ESG finance products, which will encourage increased use by market participants.
 
-~~Mei Mei Wong~~  
+Mei Mei Wong
 Partner  
 UK
 
@@ -3735,7 +3050,7 @@ UK
 
 > The themes in this report of innovation and diversification are certainly relevant to asset-based lending in 2025. More credit funds are adopting ABL techniques and/or developing their own ABL products, and ABL providers are exploring ways to collaborate more effectively with other funders in the capital structure, including with pre-agreed intercreditor positions. The ABL industry should grow its market share in 2025 and borrowers should benefit from the increased competition by way of more sophistication in covenants, more 'stretch' in facility terms and more flexibility in operational requirements/reporting.
 
-~~Joseph Frew~~  
+Joseph Frew
 Partner  
 UK
 
@@ -3743,7 +3058,7 @@ UK
 
 > Documentary terms and features in the mid-market space will continue to be scrutinised by market participants and advisors resulting in "cleaner" documents and an increased focus on the real deal terms. Specific focus will need to be applied at the grid phase – that's where the deal terms are struck. The upper mid-market will continue to feature terms influenced by market convergence – where the widely syndicated markets (TLB/high yield) and their advisors overlap with the upper mid-market. This is more prevalent in jurisdictions with a more active upper mid-cap or large cap space like the UK, less so in real mid-cap markets like the Netherlands.
 
-~~Max Mayer~~  
+Max Mayer
 Partner  
 Netherlands
 
@@ -3751,7 +3066,7 @@ Netherlands
 
 > The high yield market looks poised to continue to grow in 2025, in line with increasing annual supply since a low in 2022. Many European issuers face an impending need to refinance – particularly those that have not accessed the market since the historic years of 2020/2021. We continue to see the delta between expectation and offer price on buyouts narrow, which will lead to further high yield issuance to fund sponsor-backed leveraged buyouts. Corporate issuers should be ready to access the market to address capital structure needs as global politics, particularly around tariffs, will mean larger short-run fluctuations in high yield primary pricing.
 
-~~Gordon Houseman~~  
+Gordon Houseman
 Partner  
 UK
 
@@ -3759,7 +3074,7 @@ UK
 
 > Fund finance is on an upward trajectory, with private equity and other firms open to exploring innovative financing solutions. The quest to maximise yield using levered sleeves and investment strategies will continue to drive this sector's growth. Finding the right mix of creative structuring and financial leverage will enable such firms to stay ahead.
 
-~~Charlotte Lewis-Williams~~  
+Charlotte Lewis-Williams
 Partner  
 UK
 
