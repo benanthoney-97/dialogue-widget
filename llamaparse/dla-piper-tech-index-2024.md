@@ -175,84 +175,20 @@ The overall tech score for 2024 stands at a record-breaking 71, reflecting a buo
 
 ## Expected change in revenues in the next 12 months
 
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>Increase 16 - 20%</th>
-<th>Increase 11 - 15%</th>
-<th>Increase 6 - 10%</th>
-<th>Increase 1 - 5%</th>
-<th>No change</th>
-<th>Decrease 1 - 5%</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Global</td>
-<td>4%</td>
-<td>10%</td>
-<td>24%</td>
-<td>32%</td>
-<td>30%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>Europe</td>
-<td>2%</td>
-<td>12%</td>
-<td>31%</td>
-<td>30%</td>
-<td>24%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>North America</td>
-<td>1%</td>
-<td>11%</td>
-<td>23%</td>
-<td>40%</td>
-<td>20%</td>
-<td>3%</td>
-</tr>
-<tr>
-<td>APAC</td>
-<td>5%</td>
-<td>10%</td>
-<td>21%</td>
-<td>32%</td>
-<td>30%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>LATAM</td>
-<td>4%</td>
-<td>6%</td>
-<td>22%</td>
-<td>27%</td>
-<td>33%</td>
-<td>1%</td>
-</tr>
-<tr>
-<td>Africa</td>
-<td>5%</td>
-<td>5%</td>
-<td>21%</td>
-<td>30%</td>
-<td>36%</td>
-<td>1%</td>
-</tr>
-<tr>
-<td>Middle East</td>
-<td>2%</td>
-<td>10%</td>
-<td>18%</td>
-<td>44%</td>
-<td>24%</td>
-<td>2%</td>
-</tr>
-</tbody>
-</table>
+| Change in Revenue       | Global | Europe | North America | APAC | LATAM | Africa | Middle East |
+|-------------------------|--------|--------|----------------|------|--------|--------|--------------|
+| Increase 16–20%         | 2%     | 1%     | 4%             | 5%   | –      | 1%     | 2%           |
+| Increase 11–15%         | 10%    | 12%    | 11%            | 10%  | 6%     | 5%     | 10%          |
+| Increase 6–10%          | 24%    | 31%    | 23%            | 21%  | 22%    | 21%    | 18%          |
+| Increase 1–5%           | 32%    | 30%    | 40%            | 30%  | 32%    | 27%    | 30%          |
+| No change              | 30%    | 24%    | 20%            | 33%  | 40%    | 44%    | 36%          |
+| Decrease 1–5%           | 2%     | 2%     | 2%             | 3%   | 1%     | 1%     | 2%           |
+
+**Key insights:**  
+- **2/3 of organisations** expect revenue growth in the next 12 months.  
+- Nearly **4 in 10 (36%)** anticipate growth of more than 6%.  
+- **North America** and **Europe** are most optimistic, while **Africa** and the **Middle East** show higher expectations for no change.  
+- Very few expect a decrease in revenue.
 
 2/3 of organizations expect to see at least some increase in revenues over the next 12 months and almost 4 in 10 (36%) expect an increase of more than 6%. Those in North America and Europe are most likely to expect their revenues to increase. Very few expect to see a decrease in revenues in the next 12 months.
 
@@ -368,112 +304,25 @@ And AI will be a force for change with regards to almost all the other areas whe
 
 ## Potential opportunities for future business growth
 
-<table>
-<thead>
-<tr>
-<th>Technology Area</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-<th>Middle East</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AI</td>
-<td>63%</td>
-<td>72%</td>
-<td>61%</td>
-<td>53%</td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>5G</td>
-<td>63%</td>
-<td>65%</td>
-<td>57%</td>
-<td>48%</td>
-<td>59%</td>
-<td>50%</td>
-<td></td>
-</tr>
-<tr>
-<td>Digital transformation</td>
-<td>68%</td>
-<td>59%</td>
-<td>59%</td>
-<td>61%</td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>Cybersecurity</td>
-<td>64%</td>
-<td>54%</td>
-<td>59%</td>
-<td>55%</td>
-<td>50%</td>
-<td>55%</td>
-<td>46%</td>
-</tr>
-<tr>
-<td>IoT</td>
-<td>57%</td>
-<td>53%</td>
-<td>49%</td>
-<td>55%</td>
-<td>50%</td>
-<td>56%</td>
-<td>64%</td>
-</tr>
-<tr>
-<td>Fintech</td>
-<td>38%</td>
-<td>45%</td>
-<td>33%</td>
-<td>42%</td>
-<td>40%</td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>Sustainability and ESG</td>
-<td>40%</td>
-<td>44%</td>
-<td>37%</td>
-<td>35%</td>
-<td>39%</td>
-<td>36%</td>
-<td></td>
-</tr>
-<tr>
-<td>Data monetization</td>
-<td>38%</td>
-<td>38%</td>
-<td>37%</td>
-<td>34%</td>
-<td>35%</td>
-<td>36%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Acquisition of external businesses</td>
-<td>30%</td>
-<td>30%</td>
-<td>32%</td>
-<td>29%</td>
-<td>28%</td>
-<td>24%</td>
-<td></td>
-</tr>
-</tbody>
-</table>
+| Opportunity                          | Global | Europe | North America | APAC | LATAM | Africa | Middle East |
+|-------------------------------------|--------|--------|----------------|------|--------|--------|--------------|
+| AI                                  | 63%    | 72%    | 61%           | 53%  | 65%    | 57%    | 48%          |
+| 5G                                  | 59%    | 63%    | 50%           | 59%  | 68%    | 61%    | 59%          |
+| Digital transformation              | 54%    | 59%    | 55%           | 50%  | 55%    | 46%    | 40%          |
+| Cybersecurity                       | 53%    | 53%    | 49%           | 55%  | 50%    | 56%    | 64%          |
+| IoT                                 | 51%    | 49%    | 57%           | 57%  | 46%    | 53%    | 48%          |
+| Fintech                             | 38%    | 33%    | 45%           | 43%  | 42%    | 40%    | –            |
+| Sustainability and ESG              | 37%    | 35%    | 37%           | 39%  | 44%    | 36%    | 20%          |
+| Data monetization                   | 34%    | 32%    | 37%           | 31%  | 38%    | 29%    | 38%          |
+| Acquisition of external businesses  | 30%    | 24%    | 30%           | 30%  | 35%    | 28%    | 36%          |
+
+**Key insights:**  
+- **AI (63% global)** and **5G (59% global)** are seen as the top drivers of future business growth, with Europe especially bullish on AI (**72%**).  
+- **Digital transformation**, **cybersecurity**, and **IoT** remain core priorities across all regions.  
+- **Fintech**, **sustainability/ESG**, and **data monetization** are important but secondary priorities, with regional variation.  
+- **Acquisition of external businesses** is seen as a key growth path in **LATAM (35%)** and the **Middle East (36%)**.
+
+> Percentages represent respondents rating the opportunity as 7, 8, or 9 on a 1–9 scale (where 9 = highest potential).
 
 Using a scale of 1-9, where 9 represents the highest potential and 1 the lowest, we asked respondents to rate the opportunities based on their potential for business growth. The percentages indicate the proportion of respondents who rated a particular opportunity as 7, 8, or 9. AI, 5G, digital transformation and cybersecurity were ranked highest.
 
@@ -629,82 +478,31 @@ Our global survey bears this out very clearly. Respondents place AI at the very 
 
 
 Tech Index 2024
-# Importance of AI for business in the next five years
+## Importance of AI for business in the next five years
 
-<table>
-<thead>
-<tr>
-<th>Response Category</th>
-<th>Percentage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Very important: AI will be critically important for the future success and competitiveness of our business</td>
-<td>32% - 37%</td>
-</tr>
-<tr>
-<td>Important: AI will be a significant driver of change and innovation within our business</td>
-<td>39% - 41%</td>
-</tr>
-<tr>
-<td>Moderately important: AI is expected to play a moderate role in shaping the future of our business</td>
-<td>19% - 22%</td>
-</tr>
-<tr>
-<td>Somewhat important: AI may have some impact on our business, but it won't be a major driver of change</td>
-<td>4% - 8%</td>
-</tr>
-<tr>
-<td>Not important: AI is not expected to significantly impact our business in the next 5 years</td>
-<td>1% - 5%</td>
-</tr>
-</tbody>
-</table>
+| Importance level                                                                                   | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Very important: AI will be critically important for the future success and competitiveness of our business | 32%    | 37%    | 34%           | 30%  | 36%    | 15%    |
+| Important: AI will be a significant driver of change and innovation within our business           | 39%    | 34%    | 39%           | 41%  | 38%    | 53%    |
+| Moderately important: AI is expected to play a moderate role in shaping the future of our business | 21%    | 21%    | 22%           | 20%  | 19%    | 19%    |
+| Somewhat important: AI may have some impact on our business, but it won’t be a major driver of change | 6%     | 5%     | 4%            | 8%   | 6%     | 8%     |
+| Not important: AI is not expected to significantly impact our business in the next 5 years        | 3%     | 3%     | 1%            | 2%   | 2%     | 5%     |
 
-**Very important/important**
+### Combined “Very important” + “Important”
 
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>Percentage</th>
-<th>Sample Size</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Global</td>
-<td>71%</td>
-<td>752</td>
-</tr>
-<tr>
-<td>Europe</td>
-<td>71%</td>
-<td>287</td>
-</tr>
-<tr>
-<td>North America</td>
-<td>73%</td>
-<td>121</td>
-</tr>
-<tr>
-<td>APAC</td>
-<td>71%</td>
-<td>106</td>
-</tr>
-<tr>
-<td>LATAM</td>
-<td>74%</td>
-<td>129</td>
-</tr>
-<tr>
-<td>Africa</td>
-<td>60%</td>
-<td>85</td>
-</tr>
-</tbody>
-</table>
+| Region         | Combined % |
+|---------------|------------|
+| Global        | 71%        |
+| Europe        | 71%        |
+| North America | 73%        |
+| APAC          | 71%        |
+| LATAM         | 74%        |
+| Africa        | 60%        |
+
+**Key insights:**  
+- Across all regions, around **70%+ of businesses** expect AI to be a **very important or significant driver** of change over the next five years.  
+- **North America (73%)** and **LATAM (74%)** lead in terms of prioritising AI.  
+- **Africa** shows the lowest share (**60%**) expecting AI to be a critical driver, but the **highest share (53%)** expecting AI to be a *significant* driver of innovation.
 
 7 in 10 organizations see AI as an important development driving significant change and innovation over the next 5 years.
 
@@ -745,120 +543,25 @@ But perhaps more significantly, a third of respondents believe that the costs of
 
 ## Benefits of AI
 
-<table>
-<thead>
-<tr>
-<th>Benefit Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Increased efficiency and productivity</td>
-<td>32%</td>
-<td>32%</td>
-<td>33%</td>
-<td>31%</td>
-<td>31%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Scalability and flexibility</td>
-<td>30%</td>
-<td>32%</td>
-<td>26%</td>
-<td>28%</td>
-<td>29%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Competitive advantage</td>
-<td>29%</td>
-<td>26%</td>
-<td>36%</td>
-<td>33%</td>
-<td>31%</td>
-<td>15%</td>
-</tr>
-<tr>
-<td>Enhanced decision-making through analysis of data</td>
-<td>28%</td>
-<td>29%</td>
-<td>31%</td>
-<td>26%</td>
-<td>26%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Improved accuracy and quality</td>
-<td>28%</td>
-<td>28%</td>
-<td>25%</td>
-<td>25%</td>
-<td>26%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Workplace safety and risk reduction</td>
-<td>27%</td>
-<td>26%</td>
-<td>26%</td>
-<td>29%</td>
-<td>30%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>Personal assistants and chatbots</td>
-<td>27%</td>
-<td>27%</td>
-<td>26%</td>
-<td>25%</td>
-<td>26%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Streamlined operations and supply chain management</td>
-<td>26%</td>
-<td>25%</td>
-<td>21%</td>
-<td>23%</td>
-<td>35%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Increased innovation and opportunities</td>
-<td>25%</td>
-<td>24%</td>
-<td>26%</td>
-<td>25%</td>
-<td>26%</td>
-<td>24%</td>
-</tr>
-<tr>
-<td>Reduced costs</td>
-<td>24%</td>
-<td>22%</td>
-<td>23%</td>
-<td>30%</td>
-<td>20%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Content generation and creativity</td>
-<td>24%</td>
-<td>29%</td>
-<td>26%</td>
-<td>23%</td>
-<td>20%</td>
-<td>18%</td>
-</tr>
-</tbody>
-</table>
+| Benefit                                                        | Global | Europe | North America | APAC | LATAM | Africa |
+|---------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Increased efficiency and productivity                         | 32%    | 32%    | 33%           | 31%  | 31%    | 32%    |
+| Scalability and flexibility                                   | 30%    | 32%    | 26%           | 28%  | 29%    | 29%    |
+| Competitive advantage                                         | 29%    | 26%    | 36%           | 33%  | 31%    | 15%    |
+| Enhanced decision-making through analysis of data            | 28%    | 29%    | 31%           | 26%  | 26%    | 31%    |
+| Improved accuracy and quality                                 | 28%    | 28%    | 25%           | 25%  | 26%    | 34%    |
+| Workplace safety and risk reduction                           | 27%    | 26%    | 26%           | 29%  | 30%    | 27%    |
+| Personal assistants and chatbots                              | 27%    | 27%    | 27%           | 26%  | 26%    | 26%    |
+| Streamlined operations and supply chain management           | 26%    | 25%    | 21%           | 23%  | 35%    | 28%    |
+| Increased innovation and opportunities                        | 25%    | 24%    | 26%           | 25%  | 26%    | 24%    |
+| Reduced costs                                                 | 24%    | 22%    | 23%           | 30%  | 20%    | 31%    |
+| Content generation and creativity                             | 24%    | 29%    | 26%           | 23%  | 20%    | 18%    |
+
+**Key insights:**  
+- **Efficiency and productivity** top the list globally (**32–33%**) across all regions.  
+- **Competitive advantage** shows strong regional variation, peaking at **36%** in North America.  
+- **Improved accuracy and quality** is notably valued in **Africa (34%)**.  
+- **Reduced costs** and **content generation** rank lower globally but remain significant for APAC and Europe.
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    12
 
@@ -952,111 +655,24 @@ Tech Index 2024AI
 
 ## Primary driving force behind the adoption of AI
 
-<table>
-<thead>
-<tr>
-<th>Role/Department</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Chief Technology Officer</td>
-<td>22%</td>
-<td>26%</td>
-<td>16%</td>
-<td>19%</td>
-<td>26%</td>
-<td></td>
-</tr>
-<tr>
-<td>Operations departments</td>
-<td>13%</td>
-<td>11%</td>
-<td>14%</td>
-<td>17%</td>
-<td>14%</td>
-<td></td>
-</tr>
-<tr>
-<td>Chief Information Officer</td>
-<td>11%</td>
-<td>10%</td>
-<td>11%</td>
-<td>12%</td>
-<td>26%</td>
-<td></td>
-</tr>
-<tr>
-<td>R&D</td>
-<td>11%</td>
-<td>11%</td>
-<td>11%</td>
-<td>14%</td>
-<td>9%</td>
-<td></td>
-</tr>
-<tr>
-<td>Risk and compliance</td>
-<td>11%</td>
-<td>7%</td>
-<td>7%</td>
-<td>9%</td>
-<td>9%</td>
-<td></td>
-</tr>
-<tr>
-<td>DPO / Data protection / Digital and cybersecurity / InfoSec</td>
-<td>9%</td>
-<td>7%</td>
-<td>8%</td>
-<td>7%</td>
-<td>5%</td>
-<td></td>
-</tr>
-<tr>
-<td>Ethics and responsibility</td>
-<td>7%</td>
-<td>7%</td>
-<td>8%</td>
-<td>12%</td>
-<td>11%</td>
-<td></td>
-</tr>
-<tr>
-<td>External advisors</td>
-<td>5%</td>
-<td>2%</td>
-<td>9%</td>
-<td>7%</td>
-<td>7%</td>
-<td></td>
-</tr>
-<tr>
-<td>General Counsel's office</td>
-<td>5%</td>
-<td>6%</td>
-<td>6%</td>
-<td>5%</td>
-<td>2%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>Mixture of the above</td>
-<td>7%</td>
-<td>9%</td>
-<td>8%</td>
-<td>13%</td>
-<td>14%</td>
-<td></td>
-</tr>
-</tbody>
-</table>
+| Driving force                                                      | Global | Europe | North America | APAC | LATAM | Africa |
+|--------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Chief Technology Officer                                          | 22%    | 26%    | 16%           | 16%  | 26%    | 19%    |
+| Operations departments                                            | 13%    | 14%    | 11%           | 17%  | 12%    | 5%     |
+| Chief Information Officer                                         | 11%    | 10%    | 26%           | 11%  | 9%     | 11%    |
+| R&D                                                               | 11%    | 12%    | 11%           | 14%  | 9%     | 7%     |
+| Risk and compliance                                               | 9%     | 11%    | 7%            | 8%   | 7%     | 9%     |
+| DPO / Data protection / Digital and cybersecurity / InfoSec       | 8%     | 9%     | 7%            | 8%   | 5%     | 12%    |
+| Ethics and responsibility                                         | 7%     | 5%     | 8%            | 9%   | 11%    | 8%     |
+| External advisors                                                | 5%     | 2%     | 9%            | 6%   | 7%     | 7%     |
+| General Counsel’s office                                         | 5%     | 6%     | 5%            | 2%   | 2%     | 7%     |
+| Mixture of the above                                             | 8%     | 4%     | 9%            | 8%   | 13%    | 14%    |
+
+**Key insights:**  
+- The **Chief Technology Officer** is the leading driver globally (**22%**) and especially in **Europe (26%)** and **LATAM (26%)**.  
+- **Chief Information Officers** play a significant role in **North America (26%)**, more than any other region.  
+- **Operations departments** and **R&D** are particularly influential in **APAC (17% and 14%)**.  
+- A **mixture of stakeholders** drives adoption in **Africa (14%)** and **LATAM (13%)**, reflecting more distributed decision-making structures.
 
 Adoption of AI is most likely to be driven by the CTO, followed by the CIO and operations or R&D departments.
 
@@ -1109,122 +725,28 @@ It's important that major AI providers agreed at these meetings that their syste
 
 But it remains to be seen to what extent such initiatives will create the degree of certainty that organizations crave.
 
+
 ## Drawbacks of AI
 
-<table>
-<thead>
-<tr>
-<th>Drawback Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Data privacy and security</td>
-<td>32%</td>
-<td>27%</td>
-<td>32%</td>
-<td>34%</td>
-<td>32%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Unforeseen technical issues</td>
-<td>30%</td>
-<td>34%</td>
-<td>33%</td>
-<td>33%</td>
-<td>25%</td>
-<td>37%</td>
-</tr>
-<tr>
-<td>High initial investment</td>
-<td>30%</td>
-<td>32%</td>
-<td>30%</td>
-<td>34%</td>
-<td>24%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>Regulatory and legal compliance</td>
-<td>29%</td>
-<td>30%</td>
-<td>30%</td>
-<td>21%</td>
-<td>25%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Proving return on investment</td>
-<td>28%</td>
-<td>30%</td>
-<td>26%</td>
-<td>28%</td>
-<td>22%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Ethical and social implications</td>
-<td>28%</td>
-<td>26%</td>
-<td>24%</td>
-<td>29%</td>
-<td>31%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Impact on employment due to potential job losses</td>
-<td>27%</td>
-<td>31%</td>
-<td>19%</td>
-<td>22%</td>
-<td>25%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Resistance to change from affected staff/functions</td>
-<td>27%</td>
-<td>23%</td>
-<td>31%</td>
-<td>29%</td>
-<td>31%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Dependency on external vendors</td>
-<td>24%</td>
-<td>24%</td>
-<td>20%</td>
-<td>28%</td>
-<td>26%</td>
-<td>22%</td>
-</tr>
-<tr>
-<td>Complexity and integration challenges with legacy systems</td>
-<td>24%</td>
-<td>28%</td>
-<td>18%</td>
-<td>25%</td>
-<td>26%</td>
-<td>19%</td>
-</tr>
-<tr>
-<td>Lack of staff expertise in AI</td>
-<td>21%</td>
-<td>19%</td>
-<td>28%</td>
-<td>19%</td>
-<td>19%</td>
-<td>20%</td>
-</tr>
-</tbody>
-</table>
+| Drawback                                                             | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Data privacy and security                                           | 32%    | 27%    | 40%           | 32%  | 37%    | 34%    |
+| Unforeseen technical issues                                         | 32%    | 30%    | 34%           | 33%  | 33%    | 25%    |
+| High initial investment                                             | 30%    | 32%    | 30%           | 34%  | 24%    | 26%    |
+| Regulatory and legal compliance                                     | 29%    | 30%    | 30%           | 21%  | 25%    | 35%    |
+| Proving return on investment                                        | 28%    | 30%    | 26%           | 28%  | 22%    | 28%    |
+| Ethical and social implications                                     | 28%    | 26%    | 24%           | 29%  | 31%    | 28%    |
+| Impact on employment due to potential job losses                    | 27%    | 23%    | 19%           | 31%  | 25%    | 34%    |
+| Resistance to change from affected staff/functions                 | 24%    | 24%    | 20%           | 28%  | 26%    | 22%    |
+| Dependency on external vendors                                     | 24%    | 28%    | 26%           | 25%  | 26%    | 19%    |
+| Complexity and integration challenges with legacy systems           | 21%    | 19%    | 28%           | 19%  | 19%    | 20%    |
+| Lack of staff expertise in AI                                      | 21%    | 19%    | 28%           | 19%  | 19%    | 20%    |
+
+**Key insights:**  
+- **Data privacy and security** is the most cited drawback globally (**32%**) and even higher in **North America (40%)**.  
+- **High initial investment** and **regulatory compliance** are significant barriers across most regions.  
+- **Impact on employment** is a growing concern in **Africa (34%)** and **APAC (31%)**.  
+- **Lack of staff expertise** is consistently noted but less dominant globally (**21%**).
 
 DLAPIPER.COM
 
@@ -1397,9 +919,9 @@ Yet there are some worrying findings here too. For instance, only 49% say they h
 <thead>
 <tr>
 <th>Region</th>
-<th>Not very secure</th>
-<th>Fairly secure</th>
 <th>Extremely secure</th>
+<th>Fairly secure</th>
+<th>Not very secure</th>
 </tr>
 </thead>
 <tbody>
@@ -1488,113 +1010,26 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 
 Tech Index 2024Cybersecurity
 
-# Policies in place to meet cybersecurity issues
+## Policies in place to meet cybersecurity issues
 
-<table>
-<thead>
-<tr>
-<th>Policy Type</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Regularly updated software</td>
-<td>64%</td>
-<td>63%</td>
-<td>64%</td>
-<td>64%</td>
-<td>64%</td>
-<td>63%</td>
-</tr>
-<tr>
-<td>Use cybersecurity software, such as antivirus</td>
-<td>58%</td>
-<td>54%</td>
-<td>64%</td>
-<td>58%</td>
-<td>55%</td>
-<td>67%</td>
-</tr>
-<tr>
-<td>No unauthorized use of personal devices in the workplace</td>
-<td>58%</td>
-<td>56%</td>
-<td>65%</td>
-<td>64%</td>
-<td>48%</td>
-<td>61%</td>
-</tr>
-<tr>
-<td>Have a strong computer and system password policy</td>
-<td>56%</td>
-<td>55%</td>
-<td>72%</td>
-<td>51%</td>
-<td>49%</td>
-<td>54%</td>
-</tr>
-<tr>
-<td>Restrictions on removable devices (e.g., USBs)</td>
-<td>52%</td>
-<td>45%</td>
-<td>57%</td>
-<td>62%</td>
-<td>57%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>Monitoring of user activity/restrictions on what website staff can access etc.</td>
-<td>51%</td>
-<td>45%</td>
-<td>52%</td>
-<td>56%</td>
-<td>49%</td>
-<td>60%</td>
-</tr>
-<tr>
-<td>Online/digital security i.e., strong passwords, anti-virus software/firewalls etc.</td>
-<td>49%</td>
-<td>49%</td>
-<td>51%</td>
-<td>59%</td>
-<td>46%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>Have an incidence response helpline if needed</td>
-<td>47%</td>
-<td>45%</td>
-<td>48%</td>
-<td>56%</td>
-<td>41%</td>
-<td>49%</td>
-</tr>
-<tr>
-<td>Insurance – specific to cover cybersecurity</td>
-<td>45%</td>
-<td>42%</td>
-<td>49%</td>
-<td>44%</td>
-<td>42%</td>
-<td>46%</td>
-</tr>
-<tr>
-<td>Have a regular risk assessment in place</td>
-<td>45%</td>
-<td>42%</td>
-<td>44%</td>
-<td>53%</td>
-<td>45%</td>
-<td>48%</td>
-</tr>
-</tbody>
-</table>
+| Policy                                                                 | Global | Europe | North America | APAC | LATAM | Africa |
+|------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Regularly updated software                                            | 64%    | 63%    | 64%           | 64%  | 64%    | 63%    |
+| Use cybersecurity software, such as antivirus                         | 58%    | 54%    | 58%           | 55%  | 64%    | 67%    |
+| No unauthorized use of personal devices in the workplace              | 58%    | 56%    | 65%           | 64%  | 48%    | 61%    |
+| Have a strong computer and system password policy                     | 56%    | 55%    | 72%           | 51%  | 49%    | 54%    |
+| Restrictions on removable devices (e.g., USBs)                        | 52%    | 45%    | 57%           | 62%  | 57%    | 45%    |
+| Monitoring of user activity/restrictions on what websites staff can access etc. | 51%    | 45%    | 45%           | 56%  | 49%    | 60%    |
+| Online/digital security (e.g., strong passwords, anti-virus software, firewalls) | 49%    | 49%    | 51%           | 59%  | 46%    | 39%    |
+| Have an incidence response helpline if needed                        | 47%    | 45%    | 48%           | 56%  | 41%    | 49%    |
+| Insurance – specific to cover cybersecurity                           | 45%    | 42%    | 49%           | 44%  | 42%    | 46%    |
+| Have a regular risk assessment in place                               | 45%    | 42%    | 44%           | 53%  | 45%    | 48%    |
+
+**Key insights:**  
+- **Regular software updates (64%)** and **cybersecurity tools (58%)** are the most common policies globally.  
+- **North America** leads on **password policies (72%)**, while **APAC** leads on **regular risk assessments (53%)**.  
+- **Africa (67%)** reports the highest use of **cybersecurity software**.  
+- Incident response helplines and cybersecurity-specific insurance remain less common globally (**47%** and **45%**, respectively).
 
 Organizations have a range of policies in place to meet basic cybersecurity issues, most commonly software updates, use of cybersecurity software, prohibiting unauthorized use of personal devices and strong password policies, which is of particular importance in North America.
 
@@ -1738,112 +1173,23 @@ Tech Index 2024
 
 ## Potential opportunities for future business growth
 
-<table>
-<thead>
-<tr>
-<th>Technology</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-<th>Middle East</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AI</td>
-<td>63%</td>
-<td>61%</td>
-<td>65%</td>
-<td>53%</td>
-<td>72%</td>
-<td>57%</td>
-<td>48%</td>
-</tr>
-<tr>
-<td>5G</td>
-<td>52%</td>
-<td>63%</td>
-<td>59%</td>
-<td>50%</td>
-<td>68%</td>
-<td>59%</td>
-<td>61%</td>
-</tr>
-<tr>
-<td>Digital transformation</td>
-<td>54%</td>
-<td>59%</td>
-<td>55%</td>
-<td>50%</td>
-<td>55%</td>
-<td>46%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Cybersecurity</td>
-<td>53%</td>
-<td>53%</td>
-<td>56%</td>
-<td>50%</td>
-<td>55%</td>
-<td>49%</td>
-<td>64%</td>
-</tr>
-<tr>
-<td>IoT</td>
-<td>51%</td>
-<td>49%</td>
-<td>57%</td>
-<td>46%</td>
-<td>57%</td>
-<td>53%</td>
-<td>48%</td>
-</tr>
-<tr>
-<td>Fintech</td>
-<td>38%</td>
-<td>33%</td>
-<td>45%</td>
-<td>43%</td>
-<td>42%</td>
-<td>40%</td>
-<td>44%</td>
-</tr>
-<tr>
-<td>Sustainability and ESG</td>
-<td>37%</td>
-<td>37%</td>
-<td>39%</td>
-<td>36%</td>
-<td>34%</td>
-<td>32%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Data monetization</td>
-<td>38%</td>
-<td>37%</td>
-<td>38%</td>
-<td>29%</td>
-<td>35%</td>
-<td>36%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Acquisition of external businesses</td>
-<td>30%</td>
-<td>30%</td>
-<td>28%</td>
-<td>24%</td>
-<td>20%</td>
-<td>35%</td>
-<td>36%</td>
-</tr>
-</tbody>
-</table>
+| Opportunity                          | Global | Europe | North America | APAC | LATAM | Africa | Middle East |
+|-------------------------------------|--------|--------|----------------|------|--------|--------|--------------|
+| AI                                  | 63%    | 72%    | 61%           | 53%  | 65%    | 57%    | 48%          |
+| 5G                                  | 59%    | 63%    | 50%           | 59%  | 68%    | 61%    | 59%          |
+| Digital transformation              | 54%    | 59%    | 55%           | 50%  | 55%    | 46%    | 40%          |
+| Cybersecurity                       | 53%    | 53%    | 49%           | 55%  | 50%    | 56%    | 64%          |
+| IoT                                 | 51%    | 49%    | 57%           | 57%  | 46%    | 53%    | 48%          |
+| Fintech                             | 38%    | 33%    | 45%           | 43%  | 42%    | 40%    | –            |
+| Sustainability and ESG              | 37%    | 35%    | 37%           | 39%  | 44%    | 36%    | 20%          |
+| Data monetization                   | 34%    | 32%    | 37%           | 31%  | 38%    | 29%    | 38%          |
+| Acquisition of external businesses  | 30%    | 24%    | 30%           | 30%  | 35%    | 28%    | 36%          |
+
+**Key insights:**  
+- **AI (63% global)** and **5G (59% global)** are seen as the leading future growth opportunities, with **Europe particularly strong on AI (72%)**.  
+- **Digital transformation**, **cybersecurity**, and **IoT** remain key focus areas across all regions.  
+- **Fintech**, **sustainability/ESG**, and **data monetization** show moderate but important growth potential, with some regional variation.  
+- **Acquisition of external businesses** ranks lowest globally but remains a notable strategy in **LATAM (35%)** and the **Middle East (36%)**.
 
 Using a scale of 1-9, where 9 represents the highest potential and 1 the lowest, we asked respondents to rate the opportunities based on their potential for business growth. The percentages indicate the proportion of respondents who rated a particular opportunity as 7, 8, or 9. AI, 5G, digital transformation and cybersecurity were ranked highest.
 
@@ -1889,65 +1235,29 @@ Our survey illustrates the variety of ways organizations are looking to monetize
 
 Over half of respondents in Africa highlighted the improvements in production processes as a significant benefit of data monetization, significantly higher than in any other region.
 
-### Use of data monetization
 
-**At least some use:**
+## Use of data monetization
 
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>We are making full use of data monetization opportunities</th>
-<th>We are making limited use of data monetization opportunities</th>
-<th>We do not currently monetize our data, but plan to in the future</th>
-<th>We do not plan to monetize our data</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Global (75%)</td>
-<td>19%</td>
-<td>38%</td>
-<td>18%</td>
-<td>3%</td>
-</tr>
-<tr>
-<td>Europe (75%)</td>
-<td>26%</td>
-<td>30%</td>
-<td>19%</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>North America (76%)</td>
-<td>20%</td>
-<td>37%</td>
-<td>21%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>APAC (72%)</td>
-<td>12%</td>
-<td>46%</td>
-<td>14%</td>
-<td>5%</td>
-</tr>
-<tr>
-<td>LATAM (77%)</td>
-<td>18%</td>
-<td>43%</td>
-<td>16%</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>Africa (73%)</td>
-<td>25%</td>
-<td>28%</td>
-<td>23%</td>
-<td>3%</td>
-</tr>
-</tbody>
-</table>
+| Usage category                                                                  | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| We are making full use of data monetization opportunities                       | 29%    | 38%    | 19%           | 18%  | 26%    | 30%    |
+| We are making limited use of data monetization opportunities                    | 46%    | 37%    | 57%           | 54%  | 51%    | 43%    |
+| We do not currently monetize our data, but plan to in the future                | 23%    | 20%    | 21%           | 28%  | 23%    | 25%    |
+| We do not plan to monetize our data                                             | 3%     | 5%     | 3%            | 0%   | 0%     | 2%     |
+
+### At least some use of data monetization  
+- **Global:** 75%  
+- **Europe:** 75%  
+- **North America:** 76%  
+- **APAC:** 72%  
+- **LATAM:** 77%  
+- **Africa:** 73%  
+
+**Key insights:**  
+- **Most organizations (75%+)** across all regions are using some form of data monetization.  
+- **Europe (38%)** leads in fully exploiting data monetization opportunities, while **LATAM (77%)** has the highest proportion with at least some usage.  
+- A significant share in **North America (57%)** and **APAC (54%)** report only *limited* use of data monetization.  
+- Very few organizations (**0–5%**) say they have no plans to monetize their data.
 
 3/4 of those who see growth opportunities from data monetization are already making at least limited use of these opportunities. However, less than 1/3 globally are currently exploiting these opportunities to the full.
 
@@ -1970,102 +1280,23 @@ They need to hire data scientists skilled not only in handling huge data sets bu
 
 ## Departments to benefit most from data monetization
 
-<table>
-<thead>
-<tr>
-<th>Department</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Customer service/CRM</td>
-<td>46%</td>
-<td>52%</td>
-<td>35%</td>
-<td>39%</td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>IT</td>
-<td>43%</td>
-<td>52%</td>
-<td>48%</td>
-<td>37%</td>
-<td>30%</td>
-<td>56%</td>
-</tr>
-<tr>
-<td>Sales</td>
-<td>39%</td>
-<td>49%</td>
-<td>33%</td>
-<td>37%</td>
-<td>32%</td>
-<td>48%</td>
-</tr>
-<tr>
-<td>Marketing</td>
-<td>35%</td>
-<td>42%</td>
-<td>27%</td>
-<td>27%</td>
-<td>20%</td>
-<td></td>
-</tr>
-<tr>
-<td>Finance</td>
-<td>32%</td>
-<td>38%</td>
-<td>34%</td>
-<td>33%</td>
-<td>29%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Production/Operations</td>
-<td>31%</td>
-<td>32%</td>
-<td>27%</td>
-<td>30%</td>
-<td>28%</td>
-<td>52%</td>
-</tr>
-<tr>
-<td>Supply chain</td>
-<td>27%</td>
-<td>41%</td>
-<td>24%</td>
-<td>38%</td>
-<td>23%</td>
-<td>20%</td>
-</tr>
-<tr>
-<td>Product development</td>
-<td>26%</td>
-<td>30%</td>
-<td>18%</td>
-<td>33%</td>
-<td>32%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Procurement</td>
-<td>21%</td>
-<td>27%</td>
-<td>17%</td>
-<td>18%</td>
-<td>11%</td>
-<td>34%</td>
-</tr>
-</tbody>
-</table>
+| Department                   | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------|--------|--------|----------------|------|--------|--------|
+| Customer service / CRM    | 46%    | 52%    | 35%           | 39%  | 48%    | 43%    |
+| IT                         | 43%    | 37%    | 52%           | 56%  | 30%    | 48%    |
+| Sales                      | 39%    | 49%    | 37%           | 33%  | 32%    | 27%    |
+| Marketing                 | 35%    | 42%    | 27%           | 20%  | 38%    | 34%    |
+| Finance                   | 32%    | 33%    | 29%           | 36%  | 27%    | 32%    |
+| Production / Operations   | 31%    | 30%    | 22%           | 28%  | 32%    | 52%    |
+| Supply chain              | 27%    | 22%    | 41%           | 38%  | 23%    | 20%    |
+| Product development       | 26%    | 18%    | 30%           | 33%  | 36%    | 32%    |
+| Procurement              | 21%    | 17%    | 27%           | 18%  | 34%    | 11%    |
+
+**Key insights:**  
+- **Customer service / CRM** is expected to benefit most globally (**46%**) and especially in **Europe (52%)**.  
+- **IT** is a major beneficiary in **North America (52%)** and **APAC (56%)**.  
+- **Production/Operations** stands out in **Africa (52%)**, showing a unique regional focus.  
+- **Procurement** is generally the least impacted department, though it is relatively high in **LATAM (34%)**.
 
 Customer service, IT and sales are identified as the departments to benefit most from data monetization. Particular benefits for production/operations are highlighted in Africa.
 
@@ -2090,147 +1321,49 @@ This reflects both an inherent misunderstanding about the role data scientists c
 
 ## Presence of data scientists
 
-<table>
-<thead>
-<tr>
-<th>Response</th>
-<th>Percentage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Yes – we have them now</td>
-<td>38% (25% North America, 23% other regions, 36% Europe, 45% APAC)</td>
-</tr>
-<tr>
-<td>No – but we plan to have them</td>
-<td>48% (39% baseline, 56% North America, 61% peak, 49% Europe, 41% other)</td>
-</tr>
-<tr>
-<td>No and we do not plan to have them</td>
-<td>14% (13% Europe, 19% North America, 16% APAC, 15% other, 14% baseline)</td>
-</tr>
-</tbody>
-</table>
+| Response category                         | Global | Europe | North America | APAC | LATAM | Africa |
+|------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Yes – we have them now                  | 38%    | 48%    | 25%           | 23%  | 36%    | 45%    |
+| No – but we plan to have them          | 48%    | 39%    | 56%           | 61%  | 49%    | 41%    |
+| No – and we do not plan to have them  | 14%    | 13%    | 19%           | 16%  | 15%    | 14%    |
+
+**Key insights:**  
+- Only around **4 in 10 organisations globally (38%)** currently have specialist data scientists.  
+- Adoption is highest in **Europe (48%)**, but remains low in **North America (25%)** and **APAC (23%)**.  
+- Over **60% of APAC organisations** plan to hire data scientists in the future — the highest of any region.  
+- Globally, **14%** report **no plans** to hire data scientists at all.
+
+> **Legend:**  
+> - **Global:** Dark blue  
+> - **Europe:** Olive green  
+> - **North America:** Grey  
+> - **APAC:** Yellow-green  
+> - **LATAM:** Light grey  
+> - **Africa:** Pale yellow
 
 Only around 4 in 10 of those who see opportunities from data monetization currently have specialist data scientists working in this area (only ¼ in North America and APAC) but ½ plan to introduce these roles in future.
 
 ## Challenges in maximizing the benefits of data monetization
 
-<table>
-<thead>
-<tr>
-<th>Challenge</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Compliance with law/regulations</td>
-<td>31%</td>
-<td>31%</td>
-<td>29%</td>
-<td>43%</td>
-<td>32%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Data quality and consistency</td>
-<td>32%</td>
-<td>25%</td>
-<td>39%</td>
-<td>36%</td>
-<td>36%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Data analysis and modeling</td>
-<td>30%</td>
-<td>27%</td>
-<td>27%</td>
-<td>30%</td>
-<td>30%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Protecting data</td>
-<td>30%</td>
-<td>27%</td>
-<td>28%</td>
-<td>26%</td>
-<td>33%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Collection and mining of data</td>
-<td>30%</td>
-<td>28%</td>
-<td>24%</td>
-<td>30%</td>
-<td>30%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>Skills/resource to analyze data/take on data monetization initiatives</td>
-<td>29%</td>
-<td>26%</td>
-<td>27%</td>
-<td>29%</td>
-<td>27%</td>
-<td>24%</td>
-</tr>
-<tr>
-<td>Cost and investment of adoption</td>
-<td>27%</td>
-<td>22%</td>
-<td>25%</td>
-<td>27%</td>
-<td>30%</td>
-<td>30%</td>
-</tr>
-<tr>
-<td>Effective commercial exploitation</td>
-<td>26%</td>
-<td>20%</td>
-<td>24%</td>
-<td>25%</td>
-<td>26%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Provenance of ownership of the data for purposes intended</td>
-<td>21%</td>
-<td>28%</td>
-<td>25%</td>
-<td>25%</td>
-<td>25%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Tools to analyze the data</td>
-<td>25%</td>
-<td>18%</td>
-<td>23%</td>
-<td>22%</td>
-<td>35%</td>
-<td>23%</td>
-</tr>
-<tr>
-<td>Access to physical storage of data</td>
-<td>26%</td>
-<td>16%</td>
-<td>7%</td>
-<td>23%</td>
-<td>34%</td>
-<td>23%</td>
-</tr>
-</tbody>
-</table>
+| Challenge                                                                  | Global | Europe | North America | APAC | LATAM | Africa |
+|---------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Compliance with law/regulations                                          | 31%    | 31%    | 29%           | 43%  | 25%    | 32%    |
+| Data quality and consistency                                             | 31%    | 27%    | 27%           | 39%  | 36%    | 36%    |
+| Data analysis and modeling                                               | 29%    | 30%    | 27%           | 28%  | 26%    | 30%    |
+| Protecting data                                                          | 28%    | 24%    | 30%           | 26%  | 33%    | 32%    |
+| Collection and mining of data                                           | 27%    | 27%    | 24%           | 30%  | 30%    | 25%    |
+| Skills/resources to analyze data / take on data monetization initiatives | 27%    | 29%    | 29%           | 28%  | 22%    | 25%    |
+| Cost and investment of adoption                                         | 27%    | 27%    | 29%           | 30%  | 22%    | 30%    |
+| Effective commercial exploitation                                       | 26%    | 29%    | 24%           | 25%  | 26%    | 20%    |
+| Provenance of ownership of the data for purposes intended               | 26%    | 25%    | 32%           | 21%  | 29%    | 25%    |
+| Tools to analyze the data                                               | 25%    | 25%    | 35%           | 25%  | 18%    | 23%    |
+| Access to physical storage of data                                      | 22%    | 26%    | 16%           | 7%   | 34%    | 23%    |
+
+**Key insights:**  
+- **Compliance with law/regulations (43% in APAC)** and **data quality/consistency (39% in APAC)** are the top global challenges.  
+- **Tools to analyze the data (35%)** is the most cited issue in **North America**, while **access to storage (34%)** is a significant barrier in **LATAM**.  
+- **Skills/resources** and **cost of adoption** remain consistent concerns across all regions (~27–30%).  
+- **Access to physical storage of data** is a minimal challenge in **APAC (7%)** but major in **LATAM (34%)**.
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    27
 
@@ -2259,77 +1392,22 @@ Despite relatively low numbers currently making full use of data monetization, e
 > 
 > **Michela Pertino, General Counsel, Italtel**
 
-### Expected revenue increase from a focus on data monetization
+## Expected revenue increase from a focus on data monetization
 
-<table>
-<thead>
-<tr>
-<th>Revenue Increase</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1% increase</td>
-<td>13%</td>
-<td>11%</td>
-<td>25%</td>
-<td>15%</td>
-<td>3%</td>
-<td>5%</td>
-</tr>
-<tr>
-<td>2% increase</td>
-<td>27%</td>
-<td>28%</td>
-<td>30%</td>
-<td>16%</td>
-<td>5%</td>
-<td>6%</td>
-</tr>
-<tr>
-<td>3 to 5% increase</td>
-<td>42%</td>
-<td>39%</td>
-<td>17%</td>
-<td>34%</td>
-<td>3%</td>
-<td>2%</td>
-</tr>
-<tr>
-<td>6 to 10% increase</td>
-<td>14%</td>
-<td>12%</td>
-<td>21%</td>
-<td>15%</td>
-<td>2%</td>
-<td>1%</td>
-</tr>
-<tr>
-<td>11 to 15% increase</td>
-<td>3%</td>
-<td>5%</td>
-<td>0%</td>
-<td>10%</td>
-<td>3%</td>
-<td>5%</td>
-</tr>
-<tr>
-<td>16 to 20% increase</td>
-<td>2%</td>
-<td>1%</td>
-<td>3%</td>
-<td>5%</td>
-<td>2%</td>
-<td>55%</td>
-</tr>
-</tbody>
-</table>
+| Revenue increase range       | Global | Europe | North America | APAC | LATAM | Africa |
+|------------------------------|--------|--------|----------------|------|--------|--------|
+| 1% increase                  | 13%    | 11%    | 25%           | 15%  | 3%     | 16%    |
+| 2% increase                  | 27%    | 28%    | 30%           | 21%  | 18%    | 34%    |
+| 3 to 5% increase             | 39%    | 42%    | 17%           | 36%  | 55%    | 36%    |
+| 6 to 10% increase            | 14%    | 12%    | 21%           | 15%  | 16%    | 9%     |
+| 11 to 15% increase           | 5%     | 5%     | 6%            | 10%  | 3%     | 2%     |
+| 16 to 20% increase           | 2%     | 1%     | 0%            | 3%   | 5%     | 2%     |
+
+**Key insights:**  
+- The majority of organizations expect **3–5% revenue growth**, with **Europe (42%)** and **LATAM (55%)** most optimistic.  
+- **North America (30%)** shows the highest share expecting only a **2% increase**, reflecting a more cautious outlook.  
+- Very few anticipate double-digit revenue growth; only **10% in APAC** expect **11–15%** increases, and just **2–5%** anticipate gains beyond **15%**.  
+- **LATAM** shows the strongest overall confidence, with more than half expecting a **3–5%** uplift.
 
 Overall, 60% say that they expect their revenues to increase by 3% or more thanks to data monetization, and one in five put that figure at 6% or more.
 
@@ -2359,7 +1437,7 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 
 Tech Index 2024    Digital Transformation
 
-# Digital transformation – ~~the never-ending journey~~
+# Digital transformation – the never-ending journey
 
 Digital transformation has been a buzz word across almost all sectors for many years now, yet relatively few organizations have really grasped the scale of change that real transformation entails. In that sense the term digital transformation has become somewhat overused and misses the point – that organizations are on a continuous journey of deep digitalization, with the power to fundamentally change their business models, particularly with the introduction of advanced AI technologies.
 
@@ -2398,113 +1476,26 @@ Nearly four in ten expressed concerns about the levels of investment required wh
 
 > It's a case of digital evolution rather than digital transformation, and companies need to rethink their approach to becoming a technology and data-centric enterprise.
 
-### Greatest benefits of digital transformation
+## Greatest benefits of digital transformation
 
-<table>
-<thead>
-<tr>
-<th>Benefit</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Increased flexibility and agility to meet business needs</td>
-<td>34%</td>
-<td>33%</td>
-<td>31%</td>
-<td>31%</td>
-<td>39%</td>
-<td>42%</td>
-</tr>
-<tr>
-<td>More streamlined processes</td>
-<td>29%</td>
-<td>33%</td>
-<td>32%</td>
-<td>23%</td>
-<td>35%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Improved competitive edge</td>
-<td>31%</td>
-<td>33%</td>
-<td>31%</td>
-<td>25%</td>
-<td>35%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Increased and faster information flows for decision making</td>
-<td>31%</td>
-<td>32%</td>
-<td>35%</td>
-<td>37%</td>
-<td>21%</td>
-<td>25%</td>
-</tr>
-<tr>
-<td>Faster deployment of new technologies across the business</td>
-<td>30%</td>
-<td>29%</td>
-<td>32%</td>
-<td>37%</td>
-<td>28%</td>
-<td>30%</td>
-</tr>
-<tr>
-<td>Better communication with end customers</td>
-<td>30%</td>
-<td>30%</td>
-<td>25%</td>
-<td>33%</td>
-<td>27%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Faster time to market for new products/services</td>
-<td>28%</td>
-<td>29%</td>
-<td>28%</td>
-<td>30%</td>
-<td>28%</td>
-<td>25%</td>
-</tr>
-<tr>
-<td>Reduced costs of IT infrastructure</td>
-<td>28%</td>
-<td>28%</td>
-<td>26%</td>
-<td>27%</td>
-<td>23%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Moving the company into the digital age to respond to customer demand</td>
-<td>28%</td>
-<td>30%</td>
-<td>25%</td>
-<td>31%</td>
-<td>29%</td>
-<td>22%</td>
-</tr>
-<tr>
-<td>Increased connectivity of internal systems</td>
-<td>27%</td>
-<td>23%</td>
-<td>25%</td>
-<td>26%</td>
-<td>34%</td>
-<td>30%</td>
-</tr>
-</tbody>
-</table>
+| Benefit                                                                 | Global | Europe | North America | APAC | LATAM | Africa |
+|------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Increased flexibility and agility to meet business needs              | 34%    | 33%    | 31%           | 31%  | 39%    | 29%    |
+| More streamlined processes                                           | 33%    | 32%    | 42%           | 23%  | 35%    | 33%    |
+| Improved competitive edge                                            | 33%    | 31%    | 31%           | 25%  | 35%    | 35%    |
+| Increased and faster information flows for decision making           | 31%    | 32%    | 35%           | 37%  | 21%    | 25%    |
+| Faster deployment of new technologies across the business            | 30%    | 29%    | 32%           | 37%  | 28%    | 30%    |
+| Better communication with end customers                              | 30%    | 30%    | 25%           | 33%  | 27%    | 35%    |
+| Faster time to market for new products/services                      | 28%    | 29%    | 28%           | 30%  | 28%    | 25%    |
+| Reduced costs of IT infrastructure                                   | 28%    | 28%    | 26%           | 27%  | 23%    | 36%    |
+| Moving the company into the digital age to respond to customer demand | 28%    | 30%    | 25%           | 31%  | 29%    | 22%    |
+| Increased connectivity of internal systems                           | 27%    | 23%    | 25%           | 26%  | 34%    | 30%    |
+
+**Key insights:**  
+- **Streamlined processes (42% in North America)** and **faster deployment of new technologies (37% in APAC)** are seen as top benefits.  
+- **Better communication with end customers** and **reduced IT costs** are particularly valued in **Africa (35% and 36%)**.  
+- **Increased flexibility and agility** remains a key global driver (**34%**).  
+- LATAM leads in **increased internal connectivity (34%)**, while **APAC** dominates on **decision-making speed (37%)**.
 
 A range of benefits from digital transformation are recognized, including increased flexibility (particularly important in LATAM), more streamlined processes (particularly important in North America), improved competitive edge and improved information flows. Again, cost reductions are seen as an important benefit in Africa.
 
@@ -2529,93 +1520,22 @@ While organizations are starting to test the water when it comes to the adoption
 
 ## Key challenges to the implementation of digital transformation
 
-<table>
-<thead>
-<tr>
-<th>Challenge</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Exposure to greater security risks in a digital world</td>
-<td>41%</td>
-<td>42%</td>
-<td>41%</td>
-<td>38%</td>
-<td>46%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Cost of disruption to the business</td>
-<td>40%</td>
-<td>38%</td>
-<td>45%</td>
-<td>45%</td>
-<td>38%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Difficulties integrating new and legacy systems</td>
-<td>40%</td>
-<td>38%</td>
-<td>39%</td>
-<td>37%</td>
-<td>43%</td>
-<td>52%</td>
-</tr>
-<tr>
-<td>Incompatibility of new technology</td>
-<td>38%</td>
-<td>39%</td>
-<td>36%</td>
-<td>42%</td>
-<td>39%</td>
-<td>30%</td>
-</tr>
-<tr>
-<td>Level of investment required</td>
-<td>38%</td>
-<td>41%</td>
-<td>35%</td>
-<td>34%</td>
-<td>38%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>Unforeseen downstream issues adding cost to implementations</td>
-<td>37%</td>
-<td>34%</td>
-<td>37%</td>
-<td>33%</td>
-<td>43%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Finding the right partner</td>
-<td>37%</td>
-<td>38%</td>
-<td>36%</td>
-<td>42%</td>
-<td>31%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Lack of staff expertise/skills</td>
-<td>30%</td>
-<td>31%</td>
-<td>31%</td>
-<td>29%</td>
-<td>38%</td>
-<td>22%</td>
-</tr>
-</tbody>
-</table>
+| Challenge                                                                  | Global | Europe | North America | APAC | LATAM | Africa |
+|---------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Exposure to greater security risks in a digital world                    | 41%    | 42%    | 41%           | 38%  | 46%    | 33%    |
+| Cost of disruption to the business                                       | 40%    | 38%    | 45%           | 45%  | 38%    | 35%    |
+| Difficulties integrating new and legacy systems                          | 40%    | 38%    | 39%           | 37%  | 43%    | 52%    |
+| Incompatibility of new technology                                        | 38%    | 39%    | 36%           | 42%  | 39%    | 30%    |
+| Level of investment required                                             | 38%    | 41%    | 35%           | 34%  | 38%    | 39%    |
+| Unforeseen downstream issues adding cost to implementations              | 37%    | 34%    | 37%           | 33%  | 43%    | 41%    |
+| Finding the right partner                                               | 37%    | 38%    | 36%           | 42%  | 31%    | 32%    |
+| Lack of staff expertise/skills                                           | 30%    | 31%    | 31%           | 29%  | 22%    | 38%    |
+
+**Key insights:**  
+- **Security risks (42% in Europe)** and **integration challenges (52% in Africa)** are among the most cited barriers.  
+- **Cost of disruption (45% in North America and APAC)** is a major concern across regions.  
+- **Incompatibility of new technology (42% in APAC)** and **finding the right partner (42% in APAC)** are key hurdles in Asia-Pacific.  
+- **Lack of staff expertise** is particularly high in **Africa (38%)**, but relatively low globally (**30%**).
 
 There are a number of challenges associated with the implementation of digital transformation, including exposure to greater security risks, cost of disruption to the business and difficulties integrating new and legacy systems. The latter is particularly important in Africa.
 
@@ -2644,75 +1564,21 @@ Companies that have people in the C-suite with a technology background are likel
 
 ## Source of drive for digital transformation
 
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Internal IT teams</td>
-<td>32%</td>
-<td>25%</td>
-<td>25%</td>
-<td>25%</td>
-<td>26%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>Senior management team</td>
-<td>21%</td>
-<td>18%</td>
-<td>23%</td>
-<td>26%</td>
-<td>26%</td>
-<td>18%</td>
-</tr>
-<tr>
-<td>Third-party suppliers</td>
-<td>19%</td>
-<td>18%</td>
-<td>20%</td>
-<td>24%</td>
-<td>17%</td>
-<td>16%</td>
-</tr>
-<tr>
-<td>Customers</td>
-<td>15%</td>
-<td>12%</td>
-<td>12%</td>
-<td>12%</td>
-<td>11%</td>
-<td>6%</td>
-</tr>
-<tr>
-<td>Internal marketing teams</td>
-<td>14%</td>
-<td>11%</td>
-<td>10%</td>
-<td>9%</td>
-<td>10%</td>
-<td>11%</td>
-</tr>
-<tr>
-<td>Internal customer service teams</td>
-<td>14%</td>
-<td>14%</td>
-<td>11%</td>
-<td>3%</td>
-<td>14%</td>
-<td>14%</td>
-</tr>
-</tbody>
-</table>
+| Source                                  | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------|--------|--------|----------------|------|--------|--------|
+| Internal IT teams                      | 27%    | 25%    | 25%           | 25%  | 26%    | 32%    |
+| Senior management team                | 21%    | 18%    | 23%           | 26%  | 26%    | 17%    |
+| Third-party suppliers                 | 19%    | 18%    | 20%           | 24%  | 17%    | 16%    |
+| Customers                             | 12%    | 15%    | 11%           | 12%  | 12%    | 6%     |
+| Internal marketing teams              | 11%    | 14%    | 8%            | 10%  | 9%     | 14%    |
+| Internal customer service teams       | 10%    | 11%    | 14%           | 3%   | 11%    | 14%    |
+
+**Key insights:**  
+- **Internal IT teams** are the leading driver globally (**27%**) and especially in **Africa (32%)**.  
+- **Senior management** plays a major role in **APAC (26%)** and **LATAM (26%)**, slightly lower globally (**21%**).  
+- **Third-party suppliers** are more influential in **APAC (24%)** and **North America (20%)**.  
+- **Customer input** is a modest driver globally (**12%**) but slightly higher in **Europe (15%)**.  
+- **Internal marketing and customer service teams** have a smaller but notable influence, with **Europe and Africa (14%)** showing the highest engagement from these teams.
 
 The drive for digital transformation is most likely to be coming from internal IT teams, followed by the senior management team and third-party suppliers.
 
@@ -2798,54 +1664,17 @@ But some sectors have deprioritized sustainability and ESG issues, particularly 
 
 ## Changes in prioritization of ESG issues in the last two years
 
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>These issues are now more of a priority compared with other issues/concerns</th>
-<th>These issues are now less of a priority compared with other issues/concerns</th>
-<th>The prioritization has not changed</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Global</td>
-<td>49%</td>
-<td>26%</td>
-<td>25%</td>
-</tr>
-<tr>
-<td>Europe</td>
-<td>45%</td>
-<td>28%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>North America</td>
-<td>47%</td>
-<td>16%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>APAC</td>
-<td>49%</td>
-<td>26%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>LATAM</td>
-<td>45%</td>
-<td>17%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Africa</td>
-<td>67%</td>
-<td>20%</td>
-<td>17%</td>
-</tr>
-</tbody>
-</table>
+| Change in prioritization                                                                 | Global | Europe | North America | APAC | LATAM | Africa |
+|------------------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| These issues are now more of a priority compared with other issues/concerns            | 49%    | 45%    | 47%           | 49%  | 45%    | 67%    |
+| These issues are now less of a priority compared with other issues/concerns            | 26%    | 28%    | 16%           | 26%  | 36%    | 17%    |
+| The prioritization has not changed                                                     | 25%    | 27%    | 36%           | 26%  | 20%    | 17%    |
+
+**Key insights:**  
+- ESG issues are becoming **more of a priority** globally (**49%**) and especially in **Africa (67%)** and **APAC (49%)**.  
+- **North America** shows a notable split, with **36% reporting no change** and **16% saying ESG is now less of a priority**.  
+- **LATAM (36%)** also reports a higher proportion of organizations deprioritizing ESG compared to the global average (**26%**).  
+- Overall, momentum toward increased ESG prioritization remains strong in most regions.
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    35
 
@@ -2950,196 +1779,41 @@ In terms of action being taken already, Africa, where the impact of climate chan
 
 (Bottom) 80% of companies say they've at least put in place an emerging framework for managing ethical risks around the deployment of technologies, a figure that rises to around 90% in both Latin America and Africa. But only 40% say they have a comprehensive framework, and a good proportion still have no framework at all. That includes a quarter of respondents in the US, which is likely a reflection of the current political and regulatory uncertainty in the country.
 
-### Actions already being implemented to address ESG concerns
+## Actions already being implemented to address ESG concerns
 
-<table>
-<thead>
-<tr>
-<th>Action</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Self-imposed sustainability targets</td>
-<td>45%</td>
-<td>39%</td>
-<td>49%</td>
-<td>49%</td>
-<td>52%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Demanding more accountability in the supply chain</td>
-<td>40%</td>
-<td>37%</td>
-<td>38%</td>
-<td>42%</td>
-<td>38%</td>
-<td>38%</td>
-</tr>
-<tr>
-<td>Investing more in energy efficient technologies</td>
-<td>48%</td>
-<td>38%</td>
-<td>34%</td>
-<td>46%</td>
-<td>37%</td>
-<td>37%</td>
-</tr>
-<tr>
-<td>Broadening license-free access to environmentally friendly Intellectual Property</td>
-<td>44%</td>
-<td>37%</td>
-<td>34%</td>
-<td>41%</td>
-<td>34%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Reporting on transition plans</td>
-<td>37%</td>
-<td>33%</td>
-<td>38%</td>
-<td>41%</td>
-<td>38%</td>
-<td>43%</td>
-</tr>
-<tr>
-<td>Working towards becoming fully carbon neutral by 2030</td>
-<td>36%</td>
-<td>33%</td>
-<td>35%</td>
-<td>44%</td>
-<td>34%</td>
-<td>43%</td>
-</tr>
-<tr>
-<td>Board room representative for sustainability issues</td>
-<td>35%</td>
-<td>31%</td>
-<td>32%</td>
-<td>27%</td>
-<td>30%</td>
-<td>22%</td>
-</tr>
-<tr>
-<td>Closer cooperation with NGOs to help achieve socially desirable sustainability</td>
-<td>19%</td>
-<td>22%</td>
-<td>23%</td>
-<td>24%</td>
-<td>24%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>The tech industry is already doing enough to address these concerns</td>
-<td>0%</td>
-<td>0%</td>
-<td>0%</td>
-<td>2%</td>
-<td>4%</td>
-<td>2%</td>
-</tr>
-</tbody>
-</table>
+| Action                                                                                       | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Self-imposed sustainability targets                                                         | 45%    | 39%    | 49%           | 49%  | 41%    | 52%    |
+| Demanding more accountability in the supply chain                                          | 40%    | 37%    | 38%           | 42%  | 38%    | 48%    |
+| Investing more in energy efficient technologies                                           | 46%    | 37%    | 37%           | 37%  | 34%    | 44%    |
+| Broadening license-free access to environmentally friendly Intellectual Property          | 37%    | 34%    | 33%           | 41%  | 41%    | 41%    |
+| Reporting on transition plans                                                             | 37%    | 38%    | 38%           | 41%  | 38%    | 43%    |
+| Working towards becoming fully carbon neutral by 2030                                     | 36%    | 35%    | 31%           | 35%  | 44%    | 43%    |
+| Board room representative for sustainability issues                                      | 27%    | 22%    | 19%           | 32%  | 30%    | 35%    |
+| Closer cooperation with NGOs to help achieve socially desirable sustainability           | 23%    | 24%    | 22%           | 24%  | 21%    | 26%    |
+| The tech industry is already doing enough to address these concerns                      | 0%     | 2%     | 4%            | 0%   | 2%     | 2%     |
 
-100% of respondents have started to implement some actions
+---
 
-### Actions the tech industry should be doing to address environmental sustainability
+## Actions the tech industry **should** be doing to address environmental sustainability
 
-<table>
-<thead>
-<tr>
-<th>Action</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Self-imposed sustainability targets</td>
-<td>52%</td>
-<td>49%</td>
-<td>53%</td>
-<td>46%</td>
-<td>57%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>Demanding more accountability in the supply chain</td>
-<td>46%</td>
-<td>45%</td>
-<td>46%</td>
-<td>47%</td>
-<td>47%</td>
-<td>43%</td>
-</tr>
-<tr>
-<td>Investing more in energy efficient technologies</td>
-<td>51%</td>
-<td>49%</td>
-<td>45%</td>
-<td>41%</td>
-<td>44%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Broadening license-free access to environmentally friendly Intellectual Property</td>
-<td>39%</td>
-<td>41%</td>
-<td>41%</td>
-<td>39%</td>
-<td>40%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Reporting on transition plans</td>
-<td>38%</td>
-<td>38%</td>
-<td>50%</td>
-<td>44%</td>
-<td>46%</td>
-<td>46%</td>
-</tr>
-<tr>
-<td>Working towards becoming fully carbon neutral by 2030</td>
-<td>45%</td>
-<td>43%</td>
-<td>53%</td>
-<td>45%</td>
-<td>43%</td>
-<td>46%</td>
-</tr>
-<tr>
-<td>Board room representative for sustainability issues</td>
-<td>34%</td>
-<td>32%</td>
-<td>34%</td>
-<td>28%</td>
-<td>28%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>Closer cooperation with NGOs to help achieve socially desirable sustainability</td>
-<td>28%</td>
-<td>29%</td>
-<td>35%</td>
-<td>54%</td>
-<td>57%</td>
-<td>61%</td>
-</tr>
-</tbody>
-</table>
+| Action                                                                                       | Global | Europe | North America | APAC | LATAM | Africa |
+|----------------------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| Self-imposed sustainability targets                                                         | 52%    | 53%    | 46%           | 49%  | 46%    | 61%    |
+| Demanding more accountability in the supply chain                                          | 45%    | 46%    | 47%           | 47%  | 39%    | 59%    |
+| Investing more in energy efficient technologies                                           | 51%    | 54%    | 57%           | 43%  | 44%    | 61%    |
+| Broadening license-free access to environmentally friendly Intellectual Property          | 41%    | 44%    | 46%           | 41%  | 43%    | 50%    |
+| Reporting on transition plans                                                             | 45%    | 46%    | 50%           | 44%  | 46%    | 53%    |
+| Working towards becoming fully carbon neutral by 2030                                     | 40%    | 46%    | 53%           | 38%  | 38%    | 35%    |
+| Board room representative for sustainability issues                                      | 28%    | 28%    | 28%           | 26%  | 28%    | 35%    |
+| Closer cooperation with NGOs to help achieve socially desirable sustainability           | 28%    | 28%    | 28%           | 26%  | 28%    | 35%    |
+| The tech industry is already doing enough to address these concerns                      | 0%     | 2%     | 4%            | 0%   | 2%     | 2%     |
+
+**Key insights:**  
+- **Self-imposed sustainability targets** and **supply chain accountability** are the most common actions already in place.  
+- **Investment in energy-efficient technologies** and **broadening IP access** remain major priorities for future action.  
+- Many regions, particularly **Africa (61%)** and **APAC (50%)**, believe **more needs to be done** across all categories.  
+- Virtually **no respondents (0–4%)** believe the tech industry is currently doing enough to address ESG concerns.
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    38
 
@@ -3166,40 +1840,29 @@ Balancing this equation will be critical, not least because many companies in ot
 
 ## Framework for managing ethical risks associated with the deployment of technologies
 
-<table>
-<thead>
-<tr>
-<th>Framework Status</th>
-<th>Percentage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>A comprehensive framework in place that covers all potential risks areas (e.g. privacy, cyber, AI, freedom of expression) underpinned by ethical principles, impact assessments and review boards</td>
-<td>38%<br>37%<br>31%<br>41%<br>33%<br>59%</td>
-</tr>
-<tr>
-<td>An emerging governance framework in place, supported by basic guiding principles</td>
-<td>44%<br>43%<br>43%<br>42%<br>55%<br>33%</td>
-</tr>
-<tr>
-<td>No formal framework in place, but we do have policies for managing some elements, e.g. privacy/cyber risk</td>
-<td>15%<br>19%<br>19%<br>15%<br>9%<br>7%</td>
-</tr>
-<tr>
-<td>No framework in place, but manage these issues tactically</td>
-<td>2%<br>1%<br>7%<br>1%<br>2%<br>0%</td>
-</tr>
-</tbody>
-</table>
+| Framework level                                                                                                                   | Global | Europe | North America | APAC | LATAM | Africa |
+|-----------------------------------------------------------------------------------------------------------------------------------|--------|--------|----------------|------|--------|--------|
+| A comprehensive framework in place that covers all potential risk areas (e.g., privacy, cyber, AI, freedom of expression) underpinned by ethical principles, impact assessments, and review boards | 38%    | 37%    | 31%           | 41%  | 33%    | 59%    |
+| An emerging governance framework in place, supported by basic guiding principles                                                | 44%    | 43%    | 43%           | 42%  | 55%    | 33%    |
+| No formal framework in place, but we do have policies for managing some elements (e.g., privacy/cyber risk)                     | 15%    | 19%    | 19%           | 15%  | 9%     | 7%     |
+| No framework in place, but manage these issues tactically                                                                      | 2%     | 1%     | 7%            | 1%   | 2%     | 0%     |
 
-**At least an emerging framework:**
-* 82% Global
-* 80% Europe  
-* 74% North America
-* 83% APAC
-* 88% LATAM
-* 92% Africa
+### At least an emerging framework:
+
+| Region           | % with at least an emerging framework |
+|------------------|---------------------------------------|
+| Global           | 82%                                  |
+| Europe           | 80%                                  |
+| North America    | 74%                                  |
+| APAC             | 83%                                  |
+| LATAM            | 88%                                  |
+| Africa           | 92%                                  |
+
+**Key insights:**  
+- Most regions report **at least an emerging governance framework** for managing ethical risks, with **Africa (92%)** and **LATAM (88%)** leading adoption.  
+- A **comprehensive framework** is most common in **Africa (59%)** and **APAC (41%)**, but remains below **40% globally**.  
+- **North America (31%)** lags behind in establishing comprehensive frameworks.  
+- A small minority globally (**2%**) still manage these risks only tactically without formal frameworks.
 
 ## Key contributors
 
@@ -3294,104 +1957,27 @@ Over the last decade or so the focus has been on cryptocurrencies, blockchain an
 
 But in each case, as the law adapts to meet the advancement in technology, we see the market strengthening as financiers, lenders and the capital markets gain the confidence to invest at much higher levels.
 
-## Benefits of fintech
+## Benefits of Fintech
 
-<table>
-<thead>
-<tr>
-<th>Benefit</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Better functionality</td>
-<td>45%</td>
-<td>45%</td>
-<td>39%</td>
-<td>45%</td>
-<td>47%</td>
-<td>52%</td>
-</tr>
-<tr>
-<td>Increased speed/agility of processes</td>
-<td>37%</td>
-<td>39%</td>
-<td>40%</td>
-<td>40%</td>
-<td>31%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Competitive edge</td>
-<td>34%</td>
-<td>34%</td>
-<td>36%</td>
-<td>34%</td>
-<td>35%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Ability to better meet regulatory requirements</td>
-<td>40%</td>
-<td>42%</td>
-<td>21%</td>
-<td>55%</td>
-<td>34%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Faster company growth</td>
-<td>34%</td>
-<td>33%</td>
-<td>39%</td>
-<td>34%</td>
-<td>34%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>More flexibility</td>
-<td>36%</td>
-<td>34%</td>
-<td>29%</td>
-<td>28%</td>
-<td>44%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Faster time to market for services</td>
-<td>31%</td>
-<td>33%</td>
-<td>26%</td>
-<td>18%</td>
-<td>28%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Reduced costs of operations</td>
-<td>27%</td>
-<td>27%</td>
-<td>28%</td>
-<td>26%</td>
-<td>26%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>The ability to be more customer centric</td>
-<td>26%</td>
-<td>23%</td>
-<td>23%</td>
-<td>22%</td>
-<td>21%</td>
-<td>34%</td>
-</tr>
-</tbody>
-</table>
+| Benefit | Global | Europe | North America | APAC | LATAM | Africa |
+|---------|--------|--------|----------------|------|--------|--------|
+| Better functionality | 45% | 45% | 39% | 52% | 45% | 47% |
+| Increased speed/agility of processes | 37% | 39% | 40% | 40% | 31% | 32% |
+| Competitive edge | 34% | 34% | 36% | 34% | 35% | 32% |
+| Ability to better meet regulatory requirements | 34% | 40% | 21% | 42% | 35% | 32% |
+| Faster company growth | 34% | 32% | 34% | 33% | 39% | 34% |
+| More flexibility | 34% | 29% | 28% | 36% | 34% | 44% |
+| Faster time to market for services | 28% | 31% | 33% | 18% | 26% | 31% |
+| Reduced costs of operations | 27% | 27% | 35% | 23% | 28% | 26% |
+| The ability to be more customer centric | 26% | 23% | 34% | 22% | 28% | 21% |
+
+### Key Insights
+- **Better functionality** is the top global benefit (45%) and peaks in **APAC (52%)**.
+- **Increased speed and agility** is reported by around **40%** in Europe, North America, and APAC.
+- **Ability to better meet regulatory requirements** is especially high in **APAC (42%)** but low in **North America (21%)**.
+- **Faster company growth** and **more flexibility** vary widely by region, with **LATAM (39%)** and **Africa (44%)** leading respectively.
+- **Reduced operational costs** show the largest gap, reaching **35%** in North America but only **23%** in APAC.
+- **Customer centricity** remains relatively low across all regions, peaking at **34%** in North America.
 
 Key benefits of fintech are seen to be better functionality and increased speed/ agility. Flexibility is particularly important in Africa and the ability to better meet regulatory requirements is particularly important in Europe and APAC. Reduced operations costs and the ability to be more customer centric are of greater importance in North America compared with other regions.
 
@@ -3465,167 +2051,33 @@ It's one we also expect to expand, particularly as supporting AI solutions come 
 
 > Digital banking scores most highly in Africa, reflecting its potential to transform financial services accessibility.
 
-### Areas with most potential across the fintech ecosystem
+## Areas with Most Potential Across the Fintech Ecosystem
 
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Payment services</td>
-<td>32%</td>
-<td>32%</td>
-<td>29%</td>
-<td>41%</td>
-<td>32%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Digital banking</td>
-<td>31%</td>
-<td>25%</td>
-<td>27%</td>
-<td>35%</td>
-<td>33%</td>
-<td>38%</td>
-</tr>
-<tr>
-<td>Cybersecurity</td>
-<td>26%</td>
-<td>26%</td>
-<td>25%</td>
-<td>22%</td>
-<td>24%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Data analytics</td>
-<td>25%</td>
-<td>26%</td>
-<td>23%</td>
-<td>24%</td>
-<td>25%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Blockchain</td>
-<td>22%</td>
-<td>21%</td>
-<td>14%</td>
-<td>31%</td>
-<td>24%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Investment management</td>
-<td>24%</td>
-<td>25%</td>
-<td>27%</td>
-<td>21%</td>
-<td>25%</td>
-<td>21%</td>
-</tr>
-<tr>
-<td>Asset management</td>
-<td>21%</td>
-<td>21%</td>
-<td>23%</td>
-<td>18%</td>
-<td>21%</td>
-<td>16%</td>
-</tr>
-</tbody>
-</table>
+| Area | Global | Europe | North America | APAC | LATAM | Africa |
+|------|--------|--------|----------------|------|--------|--------|
+| Payment services | 32% | 32% | 29% | 41% | 32% | 25% |
+| Digital banking | 31% | 27% | 22% | 35% | 33% | 38% |
+| Cybersecurity | 26% | 26% | 25% | 24% | 23% | 34% |
+| Data analytics | 25% | 26% | 22% | 32% | 24% | 21% |
+| Blockchain | 25% | 27% | 25% | 31% | 14% | 25% |
+| Investment management | 24% | 25% | 25% | 31% | 16% | 21% |
+| Asset management | 21% | 21% | 21% | 23% | 18% | 26% |
+| Cryptocurrencies | 21% | 19% | 15% | 29% | 23% | 26% |
+| Alternative lending | 21% | 21% | 20% | 28% | 16% | 18% |
+| Crowdfunding | 19% | 18% | 12% | 22% | 19% | 25% |
+| Capital markets | 17% | 15% | 18% | 21% | 17% | 16% |
+| InsurTech | 16% | 15% | 14% | 23% | 9% | 9% |
+| RegTech / risk management | 14% | 13% | 11% | 26% | 16% | 7% |
+| Initial Coin Offerings (ICOs) | 13% | 9% | 7% | 11% | 9% | 3% |
 
-Respondents see the greatest potential value from Fintech for customers coming from payment services and digital banking, followed by cybersecurity, which is particularly important in Africa.
+### Insights
+- **Payment services** and **digital banking** are seen as the most promising areas globally, especially in **APAC (41%)** and **Africa (38%)**.
+- **Cybersecurity** shows strong growth potential, particularly in **Africa (34%)**.
+- **Blockchain** has high potential in **APAC (31%)**, while **investment management** is strongest in **LATAM (31%)**.
+- **Cryptocurrencies** lead in **APAC (29%)**, whereas **RegTech** is strongest in **LATAM (26%)**.
+- **InsurTech** and **ICOs** are emerging areas but remain relatively low globally.
 
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cryptocurrencies</td>
-<td>21%</td>
-<td>15%</td>
-<td>19%</td>
-<td>29%</td>
-<td>23%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>Alternative lending</td>
-<td>21%</td>
-<td>21%</td>
-<td>20%</td>
-<td>18%</td>
-<td>18%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Crowdfunding</td>
-<td>19%</td>
-<td>12%</td>
-<td>22%</td>
-<td>25%</td>
-<td>19%</td>
-<td>17%</td>
-</tr>
-<tr>
-<td>Capital markets</td>
-<td>17%</td>
-<td>18%</td>
-<td>17%</td>
-<td>16%</td>
-<td>16%</td>
-<td>21%</td>
-</tr>
-<tr>
-<td>InsurTech</td>
-<td>16%</td>
-<td>15%</td>
-<td>14%</td>
-<td>23%</td>
-<td>9%</td>
-<td>9%</td>
-</tr>
-<tr>
-<td>RegTech/risk management</td>
-<td>14%</td>
-<td>13%</td>
-<td>26%</td>
-<td>11%</td>
-<td>16%</td>
-<td>7%</td>
-</tr>
-<tr>
-<td>Initial Coin Offerings (ICOs)</td>
-<td>13%</td>
-<td>11%</td>
-<td>9%</td>
-<td>13%</td>
-<td>11%</td>
-<td>3%</td>
-</tr>
-</tbody>
-</table>
+Respondents see the greatest potential value from fintech for customers coming from **payment services** and **digital banking**, followed by **cybersecurity**, which is particularly important in Africa.
 
 Other areas are slightly less likely to be identified, but 1 in 5 respondents highlight applications such as cryptocurrencies, alternative lending or crowdfunding as having high potential. Some areas are of particular importance for certain regions, for example alternative lending in Africa and RegTech in North America.
 
@@ -3714,111 +2166,25 @@ Perhaps surprisingly, reduced costs comes well down the list of benefits since m
 
 ## Benefits of Internet of Things
 
-<table>
-<thead>
-<tr>
-<th>Benefit</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>More efficient processes</td>
-<td>35%</td>
-<td>34%</td>
-<td>28%</td>
-<td>37%</td>
-<td>34%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>Faster innovation</td>
-<td>35%</td>
-<td>32%</td>
-<td>35%</td>
-<td>33%</td>
-<td>33%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Increased agility</td>
-<td>33%</td>
-<td>31%</td>
-<td>34%</td>
-<td>34%</td>
-<td>34%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Increased flexibility</td>
-<td>31%</td>
-<td>30%</td>
-<td>33%</td>
-<td>22%</td>
-<td>36%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Better information flows</td>
-<td>30%</td>
-<td>33%</td>
-<td>27%</td>
-<td>24%</td>
-<td>23%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>Better user experiences</td>
-<td>29%</td>
-<td>29%</td>
-<td>26%</td>
-<td>31%</td>
-<td>26%</td>
-<td>34%</td>
-</tr>
-<tr>
-<td>Improved competitive edge</td>
-<td>29%</td>
-<td>24%</td>
-<td>25%</td>
-<td>33%</td>
-<td>37%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Increased speed of processes implementation</td>
-<td>26%</td>
-<td>32%</td>
-<td>24%</td>
-<td>26%</td>
-<td>25%</td>
-<td>20%</td>
-</tr>
-<tr>
-<td>Better connectivity of internal systems</td>
-<td>26%</td>
-<td>30%</td>
-<td>27%</td>
-<td>26%</td>
-<td>22%</td>
-<td>21%</td>
-</tr>
-<tr>
-<td>Reduced costs</td>
-<td>26%</td>
-<td>24%</td>
-<td>25%</td>
-<td>30%</td>
-<td>27%</td>
-<td>26%</td>
-</tr>
-</tbody>
-</table>
+| Benefit | Global | Europe | North America | APAC | LATAM | Africa |
+|--------|--------|--------|----------------|------|--------|--------|
+| More efficient processes | 35% | 34% | 28% | 37% | 34% | 45% |
+| Faster innovation | 35% | 32% | 41% | 35% | 33% | 33% |
+| Increased agility | 33% | 31% | 34% | 34% | 34% | 33% |
+| Increased flexibility | 31% | 30% | 33% | 22% | 36% | 35% |
+| Better information flows | 30% | 33% | 39% | 27% | 24% | 23% |
+| Better user experiences | 29% | 29% | 26% | 31% | 26% | 34% |
+| Improved competitive edge | 29% | 24% | 25% | 33% | 37% | 31% |
+| Increased speed of processes implementation | 26% | 32% | 24% | 26% | 25% | 20% |
+| Better connectivity of internal systems | 26% | 30% | 27% | 26% | 22% | 21% |
+| Reduced costs | 26% | 24% | 25% | 30% | 27% | 26% |
+
+### Insights
+
+- **More efficient processes** are the top benefit globally (35%), and especially significant in **Africa (45%)**.
+- **Faster innovation** is particularly strong in **North America (41%)**.
+- **Better information flows** show the highest impact in **North America (39%)**, while **improved competitive edge** peaks in **LATAM (37%)**.
+- **Reduced costs** is a consistent benefit across all regions, led by **APAC (30%)**.
 
 A range of benefits are associated with IoT/ connectivity, including more efficient processes (particularly important in Africa), faster innovation (particularly important in North America) and increased agility and flexibility.
 
@@ -3845,93 +2211,24 @@ Among other drawbacks identified in our survey, respondents in North America exp
 
 ## Drawbacks of Internet of Things
 
-<table>
-<thead>
-<tr>
-<th>Drawback Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Regulatory requirements</td>
-<td>46%</td>
-<td>52%</td>
-<td>38%</td>
-<td>49%</td>
-<td>45%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Risk to privacy</td>
-<td>44%</td>
-<td>53%</td>
-<td>40%</td>
-<td>42%</td>
-<td>42%</td>
-<td>44%</td>
-</tr>
-<tr>
-<td>Potential business disruption</td>
-<td>40%</td>
-<td>46%</td>
-<td>36%</td>
-<td>38%</td>
-<td>42%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Level of investment required</td>
-<td>39%</td>
-<td>44%</td>
-<td>41%</td>
-<td>36%</td>
-<td>38%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Higher risk of cybersecurity threats</td>
-<td>40%</td>
-<td>43%</td>
-<td>36%</td>
-<td>38%</td>
-<td>34%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Incompatibility of new technology</td>
-<td>34%</td>
-<td>43%</td>
-<td>30%</td>
-<td>32%</td>
-<td>34%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Need to work collaboratively with third-parties</td>
-<td>32%</td>
-<td>40%</td>
-<td>31%</td>
-<td>29%</td>
-<td>32%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Lack of staff expertise/skills to exploit IoT</td>
-<td>28%</td>
-<td>33%</td>
-<td>31%</td>
-<td>22%</td>
-<td>23%</td>
-<td>28%</td>
-</tr>
-</tbody>
-</table>
+| Drawback | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Regulatory requirements | 46% | 52% | 38% | 45% | 49% | 40% |
+| Risk to privacy | 44% | 40% | 53% | 42% | 42% | 44% |
+| Potential business disruption | 40% | 38% | 36% | 46% | 42% | 35% |
+| Level of investment required | 39% | 38% | 44% | 36% | 36% | 41% |
+| Higher risk of cybersecurity threats | 38% | 40% | 34% | 43% | 36% | 33% |
+| Incompatibility of new technology | 34% | 32% | 30% | 34% | 43% | 40% |
+| Need to work collaboratively with third-parties | 32% | 29% | 32% | 31% | 29% | 40% |
+| Lack of staff expertise/skills to exploit IoT | 28% | 31% | 33% | 22% | 23% | 28% |
+
+### Key Takeaways
+
+- **Regulatory requirements** are the most cited drawback globally (46%) and especially in **Europe (52%)**.
+- **Risk to privacy** is particularly significant in **North America (53%)**.
+- **Potential business disruption** is a major concern in **APAC (46%)**.
+- **Incompatibility of new technology** and **collaboration needs** show increasing concern in **LATAM (43%)** and **Africa (40%)**.
+- **Lack of staff expertise** is relatively lower overall but still notable in **North America (33%)** and **Africa (28%)**.
 
 The key drawbacks to the implementation of IoT are seen to be regulatory requirement and the risk to privacy, which is particularly important in North America.
 
@@ -3957,50 +2254,20 @@ We think it is unlikely to have a significant impact, however.
 
 The rapid convergence of all the technologies that will continue to make IoT devices increasingly capable – sensor development, powerful new connectivity solutions, the cloud and AI, for example – means that we are currently only seeing the tip of the iceberg in terms of the variety and scale of IoT development and deployment in years to come.
 
-## Meeting IoT needs
+## Meeting IoT Needs
 
-<table>
-<thead>
-<tr>
-<th>Resource Type</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mix of both internal and external resources</td>
-<td>56%</td>
-<td>54%</td>
-<td>64%</td>
-<td>48%</td>
-<td>56%</td>
-<td>58%</td>
-</tr>
-<tr>
-<td>Using outside vendor/supplier resources only</td>
-<td>28%</td>
-<td>27%</td>
-<td>23%</td>
-<td>36%</td>
-<td>25%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>Using in-house resources only</td>
-<td>17%</td>
-<td>19%</td>
-<td>13%</td>
-<td>16%</td>
-<td>19%</td>
-<td>16%</td>
-</tr>
-</tbody>
-</table>
+| Approach | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Mix of both internal and external resources | 56% | 54% | 64% | 48% | 56% | 58% |
+| Using outside vendor/supplier resources only | 28% | 27% | 23% | 36% | 25% | 26% |
+| Using in-house resources only | 17% | 19% | 13% | 16% | 19% | 16% |
+
+### Insights
+
+- **Hybrid models** (mix of internal and external resources) dominate across all regions, with **North America (64%)** leading adoption.
+- **APAC (36%)** relies more heavily on **external vendors/suppliers only**, compared to the global average (28%).
+- **In-house only** approaches are the least common, especially in **North America (13%)**.
+- **Africa (58%)** and **LATAM (56%)** also show strong preference for hybrid IoT resourcing.
 
 Organizations are most likely to be using a mix of internal and external resources to meet IoT/ connectivity needs. Those in APAC are more likely to be relying solely on third parties than those in other regions.
 
@@ -4030,7 +2297,7 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    50
 
-# M&A –~~makes a cautious~~ ~~but uneven return~~
+# M&A - makes a cautious but uneven return
 
 Acquisitions appear to be back on the agenda for many of the companies we surveyed across the world after one of the steepest downturns in M&A activity we have seen in decades. The decline in the volume and value of deals since the extraordinary bull run of dealmaking ended abruptly in 2022, has seen an 18-month period where the market was idling in the doldrums. In some markets the decline in activity has been even more severe than the downturn we witnessed after the dot-com bubble burst in the early 2000s and in the wake of the 2008 financial crisis. Economic conditions remain challenging in 2024 and growing geopolitical uncertainties continue to test the nerve of investors. But our survey shows that many of our respondents are once again weighing up the varied advantages of acquiring external businesses.
 
@@ -4053,95 +2320,18 @@ For instance, in Europe accelerating market share growth ranked higher than in o
 
 > The US is leading the return to M&A activity, with a noticeable uptick in sell-side transactions
 
-## Most beneficial features from the acquisition of an external company
+## Most Beneficial Features from the Acquisition of an External Company
 
-<table>
-<thead>
-<tr>
-<th>Benefit</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Access to new technology</td>
-<td>45%</td>
-<td>43%</td>
-<td>48%</td>
-<td>48%</td>
-<td>50%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>Ability to scale at pace</td>
-<td>43%</td>
-<td>27%</td>
-<td>40%</td>
-<td>49%</td>
-<td>52%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>Establish a presence in a new/related market</td>
-<td>42%</td>
-<td>42%</td>
-<td>40%</td>
-<td>54%</td>
-<td>38%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Defensive move to prevent competition acquiring asset</td>
-<td>41%</td>
-<td>40%</td>
-<td>45%</td>
-<td>45%</td>
-<td>37%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Speedy acquisition of market share</td>
-<td>39%</td>
-<td>33%</td>
-<td>30%</td>
-<td>47%</td>
-<td>38%</td>
-<td>43%</td>
-</tr>
-<tr>
-<td>Access to an additional talent pool</td>
-<td>32%</td>
-<td>30%</td>
-<td>42%</td>
-<td>30%</td>
-<td>35%</td>
-<td>21%</td>
-</tr>
-<tr>
-<td>Acquisition of Intellectual Property</td>
-<td>31%</td>
-<td>34%</td>
-<td>35%</td>
-<td>30%</td>
-<td>33%</td>
-<td>23%</td>
-</tr>
-<tr>
-<td>Opportunity to rationalize parent company cost base</td>
-<td>27%</td>
-<td>32%</td>
-<td>31%</td>
-<td>22%</td>
-<td>20%</td>
-<td>36%</td>
-</tr>
-</tbody>
-</table>
+| Feature | Global | Europe | North America | APAC | LATAM | Africa |
+|---------|--------|--------|----------------|------|--------|--------|
+| Access to new technology | 45% | 43% | 48% | 48% | 39% | 50% |
+| Ability to scale at pace | 43% | 27% | 40% | 49% | 52% | 45% |
+| Establish a presence in a new/related market | 42% | 42% | 40% | 42% | 38% | 31% |
+| Defensive move to prevent competition acquiring asset | 41% | 45% | 40% | 45% | 37% | 31% |
+| Speedy acquisition of market share | 39% | 47% | 33% | 30% | 38% | 43% |
+| Access to an additional talent pool | 32% | 30% | 42% | 30% | 35% | 21% |
+| Acquisition of Intellectual Property | 31% | 34% | 35% | 23% | 30% | 33% |
+| Opportunity to rationalize parent company cost base | 27% | 32% | 22% | 20% | 31% | 36% |
 
 The key areas of benefit from the acquisition of an external company include access to new technology, ability to scale at pace and being able to establish a presence in other markets (particularly important in APAC).
 
@@ -4211,104 +2401,19 @@ Asked what are the major drawbacks from acquiring an external business, our resp
 
 Again, there are some interesting regional variations. Integrating working practices and cultures is a particular concern for African organizations, while due diligence costs and the threat that an acquisition will act as a distraction for senior management score highly in Latin America. In Europe and APAC more respondents worry about integrating systems that may not be compatible.
 
-### Biggest drawbacks of acquiring an external company
+## Biggest Drawbacks of Acquiring an External Company
 
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Requirement to integrate systems that may not be currently compatible</td>
-<td>40%</td>
-<td>46%</td>
-<td>35%</td>
-<td>39%</td>
-<td>43%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>Additional complexity</td>
-<td>37%</td>
-<td>33%</td>
-<td>35%</td>
-<td>41%</td>
-<td>29%</td>
-<td>32%</td>
-</tr>
-<tr>
-<td>Time cost of due diligence to ensure that IP acquired is of true value</td>
-<td>32%</td>
-<td>30%</td>
-<td>36%</td>
-<td>37%</td>
-<td>27%</td>
-<td>39%</td>
-</tr>
-<tr>
-<td>Diversion of financial investment from other projects</td>
-<td>34%</td>
-<td>33%</td>
-<td>40%</td>
-<td>32%</td>
-<td>28%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Requirement to integrate working practices/cultures</td>
-<td>34%</td>
-<td>34%</td>
-<td>31%</td>
-<td>33%</td>
-<td>27%</td>
-<td>52%</td>
-</tr>
-<tr>
-<td>Requirement to make promised cost savings to justify acquisition</td>
-<td>33%</td>
-<td>33%</td>
-<td>32%</td>
-<td>35%</td>
-<td>23%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Increase in legacy systems and processes</td>
-<td>30%</td>
-<td>28%</td>
-<td>28%</td>
-<td>30%</td>
-<td>21%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Senior management distraction during acquisition</td>
-<td>25%</td>
-<td>30%</td>
-<td>30%</td>
-<td>19%</td>
-<td>41%</td>
-<td>33%</td>
-</tr>
-<tr>
-<td>Negative impact on staff morale</td>
-<td>29%</td>
-<td>32%</td>
-<td>28%</td>
-<td>20%</td>
-<td>35%</td>
-<td>31%</td>
-</tr>
-</tbody>
-</table>
+| Drawback | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Requirement to integrate systems that may not be currently compatible | 40% | 46% | 35% | 45% | 39% | 33% |
+| Additional complexity | 35% | 30% | 37% | 36% | 41% | 29% |
+| Time cost of due diligence to ensure that IP acquired is of true value | 34% | 32% | 37% | 30% | 39% | 33% |
+| Diversion of financial investment from other projects | 34% | 35% | 40% | 28% | 32% | 36% |
+| Requirement to integrate working practices/cultures | 34% | 34% | 33% | 33% | 23% | 52% |
+| Requirement to make promised cost savings to justify acquisition | 33% | 33% | 32% | 35% | 35% | 33% |
+| Increase in legacy systems and processes | 30% | 28% | 28% | 33% | 30% | 33% |
+| Senior management distraction during acquisition | 30% | 25% | 30% | 28% | 41% | 19% |
+| Negative impact on staff morale | 29% | 35% | 28% | 32% | 20% | 31% |
 
 The biggest drawbacks of acquiring an external company are the requirement to integrate systems and the additional complexity involved. The requirement to integrate working practices/ cultures is seen as a particular drawback in Africa
 
@@ -4353,113 +2458,20 @@ Partner, Dublin
 
 > In some instances, we are seeing investors opting to pursue joint ventures and other partnership arrangements rather than transactions, for fear of triggering investigations by the regulators.
 
-## Key technological challenges when acquiring an external company
+## Key Technological Challenges When Acquiring an External Company
 
-<table>
-<thead>
-<tr>
-<th>Challenge</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Systems integration</td>
-<td>46%</td>
-<td>38%</td>
-<td>42%</td>
-<td>38%</td>
-<td>30%</td>
-<td>31%</td>
-</tr>
-<tr>
-<td>Cross-business data/cybersecurity protocol implementation</td>
-<td>35%</td>
-<td>32%</td>
-<td>38%</td>
-<td>39%</td>
-<td>39%</td>
-<td>26%</td>
-</tr>
-<tr>
-<td>Mitigation of skills gaps/resource</td>
-<td>41%</td>
-<td>38%</td>
-<td>38%</td>
-<td>32%</td>
-<td>27%</td>
-<td>28%</td>
-</tr>
-<tr>
-<td>Securing budget to achieve integration objectives</td>
-<td>32%</td>
-<td>28%</td>
-<td>32%</td>
-<td>32%</td>
-<td>28%</td>
-<td>20%</td>
-</tr>
-<tr>
-<td>Data management</td>
-<td>48%</td>
-<td>28%</td>
-<td>31%</td>
-<td>30%</td>
-<td>30%</td>
-<td>23%</td>
-</tr>
-<tr>
-<td>Data integration/cross-business data quality compliance</td>
-<td>32%</td>
-<td>29%</td>
-<td>31%</td>
-<td>32%</td>
-<td>30%</td>
-<td>23%</td>
-</tr>
-<tr>
-<td>Mitigating impact on day-to-day operations</td>
-<td>28%</td>
-<td>31%</td>
-<td>25%</td>
-<td>26%</td>
-<td>18%</td>
-<td>24%</td>
-</tr>
-<tr>
-<td>Re-prioritization of previously-committed projects as a result of merger/acquisition</td>
-<td>26%</td>
-<td>25%</td>
-<td>27%</td>
-<td>26%</td>
-<td>27%</td>
-<td>21%</td>
-</tr>
-<tr>
-<td>Increased legacy systems and complexity</td>
-<td>23%</td>
-<td>25%</td>
-<td>22%</td>
-<td>25%</td>
-<td>23%</td>
-<td>19%</td>
-</tr>
-<tr>
-<td>Achieving integration of working practices/protocols between company teams</td>
-<td>32%</td>
-<td>30%</td>
-<td>30%</td>
-<td>32%</td>
-<td>19%</td>
-<td>19%</td>
-</tr>
-</tbody>
-</table>
+| Challenge | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Systems integration | 38% | 46% | 42% | 30% | 31% |
+| Cross-business data/cybersecurity protocol implementation | 35% | 32% | 39% | 39% | 26% |
+| Mitigation of skills gaps/resource | 32% | 27% | 28% | 41% | 32% |
+| Securing budget to achieve integration objectives | 32% | 28% | 38% | 28% | 31% | 38% |
+| Data management | 30% | 30% | 23% | 20% | 32% | 48% |
+| Data integration/cross-business data quality compliance | 29% | 31% | 32% | 30% | 23% | 24% |
+| Mitigating impact on day-to-day operations | 28% | 31% | 25% | 26% | 30% | 29% |
+| Re-prioritization of previously committed projects as a result of merger/acquisition | 26% | 25% | 18% | 32% | 27% | 21% |
+| Increased legacy systems and complexity | 26% | 27% | 30% | 30% | 23% | 19% |
+| Achieving integration of working practices/protocols between company teams | 25% | 22% | 25% | 23% | 32% | 19% |
 
 Key technological challenges related to acquiring an external company include systems integration, implementing cross-business security protocols, migration of skills gaps/ resource and securing budget for integration objectives. Data management is a particular challenge in Africa.
 
@@ -4472,7 +2484,7 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 
 Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G
 
-# 5G – ~~yet to prove its full potential~~
+# 5G – yet to prove its full potential
 
 Despite a number of challenges that have impacted the development and deployment of 5G, it continues to be seen as a technology with huge potential, not least because of the advantages it offers in terms of data processing speeds, increased connectivity and lower latency.
 
@@ -4491,98 +2503,19 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 
 Tech Index 2024
 
-# Potential opportunities of 5G
+## Potential Opportunities of 5G
 
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th>AI</th>
-<th>5G</th>
-<th>Digital transformation</th>
-<th>Cybersecurity</th>
-<th>IoT</th>
-<th>Fintech</th>
-<th>Sustainability and ESG</th>
-<th>Data monetization</th>
-<th>Acquisition of external businesses</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Global</td>
-<td>72%</td>
-<td>68%</td>
-<td>63%</td>
-<td>61%</td>
-<td>53%</td>
-<td>65%</td>
-<td>57%</td>
-<td>48%</td>
-<td>59%</td>
-</tr>
-<tr>
-<td>Europe</td>
-<td>63%</td>
-<td>50%</td>
-<td>59%</td>
-<td>59%</td>
-<td>61%</td>
-<td>54%</td>
-<td>59%</td>
-<td>55%</td>
-<td>50%</td>
-</tr>
-<tr>
-<td>North America</td>
-<td>55%</td>
-<td>46%</td>
-<td>40%</td>
-<td>53%</td>
-<td>53%</td>
-<td>49%</td>
-<td>55%</td>
-<td>50%</td>
-<td>56%</td>
-</tr>
-<tr>
-<td>APAC</td>
-<td>64%</td>
-<td>51%</td>
-<td>49%</td>
-<td>57%</td>
-<td>57%</td>
-<td>46%</td>
-<td>53%</td>
-<td>48%</td>
-<td>45%</td>
-</tr>
-<tr>
-<td>LATAM</td>
-<td>43%</td>
-<td>42%</td>
-<td>40%</td>
-<td>39%</td>
-<td>44%</td>
-<td>38%</td>
-<td>37%</td>
-<td>37%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Africa</td>
-<td>38%</td>
-<td>37%</td>
-<td>38%</td>
-<td>37%</td>
-<td>38%</td>
-<td>36%</td>
-<td>33%</td>
-<td>33%</td>
-<td>35%</td>
-</tr>
-</tbody>
-</table>
+| Opportunity | Global | Europe | North America | APAC | LATAM | Africa |
+|------------|--------|--------|----------------|------|--------|--------|
+| AI | 63% | 72% | 61% | 53% | 65% | 57% |
+| 5G | 59% | 63% | 50% | 59% | 61% | 68% |
+| Digital transformation | 54% | 59% | 55% | 50% | 55% | 46% |
+| Cybersecurity | 53% | 53% | 49% | 55% | 50% | 56% |
+| IoT | 51% | 49% | 57% | 57% | 46% | 64% |
+| Fintech | 38% | 33% | 45% | 43% | 42% | 40% |
+| Sustainability and ESG | 37% | 35% | 37% | 39% | 44% | 36% |
+| Data monetization | 34% | 38% | 32% | 31% | 37% | 38% |
+| Acquisition of external businesses | 30% | 24% | 30% | 35% | 36% | 32% |
 
 AI, 5G, digital transformation and cybersecurity are all seen as key opportunities for future business growth.
 
@@ -4684,86 +2617,17 @@ Interestingly one area where 5G is expected to have a growing impact – autonom
 
 It still remains to be seen if 5G will deliver some of the more exotic use cases envisaged for it, such as remote surgical and other medical procedures. There's little evidence of that happening yet.
 
-### Cases where 5G offers most growth potential
+## Cases where 5G Offers Most Growth Potential
 
-<table>
-<thead>
-<tr>
-<th>Use Case</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Enabling IoT devices and networks</td>
-<td>16%</td>
-<td>15%</td>
-<td>13%</td>
-<td>21%</td>
-<td>22%</td>
-<td>15%</td>
-</tr>
-<tr>
-<td>Healthcare management e.g. Ambulance drones, remote operations</td>
-<td>12%</td>
-<td>9%</td>
-<td>7%</td>
-<td>21%</td>
-<td>22%</td>
-<td>6%</td>
-</tr>
-<tr>
-<td>Media & entertainment e.g. Super-fast video streaming, gaming</td>
-<td>12%</td>
-<td>6%</td>
-<td>6%</td>
-<td>10%</td>
-<td>7%</td>
-<td>18%</td>
-</tr>
-<tr>
-<td>Smart cities – e.g. public safety via real-time smart video surveillance</td>
-<td>11%</td>
-<td>10%</td>
-<td>12%</td>
-<td>12%</td>
-<td>14%</td>
-<td>5%</td>
-</tr>
-<tr>
-<td>Data management</td>
-<td>10%</td>
-<td>9%</td>
-<td>10%</td>
-<td>11%</td>
-<td>9%</td>
-<td>13%</td>
-</tr>
-<tr>
-<td>Financial services e.g. next generation user-based insurance linked to automobiles</td>
-<td>9%</td>
-<td>7%</td>
-<td>15%</td>
-<td>8%</td>
-<td>8%</td>
-<td>12%</td>
-</tr>
-<tr>
-<td>Utilization of drone technology</td>
-<td>6%</td>
-<td>8%</td>
-<td>10%</td>
-<td>4%</td>
-<td>5%</td>
-<td>1%</td>
-</tr>
-</tbody>
-</table>
+| Use Case | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Enabling IoT devices and networks | 16% | 15% | 13% | 21% | 22% | 15% |
+| Healthcare management (e.g. ambulance drones, remote operations) | 12% | 9% | 7% | 21% | 6% | 22% |
+| Media & entertainment (e.g. super-fast video streaming, gaming) | 12% | 18% | 6% | 7% | 14% | 10% |
+| Smart cities – e.g. public safety via real-time smart video surveillance | 11% | 10% | 12% | 12% | 14% | 5% |
+| Data management | 10% | 9% | 10% | 11% | 9% | 13% |
+| Financial services (e.g. next generation user-based insurance linked to automobiles) | 9% | 7% | 15% | 8% | 8% | 12% |
+| Utilization of drone technology | 6% | 8% | 10% | 4% | 5% | 1% |
 
 5G is seen to offer the most growth potential in relation to enabling IoT devices/ networks, followed by media/entertainment (particularly important in APAC and Africa), healthcare management (particularly important in Europe) and smart cities. In North America, use cases related to financial services are most commonly identified.
 
@@ -4782,95 +2646,18 @@ There's a clear consensus among our respondents about the benefits of 5G technol
 
 And there is broad agreement on the challenges of deploying 5G more widely where increased costs of connectivity, worries about the underlying technology and the difficulty of developing credible use cases rank highly.
 
-### Benefits of 5G
+## Benefits of 5G
 
-<table>
-<thead>
-<tr>
-<th>Benefit</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Lower latency</td>
-<td>46%</td>
-<td>46%</td>
-<td>48%</td>
-<td>49%</td>
-<td>44%</td>
-<td>40%</td>
-</tr>
-<tr>
-<td>Enables faster processing power</td>
-<td>45%</td>
-<td>47%</td>
-<td>37%</td>
-<td>50%</td>
-<td>43%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Increased connectivity</td>
-<td>42%</td>
-<td>41%</td>
-<td>45%</td>
-<td>41%</td>
-<td>43%</td>
-<td>35%</td>
-</tr>
-<tr>
-<td>Enabler of remote working</td>
-<td>40%</td>
-<td>38%</td>
-<td>31%</td>
-<td>45%</td>
-<td>40%</td>
-<td>47%</td>
-</tr>
-<tr>
-<td>Development of new business models</td>
-<td>39%</td>
-<td>36%</td>
-<td>43%</td>
-<td>38%</td>
-<td>43%</td>
-<td>42%</td>
-</tr>
-<tr>
-<td>Lower data management costs</td>
-<td>31%</td>
-<td>27%</td>
-<td>32%</td>
-<td>27%</td>
-<td>35%</td>
-<td>44%</td>
-</tr>
-<tr>
-<td>Ability to underpin private LTE networks</td>
-<td>30%</td>
-<td>32%</td>
-<td>29%</td>
-<td>29%</td>
-<td>26%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Telcos can offer network slicing for a more agile user experience</td>
-<td>29%</td>
-<td>32%</td>
-<td>34%</td>
-<td>21%</td>
-<td>27%</td>
-<td>23%</td>
-</tr>
-</tbody>
-</table>
+| Benefit | Global | Europe | North America | APAC | LATAM | Africa |
+|--------|--------|--------|----------------|------|--------|--------|
+| Lower latency | 46% | 46% | 48% | 49% | 44% | 40% |
+| Enables faster processing power | 45% | 47% | 37% | 50% | 43% | 41% |
+| Increased connectivity | 42% | 41% | 45% | 41% | 43% | 35% |
+| Enabler of remote working | 40% | 38% | 31% | 45% | 40% | 47% |
+| Development of new business models | 39% | 36% | 43% | 38% | 43% | 42% |
+| Lower data management costs | 31% | 27% | 32% | 27% | 35% | 44% |
+| Ability to underpin private LTE networks | 30% | 32% | 29% | 29% | 26% | 29% |
+| Telcos can offer network slicing for a more agile user experience | 29% | 34% | 32% | 21% | 27% | 23% |
 
 Top benefits of 5G are felt to be lower latency, faster processing power, increased connectivity and enabling remote working. Lower data management costs are particularly important in Africa.
 
@@ -4893,104 +2680,19 @@ In the first phase of the 5G roll-out, US operators who focused on low band deli
 
 > *Operators are struggling to turn 5G into a convincing customer proposition, especially when many consumers are satisfied with 4G services.*
 
-## Challenges of 5G connectivity
+## Challenges of 5G Connectivity
 
-<table>
-<thead>
-<tr>
-<th>Challenge</th>
-<th>Global</th>
-<th>Europe</th>
-<th>North America</th>
-<th>APAC</th>
-<th>LATAM</th>
-<th>Africa</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Increased cost of connectivity</td>
-<td>40%</td>
-<td>40%</td>
-<td>36%</td>
-<td>39%</td>
-<td>39%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>The underlying technology</td>
-<td>36%</td>
-<td>35%</td>
-<td>34%</td>
-<td>36%</td>
-<td>38%</td>
-<td>36%</td>
-</tr>
-<tr>
-<td>Developing use cases</td>
-<td>35%</td>
-<td>38%</td>
-<td>34%</td>
-<td>38%</td>
-<td>33%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>Required business infrastructure investment</td>
-<td>34%</td>
-<td>34%</td>
-<td>30%</td>
-<td>29%</td>
-<td>37%</td>
-<td>41%</td>
-</tr>
-<tr>
-<td>Cross border costs and accessibility</td>
-<td>34%</td>
-<td>35%</td>
-<td>33%</td>
-<td>38%</td>
-<td>31%</td>
-<td>37%</td>
-</tr>
-<tr>
-<td>Increased cyber breach risk</td>
-<td>32%</td>
-<td>32%</td>
-<td>31%</td>
-<td>31%</td>
-<td>34%</td>
-<td>27%</td>
-</tr>
-<tr>
-<td>Enough provision to protect national security for the introduction of 5G especially through the use of international providers</td>
-<td>31%</td>
-<td>35%</td>
-<td>33%</td>
-<td>26%</td>
-<td>28%</td>
-<td>29%</td>
-</tr>
-<tr>
-<td>Increased customer expectation not in-line with actual solution delivery</td>
-<td>30%</td>
-<td>26%</td>
-<td>32%</td>
-<td>32%</td>
-<td>31%</td>
-<td>37%</td>
-</tr>
-<tr>
-<td>Inconsistent national/international coverage</td>
-<td>28%</td>
-<td>27%</td>
-<td>31%</td>
-<td>32%</td>
-<td>29%</td>
-<td>24%</td>
-</tr>
-</tbody>
-</table>
+| Challenge | Global | Europe | North America | APAC | LATAM | Africa |
+|----------|--------|--------|----------------|------|--------|--------|
+| Increased cost of connectivity | 40% | 40% | 36% | 39% | 39% | 41% |
+| The underlying technology | 36% | 35% | 34% | 36% | 38% | 36% |
+| Developing use cases | 35% | 38% | 34% | 38% | 33% | 27% |
+| Required business infrastructure investment | 34% | 34% | 30% | 29% | 37% | 41% |
+| Cross border costs and accessibility | 34% | 35% | 33% | 38% | 31% | 37% |
+| Increased cyber breach risk | 32% | 32% | 31% | 31% | 34% | 27% |
+| Enough provision to protect national security for the introduction of 5G (especially through the use of international providers) | 31% | 35% | 33% | 26% | 28% | 29% |
+| Increased customer expectation not in-line with actual solution delivery | 30% | 26% | 32% | 32% | 31% | 37% |
+| Inconsistent national/international coverage | 28% | 27% | 31% | 32% | 29% | 24% |
 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    60
 
@@ -5037,7 +2739,7 @@ DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital 
 DLAPIPER.COM    Introduction | Tech score | AI | Cybersecurity | Data | Digital transformation | ESG | Fintech | IoT | M&A | 5G    Conclusion | Methodology    62
 
 # Riding the next big wave –
-## ~~some final thoughts~~
+## some final thoughts
 
 Tech Index 2024    Conclusion
 
