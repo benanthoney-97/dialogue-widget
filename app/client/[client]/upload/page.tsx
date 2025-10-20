@@ -64,22 +64,37 @@ export default function UploadPage() {
         }
         if (uploadMode === 'upload' && files.length > 0 && clientSlug && client_id) {
       for (const file of files) {
-        const { error } = await supabase.storage
+        const storagePath = `clients/${clientSlug}/${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('docs')
-          .upload(`clients/${clientSlug}/${file.name}`, file, { upsert: true });
-        if (!error) {
-          // Insert placeholder row into agent_map with 'key' as filename and random agent_id
+          .upload(storagePath, file, { upsert: true });
+
+        if (!uploadError) {
+          // Try to get a public URL for the uploaded object
+          const { data: urlData } = await supabase.storage.from('docs').getPublicUrl(storagePath);
+          // supabase client may return publicUrl or publicURL depending on version
+          const publicURL = (urlData as any)?.publicUrl ?? (urlData as any)?.publicURL ?? null;
+
+          // Fallback: construct expected public object URL (works if bucket is public)
+          const fallbackUrl =
+            (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "") +
+            `/storage/v1/object/public/docs/${encodeURIComponent(storagePath)}`;
+
+          const documentUrl = publicURL || fallbackUrl;
+
+          // Insert placeholder row into agent_map with document_url set
           const agent_id = uuidv4();
           const { error: insertError } = await supabase
             .from('agent_map')
             .insert([
               {
-                agent_id, // Add random placeholder agent_id
+                agent_id,
                 client_id,
                 agent_name: file.name,
                 status: 'Pending',
                 created_at: new Date().toISOString(),
-                key: file.name, // Use filename as placeholder key
+                key: file.name,
+                document_url: documentUrl,
               },
             ]);
           if (insertError) {
@@ -88,7 +103,7 @@ export default function UploadPage() {
           }
         } else {
           allSuccess = false;
-          if (!firstError) firstError = error.message;
+          if (!firstError) firstError = uploadError.message;
         }
       }
       if (allSuccess) {

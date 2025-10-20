@@ -51,7 +51,7 @@ export default function DocPage() {
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
+            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
           )
           .eq("key", slug)
           .maybeSingle();
@@ -62,6 +62,7 @@ export default function DocPage() {
           setEntry((prev: any) => ({
             ...(prev ?? {}),
             pdfPath: data.pdf_path ?? prev?.pdfPath ?? "",
+            documentUrl: data.document_url ?? prev?.documentUrl ?? "",
             agentId: data.agent_id ?? prev?.agentId ?? "",
             region: data.region ?? prev?.region ?? "us",
             auth: data.auth ?? prev?.auth ?? "signed",
@@ -107,8 +108,47 @@ export default function DocPage() {
 
   const { pdfPath = "", agentId = "", region = "us", auth = "signed", talkLabel } = entry || {};
   const useSignedUrl = auth !== "public";
-  // resolve pdfUrl for viewer (encode site-relative paths)
-  const pdfUrl = pdfPath ? (pdfPath.startsWith("http") ? pdfPath : encodeURI(pdfPath)) : "";
+  // resolve pdfUrl for viewer (prefer documentUrl stored in DB; fall back to pdfPath)
+  const documentUrl = entry?.documentUrl ?? "";
+  const pdfPathResolved = pdfPath ? (pdfPath.startsWith("http") ? pdfPath : encodeURI(pdfPath)) : "";
+  const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string>(documentUrl || pdfPathResolved);
+
+  // If we don't have a public URL and auth indicates signed URLs are required, request one
+  useEffect(() => {
+    let mounted = true;
+    async function ensureSigned() {
+      if (!useSignedUrl) {
+        setResolvedPdfUrl(documentUrl || pdfPathResolved);
+        return;
+      }
+      // prefer documentUrl if it's already set (it may be a signed URL)
+      if (documentUrl && documentUrl.startsWith('http')) {
+        setResolvedPdfUrl(documentUrl);
+        return;
+      }
+      // If pdfPathResolved looks like a storage path (no host) and we need a signed URL, call the API
+      if (pdfPath && !pdfPath.startsWith('http')) {
+        try {
+          // strip leading slash if present
+          const storagePath = pdfPath.replace(/^\//, "");
+          const res = await fetch('/api/signed-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: storagePath, expires: 120 }),
+          });
+          const j = await res.json();
+          if (mounted && j?.signedUrl) setResolvedPdfUrl(j.signedUrl);
+        } catch (e) {
+          console.warn('Failed to fetch signed URL', e);
+          if (mounted) setResolvedPdfUrl(documentUrl || pdfPathResolved);
+        }
+      } else {
+        setResolvedPdfUrl(documentUrl || pdfPathResolved);
+      }
+    }
+    ensureSigned();
+    return () => { mounted = false; };
+  }, [documentUrl, pdfPath, pdfPathResolved, useSignedUrl]);
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
   const dragPointerId = useRef<number | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
@@ -230,11 +270,11 @@ export default function DocPage() {
           />
         ) : isTouch ? (
           // Client-only PDF.js viewer on touch devices
-          <PDFJSViewer key="pdfjs" file={pdfPath} />
+          <PDFJSViewer key="pdfjs" file={resolvedPdfUrl} />
         ) : (
           // Native <object> on desktop
           <object
-            data={`${pdfPath}#view=FitH`}
+            data={`${resolvedPdfUrl}#view=FitH`}
             type="application/pdf"
             aria-label="Research PDF"
             style={{
@@ -248,7 +288,7 @@ export default function DocPage() {
             <div style={{ padding: 16 }}>
               <p>Inline PDF viewer isn’t available here.</p>
               <p>
-                <a href={pdfPath} target="_blank" rel="noreferrer">
+                <a href={resolvedPdfUrl} target="_blank" rel="noreferrer">
                   Open the document
                 </a>
               </p>
