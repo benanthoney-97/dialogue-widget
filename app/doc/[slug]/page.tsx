@@ -51,7 +51,7 @@ export default function DocPage() {
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
+            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image, testing_mode"
           )
           .eq("key", slug)
           .maybeSingle();
@@ -73,6 +73,16 @@ export default function DocPage() {
             workLabel: data.work_label ?? prev?.workLabel,
             backgroundImage: data.background_image ?? prev?.backgroundImage,
           }));
+          // expose testing_mode to client components via a small global flag (non-enumerable fallback)
+          try {
+            // attach to window for the talk button to pick up dynamically
+            if (typeof window !== "undefined") {
+              // use a namespaced property to avoid collisions
+              (window as any).__DOC_TESTING_MODE__ = Boolean(data.testing_mode);
+            }
+          } catch (e) {
+            // ignore
+          }
           console.log('[DocPage] setEntry from agent_map', { slug, pdfPath: data.pdf_path, agentId: data.agent_id });
         }
       } catch (e) {

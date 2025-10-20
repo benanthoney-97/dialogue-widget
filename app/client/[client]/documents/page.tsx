@@ -11,6 +11,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [testingByKey, setTestingByKey] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
 
   // Get client slug from URL
@@ -36,10 +37,10 @@ export default function DocumentsPage() {
         setLoading(false);
         return;
       }
-      // Get agent_map rows for this client
+      // Get agent_map rows for this client (include testing_mode)
       const { data: agentRows, error: agentError } = await supabase
         .from('agent_map')
-        .select('agent_id, agent_name, content_type, created_at, status, dialogue_created_date, key')
+        .select('agent_id, agent_name, content_type, created_at, status, dialogue_created_date, key, testing_mode')
         .eq('client_id', client.id)
         .order('created_at', { ascending: false });
       if (agentError) {
@@ -48,6 +49,10 @@ export default function DocumentsPage() {
         return;
       }
       setDocs(agentRows || []);
+  // initialize testing state from DB (testing_mode) for rows
+  const init: Record<string, boolean> = {};
+  (agentRows || []).forEach((r: any) => { init[r.key] = !!r.testing_mode; });
+  setTestingByKey(init);
       setLoading(false);
     }
     if (clientSlug) fetchDocs();
@@ -82,15 +87,16 @@ export default function DocumentsPage() {
                 <th style={thStyle}>Dialogue Created Date</th>
                 <th style={thStyle}>Test</th>
                 <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
+                <th style={thStyle}>Testing</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
+                <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
               ) : error ? (
-                <tr><td colSpan={6} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
+                <tr><td colSpan={8} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
               ) : docs.length === 0 ? (
-                <tr><td colSpan={6} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>No documents found.</td></tr>
+                <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>No documents found.</td></tr>
               ) : (
                 docs.map((row, i) => (
                   <tr key={i} style={{ background: "#16213a" }}>
@@ -211,6 +217,70 @@ export default function DocumentsPage() {
                       >
                         {copiedIdx === i ? 'Copied' : 'Share'}
                       </button>
+                    </td>
+                    <td style={{ ...tdStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // optimistic: set testing true
+                            setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
+                            try {
+                              const { error } = await supabase
+                                .from('agent_map')
+                                .update({ testing_mode: true })
+                                .eq('key', row.key);
+                              if (error) {
+                                console.warn('Failed to update testing_mode', error);
+                                setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
+                              }
+                            } catch (e) {
+                              console.warn('Failed to update testing_mode', e);
+                              setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
+                            }
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            background: testingByKey[row.key] ? '#f97316' : '#22325a',
+                            color: testingByKey[row.key] ? '#fff' : '#a3c0ff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Testing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // optimistic: set testing false
+                            setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
+                            try {
+                              const { error } = await supabase
+                                .from('agent_map')
+                                .update({ testing_mode: false })
+                                .eq('key', row.key);
+                              if (error) {
+                                console.warn('Failed to update testing_mode', error);
+                                setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
+                              }
+                            } catch (e) {
+                              console.warn('Failed to update testing_mode', e);
+                              setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
+                            }
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            background: !testingByKey[row.key] ? '#525fe1' : '#22325a',
+                            color: !testingByKey[row.key] ? '#fff' : '#a3c0ff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Live
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

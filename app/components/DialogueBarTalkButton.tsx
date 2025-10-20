@@ -83,6 +83,7 @@ export default function DialogueBarTalkButton({
     work_label?: string | null;
     url?: string | null;
     client_id?: number | null;
+    testing_mode?: boolean | null;
   }>(null);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function DialogueBarTalkButton({
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image, testing_mode"
           )
           .eq("agent_id", agentId)
           .maybeSingle();
@@ -208,6 +209,23 @@ export default function DialogueBarTalkButton({
         setContactSubmitted(false);
         setContactOpen((prev) => (prev ? prev : true));
       },
+      // Handler for the `open_document` client tool. Forwards payload to session page.
+      open_document: async (payload: any) => {
+        try {
+          const bc = new BroadcastChannel("elevenlabs");
+          bc.postMessage({ type: "elevenlabs.openDocument", payload });
+          bc.close();
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (typeof window !== "undefined" && window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: "elevenlabs.openDocument", payload }, "*");
+          }
+        } catch (e) {
+          // ignore
+        }
+      },
     }),
     []
   );
@@ -307,12 +325,27 @@ export default function DialogueBarTalkButton({
         }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
+        // determine testing_mode preference: agentMap takes precedence, fall back to page global
+        const testingModeFromAgent = agentMap?.testing_mode;
+        const testingModeFromWindow = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
+          ? Boolean((window as any).__DOC_TESTING_MODE__)
+          : undefined;
+        const testing_mode = typeof testingModeFromAgent !== "undefined" ? Boolean(testingModeFromAgent) : testingModeFromWindow;
+
         await startSession({
           signedUrl: data.signedUrl,
           connectionType: "websocket",
+          dynamicVariables: testing_mode !== undefined ? { testing_mode } : undefined,
         });
       } else {
-        await startSession({ agentId: effectiveAgent, connectionType: "websocket" });
+        // determine testing_mode preference: agentMap takes precedence, fall back to page global
+        const testingModeFromAgent2 = agentMap?.testing_mode;
+        const testingModeFromWindow2 = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
+          ? Boolean((window as any).__DOC_TESTING_MODE__)
+          : undefined;
+        const testing_mode2 = typeof testingModeFromAgent2 !== "undefined" ? Boolean(testingModeFromAgent2) : testingModeFromWindow2;
+
+        await startSession({ agentId: effectiveAgent, connectionType: "websocket", dynamicVariables: testing_mode2 !== undefined ? { testing_mode: testing_mode2 } : undefined });
       }
 
       const latestId = getId?.();

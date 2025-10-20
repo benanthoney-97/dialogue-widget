@@ -80,6 +80,8 @@ export default function InsightsTable() {
 		intent: '',
 		leads: '',
 	});
+	// showTesting: false = show Live (default), true = show Testing dialogues
+	const [showTesting, setShowTesting] = useState(false);
 	const [activeFilter, setActiveFilter] = useState<string | null>(null);
 	const filterBarRef = useRef<HTMLDivElement>(null);
 	// Move filtersOpen state to top level so it persists across renders
@@ -134,10 +136,13 @@ export default function InsightsTable() {
 					setLoading(true);
 					setError(null);
 					// Get all dialogues for this client
-					const { data: dialogueRows, error: dialogueError } = await supabase
+					let q = supabase
 						.from('dialogues')
-						.select('id, conversation_id, agent_id, call_duration_secs, received_at, transcript, pipeline_intent, questions, transcript_summary, main_topics, content_gaps, pipeline_intent_reasoning, competitive_comparison_summary, main_language')
+						.select('id, conversation_id, agent_id, call_duration_secs, received_at, transcript, pipeline_intent, questions, transcript_summary, main_topics, content_gaps, pipeline_intent_reasoning, competitive_comparison_summary, main_language, testing_mode')
 						.eq('client_id', clientData.id);
+					// default: showTesting === false -> fetch testing_mode = false (Live)
+					q = q.eq('testing_mode', showTesting);
+					const { data: dialogueRows, error: dialogueError } = await q;
 					console.log('[DEBUG] dialogueRows from Supabase:', dialogueRows);
 					if (dialogueError) {
 						setError('Failed to fetch dialogues');
@@ -225,7 +230,7 @@ export default function InsightsTable() {
 						setLoading(false);
 				}
 				fetchClientAndRows();
-		}, [clientSlug]);
+		}, [clientSlug, showTesting]);
 
 		// Filtering logic (unchanged, but now uses insightsRows)
 			// Sort by date descending (most recent first)
@@ -378,6 +383,39 @@ export default function InsightsTable() {
 														   {filters.leads ? 'All' : 'Leads'}
 													   </button>
 												   </div>
+											   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+												   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Show:</span>
+												   <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
+													   <button
+														   type="button"
+														   onClick={() => setShowTesting(true)}
+														   style={{
+															   padding: '6px 10px',
+															   background: showTesting ? '#f97316' : '#22325a',
+															   color: showTesting ? '#fff' : '#a3c0ff',
+															   border: 'none',
+															   cursor: 'pointer',
+															   fontWeight: 700,
+														   }}
+													   >
+														   Testing
+													   </button>
+													   <button
+														   type="button"
+														   onClick={() => setShowTesting(false)}
+														   style={{
+															   padding: '6px 10px',
+															   background: !showTesting ? '#525fe1' : '#22325a',
+															   color: !showTesting ? '#fff' : '#a3c0ff',
+															   border: 'none',
+															   cursor: 'pointer',
+															   fontWeight: 700,
+														   }}
+													   >
+														   Live
+													   </button>
+												   </div>
+											   </div>
 											   </div>
 											   <div style={{ display: 'flex', gap: 18 }}>
 												   {/* Row 2: Date After, Date Before, Intent */}
