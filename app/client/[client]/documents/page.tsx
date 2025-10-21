@@ -87,7 +87,7 @@ export default function DocumentsPage() {
                 <th style={thStyle}>Dialogue Created Date</th>
                 <th style={thStyle}>Test</th>
                 <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
-                <th style={thStyle}>Testing</th>
+                <th style={thStyle}>Mode</th>
               </tr>
             </thead>
             <tbody>
@@ -99,7 +99,7 @@ export default function DocumentsPage() {
                 <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>No documents found.</td></tr>
               ) : (
                 docs.map((row, i) => (
-                  <tr key={i} style={{ background: "#16213a" }}>
+                  <tr key={i} style={{ background: "#16213a", borderBottom: '1px solid #22325a' }}>
                     <td style={tdStyle}>
                       <div style={{
                         maxWidth: 300,
@@ -174,7 +174,6 @@ export default function DocumentsPage() {
                       textAlign: 'center',
                       padding: 0,
                       background: '#16213a',
-                      borderBottom: '1px solid #22325a',
                     }}>
                       <button
                         type="button"
@@ -218,8 +217,8 @@ export default function DocumentsPage() {
                         {copiedIdx === i ? 'Copied' : 'Share'}
                       </button>
                     </td>
-                    <td style={{ ...tdStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
+                    <td style={{ ...tdStyle, textAlign: 'center', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
                         <button
                           type="button"
                           onClick={async () => {
@@ -240,7 +239,11 @@ export default function DocumentsPage() {
                             }
                           }}
                           style={{
-                            padding: '6px 10px',
+                            padding: '0 10px',
+                            height: '32px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             background: testingByKey[row.key] ? '#f97316' : '#22325a',
                             color: testingByKey[row.key] ? '#fff' : '#a3c0ff',
                             border: 'none',
@@ -270,7 +273,11 @@ export default function DocumentsPage() {
                             }
                           }}
                           style={{
-                            padding: '6px 10px',
+                            padding: '0 10px',
+                            height: '32px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             background: !testingByKey[row.key] ? '#525fe1' : '#22325a',
                             color: !testingByKey[row.key] ? '#fff' : '#a3c0ff',
                             border: 'none',
@@ -317,10 +324,11 @@ const thStyle = {
 
 const tdStyle = {
   padding: "10px 8px",
-  borderBottom: "1px solid #22325a",
+  borderBottom: "none",
   color: "#e6eaff",
   background: "#16213a",
   fontSize: 15,
+  verticalAlign: 'middle' as const,
 };
 
 const buttonStyle = {

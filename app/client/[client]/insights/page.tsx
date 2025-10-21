@@ -98,6 +98,21 @@ export default function InsightsTable() {
 		document.addEventListener('mousedown', handleClick);
 		return () => document.removeEventListener('mousedown', handleClick);
 	}, [activeFilter]);
+
+	// Close the Filters popup when clicking or touching outside the filterBar
+	useEffect(() => {
+		if (!filtersOpen) return;
+		function handleDocClick(e: MouseEvent | TouchEvent) {
+			if (filterBarRef.current && filterBarRef.current.contains(e.target as Node)) return;
+			setFiltersOpen(false);
+		}
+		document.addEventListener('mousedown', handleDocClick);
+		document.addEventListener('touchstart', handleDocClick);
+		return () => {
+			document.removeEventListener('mousedown', handleDocClick);
+			document.removeEventListener('touchstart', handleDocClick);
+		};
+	}, [filtersOpen]);
 	const [clientDisplayName, setClientDisplayName] = useState<string | null>(null);
 	const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
 	const [insightsRows, setInsightsRows] = useState<InsightsRow[]>([]);
@@ -320,6 +335,28 @@ export default function InsightsTable() {
 									  >
 										  {filtersOpen ? 'Hide filters' : 'Filters'}
 									  </button>
+									  {/* Live / Testing toggle button */}
+									  <button
+										  type="button"
+										  onClick={(e) => { e.stopPropagation(); setShowTesting(prev => !prev); }}
+										  aria-pressed={showTesting}
+										  title={showTesting ? 'Showing TESTING dialogues — click to show Live' : 'Showing LIVE dialogues — click to show Testing'}
+										  style={{
+											  marginLeft: 12,
+											  padding: '6px 10px',
+											  borderRadius: 999,
+											  fontSize: 13,
+											  fontWeight: 700,
+											  color: '#fff',
+											  background: showTesting ? '#f97316' : '#525fe1',
+											  boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+											  alignSelf: 'center',
+											  border: 'none',
+											  cursor: 'pointer',
+										  }}
+									  >
+										  {showTesting ? 'Testing' : 'Live'}
+									  </button>
 									  {filtersOpen && (
 										  <div
 											  style={{
@@ -383,39 +420,7 @@ export default function InsightsTable() {
 														   {filters.leads ? 'All' : 'Leads'}
 													   </button>
 												   </div>
-											   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-												   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Show:</span>
-												   <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
-													   <button
-														   type="button"
-														   onClick={() => setShowTesting(true)}
-														   style={{
-															   padding: '6px 10px',
-															   background: showTesting ? '#f97316' : '#22325a',
-															   color: showTesting ? '#fff' : '#a3c0ff',
-															   border: 'none',
-															   cursor: 'pointer',
-															   fontWeight: 700,
-														   }}
-													   >
-														   Testing
-													   </button>
-													   <button
-														   type="button"
-														   onClick={() => setShowTesting(false)}
-														   style={{
-															   padding: '6px 10px',
-															   background: !showTesting ? '#525fe1' : '#22325a',
-															   color: !showTesting ? '#fff' : '#a3c0ff',
-															   border: 'none',
-															   cursor: 'pointer',
-															   fontWeight: 700,
-														   }}
-													   >
-														   Live
-													   </button>
-												   </div>
-											   </div>
+											   {/* Removed inline Show: Testing/Live toggle — use the pill next to Filters to toggle instead */}
 											   </div>
 											   <div style={{ display: 'flex', gap: 18 }}>
 												   {/* Row 2: Date After, Date Before, Intent */}
