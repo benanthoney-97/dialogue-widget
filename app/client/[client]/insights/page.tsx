@@ -388,7 +388,7 @@ export default function InsightsTable() {
 													   />
 												   </div>
 												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Source Document:</span>
+													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Dialogue:</span>
 													   <select
 														   value={filters.sourceDocument}
 														   onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}

@@ -6,6 +6,7 @@ import Sidebar from "../Sidebar";
 
 export default function PreparePage() {
   const router = useRouter();
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   // No local upload state on Prepare page
 
 
@@ -84,24 +85,48 @@ export default function PreparePage() {
                       <th style={{ padding: '12px 16px', color: '#9fb3ff', fontWeight: 700 }}>Date</th>
                       <th style={{ padding: '12px 16px', color: '#9fb3ff', fontWeight: 700 }}>Status</th>
                       <th style={{ padding: '12px 16px', color: '#9fb3ff', fontWeight: 700 }}>Documents</th>
-                      <th style={{ padding: '12px 16px', color: '#9fb3ff', fontWeight: 700 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {meetings.map((m) => (
-                      <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                        <td style={{ padding: '12px 16px', color: '#e6eaff', fontWeight: 700 }}>{m.title}</td>
-                        <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>{clientSlug}</td>
-                        <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>{new Date(m.start_time).toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ display: 'inline-block', padding: '6px 10px', borderRadius: 999, background: m.status === 'Ready' ? '#153d1f' : '#3a2b12', color: m.status === 'Ready' ? '#22c55e' : '#f59e0b', fontWeight: 700, fontSize: 13 }}>{m.status ?? 'Pending'}</span>
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>{m.materials_count ?? 0}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <button onClick={() => router.push(`/client/${clientSlug}/prepare/${m.id}`)} style={{ background: '#525fe1', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700, cursor: 'pointer' }}>Open</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {meetings.map((m) => {
+                      const dest = `/client/${clientSlug}/meeting`;
+                      return (
+                        <tr
+                          key={m.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => router.push(dest)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') router.push(dest); }}
+                          onMouseEnter={() => setHoveredRow(m.id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          onFocus={() => setHoveredRow(m.id)}
+                          onBlur={() => setHoveredRow(null)}
+                          style={{
+                            borderBottom: '1px solid rgba(255,255,255,0.02)',
+                            cursor: 'pointer',
+                            background: hoveredRow === m.id ? 'rgba(255,255,255,0.02)' : 'transparent',
+                          }}
+                        >
+                          <td style={{ padding: '12px 16px', color: '#e6eaff', fontWeight: 700 }}>{m.title}</td>
+                          <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>{clientSlug}</td>
+                          <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>
+                            {m.start_time
+                              ? (() => {
+                                  const d = new Date(m.start_time);
+                                  const pad = (n: number) => String(n).padStart(2, '0');
+                                  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+                                    d.getHours()
+                                  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                                })()
+                              : '-'}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ display: 'inline-block', padding: '6px 10px', borderRadius: 999, background: m.status === 'Ready' ? '#153d1f' : '#3a2b12', color: m.status === 'Ready' ? '#22c55e' : '#f59e0b', fontWeight: 700, fontSize: 13 }}>{m.status ?? 'Pending'}</span>
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#a3c0ff' }}>{m.materials_count ?? 0}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

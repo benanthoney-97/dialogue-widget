@@ -55,7 +55,6 @@ export default function DocPage() {
           )
           .eq("key", slug)
           .maybeSingle();
-        console.log("[DocPage] agent_map.byKey response", { slug, status, error, data });
         if (!mounted) return;
         if (data) {
           // merge with any existing partial entry
@@ -83,11 +82,9 @@ export default function DocPage() {
           } catch (e) {
             // ignore
           }
-          console.log('[DocPage] setEntry from agent_map', { slug, pdfPath: data.pdf_path, agentId: data.agent_id });
         }
       } catch (e) {
         // log error for debugging
-        console.error('[DocPage] agent_map fetch error', (e as any)?.message ?? e);
         // ignore and allow fallback to 'Unknown' below
       }
     })();

@@ -74,17 +74,17 @@ export default function DocumentsPage() {
         minHeight: '100dvh',
         overflow: 'auto',
       }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#e6eaff", fontFamily: "inherit" }}>Documents</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#e6eaff", fontFamily: "inherit" }}>Dialogues</h2>
         <div style={{ marginBottom: 32 }} />
         <div style={{ overflowX: "auto", width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
             <thead>
               <tr style={{ background: "#1b2947" }}>
-                <th style={thStyle}>Document</th>
+                <th style={thStyle}>Dialogue</th>
                 <th style={thStyle}>Content Type</th>
-                <th style={thStyle}>Upload Date</th>
+                <th style={thStyle}>Created</th>
                 <th style={thStyle}>Status</th>
-                <th style={thStyle}>Dialogue Created Date</th>
+                <th style={thStyle}>Dialogue Updated</th>
                 <th style={thStyle}>Test</th>
                 <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
                 <th style={thStyle}>Mode</th>

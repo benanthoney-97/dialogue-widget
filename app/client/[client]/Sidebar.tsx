@@ -16,10 +16,10 @@ export default function Sidebar() {
   const clientId = getClientIdFromPath(pathname);
   const navItems = [
     {
-      label: "Insights",
-      href: `/client/${clientId}/insights`,
+      label: "Dialogues",
+      href: `/client/${clientId}/documents`,
       icon: (
-        <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="2" y="6" width="3" height="8" rx="1" fill="#7ea0e6" />
           <rect x="8.5" y="3" width="3" height="14" rx="1" fill="#7ea0e6" />
           <rect x="15" y="8" width="3" height="6" rx="1" fill="#7ea0e6" />
@@ -27,8 +27,8 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Documents",
-      href: `/client/${clientId}/documents`,
+      label: "Insights",
+      href: `/client/${clientId}/insights`,
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="2.5" width="14" height="17" rx="2.5" fill="#22325a" stroke="#7ea0e6" strokeWidth="1.2"/>
@@ -39,17 +39,7 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Prepare",
-      href: `/client/${clientId}/prepare`,
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="3" width="16" height="4" rx="1" fill="#22325a" stroke="#7ea0e6" strokeWidth="1"/>
-          <rect x="3" y="9" width="16" height="10" rx="2" fill="#22325a" stroke="#7ea0e6" strokeWidth="1"/>
-        </svg>
-      ),
-    },
-    {
-      label: "Upload",
+      label: "Create",
       href: `/client/${clientId}/upload`,
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -105,7 +95,14 @@ export default function Sidebar() {
         Dialogue
       </div>
       {navItems.map((item) => {
-        const active = pathname?.startsWith(item.href.replace("[client]", ""));
+        let active = false;
+        if (pathname) {
+          // item.href is already built with the clientId (e.g. /client/123/prepare)
+          active = pathname.startsWith(item.href);
+          // Treat Meeting as a subpage of Prepare so Prepare remains highlighted on /client/:id/meeting
+        
+        }
+
         return (
           <Link
             key={item.href}
