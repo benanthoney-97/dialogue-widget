@@ -6,6 +6,13 @@ import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
 import PurposeCard from "../../../components/PurposeCard";
 
+const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
+  Prepare: "Personal",
+  Learn: "Personal",
+  Review: "Team",
+  "Go-to-market": "Client",
+};
+
 type AgentDocumentRow = {
   id: string;
   agent_id: string;
@@ -50,7 +57,6 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const [testingByKey, setTestingByKey] = useState<Record<string, boolean>>({});
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -70,6 +76,7 @@ export default function DocumentsPage() {
   const [purposeText, setPurposeText] = useState<string>("");
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
   const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
+  const [audienceType, setAudienceType] = useState<string>("Custom");
   const [purposeSubmitting, setPurposeSubmitting] = useState<boolean>(false);
   const guidanceTexts = PURPOSE_GUIDANCE_TEXTS;
 
@@ -113,10 +120,6 @@ export default function DocumentsPage() {
       setDocs(agentRows || []);
   // eslint-disable-next-line no-console
   console.log('DocumentsPage.setDocs count', (agentRows || []).length);
-  // initialize testing state from DB (testing_mode) for rows
-  const init: Record<string, boolean> = {};
-  (agentRows || []).forEach((r: any) => { init[r.key] = !!r.testing_mode; });
-  setTestingByKey(init);
       setLoading(false);
     }
     if (clientSlug) fetchDocs();
@@ -296,20 +299,19 @@ export default function DocumentsPage() {
               <thead>
                 <tr style={{ background: "#1b2947" }}>
                   <th style={thStyle}>Dialogue</th>
-                  <th style={thStyle}>Content Type</th>
+                  <th style={thStyle}>Audience</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Last Updated</th>
                   <th style={thStyle}>Test</th>
-                  <th style={thStyle}>Mode</th>
                   <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
                   <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
+                  <tr><td colSpan={7} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
                 ) : error ? (
-                  <tr><td colSpan={8} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
+                  <tr><td colSpan={7} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
                 ) : (
                   docs.map((row, i) => {
                   const rowKey = row?.key ?? String(i);
@@ -389,78 +391,6 @@ export default function DocumentsPage() {
                             </span>
                             Test
                           </button>
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden', border: '1px solid #22325a' }}>
-                            <button
-                              type="button"
-                              onClick={async (event) => {
-                                event.stopPropagation();
-                                setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
-                                try {
-                                  const { error } = await supabase
-                                    .from('agent_map')
-                                    .update({ testing_mode: true })
-                                    .eq('key', row.key);
-                                  if (error) {
-                                    console.warn('Failed to update testing_mode', error);
-                                    setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
-                                  }
-                                } catch (e) {
-                                  console.warn('Failed to update testing_mode', e);
-                                  setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
-                                }
-                              }}
-                              style={{
-                                padding: '0 10px',
-                                height: '32px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: testingByKey[row.key] ? '#f97316' : '#22325a',
-                                color: testingByKey[row.key] ? '#fff' : '#a3c0ff',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                              }}
-                            >
-                              Testing
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async (event) => {
-                                event.stopPropagation();
-                                setTestingByKey((prev) => ({ ...prev, [row.key]: false }));
-                                try {
-                                  const { error } = await supabase
-                                    .from('agent_map')
-                                    .update({ testing_mode: false })
-                                    .eq('key', row.key);
-                                  if (error) {
-                                    console.warn('Failed to update testing_mode', error);
-                                    setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
-                                  }
-                                } catch (e) {
-                                  console.warn('Failed to update testing_mode', e);
-                                  setTestingByKey((prev) => ({ ...prev, [row.key]: true }));
-                                }
-                              }}
-                              style={{
-                                padding: '0 10px',
-                                height: '32px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: !testingByKey[row.key] ? '#525fe1' : '#22325a',
-                                color: !testingByKey[row.key] ? '#fff' : '#a3c0ff',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                              }}
-                            >
-                              Live
-                            </button>
-                          </div>
                         </td>
                         <td style={{
                           width: 80,
@@ -610,7 +540,7 @@ export default function DocumentsPage() {
                       </tr>
                       {isExpanded && (
                         <tr>
-                          <td colSpan={8} style={{ padding: '18px 28px 24px 28px', background: "#10192b", borderBottom: '1px solid #22325a' }}>
+                          <td colSpan={7} style={{ padding: '18px 28px 24px 28px', background: "#10192b", borderBottom: '1px solid #22325a' }}>
                             {!agentId ? (
                               <div style={{ color: '#a3c0ff' }}>No agent identifier available for this dialogue.</div>
                             ) : (
@@ -883,13 +813,15 @@ export default function DocumentsPage() {
                   selectedGuidance={selectedGuidance}
                   purposeText={purposeText}
                   headingText="Create your first Dialogue"
-                  onSelectGuidance={(key, purpose) => {
+                  onSelectGuidance={(key, purpose, audience) => {
                     setSelectedGuidance(key);
                     setSavedPurpose(purpose);
+                    setAudienceType(audience ?? GUIDANCE_AUDIENCE_MAP[key] ?? "Custom");
                   }}
                   onCustomFocus={() => {
                     setSelectedGuidance(null);
                     setSavedPurpose(null);
+                    setAudienceType("Custom");
                   }}
                   onPurposeChange={(value) => {
                     setPurposeText(value);
@@ -905,6 +837,7 @@ export default function DocumentsPage() {
                       selectedGuidance,
                       purposeText: trimmedPurpose,
                       savedPurpose: resolvedPurpose || trimmedPurpose,
+                      audienceType,
                     };
                     const params = new URLSearchParams();
                     params.set("stage", "upload");
@@ -1017,10 +950,6 @@ export default function DocumentsPage() {
                     }
                     setDocs((prev) => prev.filter((doc) => doc.key !== keyToDelete));
                     setExpandedKey((prev) => (prev === keyToDelete ? null : prev));
-                    setTestingByKey((prev) => {
-                      const { [keyToDelete]: _removed, ...rest } = prev;
-                      return rest;
-                    });
                     if (agentIdToDelete) {
                       setAgentDocuments((prev) => {
                         if (!(agentIdToDelete in prev)) return prev;

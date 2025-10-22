@@ -59,7 +59,7 @@ type PurposeCardProps = {
   guidanceTexts: Record<string, string>;
   selectedGuidance: string | null;
   purposeText: string;
-  onSelectGuidance: (key: GuidanceKey, purpose: string | null) => void;
+  onSelectGuidance: (key: GuidanceKey, purpose: string | null, audienceType: string) => void;
   onCustomFocus: () => void;
   onPurposeChange: (value: string) => void;
   onPurposeBlur?: () => void | Promise<void>;
@@ -106,14 +106,14 @@ export default function PurposeCard({
           <div
             key={item.title}
             onClick={() => {
-              onSelectGuidance(item.title, guidanceTexts[item.title] ?? null);
+              onSelectGuidance(item.title, guidanceTexts[item.title] ?? null, label);
             }}
             onMouseEnter={() => setHoveredGuidance(item.title)}
             onMouseLeave={() => setHoveredGuidance(null)}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onSelectGuidance(item.title, guidanceTexts[item.title] ?? null);
+              if (e.key === "Enter" || e.key === " ") onSelectGuidance(item.title, guidanceTexts[item.title] ?? null, label);
             }}
             style={{
               width: "100%",

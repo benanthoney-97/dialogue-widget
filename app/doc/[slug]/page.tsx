@@ -26,6 +26,14 @@ export default function DocPage() {
   // entry: prefer docMap but allow runtime lookup from Supabase.agent_map by key
   const [entry, setEntry] = useState<any>(() => docMap[slug] ?? null);
   const theme = buttonThemeMap[slug] ?? defaultButtonTheme;
+  const sp = useSearchParams();
+  const testingParam = sp?.get("testing");
+  const testingOverride = useMemo(() => {
+    if (!testingParam) return undefined;
+    const normalized = testingParam.trim().toLowerCase();
+    return normalized === "1" || normalized === "true" || normalized === "yes";
+  }, [testingParam]);
+  const debug = sp?.get("debug") === "1";
 
   // Defer anything that depends on window to avoid hydration swaps
   const [mounted, setMounted] = useState(false);
@@ -98,16 +106,6 @@ export default function DocPage() {
       (window as any).__DOC_TESTING_MODE__ = testingOverride;
     }
   }, [testingOverride]);
-  // inside component:
-  const sp = useSearchParams();
-  const testingParam = sp?.get("testing");
-  const testingOverride = useMemo(() => {
-    if (!testingParam) return undefined;
-    const normalized = testingParam.trim().toLowerCase();
-    return normalized === "1" || normalized === "true" || normalized === "yes";
-  }, [testingParam]);
-  const debug = sp?.get("debug") === "1";
-
   // runtime debug logs (enabled with ?debug=1)
   if (debug) {
     console.log('[DocPage] debug', {

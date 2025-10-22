@@ -5,6 +5,13 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
 import PurposeCard, { defaultChipStyleMap } from "../../../components/PurposeCard";
 
+const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
+  Prepare: "Personal",
+  Learn: "Personal",
+  Review: "Team",
+  "Go-to-market": "Client",
+};
+
 type StagedDoc = {
   temp_id: string;
   agent_name: string;
@@ -165,6 +172,7 @@ export default function UploadPage() {
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
   const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
+  const [audienceType, setAudienceType] = useState<string>("Custom");
   // Hardcoded guidance texts stored in component state
   const initialGuidanceTexts: Record<string, string> = {
     Prepare: "I want to prepare for a presentation, seminar or meeting using the documents in your knowledge base.",
@@ -214,17 +222,23 @@ export default function UploadPage() {
             : null;
           const trimmedPurpose = typeof parsed.purposeText === 'string' ? parsed.purposeText : '';
           const saved = typeof parsed.savedPurpose === 'string' ? parsed.savedPurpose : null;
+          const audience =
+            typeof parsed.audienceType === 'string' && parsed.audienceType.length > 0
+              ? parsed.audienceType
+              : undefined;
 
           if (selected) {
             setSelectedGuidance(selected);
             const template = guidanceTexts[selected] ?? saved ?? trimmedPurpose;
             setSavedPurpose(template ?? null);
+            setAudienceType(audience ?? GUIDANCE_AUDIENCE_MAP[selected] ?? "Custom");
             setPurposeText('');
           } else {
             const customText = (saved ?? trimmedPurpose) ?? '';
             setSelectedGuidance(null);
             setSavedPurpose(customText ? customText : null);
             setPurposeText(customText);
+            setAudienceType(audience ?? "Custom");
           }
         }
       } catch (err) {
@@ -330,6 +344,7 @@ export default function UploadPage() {
           clientSlug,
           docs: createdDocs,
           purpose: savedPurpose ?? purposeText,
+          audienceType: audienceType || "Custom",
         }),
       });
       if (!res.ok) {
@@ -422,17 +437,19 @@ export default function UploadPage() {
             {currentStep === 0 ? (
               <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ width: 'min(640px, 100%)', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-                  <PurposeCard
-                    guidanceTexts={guidanceTexts}
-                    selectedGuidance={selectedGuidance}
-                    purposeText={purposeText}
-                    onSelectGuidance={(key, purpose) => {
+                    <PurposeCard
+                      guidanceTexts={guidanceTexts}
+                      selectedGuidance={selectedGuidance}
+                      purposeText={purposeText}
+                    onSelectGuidance={(key, purpose, audience) => {
                       setSelectedGuidance(key);
                       setSavedPurpose(purpose);
+                      setAudienceType(audience ?? "Custom");
                     }}
                     onCustomFocus={() => {
                       setSelectedGuidance(null);
                       setSavedPurpose(null);
+                      setAudienceType("Custom");
                     }}
                     onPurposeChange={(value) => {
                       setPurposeText(value);

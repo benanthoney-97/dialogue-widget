@@ -22,6 +22,7 @@ type CreateDialoguePayload = {
   clientSlug?: string;
   docs?: IncomingDoc[];
   purpose?: string;
+  audienceType?: string;
 };
 
 function decodeDataUrl(dataUrl: string) {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   let agentId: string | null = null;
   try {
     const body = (await req.json()) as CreateDialoguePayload;
-    const { clientSlug, docs, purpose } = body;
+    const { clientSlug, docs, purpose, audienceType } = body;
 
     if (!clientSlug) {
       return NextResponse.json({ error: 'Missing client slug' }, { status: 400 });
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
           agent_name: primaryDoc?.agent_name ?? key,
           created_at: nowIso,
           description: purpose ?? null,
+          audience_type: audienceType ?? null,
         } as any,
       ]);
 
