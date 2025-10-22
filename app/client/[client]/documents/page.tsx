@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
-import PurposeCard from "../../../components/PurposeCard";
+import PurposeCard, { defaultChipStyleMap } from "../../../components/PurposeCard";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -79,6 +79,7 @@ export default function DocumentsPage() {
   const [audienceType, setAudienceType] = useState<string>("Custom");
   const [purposeSubmitting, setPurposeSubmitting] = useState<boolean>(false);
   const guidanceTexts = PURPOSE_GUIDANCE_TEXTS;
+  const chipStyleMap = defaultChipStyleMap;
 
   // Get client slug from URL
   function getClientSlug(pathname: string | null): string {
@@ -106,7 +107,7 @@ export default function DocumentsPage() {
       // Get agent_map rows for this client (include testing_mode)
       const { data: agentRows, error: agentError } = await supabase
         .from('agent_map')
-        .select('agent_id, agent_name, content_type, created_at, status, dialogue_created_date, key, testing_mode')
+        .select('agent_id, agent_name, content_type, audience_type, created_at, status, dialogue_created_date, key')
         .eq('client_id', client.id)
         .order('created_at', { ascending: false });
       if (agentError) {
@@ -347,7 +348,34 @@ export default function DocumentsPage() {
                             {row.agent_name}
                           </div>
                         </td>
-                        <td style={tdStyle}>{row.content_type}</td>
+                        <td style={tdStyle}>
+                          {row.audience_type ? (
+                            (() => {
+                              const chip = chipStyleMap[row.audience_type] ?? chipStyleMap.Placeholder;
+                              return (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '2px 10px',
+                                    borderRadius: 999,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    background: chip.bg,
+                                    color: chip.color,
+                                    border: chip.border,
+                                    minHeight: 22,
+                                  }}
+                                >
+                                  {row.audience_type}
+                                </span>
+                              );
+                            })()
+                          ) : (
+                            '-'
+                          )}
+                        </td>
                         <td style={{ ...tdStyle, color: row.status === 'Ready' ? '#7ee67e' : row.status === 'Building' ? '#e6e67e' : '#a3c0ff', fontWeight: 700 }}>{row.status}</td>
                         <td style={tdStyle}>
                           {row.dialogue_created_date

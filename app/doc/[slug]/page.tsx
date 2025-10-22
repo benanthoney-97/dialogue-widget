@@ -59,7 +59,7 @@ export default function DocPage() {
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image, testing_mode"
+            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
           )
           .eq("key", slug)
           .maybeSingle();
