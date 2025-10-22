@@ -22,6 +22,7 @@ export type Database = {
           author: string | null
           client_id: number | null
           created_at: string | null
+          description: string | null
           key: string
           pdf_path: string | null
           region: string | null
@@ -37,6 +38,7 @@ export type Database = {
           author?: string | null
           client_id?: number | null
           created_at?: string | null
+          description?: string | null
           key: string
           pdf_path?: string | null
           region?: string | null
@@ -52,6 +54,7 @@ export type Database = {
           author?: string | null
           client_id?: number | null
           created_at?: string | null
+          description?: string | null
           key?: string
           pdf_path?: string | null
           region?: string | null
@@ -67,6 +70,50 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_documents: {
+        Row: {
+          id: string
+          agent_id: string
+          file_name: string
+          storage_path: string | null
+          public_url: string | null
+          mime_type: string | null
+          file_size: number | null
+          source: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          file_name: string
+          storage_path?: string | null
+          public_url?: string | null
+          mime_type?: string | null
+          file_size?: number | null
+          source?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          file_name?: string
+          storage_path?: string | null
+          public_url?: string | null
+          mime_type?: string | null
+          file_size?: number | null
+          source?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_documents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_map"
+            referencedColumns: ["agent_id"]
           },
         ]
       }

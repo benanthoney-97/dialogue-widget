@@ -144,18 +144,18 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
     if (e instanceof Error) {
       setErr(e.message);
       // Log stack and error object
-      // eslint-disable-next-line no-console
+       
       console.error("BriefMeButton error:", e, e.stack);
     } else if (typeof e === "object" && e !== null && "code" in e && "reason" in e) {
       // Likely a CloseEvent
       const ce = e as CloseEvent;
       const msg = `Connection closed (code: ${ce.code}, reason: ${ce.reason || "no reason"})`;
       setErr(msg);
-      // eslint-disable-next-line no-console
+       
       console.error("BriefMeButton CloseEvent:", ce);
     } else {
       setErr(String(e));
-      // eslint-disable-next-line no-console
+       
       console.error("BriefMeButton unknown error:", e);
     }
   }, []);
@@ -246,7 +246,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
       if (transcript) dynamicVars.transcript = transcript;
       if (conversationId) dynamicVars.conversation_id = conversationId;
       // Log the dynamic variables for verification
-      // eslint-disable-next-line no-console
+       
       console.log("[BriefMeButton] connect() dynamicVars:", dynamicVars);
       const sessionOptions: any = {
         agentId,
@@ -254,7 +254,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
         ...(Object.keys(dynamicVars).length > 0 ? { dynamicVariables: dynamicVars } : {}),
       };
       // Log the session options for verification
-      // eslint-disable-next-line no-console
+       
       console.log("[BriefMeButton] connect() sessionOptions:", sessionOptions);
 
       if (useSignedUrl) {
@@ -268,17 +268,17 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
           data = await res.json();
         } catch (err) {
           const text = await res.text();
-          // eslint-disable-next-line no-console
+           
           console.error("Failed to parse JSON from get-signed-url:", err, text);
           throw new Error(`Failed to parse JSON: ${err}\nResponse text: ${text}`);
         }
         if (!res.ok || !data?.signedUrl) {
-          // eslint-disable-next-line no-console
+           
           console.error("get-signed-url error:", data);
           throw new Error(data?.error || "Failed to get signed URL");
         }
         // Log the startSession call for verification
-        // eslint-disable-next-line no-console
+         
         console.log("[BriefMeButton] startSession (signedUrl) dynamicVars:", dynamicVars);
         await startSession({
           signedUrl: data.signedUrl,
@@ -287,7 +287,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
         });
       } else {
         // Log the startSession call for verification
-        // eslint-disable-next-line no-console
+         
         console.log("[BriefMeButton] startSession (no signedUrl) sessionOptions:", sessionOptions);
         await startSession(sessionOptions);
       }
@@ -300,7 +300,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
       setPhase("connected");
     } catch (error) {
       // Enhanced error logging
-      // eslint-disable-next-line no-console
+       
       console.error("BriefMeButton connect() error:", error);
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);

@@ -37,7 +37,7 @@ export default function ScreenshotPage() {
   // starting agent_map fetch for slug
       try {
         // try lookup by key first
-        let res = await supabase
+        const res = await supabase
           .from("agent_map")
           .select("agent_id, background_image, screenshot_path, region, auth, talk_label, pdf_path, agent_name, url, author, work_label")
           .eq("key", slug)

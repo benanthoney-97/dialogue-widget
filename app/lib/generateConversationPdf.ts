@@ -126,7 +126,7 @@ export async function generateConversationPdf(row: any) {
         ) {
           return;
         }
-        let keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         const keyText = `${keyLabel}:`;
         let valueText: string;
         if (arrayFields.includes(key) && Array.isArray(value)) {
@@ -177,7 +177,7 @@ export async function generateConversationPdf(row: any) {
     ];
     for (let i = 0; i < transcriptIdx; i++) {
       const [key, value] = rest[i];
-      let keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       const keyText = `${keyLabel}:`;
       let valueText: string;
       if (arrayFields.includes(key) && Array.isArray(value)) {
@@ -217,7 +217,7 @@ export async function generateConversationPdf(row: any) {
   y += lineHeight;
     doc.setFontSize(11);
     const [transcriptKeyName, transcriptValue] = rest[transcriptIdx];
-    let transcriptLabel = keyReplacements[transcriptKeyName] || transcriptKeyName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const transcriptLabel = keyReplacements[transcriptKeyName] || transcriptKeyName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     const transcriptText = `${transcriptLabel}:`;
@@ -252,7 +252,7 @@ export async function generateConversationPdf(row: any) {
     }
     for (let i = transcriptIdx + 1; i < rest.length; i++) {
       const [key, value] = rest[i];
-      let keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       const keyText = `${keyLabel}:`;
@@ -296,7 +296,7 @@ export async function generateConversationPdf(row: any) {
       'competitive_comparison_summary',
     ];
     rest.forEach(([key, value]) => {
-      let keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const keyLabel = keyReplacements[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       const keyText = `${keyLabel}:`;
       let valueText: string;
       if (arrayFields.includes(key) && Array.isArray(value)) {

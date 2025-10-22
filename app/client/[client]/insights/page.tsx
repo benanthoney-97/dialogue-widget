@@ -504,11 +504,9 @@ export default function InsightsTable() {
 								<th style={{ ...thStyle, maxWidth: 220, minWidth: 150 }}>Source Document</th>
 								<th style={thStyle}>Length</th>
 								<th style={thStyle}>Date</th>
-								<th style={thStyle}>Pipeline Intent</th>
 								<th style={thStyle}>Lead</th>
 								<th style={thStyle}></th>
 								<th style={thStyle}></th>
-								<th style={{ ...thStyle, position: 'sticky', right: 0, background: '#1b2947', zIndex: 2 }}>Brief</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -529,7 +527,6 @@ export default function InsightsTable() {
 													})
 												: ''
 										}</td>
-										<td style={tdStyle}>{row.intent}</td>
 										<td style={tdStyle}>
 											<span
 												style={{
@@ -550,7 +547,7 @@ export default function InsightsTable() {
 												onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
 												aria-expanded={openDropdown === i}
 											>
-												{openDropdown === i ? 'Hide Report' : 'View Report'}
+												{openDropdown === i ? 'Hide Details' : 'View Details'}
 											</button>
 										</td>
 										<td style={{ ...tdStyle, paddingLeft: 4, paddingRight: 4 }}>
@@ -562,39 +559,10 @@ export default function InsightsTable() {
 												/>
 											)}
 										</td>
-										<td style={{ ...tdStyle, position: 'sticky', right: 0, background: '#16213a', zIndex: 1 }}>
-											<span
-												title="View Brief Report"
-												style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, cursor: 'pointer' }}
-												onClick={async (e) => {
-													e.stopPropagation();
-													console.log('[DEBUG] PDF icon clicked for row', i, row);
-													try {
-														const mod = await import('../../../utils/generateConversationPdf');
-														if (mod && mod.generateConversationPdf) {
-															console.log('[DEBUG] Calling generateConversationPdf with row:', row);
-															await mod.generateConversationPdf(row);
-															console.log('[DEBUG] PDF generation complete');
-														} else {
-															console.error('[ERROR] generateConversationPdf not found in module');
-														}
-													} catch (err) {
-														console.error('[ERROR] PDF generation failed:', err);
-													}
-												}}
-											>
-												<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-													<rect x="4" y="2.5" width="14" height="17" rx="2.5" fill="#22325a" stroke="#a3c0ff" strokeWidth="1.2"/>
-													<rect x="7" y="6.5" width="8" height="1.5" rx="0.75" fill="#a3c0ff"/>
-													<rect x="7" y="10" width="8" height="1.5" rx="0.75" fill="#a3c0ff"/>
-													<rect x="7" y="13.5" width="5" height="1.5" rx="0.75" fill="#a3c0ff"/>
-												</svg>
-											</span>
-										</td>
 									</tr>
 														{openDropdown === i && (
 															<tr>
-																<td colSpan={9} style={{ padding: 0, background: "#10192b" }}>
+																<td colSpan={6} style={{ padding: 0, background: "#10192b" }}>
 																<div
 																	style={{
 																		padding: "18px 32px 18px 32px",

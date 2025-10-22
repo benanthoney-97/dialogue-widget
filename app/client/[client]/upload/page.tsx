@@ -3,8 +3,52 @@ import React, { useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
+
+type StagedDoc = {
+  temp_id: string;
+  agent_name: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  dataUrl: string;
+  lastModified: number;
+  groupTempId: string;
+};
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "-";
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = bytes / Math.pow(1024, exponent);
+  const hasDecimal = value < 10 && exponent > 0;
+  return `${hasDecimal ? value.toFixed(1) : Math.round(value)} ${units[exponent]}`;
+}
+
+function fileKey(file: File): string {
+  return `${file.name}::${file.size}::${file.lastModified}`;
+}
+
+function mergeFileLists(existing: File[], additions: File[]): File[] {
+  if (additions.length === 0) return existing;
+  const map = new Map<string, File>();
+  existing.forEach(file => map.set(fileKey(file), file));
+  additions.forEach(file => map.set(fileKey(file), file));
+  return Array.from(map.values());
+}
 
 export default function UploadPage() {
   const router = useRouter();
@@ -15,8 +59,7 @@ export default function UploadPage() {
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tempId, setTempId] = useState<string | null>(null);
-  const [createdAgentIds, setCreatedAgentIds] = useState<string[]>([]);
-  const [createdDocs, setCreatedDocs] = useState<Array<{ agent_id: string; agent_name: string; document_url: string }>>([]);
+  const [createdDocs, setCreatedDocs] = useState<StagedDoc[]>([]);
   const [purposeText, setPurposeText] = useState<string>('');
   const [purposeSaving, setPurposeSaving] = useState<boolean>(false);
   const purposeSavePromiseRef = useRef<Promise<boolean> | null>(null);
@@ -29,9 +72,13 @@ export default function UploadPage() {
   const [finalizing, setFinalizing] = useState<boolean>(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-      setNotification(null); // Clear notification on new file selection
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files);
+    if (selected.length === 0) return;
+    setFiles(prev => mergeFileLists(prev, selected));
+    setNotification(null); // Clear notification on new file selection
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   }
 
@@ -54,92 +101,56 @@ export default function UploadPage() {
     return match ? match[1] : "";
   }
   const clientSlug = getClientSlug(pathname);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    let allSuccess = true;
-    let firstError = null;
-        let client_id: number | null = null;
-        // Query clients table for client_id using clientSlug (field is 'name')
-        if (clientSlug) {
-          const { data: clientData, error: clientError } = await supabase
-            .from('clients')
-            .select('id')
-            .eq('name', clientSlug)
-            .single();
-          if (clientError || !clientData) {
-            setNotification({ type: 'error', message: 'Client not found.' });
-            setSubmitted(false);
-            return;
-          }
-          client_id = clientData.id;
-        }
-        if (uploadMode === 'upload' && files.length > 0 && clientSlug && client_id) {
-      // create a temp id and upload to a temp/ folder so we can confirm later
-      const newTempId = uuidv4();
-      const createdIds: string[] = [];
-      const createdDocsLocal: Array<{ agent_id: string; agent_name: string; document_url: string }> = [];
-      for (const file of files) {
-        const storagePath = `clients/${clientSlug}/temp/${newTempId}/${file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('docs')
-          .upload(storagePath, file, { upsert: true });
+    setNotification(null);
 
-        if (!uploadError) {
-          // Try to get a public URL for the uploaded object
-          const { data: urlData } = await supabase.storage.from('docs').getPublicUrl(storagePath);
-          // supabase client may return publicUrl or publicURL depending on version
-          const publicURL = (urlData as any)?.publicUrl ?? (urlData as any)?.publicURL ?? null;
-
-          // Fallback: construct expected public object URL (works if bucket is public)
-          const fallbackUrl =
-            (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "") +
-            `/storage/v1/object/public/docs/${encodeURIComponent(storagePath)}`;
-
-          const documentUrl = publicURL || fallbackUrl;
-
-          // Insert placeholder row into agent_map with document_url set
-          const agent_id = uuidv4();
-          const { error: insertError } = await supabase
-            .from('agent_map')
-            .insert([
-              {
-                agent_id,
-                client_id,
-                agent_name: file.name,
-                status: 'Pending',
-                created_at: new Date().toISOString(),
-                key: file.name,
-                document_url: documentUrl,
-              },
-            ]);
-          if (!insertError) {
-            createdIds.push(agent_id);
-            createdDocsLocal.push({ agent_id, agent_name: file.name, document_url: documentUrl });
-          } else {
-            allSuccess = false;
-            if (!firstError) firstError = insertError.message;
-          }
-        } else {
-          allSuccess = false;
-          if (!firstError) firstError = uploadError.message;
-        }
-      }
-      if (allSuccess) {
-        setNotification({ type: 'success', message: 'Upload successful!' });
-        // keep tempId and created agent ids/docs in state so we can finalize later
-        setTempId(newTempId);
-        setCreatedAgentIds(createdIds);
-        setCreatedDocs(createdDocsLocal);
-        // advance to Purpose step
-        setCurrentStep(1);
+    try {
+      if (uploadMode === 'upload' && files.length > 0) {
+        const groupTempId = uuidv4();
+        const stagedDocs = await Promise.all(
+          files.map(async (file) => {
+            const dataUrl = await fileToDataUrl(file);
+            return {
+              temp_id: uuidv4(),
+              agent_name: file.name,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+              dataUrl,
+              lastModified: file.lastModified,
+              groupTempId,
+            } satisfies StagedDoc;
+          })
+        );
+        setTempId(groupTempId);
+    setCreatedDocs(stagedDocs);
+        setCurrentStep(2);
+      } else if (uploadMode === 'url' && fileUrl.trim()) {
+        const groupTempId = uuidv4();
+        const stagedDoc: StagedDoc = {
+          temp_id: uuidv4(),
+          agent_name: fileUrl.trim(),
+          fileName: fileUrl.trim(),
+          fileType: "text/url",
+          fileSize: fileUrl.trim().length,
+          dataUrl: fileUrl.trim(),
+          lastModified: Date.now(),
+          groupTempId,
+        };
+        setTempId(groupTempId);
+  setCreatedDocs([stagedDoc]);
+        setCurrentStep(2);
       } else {
-        setNotification({ type: 'error', message: `Upload failed: ${firstError}` });
+        setNotification({ type: 'error', message: 'Please add at least one file or URL before continuing.' });
       }
+    } catch (err: any) {
+      const msg = err?.message ?? 'Unknown error';
+      setNotification({ type: 'error', message: `Failed to stage files: ${msg}` });
+    } finally {
+      setSubmitted(false);
     }
-    // (You can add logic for fileUrl mode here if needed)
-    setSubmitted(false);
   }
 
   // Timeline refs and measurement state
@@ -147,11 +158,46 @@ export default function UploadPage() {
   const circleRefs = useRef<Array<HTMLDivElement | null>>([]);
   const lineRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Upload, 1: Purpose, 2: Settings, 3: Confirm
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Purpose, 1: Upload, 2: Confirm
+  const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
+  const [hoveredGuidance, setHoveredGuidance] = useState<string | null>(null);
+  // When a guidance card is selected we store its template here so it can be carried
+  // forward even though the textarea remains visually empty.
+  const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
+  // Hardcoded guidance texts stored in component state
+  const initialGuidanceTexts: Record<string, string> = {
+    Prepare: "I want to prepare for a presentation, seminar or meeting using the documents in your knowledge base.",
+    Learn: "I want to learn in-depth about the topics discussed in the documents in your knowledge base.",
+    Review: "I'm reviewing the document(s) in your knowledge base for a teammate, in order to provide them with detailed feedback, and would like your assistance.",
+    'Go-to-market': "I'm a client of the author of the documents in your knowledge base and would like to analyse these materials with your assistance.",
+  };
+  const [guidanceTexts, setGuidanceTexts] = useState<Record<string, string>>(initialGuidanceTexts);
 
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('temp-upload-docs');
+      sessionStorage.removeItem('temp-upload-purpose');
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('temp-upload-docs');
+        sessionStorage.removeItem('temp-upload-purpose');
+      }
+    };
+  }, []);
   function setCircleRef(el: HTMLDivElement | null, idx: number) {
     circleRefs.current[idx] = el;
   }
+
+  // Styles for labeled chips (keeps 'Personal' consistent across items)
+  const chipStyleMap: Record<string, { bg: string; color: string; border: string }> = {
+  Personal: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.12)' },
+    Team: { bg: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.12)' },
+    Client: { bg: 'rgba(249,115,22,0.08)', color: '#f97316', border: '1px solid rgba(249,115,22,0.12)' },
+    Placeholder: { bg: 'rgba(139,92,246,0.06)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.10)' },
+  Purpose: { bg: 'rgba(20,184,166,0.08)', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.12)' },
+  };
 
   useEffect(() => {
     function updateLine() {
@@ -199,49 +245,15 @@ export default function UploadPage() {
     };
   }, [files, currentStep]);
 
-  // When entering Purpose step, prefill purposeText from the first draft agent_map row (if any)
-  useEffect(() => {
-    async function fetchPurpose() {
-      if (currentStep !== 1) return;
-      if (!createdAgentIds || createdAgentIds.length === 0) return;
-      try {
-        const firstAgentId = createdAgentIds[0];
-        const { data, error } = await supabase.from('agent_map').select('description').eq('agent_id', firstAgentId).single();
-        if (!error && data && typeof data.description === 'string') {
-          setPurposeText(data.description);
-        }
-      } catch (e) {
-        // ignore fetch errors for now
-      }
-    }
-    fetchPurpose();
-  }, [currentStep, createdAgentIds]);
-
+  // Hydrate staged data from session storage if available
   async function savePurpose(): Promise<boolean> {
-    if (!createdAgentIds || createdAgentIds.length === 0) return true;
+    if (!createdDocs || createdDocs.length === 0) return true;
     // if a save is already in progress, return that promise so callers can await it
     if (purposeSavePromiseRef.current) return purposeSavePromiseRef.current;
     setPurposeSaving(true);
     const p = (async () => {
       try {
-        // Update each agent_map row individually to avoid postgREST / .in() encoding issues
-        const results = await Promise.all(
-          createdAgentIds.map((agentId) =>
-            supabase
-              .from('agent_map')
-              .update({ description: purposeText, updated_at: new Date().toISOString() })
-              .eq('agent_id', agentId)
-          )
-        );
-
-        const failed = results.find((r: any) => r && r.error);
-        if (failed && failed.error) {
-          const err = failed.error;
-          const msg = (err && (err.message ?? err)) || 'Unknown error';
-          setNotification({ type: 'error', message: `Failed to save purpose: ${msg}` });
-          return false;
-        }
-
+        // Do not persist purpose in session storage anymore
         setNotification(null);
         return true;
       } catch (e: any) {
@@ -256,38 +268,6 @@ export default function UploadPage() {
     return p;
   }
 
-  // Save settings (tone, voice -> voice_id, agent_name) to all created agent_map rows
-  async function saveSettings(): Promise<boolean> {
-    if (!createdAgentIds || createdAgentIds.length === 0) return true;
-    setSettingsSaving(true);
-    try {
-      const results = await Promise.all(
-        createdAgentIds.map((agentId) =>
-          supabase
-            .from('agent_map')
-            .update({ tone: tone || null, voice_id: voice || null, agent_name: agentName || null, updated_at: new Date().toISOString() })
-            .match({ agent_id: agentId })
-        )
-      );
-
-      const failed = results.find((r: any) => r && r.error);
-      if (failed && failed.error) {
-        const err = failed.error;
-        const msg = (err && (err.message ?? err)) || 'Unknown error';
-        setNotification({ type: 'error', message: `Failed to save settings: ${msg}` });
-        setSettingsSaving(false);
-        return false;
-      }
-
-      setNotification(null);
-      setSettingsSaving(false);
-      return true;
-    } catch (e: any) {
-      setNotification({ type: 'error', message: `Failed to save settings: ${e?.message ?? e}` });
-      setSettingsSaving(false);
-      return false;
-    }
-  }
 
   // Finalize: ensure purpose/settings saved, then call server endpoint to move temp files and mark rows Ready
   async function handleFinalize() {
@@ -295,20 +275,23 @@ export default function UploadPage() {
     // Make sure purpose and settings are saved first
     const okPurpose = await savePurpose();
     if (!okPurpose) return;
-    const okSettings = await saveSettings();
-    if (!okSettings) return;
 
-    if (!tempId || !createdAgentIds || createdAgentIds.length === 0) {
+    if (!tempId || !createdDocs || createdDocs.length === 0) {
       setNotification({ type: 'error', message: 'Nothing to finalize.' });
       return;
     }
 
     setFinalizing(true);
     try {
-      const res = await fetch('/api/finalize', {
+      const res = await fetch('/api/dialogues/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tempId, agentIds: createdAgentIds, clientSlug }),
+        body: JSON.stringify({
+          tempId,
+          clientSlug,
+          docs: createdDocs,
+          purpose: savedPurpose ?? purposeText,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -319,6 +302,10 @@ export default function UploadPage() {
       }
 
       setNotification({ type: 'success', message: 'Dialogue created successfully.' });
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem('temp-upload-docs');
+        sessionStorage.removeItem('temp-upload-purpose');
+      }
       setFinalizing(false);
       // navigate to documents or dialogues list
       router.push(`/client/${clientSlug}/documents`);
@@ -355,7 +342,7 @@ export default function UploadPage() {
               {/* progress line up to current step */}
               <div ref={progressRef} style={{ position: 'absolute', top: '50%', transform: 'translateY(-1px)', height: 2, background: '#7ea0e6', zIndex: 1, left: 0, width: '0px', transition: 'left 200ms ease, width 200ms ease' }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, position: 'relative', zIndex: 2 }}>
-                {['Upload','Purpose','Settings','Confirm'].map((label, idx) => {
+                {['Purpose','Upload','Confirm'].map((label, idx) => {
                   const completed = idx < currentStep;
                   const active = idx === currentStep;
                   return (
@@ -382,7 +369,8 @@ export default function UploadPage() {
             </div>
           </div>
           <div style={{
-            width: 420,
+            width: 'min(640px, 92%)',
+            marginTop: 56,
             background: '#192447',
             borderRadius: 18,
             boxShadow: '0 4px 24px rgba(10,22,40,0.18)',
@@ -391,195 +379,127 @@ export default function UploadPage() {
             flexDirection: 'column',
             alignItems: 'center',
           }}>
-            {/* Conditionally render Purpose / Settings / Upload card depending on currentStep */}
-            {currentStep === 1 ? (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, color: '#e6eaff' }}>Purpose</h2>
-                <div style={{ marginBottom: 12, color: '#a3c0ff' }}>Tell us why you're uploading this document (basic form)</div>
-                <textarea
-                  placeholder="Enter purpose..."
-                  value={purposeText}
-                  onChange={(e) => setPurposeText(e.target.value)}
-                  onBlur={() => { void savePurpose(); }}
-                  style={{ width: '100%', minHeight: 120, borderRadius: 8, padding: 10, background: '#0f1a33', color: '#e6eaff', border: '1px solid #22325a' }}
-                />
-                <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      // ensure purpose saved before going back
-                      if (!purposeSaving) {
-                        const ok = await savePurpose();
-                        if (ok) setCurrentStep(0);
-                      }
-                    }}
-                    disabled={purposeSaving}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 700, opacity: purposeSaving ? 0.6 : 1, cursor: purposeSaving ? 'not-allowed' : 'pointer' }}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const ok = await savePurpose();
-                      if (ok) setCurrentStep(2);
-                    }}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: '#525fe1', color: '#fff', border: 'none', fontWeight: 700, opacity: purposeSaving ? 0.9 : 1, cursor: purposeSaving ? 'wait' : 'pointer' }}
-                  >
-                    {purposeSaving ? 'Saving...' : 'Next'}
-                  </button>
-                </div>
-              </div>
-            ) : currentStep === 2 ? (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, color: '#e6eaff' }}>Settings</h2>
-                <div style={{ marginBottom: 8, color: '#a3c0ff' }}>Tone</div>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                  {['Neutral','Formal','Casual','Assertive'].map((opt) => {
-                    const active = opt === tone;
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setTone(opt)}
-                        disabled={settingsSaving}
+            {/* Conditionally render Purpose / Upload / Confirm card depending on currentStep */}
+            {currentStep === 0 ? (
+              <>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 'min(640px, 100%)', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
+                    <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: '#e6eaff', marginBottom: 0 }}>What do you want to do?</div>
+                    <div style={{ textAlign: 'center', fontSize: 13, color: '#9fb3ff', marginBottom: 4, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>Tell your AI your goal so it has context.</div>
+                    {[
+                      { title: 'Prepare', subtitle: "Prepare for presentations, seminars and meetings using all the documents you’ll need." },
+                      { title: 'Learn', subtitle: 'Master complex topics across multiple documents.' },
+                      { title: 'Review', subtitle: 'Send documents to teammates for in-depth audio-led review.' },
+                      { title: 'Go-to-market', subtitle: 'Send documents to clients and gather valuable insights.' },
+                    ].map((item) => (
+                      <div
+                        key={item.title}
+                        onClick={() => {
+                          setSelectedGuidance(item.title);
+                          // save the template separately from the textarea value so the
+                          // textarea can remain visually empty while the template is used
+                          // for gating/submit/confirm.
+                          setSavedPurpose(guidanceTexts[item.title] ?? null);
+                        }}
+                        onMouseEnter={() => setHoveredGuidance(item.title)}
+                        onMouseLeave={() => setHoveredGuidance(null)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedGuidance(item.title); }}
                         style={{
-                          padding: '8px 12px',
-                          borderRadius: 999,
-                          background: active ? '#525fe1' : '#22325a',
-                          color: active ? '#fff' : '#a3c0ff',
-                          border: active ? '2px solid #7ea0e6' : '1px solid #2d406b',
-                          cursor: settingsSaving ? 'not-allowed' : 'pointer',
-                          fontWeight: 700,
-                          opacity: settingsSaving ? 0.65 : 1,
+                          width: '100%',
+                          background: selectedGuidance === item.title ? '#122a48' : (hoveredGuidance === item.title ? '#0f1f36' : '#101931'),
+                          borderRadius: 10,
+                          padding: 12,
+                          border: selectedGuidance === item.title ? '1px solid rgba(126,160,230,0.26)' : '1px solid rgba(34,50,90,0.6)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 6,
+                          position: 'relative',
+                          cursor: 'pointer',
+                          boxShadow: selectedGuidance === item.title ? '0 10px 30px rgba(30,60,110,0.26)' : undefined,
+                          transition: 'background 140ms ease, border 140ms ease, box-shadow 160ms ease',
                         }}
                       >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={{ marginBottom: 8, color: '#a3c0ff' }}>Voice</div>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                  {['male','female'].map((v) => {
-                    const active = v === voice;
-                    return (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setVoice(v as 'male' | 'female')}
-                        disabled={settingsSaving}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: 999,
-                          background: active ? '#525fe1' : '#22325a',
-                          color: active ? '#fff' : '#a3c0ff',
-                          border: active ? '2px solid #7ea0e6' : '1px solid #2d406b',
-                          cursor: settingsSaving ? 'not-allowed' : 'pointer',
-                          fontWeight: 700,
-                          textTransform: 'capitalize',
-                          opacity: settingsSaving ? 0.65 : 1,
-                        }}
-                      >
-                        {v}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={{ marginBottom: 8, color: '#a3c0ff' }}>Dialogue name</div>
-                <input
-                  value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
-                  placeholder="Enter a display name for your Dialogue"
-                  disabled={settingsSaving}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    background: '#0f1a33',
-                    color: '#e6eaff',
-                    border: '1px solid #22325a',
-                    marginBottom: 12,
-                    opacity: settingsSaving ? 0.75 : 1,
-                  }}
-                />
-
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    disabled={settingsSaving}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 700, opacity: settingsSaving ? 0.6 : 1, cursor: settingsSaving ? 'not-allowed' : 'pointer' }}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (settingsSaving) return;
-                      const ok = await saveSettings();
-                      if (ok) setCurrentStep(3);
-                    }}
-                    disabled={settingsSaving}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: '#525fe1', color: '#fff', border: 'none', fontWeight: 700, opacity: settingsSaving ? 0.9 : 1, cursor: settingsSaving ? 'not-allowed' : 'pointer' }}
-                  >
-                    {settingsSaving ? 'Saving...' : 'Next'}
-                  </button>
-                </div>
-              </div>
-            ) : currentStep === 3 ? (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, color: '#e6eaff' }}>Confirm</h2>
-                <div style={{ color: '#a3c0ff', marginBottom: 12 }}>Review uploaded files, purpose and settings before creating the Dialogue.</div>
-
-                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, marginBottom: 12 }}>
-                  {createdDocs.length === 0 ? (
-                    <div style={{ color: '#a3c0ff' }}>No uploaded documents</div>
-                  ) : (
-                    createdDocs.map((d) => (
-                      <div key={d.agent_id} style={{ width: 120, height: 140, borderRadius: 8, background: '#0f1724', border: '1px solid #22325a', padding: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#e6eaff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.agent_name}</div>
-                        <div style={{ fontSize: 11, color: '#9fb3ff', wordBreak: 'break-all' }}>{d.document_url}</div>
+                        {/* Chip in top-right corner */}
+                        {(() => {
+                          const label = item.title === 'Prepare' || item.title === 'Learn' ? 'Personal' : (item.title === 'Review' ? 'Team' : (item.title === 'Go-to-market' ? 'Client' : 'Placeholder'));
+                          const s = chipStyleMap[label] ?? chipStyleMap.Placeholder;
+                          return (
+                            <div style={{ position: 'absolute', top: 8, right: 8, background: s.bg, color: s.color, border: s.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, lineHeight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}</div>
+                          );
+                        })()}
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#e6eaff' }}>{item.title}</div>
+                        <div style={{ fontSize: 13, color: '#9bb5ff', lineHeight: 1.5 }}>
+                          {item.subtitle}
+                        </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
 
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, color: '#a3c0ff', marginBottom: 6 }}>Purpose</div>
-                  <div style={{ background: '#0f1a33', padding: 10, borderRadius: 8, color: '#e6eaff' }}>{purposeText || '-'}</div>
-                </div>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5, background: chipStyleMap.Purpose.bg, color: chipStyleMap.Purpose.color, border: chipStyleMap.Purpose.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Custom</div>
+                        <textarea
+                          placeholder="Describe your own goal..."
+                          value={purposeText}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setPurposeText(v);
+                          }}
+                          onFocus={() => {
+                            // when the user focuses the textarea they intend to type their own
+                            // purpose so deselect guidance and clear the saved template
+                            setSelectedGuidance(null);
+                            setSavedPurpose(null);
+                          }}
+                          onBlur={() => { void savePurpose(); }}
+                          style={{ width: '100%', minHeight: 96, borderRadius: 8, padding: '12px', background: '#0f1a33', color: '#e6eaff', border: '1px solid #22325a' }}
+                        />
+                    </div>
 
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, color: '#a3c0ff', marginBottom: 6 }}>Settings</div>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ color: '#9fb3ff' }}>Tone: <span style={{ color: '#e6eaff', fontWeight: 800 }}>{tone || '-'}</span></div>
-                    <div style={{ color: '#9fb3ff' }}>Voice: <span style={{ color: '#e6eaff', fontWeight: 800 }}>{voice || '-'}</span></div>
-                    <div style={{ color: '#9fb3ff' }}>Name: <span style={{ color: '#e6eaff', fontWeight: 800 }}>{agentName || '-'}</span></div>
+                    <div style={{ width: '100%', marginTop: 0 }}>
+                      {(() => {
+                        const nextDisabled = purposeSaving || (!selectedGuidance && !purposeText.trim());
+                        return (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const ok = await savePurpose();
+                              if (ok) setCurrentStep(1);
+                            }}
+                            disabled={nextDisabled}
+                            style={{
+                              width: '100%',
+                              padding: '10px 18px',
+                              borderRadius: 8,
+                              background: nextDisabled ? '#2d406b' : '#525fe1',
+                              color: '#fff',
+                              border: 'none',
+                              fontWeight: 700,
+                              opacity: nextDisabled ? 0.75 : 1,
+                              cursor: nextDisabled ? 'not-allowed' : 'pointer',
+                              transition: 'background 120ms, opacity 120ms',
+                            }}
+                          >
+                            {purposeSaving ? 'Saving...' : 'Next'}
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button type="button" onClick={() => setCurrentStep(2)} disabled={finalizing} style={{ padding: '8px 14px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 700, opacity: finalizing ? 0.6 : 1, cursor: finalizing ? 'not-allowed' : 'pointer' }}>Back</button>
-                  <button type="button" onClick={handleFinalize} disabled={finalizing} style={{ padding: '8px 14px', borderRadius: 8, background: '#16a34a', color: '#fff', border: 'none', fontWeight: 700, cursor: finalizing ? 'not-allowed' : 'pointer' }}>{finalizing ? 'Creating…' : 'Create Dialogue'}</button>
-                </div>
-              </div>
-            ) : (
+              </>
+            ) : currentStep === 1 ? (
               <>
-            {/* ...existing code... */}
-            {/* Document Icon */}
-            <div style={{ marginBottom: 18 }}>
-              <svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="10" y="6" width="34" height="42" rx="5" fill="#22325a" stroke="#7ea0e6" strokeWidth="2.2"/>
-                <rect x="17" y="16" width="20" height="3" rx="1.5" fill="#7ea0e6"/>
-                <rect x="17" y="25" width="20" height="3" rx="1.5" fill="#7ea0e6"/>
-                <rect x="17" y="34" width="12" height="3" rx="1.5" fill="#7ea0e6"/>
-              </svg>
-            </div>
+            {/* Upload stage */}
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+            {/* Removed decorative Document Icon for a more compact header */}
             {/* Heading */}
-            <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 18, color: "#e6eaff", fontFamily: "inherit", letterSpacing: 0.5 }}>Add a file for processing</h2>
+            <div style={{ position: 'relative', width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <button type="button" onClick={() => setCurrentStep(0)} disabled={purposeSaving} style={{ padding: '6px 12px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 600, fontSize: 13, opacity: purposeSaving ? 0.6 : 1, cursor: purposeSaving ? 'not-allowed' : 'pointer' }}>Back</button>
+              </div>
+              <h2 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 20, fontWeight: 800, color: "#e6eaff", fontFamily: "inherit", letterSpacing: 0.5, margin: 0 }}>Add your documents</h2>
+            </div>
             {/* Chips for Upload/File URL */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignSelf: 'center', justifyContent: 'center', width: '80%' }}>
               <button
@@ -650,7 +570,10 @@ export default function UploadPage() {
                     e.preventDefault();
                     e.stopPropagation();
                     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      setFiles(Array.from(e.dataTransfer.files));
+                      const dropped = Array.from(e.dataTransfer.files);
+                      setFiles(prev => mergeFileLists(prev, dropped));
+                      setNotification(null);
+                      e.dataTransfer.clearData();
                     }
                   }}
                 >
@@ -689,14 +612,21 @@ export default function UploadPage() {
                       </div>
                     </>
                   ) : (
+                    <>
                     <ul style={{ color: '#a3c0ff', fontSize: 15, paddingLeft: 0, margin: 0, width: '100%' }}>
                       {files.map((file, idx) => (
-                        <li key={idx} style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{file.name}</span>
-                          <button type="button" onClick={() => handleRemoveFile(idx)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15 }}>Remove</button>
+                        <li key={idx} style={{ marginBottom: 6, width: '100%', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none', paddingTop: idx > 0 ? 8 : 0 }}>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360, textAlign: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>{file.name}</span>
+                            <button type="button" onClick={() => handleRemoveFile(idx)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, position: 'absolute', right: 12 }}>Remove</button>
+                          </div>
                         </li>
                       ))}
+                      <li style={{ listStyle: 'none', marginTop: 8, textAlign: 'center' }}>
+                        <div style={{ fontSize: 13, color: '#9fb3ff', opacity: 0.9 }}>Click to add more documents</div>
+                      </li>
                     </ul>
+                    </>
                   )}
                 </label>
               ) : (
@@ -773,7 +703,7 @@ export default function UploadPage() {
                   transition: 'background 0.18s, box-shadow 0.18s',
                 }}
               >
-                {submitted ? 'Uploading...' : 'Submit'}
+                {submitted ? 'Uploading...' : 'Next'}
               </button>
               {/* Uploading message and notification below the button */}
               {submitted && !notification && (
@@ -794,7 +724,7 @@ export default function UploadPage() {
                   alignItems: 'center',
                   gap: 10,
                 }}>
-                  Do not leave this page while your document is uploading.
+                  Stay on the page while document is uploading.
                 </div>
               )}
               {notification && (
@@ -818,29 +748,76 @@ export default function UploadPage() {
                   justifyContent: notification.type === 'success' ? 'center' : 'initial',
                 }}>
                   <span>{notification.message}</span>
-                  {notification.type === 'success' && (
-                    <button
-                      style={{
-                        background: '#22c55e',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 6,
-                        padding: '7px 18px',
-                        fontWeight: 700,
-                        fontSize: 15,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px #22c55e33',
-                        transition: 'background 0.18s',
-                      }}
-                      onClick={() => router.push(`/client/${clientSlug}/documents`)}
-                    >
-                      Track Progress
-                    </button>
-                  )}
                 </div>
               )}
               </form>
+            </div>
               </>
+            ) : (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                <div style={{ position: 'relative', width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center' }}>
+                  <div style={{ flex: '0 0 auto' }}>
+                    <button type="button" onClick={() => setCurrentStep(1)} disabled={finalizing} style={{ padding: '6px 12px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 600, fontSize: 13, opacity: finalizing ? 0.6 : 1, cursor: finalizing ? 'not-allowed' : 'pointer' }}>Back</button>
+                  </div>
+                  <h2 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 20, fontWeight: 800, color: '#e6eaff', fontFamily: 'inherit', letterSpacing: 0.5, margin: 0 }}>Confirm</h2>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, marginBottom: 12 }}>
+                  {createdDocs.length === 0 ? (
+                    <div style={{ color: '#a3c0ff' }}>No uploaded documents</div>
+                  ) : (
+                    createdDocs.map((d) => (
+                      <div key={d.temp_id} style={{ width: 120, height: 140, borderRadius: 8, background: '#0f1724', border: '1px solid #22325a', padding: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#e6eaff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.agent_name}</div>
+                        <div style={{ fontSize: 11, color: '#9fb3ff', wordBreak: 'break-word' }}>
+                          <div>{formatBytes(d.fileSize)} · {d.fileType || 'Unknown type'}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  {/* Show guidance-style card if user selected a guidance OR typed a custom purpose */}
+                  { (selectedGuidance || (purposeText && purposeText.trim() !== '')) ? (
+                    <div
+                      style={{
+                        width: '100%',
+                        background: '#122a48',
+                        borderRadius: 10,
+                        padding: 12,
+                        border: '1px solid rgba(126,160,230,0.12)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        position: 'relative',
+                      }}
+                    >
+                      {/* Chip in top-right - use mapping for selected guidance, otherwise show 'Custom' */}
+                      {(() => {
+                        const isCustom = !selectedGuidance;
+                        const label = isCustom ? 'Custom' : (selectedGuidance === 'Prepare' || selectedGuidance === 'Learn' ? 'Personal' : (selectedGuidance === 'Review' ? 'Team' : (selectedGuidance === 'Go-to-market' ? 'Client' : 'Placeholder')));
+                        const s = isCustom ? chipStyleMap.Purpose : (chipStyleMap[label] ?? chipStyleMap.Placeholder);
+                        return (
+                          <div style={{ position: 'absolute', top: 8, right: 8, background: s.bg, color: s.color, border: s.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, lineHeight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}</div>
+                        );
+                      })()}
+
+                      {/* Title: show guidance title or 'Custom' for user-typed purpose */}
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e6eaff' }}>{selectedGuidance ?? 'Custom description'}</div>
+
+                      {/* Content: guidance text for selectedGuidance, otherwise the user's typed purpose */}
+                      <div style={{ fontSize: 13, color: '#9bb5ff', lineHeight: 1.5 }}>{selectedGuidance ? (guidanceTexts[selectedGuidance] ?? (savedPurpose ?? purposeText) ?? '-') : (purposeText || '-')}</div>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#0f1a33', padding: 10, borderRadius: 8, color: '#e6eaff' }}>{(savedPurpose ?? purposeText) || '-'}</div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                  <button type="button" onClick={handleFinalize} disabled={finalizing} style={{ width: '100%', padding: '12px 14px', borderRadius: 8, background: '#16a34a', color: '#fff', border: 'none', fontWeight: 700, cursor: finalizing ? 'not-allowed' : 'pointer' }}>{finalizing ? 'Creating…' : 'Create Dialogue'}</button>
+                </div>
+              </div>
             )}
           </div>
         </div>
