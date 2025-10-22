@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
+import PurposeCard from "../../../components/PurposeCard";
 
 type AgentDocumentRow = {
   id: string;
@@ -16,6 +17,13 @@ type AgentDocumentRow = {
   source: string | null;
   created_at: string;
   added_stage?: string | null;
+};
+
+const PURPOSE_GUIDANCE_TEXTS: Record<string, string> = {
+  Prepare: "I want to prepare for a presentation, seminar or meeting using the documents in your knowledge base.",
+  Learn: "I want to learn in-depth about the topics discussed in the documents in your knowledge base.",
+  Review: "I'm reviewing the document(s) in your knowledge base for a teammate, in order to provide them with detailed feedback, and would like your assistance.",
+  "Go-to-market": "I'm a client of the author of the documents in your knowledge base and would like to analyse these materials with your assistance.",
 };
 
 function formatBytes(bytes?: number | null): string {
@@ -58,6 +66,12 @@ export default function DocumentsPage() {
   const [deletingDoc, setDeletingDoc] = useState<boolean>(false);
   const [docDeleteError, setDocDeleteError] = useState<string | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+  const [purposeText, setPurposeText] = useState<string>("");
+  const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
+  const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
+  const [purposeSubmitting, setPurposeSubmitting] = useState<boolean>(false);
+  const guidanceTexts = PURPOSE_GUIDANCE_TEXTS;
 
   // Get client slug from URL
   function getClientSlug(pathname: string | null): string {
@@ -93,7 +107,12 @@ export default function DocumentsPage() {
         setLoading(false);
         return;
       }
+  // debug: log fetched data (use console.log so messages are visible in browser consoles)
+  // eslint-disable-next-line no-console
+  console.log('DocumentsPage.fetchDocs', { clientSlug, client: client ?? null, agentRows: agentRows ?? [] });
       setDocs(agentRows || []);
+  // eslint-disable-next-line no-console
+  console.log('DocumentsPage.setDocs count', (agentRows || []).length);
   // initialize testing state from DB (testing_mode) for rows
   const init: Record<string, boolean> = {};
   (agentRows || []).forEach((r: any) => { init[r.key] = !!r.testing_mode; });
@@ -107,6 +126,12 @@ export default function DocumentsPage() {
     setDocDeleteError(null);
     setDeletingDoc(false);
   }, [confirmingDoc]);
+
+  // Debug: log when docs/loading/error change
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('DocumentsPage.state', { clientSlug, docsLength: docs.length, loading, error });
+  }, [clientSlug, docs.length, loading, error]);
 
   const ensureAgentDocuments = async (agentId: string) => {
     setAgentDocuments((prev) => ({
@@ -245,6 +270,7 @@ export default function DocumentsPage() {
   };
 
   const rowPendingDelete = confirmingKey ? docs.find((doc) => doc.key === confirmingKey) : null;
+  const purposeNextDisabled = purposeSubmitting || (!selectedGuidance && !purposeText.trim());
 
   return (
     <main style={{ minHeight: "100dvh", background: "#0a1628", padding: 0, fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif", display: 'flex', flexDirection: 'row' }}>
@@ -265,28 +291,27 @@ export default function DocumentsPage() {
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#e6eaff", fontFamily: "inherit" }}>Dialogues</h2>
         <div style={{ marginBottom: 32 }} />
         <div style={{ overflowX: "auto", width: "100%" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
-            <thead>
-              <tr style={{ background: "#1b2947" }}>
-                <th style={thStyle}>Dialogue</th>
-                <th style={thStyle}>Content Type</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Last Updated</th>
-                <th style={thStyle}>Test</th>
-                <th style={thStyle}>Mode</th>
-                <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
-                <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
-              ) : error ? (
-                <tr><td colSpan={8} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
-              ) : docs.length === 0 ? (
-                <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>No documents found.</td></tr>
-              ) : (
-                docs.map((row, i) => {
+          {loading || error || docs.length > 0 ? (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
+              <thead>
+                <tr style={{ background: "#1b2947" }}>
+                  <th style={thStyle}>Dialogue</th>
+                  <th style={thStyle}>Content Type</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Last Updated</th>
+                  <th style={thStyle}>Test</th>
+                  <th style={thStyle}>Mode</th>
+                  <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
+                  <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
+                ) : error ? (
+                  <tr><td colSpan={8} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
+                ) : (
+                  docs.map((row, i) => {
                   const rowKey = row?.key ?? String(i);
                   const isExpanded = expandedKey === rowKey;
                   const agentId = typeof row.agent_id === 'string' ? row.agent_id : null;
@@ -349,7 +374,9 @@ export default function DocumentsPage() {
                             onClick={(event) => {
                               event.stopPropagation();
                               if (row && row.key && row.status === 'Ready') {
-                                window.open(`https://embed.dialogue-ai.co/doc/${row.key}`, '_blank');
+                                const baseUrl = `https://embed.dialogue-ai.co/doc/${row.key}`;
+                                const testUrl = `${baseUrl}?testing=1`;
+                                window.open(testUrl, '_blank');
                               }
                             }}
                           >
@@ -848,6 +875,48 @@ export default function DocumentsPage() {
             }
             </tbody>
           </table>
+          ) : (
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: 24 }}>
+              <div style={{ width: 'min(640px, 100%)', background: '#192447', borderRadius: 18, boxShadow: '0 4px 24px rgba(10,22,40,0.18)', padding: '24px 24px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <PurposeCard
+                  guidanceTexts={guidanceTexts}
+                  selectedGuidance={selectedGuidance}
+                  purposeText={purposeText}
+                  headingText="Create your first Dialogue"
+                  onSelectGuidance={(key, purpose) => {
+                    setSelectedGuidance(key);
+                    setSavedPurpose(purpose);
+                  }}
+                  onCustomFocus={() => {
+                    setSelectedGuidance(null);
+                    setSavedPurpose(null);
+                  }}
+                  onPurposeChange={(value) => {
+                    setPurposeText(value);
+                  }}
+                  onNext={async () => {
+                    if (!clientSlug || purposeSubmitting) return;
+                    setPurposeSubmitting(true);
+                    const trimmedPurpose = purposeText.trim();
+                    const resolvedPurpose = selectedGuidance && guidanceTexts[selectedGuidance]
+                      ? guidanceTexts[selectedGuidance]
+                      : savedPurpose ?? trimmedPurpose;
+                    const payload = {
+                      selectedGuidance,
+                      purposeText: trimmedPurpose,
+                      savedPurpose: resolvedPurpose || trimmedPurpose,
+                    };
+                    const params = new URLSearchParams();
+                    params.set("stage", "upload");
+                    params.set("purpose", JSON.stringify(payload));
+                    router.push(`/client/${clientSlug}/upload?${params.toString()}`);
+                  }}
+                  nextDisabled={purposeNextDisabled || !clientSlug}
+                  saving={purposeSubmitting}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {confirmingKey && (

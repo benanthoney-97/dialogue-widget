@@ -72,15 +72,15 @@ export default function DocPage() {
             workLabel: data.work_label ?? prev?.workLabel,
             backgroundImage: data.background_image ?? prev?.backgroundImage,
           }));
-          // expose testing_mode to client components via a small global flag (non-enumerable fallback)
-          try {
-            // attach to window for the talk button to pick up dynamically
-            if (typeof window !== "undefined") {
-              // use a namespaced property to avoid collisions
-              (window as any).__DOC_TESTING_MODE__ = Boolean(data.testing_mode);
+          if (testingOverride === undefined) {
+            try {
+              // attach to window for the talk button to pick up dynamically
+              if (typeof window !== "undefined") {
+                (window as any).__DOC_TESTING_MODE__ = Boolean(data.testing_mode);
+              }
+            } catch (e) {
+              // ignore
             }
-          } catch (e) {
-            // ignore
           }
         }
       } catch (e) {
@@ -91,9 +91,21 @@ export default function DocPage() {
     return () => {
       mounted = false;
     };
-  }, [slug, entry]);
+  }, [slug, entry, testingOverride]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (testingOverride !== undefined) {
+      (window as any).__DOC_TESTING_MODE__ = testingOverride;
+    }
+  }, [testingOverride]);
   // inside component:
   const sp = useSearchParams();
+  const testingParam = sp?.get("testing");
+  const testingOverride = useMemo(() => {
+    if (!testingParam) return undefined;
+    const normalized = testingParam.trim().toLowerCase();
+    return normalized === "1" || normalized === "true" || normalized === "yes";
+  }, [testingParam]);
   const debug = sp?.get("debug") === "1";
 
   // runtime debug logs (enabled with ?debug=1)
@@ -348,6 +360,7 @@ export default function DocPage() {
             buttonColor={theme.background}
             buttonTextColor={theme.text}
             buttonBorderColor={theme.border}
+            testingOverride={testingOverride}
           />
         </div>
       </div>

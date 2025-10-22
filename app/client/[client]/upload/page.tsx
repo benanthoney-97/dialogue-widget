@@ -1,9 +1,9 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { useRouter } from "next/navigation";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
+import PurposeCard, { defaultChipStyleMap } from "../../../components/PurposeCard";
 
 type StagedDoc = {
   temp_id: string;
@@ -63,6 +63,7 @@ export default function UploadPage() {
   const [purposeText, setPurposeText] = useState<string>('');
   const [purposeSaving, setPurposeSaving] = useState<boolean>(false);
   const purposeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const hasHydratedFromParams = useRef<boolean>(false);
   const [selectedSetting, setSelectedSetting] = useState<string>('Friendly');
   // Settings state
   const [tone, setTone] = useState<string>('Neutral');
@@ -94,6 +95,7 @@ export default function UploadPage() {
 
 
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   // Get client slug from URL
   function getClientSlug(pathname: string | null): string {
     if (!pathname) return "";
@@ -160,7 +162,6 @@ export default function UploadPage() {
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0); // 0: Purpose, 1: Upload, 2: Confirm
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
-  const [hoveredGuidance, setHoveredGuidance] = useState<string | null>(null);
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
   const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
@@ -191,13 +192,51 @@ export default function UploadPage() {
   }
 
   // Styles for labeled chips (keeps 'Personal' consistent across items)
-  const chipStyleMap: Record<string, { bg: string; color: string; border: string }> = {
-  Personal: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.12)' },
-    Team: { bg: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.12)' },
-    Client: { bg: 'rgba(249,115,22,0.08)', color: '#f97316', border: '1px solid rgba(249,115,22,0.12)' },
-    Placeholder: { bg: 'rgba(139,92,246,0.06)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.10)' },
-  Purpose: { bg: 'rgba(20,184,166,0.08)', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.12)' },
-  };
+  const chipStyleMap = defaultChipStyleMap;
+
+  useEffect(() => {
+    if (hasHydratedFromParams.current) return;
+    const stageParam = searchParams?.get("stage");
+    const purposeParam = searchParams?.get("purpose");
+    if (!stageParam && !purposeParam) return;
+    hasHydratedFromParams.current = true;
+
+    if (stageParam === "upload") {
+      setCurrentStep(1);
+    }
+
+    if (purposeParam) {
+      try {
+        const parsed = JSON.parse(purposeParam);
+        if (parsed && typeof parsed === 'object') {
+          const selected = typeof parsed.selectedGuidance === 'string' && parsed.selectedGuidance.length > 0
+            ? parsed.selectedGuidance
+            : null;
+          const trimmedPurpose = typeof parsed.purposeText === 'string' ? parsed.purposeText : '';
+          const saved = typeof parsed.savedPurpose === 'string' ? parsed.savedPurpose : null;
+
+          if (selected) {
+            setSelectedGuidance(selected);
+            const template = guidanceTexts[selected] ?? saved ?? trimmedPurpose;
+            setSavedPurpose(template ?? null);
+            setPurposeText('');
+          } else {
+            const customText = (saved ?? trimmedPurpose) ?? '';
+            setSelectedGuidance(null);
+            setSavedPurpose(customText ? customText : null);
+            setPurposeText(customText);
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to parse purpose from query params', err);
+      }
+    }
+
+    if (stageParam || purposeParam) {
+      router.replace(pathname);
+    }
+  }, [searchParams, pathname, router, guidanceTexts]);
 
   useEffect(() => {
     function updateLine() {
@@ -381,113 +420,33 @@ export default function UploadPage() {
           }}>
             {/* Conditionally render Purpose / Upload / Confirm card depending on currentStep */}
             {currentStep === 0 ? (
-              <>
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                  <div style={{ width: 'min(640px, 100%)', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-                    <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: '#e6eaff', marginBottom: 0 }}>What do you want to do?</div>
-                    <div style={{ textAlign: 'center', fontSize: 13, color: '#9fb3ff', marginBottom: 4, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>Tell your AI your goal so it has context.</div>
-                    {[
-                      { title: 'Prepare', subtitle: "Prepare for presentations, seminars and meetings using all the documents you’ll need." },
-                      { title: 'Learn', subtitle: 'Master complex topics across multiple documents.' },
-                      { title: 'Review', subtitle: 'Send documents to teammates for in-depth audio-led review.' },
-                      { title: 'Go-to-market', subtitle: 'Send documents to clients and gather valuable insights.' },
-                    ].map((item) => (
-                      <div
-                        key={item.title}
-                        onClick={() => {
-                          setSelectedGuidance(item.title);
-                          // save the template separately from the textarea value so the
-                          // textarea can remain visually empty while the template is used
-                          // for gating/submit/confirm.
-                          setSavedPurpose(guidanceTexts[item.title] ?? null);
-                        }}
-                        onMouseEnter={() => setHoveredGuidance(item.title)}
-                        onMouseLeave={() => setHoveredGuidance(null)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedGuidance(item.title); }}
-                        style={{
-                          width: '100%',
-                          background: selectedGuidance === item.title ? '#122a48' : (hoveredGuidance === item.title ? '#0f1f36' : '#101931'),
-                          borderRadius: 10,
-                          padding: 12,
-                          border: selectedGuidance === item.title ? '1px solid rgba(126,160,230,0.26)' : '1px solid rgba(34,50,90,0.6)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 6,
-                          position: 'relative',
-                          cursor: 'pointer',
-                          boxShadow: selectedGuidance === item.title ? '0 10px 30px rgba(30,60,110,0.26)' : undefined,
-                          transition: 'background 140ms ease, border 140ms ease, box-shadow 160ms ease',
-                        }}
-                      >
-                        {/* Chip in top-right corner */}
-                        {(() => {
-                          const label = item.title === 'Prepare' || item.title === 'Learn' ? 'Personal' : (item.title === 'Review' ? 'Team' : (item.title === 'Go-to-market' ? 'Client' : 'Placeholder'));
-                          const s = chipStyleMap[label] ?? chipStyleMap.Placeholder;
-                          return (
-                            <div style={{ position: 'absolute', top: 8, right: 8, background: s.bg, color: s.color, border: s.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, lineHeight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}</div>
-                          );
-                        })()}
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#e6eaff' }}>{item.title}</div>
-                        <div style={{ fontSize: 13, color: '#9bb5ff', lineHeight: 1.5 }}>
-                          {item.subtitle}
-                        </div>
-                      </div>
-                    ))}
-
-                    <div style={{ position: 'relative', width: '100%' }}>
-                      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5, background: chipStyleMap.Purpose.bg, color: chipStyleMap.Purpose.color, border: chipStyleMap.Purpose.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Custom</div>
-                        <textarea
-                          placeholder="Describe your own goal..."
-                          value={purposeText}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setPurposeText(v);
-                          }}
-                          onFocus={() => {
-                            // when the user focuses the textarea they intend to type their own
-                            // purpose so deselect guidance and clear the saved template
-                            setSelectedGuidance(null);
-                            setSavedPurpose(null);
-                          }}
-                          onBlur={() => { void savePurpose(); }}
-                          style={{ width: '100%', minHeight: 96, borderRadius: 8, padding: '12px', background: '#0f1a33', color: '#e6eaff', border: '1px solid #22325a' }}
-                        />
-                    </div>
-
-                    <div style={{ width: '100%', marginTop: 0 }}>
-                      {(() => {
-                        const nextDisabled = purposeSaving || (!selectedGuidance && !purposeText.trim());
-                        return (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const ok = await savePurpose();
-                              if (ok) setCurrentStep(1);
-                            }}
-                            disabled={nextDisabled}
-                            style={{
-                              width: '100%',
-                              padding: '10px 18px',
-                              borderRadius: 8,
-                              background: nextDisabled ? '#2d406b' : '#525fe1',
-                              color: '#fff',
-                              border: 'none',
-                              fontWeight: 700,
-                              opacity: nextDisabled ? 0.75 : 1,
-                              cursor: nextDisabled ? 'not-allowed' : 'pointer',
-                              transition: 'background 120ms, opacity 120ms',
-                            }}
-                          >
-                            {purposeSaving ? 'Saving...' : 'Next'}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  </div>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ width: 'min(640px, 100%)', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
+                  <PurposeCard
+                    guidanceTexts={guidanceTexts}
+                    selectedGuidance={selectedGuidance}
+                    purposeText={purposeText}
+                    onSelectGuidance={(key, purpose) => {
+                      setSelectedGuidance(key);
+                      setSavedPurpose(purpose);
+                    }}
+                    onCustomFocus={() => {
+                      setSelectedGuidance(null);
+                      setSavedPurpose(null);
+                    }}
+                    onPurposeChange={(value) => {
+                      setPurposeText(value);
+                    }}
+                    onPurposeBlur={() => { void savePurpose(); }}
+                    onNext={async () => {
+                      const ok = await savePurpose();
+                      if (ok) setCurrentStep(1);
+                    }}
+                    nextDisabled={purposeSaving || (!selectedGuidance && !purposeText.trim())}
+                    saving={purposeSaving}
+                  />
                 </div>
-              </>
+              </div>
             ) : currentStep === 1 ? (
               <>
             {/* Upload stage */}

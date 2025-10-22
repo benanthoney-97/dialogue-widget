@@ -36,6 +36,7 @@ type Props = {
   buttonBorderColor?: string;
   title?: string;
   talkLabel?: string;
+  testingOverride?: boolean;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
@@ -49,6 +50,7 @@ export default function DialogueBarTalkButton({
   buttonBorderColor,
   title = "",
   talkLabel = "Talk",
+  testingOverride,
 }: Props) {
   const [theme, setTheme] = useState<{
     background?: string;
@@ -330,7 +332,12 @@ export default function DialogueBarTalkButton({
         const testingModeFromWindow = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
           ? Boolean((window as any).__DOC_TESTING_MODE__)
           : undefined;
-        const testing_mode = typeof testingModeFromAgent !== "undefined" ? Boolean(testingModeFromAgent) : testingModeFromWindow;
+        const testing_mode =
+          typeof testingOverride === "boolean"
+            ? testingOverride
+            : typeof testingModeFromAgent !== "undefined"
+              ? Boolean(testingModeFromAgent)
+              : testingModeFromWindow;
 
         await startSession({
           signedUrl: data.signedUrl,
@@ -343,9 +350,18 @@ export default function DialogueBarTalkButton({
         const testingModeFromWindow2 = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
           ? Boolean((window as any).__DOC_TESTING_MODE__)
           : undefined;
-        const testing_mode2 = typeof testingModeFromAgent2 !== "undefined" ? Boolean(testingModeFromAgent2) : testingModeFromWindow2;
+        const testing_mode2 =
+          typeof testingOverride === "boolean"
+            ? testingOverride
+            : typeof testingModeFromAgent2 !== "undefined"
+              ? Boolean(testingModeFromAgent2)
+              : testingModeFromWindow2;
 
-        await startSession({ agentId: effectiveAgent, connectionType: "websocket", dynamicVariables: testing_mode2 !== undefined ? { testing_mode: testing_mode2 } : undefined });
+        await startSession({
+          agentId: effectiveAgent,
+          connectionType: "websocket",
+          dynamicVariables: testing_mode2 !== undefined ? { testing_mode: testing_mode2 } : undefined,
+        });
       }
 
       const latestId = getId?.();
