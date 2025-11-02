@@ -233,7 +233,7 @@ export default function ReportClient({ combinedHtml }: { combinedHtml: string })
         style={{
           border: "1px solid rgba(0,0,0,.1)",
           borderRadius: 12,
-          background: "#fff",
+          background: "#F6F7F9",
           padding: 16,
           maxHeight: "calc(100dvh - 32px)",
           overflowY: "auto",
@@ -254,7 +254,7 @@ export default function ReportClient({ combinedHtml }: { combinedHtml: string })
           <button
             type="submit"
             disabled={!q || loading}
-            style={{ padding: "10px 14px", borderRadius: 8, background: "#0b3b3c", color: "#fff", border: "none" }}
+            style={{ padding: "10px 14px", borderRadius: 8, background: "#0b3b3c", color: "#F6F7F9", border: "none" }}
           >
             {loading ? "Finding…" : "Go"}
           </button>

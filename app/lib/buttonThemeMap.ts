@@ -7,79 +7,79 @@ export type ButtonTheme = {
 // Override button styling per slug. Any slug missing here will use the defaults.
 export const defaultButtonTheme: ButtonTheme = {
   background: "#525fe1",
-  text: "#ffffff",
+  text: "#F6F7F9fff",
   border: "#525fe1",
 };
 
 export const buttonThemeMap: Record<string, ButtonTheme> = {
   "uk-spending-review-2025": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "genai-adoption-he-students": {
     background: "#b01c2e",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#b01c2e",
   },
   "intro-linear-optimisation": {
     background: "#b01c2e",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#b01c2e",
   },
   "klr-h1-25": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "srm-field-experiments": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "conflict-economy-sesame": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "convergence-ai-dlt-cc": {
     background: "#4453f4",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#4453f4",
   },
     "fault-lines-where-projects-crack-and-how-the-board-can-hold-the-line": {
     background: "#d84012",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#d84012",
   },
       "family-business-fallouts": {
     background: "#d84012",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#d84012",
   },
     "ebay-radio-pitch": {
     background: "#0968f6",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#0968f6",
   },
       "lexology-intelligence-update": {
     background: "#256671",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#256671",
   },
     "stephenson-harwood-competition": {
     background: "#122746",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#122746",
   },
   "english-gcse-revision": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "srm-live-wildfires": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "srm-all": {
@@ -99,12 +99,12 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
   },
   "dialogue-website-agent": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "manual-agent": {
     background: "#525fe1",
-    text: "#ffffff",
+    text: "#F6F7F9fff",
     border: "#525fe1",
   },
   "uk-vein-clinic-lead-form-agent": {
@@ -119,7 +119,7 @@ export const buttonThemeMap: Record<string, ButtonTheme> = {
   },
     "timeout-october-demo": {
     background: "#e1192c",
-    text: "#ffffffff",
+    text: "#F6F7F9fffff",
     border: "#e1192c",
   },
     "savills-2025-european-real-estate-logistics-consensus": {

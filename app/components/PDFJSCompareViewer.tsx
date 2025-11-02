@@ -156,7 +156,7 @@ export default function PDFJSCompareViewer({
         height: "100%",
         padding: 8,
         boxSizing: "border-box",
-        background: "#fff",
+        background: "#F6F7F9",
       }}
     >
       <section style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>

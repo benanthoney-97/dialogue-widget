@@ -35,7 +35,7 @@ export default class ErrorBoundary extends React.Component<BoundaryProps, Bounda
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 16, background: "#fff", borderRadius: 12, color: "#b91c1c" }}>
+        <div style={{ padding: 16, background: "#F6F7F9", borderRadius: 12, color: "#b91c1c" }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>A client error occurred.</div>
           <div style={{ fontSize: 12 }}>{this.state.message}</div>
         </div>

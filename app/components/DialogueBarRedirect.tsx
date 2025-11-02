@@ -21,7 +21,7 @@ export default function DialogueBarRedirect({
   useSignedUrl = true,
   serverLocation = "us",
   buttonColor = "#525fe1",
-  buttonTextColor = "#ffffff",
+  buttonTextColor = "#F6F7F9fff",
   buttonBorderColor,
   title = "",
   talkLabel = "Talk",

@@ -19,7 +19,7 @@ export default function DialogueBarTalkOnly({
   useSignedUrl = true,
   serverLocation = "us",
   buttonColor = "#525fe1",
-  buttonTextColor = "#ffffff",
+  buttonTextColor = "#F6F7F9fff",
   title = "",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");

@@ -3,7 +3,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
-import PurposeCard, { defaultChipStyleMap } from "../../../components/PurposeCard";
+import PurposeCard from "../../../components/PurposeCard";
+import ExecutiveAgent from "@/app/components/BriefingAgent";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -11,6 +12,8 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Review: "Team",
   "Go-to-market": "Client",
 };
+
+const TIMELINE_STEPS = ["Create", "Upload", "Briefing", "Confirm"];
 
 type StagedDoc = {
   temp_id: string;
@@ -23,6 +26,61 @@ type StagedDoc = {
   groupTempId: string;
 };
 
+type TranscriptMessage = { role: "user" | "ai"; text: string };
+
+function base64Encode(content: string): string {
+  if (typeof window !== "undefined" && typeof window.btoa === "function") {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(content);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return window.btoa(binary);
+  }
+  if (typeof globalThis !== "undefined" && (globalThis as any).Buffer) {
+    return (globalThis as any).Buffer.from(content, "utf8").toString("base64");
+  }
+  throw new Error("Base64 encoding not supported");
+}
+
+function stringToDataUrl(content: string, mimeType = "text/plain"): string {
+  const base64 = base64Encode(content);
+  return `data:${mimeType};base64,${base64}`;
+}
+
+function stringByteLength(content: string): number {
+  if (typeof TextEncoder !== "undefined") {
+    return new TextEncoder().encode(content).length;
+  }
+  if (typeof globalThis !== "undefined" && (globalThis as any).Buffer) {
+    return (globalThis as any).Buffer.from(content, "utf8").length;
+  }
+  return content.length;
+}
+
+function buildTranscriptContent(
+  messages: TranscriptMessage[],
+  conversationId: string | null,
+  endedAt: number | null
+): string {
+  const lines: string[] = [];
+  if (conversationId) {
+    lines.push(`Conversation ID: ${conversationId}`);
+  }
+  if (endedAt) {
+    lines.push(`Completed At: ${new Date(endedAt).toISOString()}`);
+  }
+  if (lines.length > 0 && messages.length > 0) {
+    lines.push("");
+  }
+  for (const entry of messages) {
+    const speaker = entry.role === "ai" ? "Agent" : "User";
+    lines.push(`${speaker}: ${entry.text}`);
+  }
+  return lines.join("\n").trim();
+}
+
 async function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -30,19 +88,6 @@ async function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "-";
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const exponent = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1
-  );
-  const value = bytes / Math.pow(1024, exponent);
-  const hasDecimal = value < 10 && exponent > 0;
-  return `${hasDecimal ? value.toFixed(1) : Math.round(value)} ${units[exponent]}`;
 }
 
 function fileKey(file: File): string {
@@ -57,6 +102,176 @@ function mergeFileLists(existing: File[], additions: File[]): File[] {
   return Array.from(map.values());
 }
 
+type StagePanelProps = {
+  heading: string;
+  subheading?: string;
+  leading?: React.ReactNode;
+  trailing?: React.ReactNode;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+};
+
+function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
+  const hasHeader = Boolean(heading || subheading || leading || trailing);
+  return (
+    <section className="stage-panel">
+      {hasHeader && (
+        <header className="stage-panel__header">
+          {leading ? (
+            <div className="stage-panel__leading">{leading}</div>
+          ) : (
+            <div className="stage-panel__spacer" aria-hidden="true" />
+          )}
+          <div className="stage-panel__titles">
+            <h2>{heading}</h2>
+            {subheading ? <p>{subheading}</p> : null}
+          </div>
+          {trailing ? (
+            <div className="stage-panel__trailing">{trailing}</div>
+          ) : (
+            <div className="stage-panel__spacer" aria-hidden="true" />
+          )}
+        </header>
+      )}
+      <div className="stage-panel__body">{children}</div>
+      {footer ? <footer className="stage-panel__footer">{footer}</footer> : null}
+    </section>
+  );
+}
+
+type StageButtonVariant = "primary" | "secondary" | "ghost";
+
+type StageButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: StageButtonVariant;
+  width?: "auto" | "full";
+};
+
+function StageButton({ variant = "primary", width = "auto", className = "", ...props }: StageButtonProps) {
+  const classes = ["stage-button", `stage-button--${variant}`, width === "full" ? "stage-button--full" : ""]
+    .filter(Boolean)
+    .join(" ");
+  return <button className={`${classes} ${className}`.trim()} {...props} />;
+}
+
+type StageAlertProps = {
+  type: "success" | "error" | "info";
+  message: string;
+};
+
+function StageAlert({ type, message }: StageAlertProps) {
+  return (
+    <div className={`stage-alert stage-alert--${type}`}>
+      <span>{message}</span>
+    </div>
+  );
+}
+
+type TimelineStepState = "pending" | "current" | "done" | "skipped";
+
+type TimelineStep = {
+  label: string;
+  state: TimelineStepState;
+  optional?: boolean;
+};
+
+type TimelineContext = {
+  currentStep: number;
+  canSkipUpload: boolean;
+  canSkipBriefing: boolean;
+  hasDocs: boolean;
+  hasBriefing: boolean;
+};
+
+function buildTimelineSteps({
+  currentStep,
+  canSkipUpload,
+  canSkipBriefing,
+  hasDocs,
+  hasBriefing,
+}: TimelineContext): TimelineStep[] {
+  const steps: TimelineStep[] = TIMELINE_STEPS.map((label) => ({
+    label,
+    state: "pending" as TimelineStepState,
+  }));
+
+  steps.forEach((step, idx) => {
+    if (idx < currentStep) {
+      step.state = "done";
+    } else if (idx === currentStep) {
+      step.state = "current";
+    } else {
+      step.state = "pending";
+    }
+  });
+
+  const uploadStep = steps[1];
+  const briefingStep = steps[2];
+
+  if (canSkipUpload) {
+    uploadStep.optional = true;
+    if (currentStep > 1 && !hasDocs) {
+      uploadStep.state = "skipped";
+    }
+  }
+
+  if (canSkipBriefing) {
+    briefingStep.optional = true;
+    if (currentStep > 2 && !hasBriefing) {
+      briefingStep.state = "skipped";
+    }
+  }
+
+  return steps;
+}
+
+function StagesTimeline({ steps }: { steps: TimelineStep[] }) {
+  const currentIndex = steps.findIndex((step) => step.state === "current");
+  const progressIndex = currentIndex === -1 ? steps.length - 1 : currentIndex;
+
+  return (
+    <nav className="stage-timeline" aria-label="Persona creation progress">
+      {steps.map((step, index) => {
+        const connectorClasses = ["stage-timeline__connector"];
+        if (index < progressIndex) {
+          connectorClasses.push("stage-timeline__connector--complete");
+        } else if (index === progressIndex) {
+          connectorClasses.push("stage-timeline__connector--active");
+        }
+        if (step.state === "skipped") {
+          connectorClasses.push("stage-timeline__connector--skipped");
+        }
+
+        return (
+          <React.Fragment key={step.label}>
+            <div className="stage-timeline__step">
+              <div
+                className={[
+                  "stage-timeline__node",
+                  `stage-timeline__node--${step.state}`,
+                  step.optional ? "stage-timeline__node--optional" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <span>{index + 1}</span>
+              </div>
+              <div className="stage-timeline__label">
+                <span>{step.label}</span>
+                {step.optional && (
+                  <small>{step.state === "skipped" ? "Skipped" : "Optional"}</small>
+                )}
+              </div>
+            </div>
+            {index < steps.length - 1 && (
+              <div className={connectorClasses.join(" ")} aria-hidden="true" />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -67,6 +282,10 @@ export default function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tempId, setTempId] = useState<string | null>(null);
   const [createdDocs, setCreatedDocs] = useState<StagedDoc[]>([]);
+  const [briefingConversationId, setBriefingConversationId] = useState<string | null>(null);
+  const [briefingEndedAt, setBriefingEndedAt] = useState<number | null>(null);
+  const [briefingComplete, setBriefingComplete] = useState<boolean>(false);
+  const [briefingTranscript, setBriefingTranscript] = useState<TranscriptMessage[]>([]);
   const [purposeText, setPurposeText] = useState<string>('');
   const [purposeSaving, setPurposeSaving] = useState<boolean>(false);
   const purposeSavePromiseRef = useRef<Promise<boolean> | null>(null);
@@ -162,12 +381,7 @@ export default function UploadPage() {
     }
   }
 
-  // Timeline refs and measurement state
-  const timelineWrapRef = useRef<HTMLDivElement | null>(null);
-  const circleRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const lineRef = useRef<HTMLDivElement | null>(null);
-  const progressRef = useRef<HTMLDivElement | null>(null);
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Purpose, 1: Upload, 2: Confirm
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Purpose, 1: Upload, 2: Briefing, 3: Confirm
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
@@ -181,7 +395,20 @@ export default function UploadPage() {
     'Go-to-market': "I'm a client of the author of the documents in your knowledge base and would like to analyse these materials with your assistance.",
   };
   const [guidanceTexts, setGuidanceTexts] = useState<Record<string, string>>(initialGuidanceTexts);
-
+  const hasDocs = createdDocs.length > 0;
+  const hasBriefing = Boolean(briefingConversationId && briefingEndedAt);
+  const isDescribeMode = selectedGuidance === "Describe persona";
+  const isDataMode = selectedGuidance === "Add my data" || (!isDescribeMode && hasDocs);
+  const canSkipBriefing = isDataMode && hasDocs;
+  const canContinueFromBriefing = hasBriefing || canSkipBriefing;
+  const canSkipUpload = isDescribeMode;
+  const timelineStepsData = buildTimelineSteps({
+    currentStep,
+    canSkipUpload,
+    canSkipBriefing,
+    hasDocs,
+    hasBriefing,
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -195,12 +422,22 @@ export default function UploadPage() {
       }
     };
   }, []);
-  function setCircleRef(el: HTMLDivElement | null, idx: number) {
-    circleRefs.current[idx] = el;
-  }
 
-  // Styles for labeled chips (keeps 'Personal' consistent across items)
-  const chipStyleMap = defaultChipStyleMap;
+  useEffect(() => {
+    if (currentStep === 2) {
+      if (briefingConversationId && briefingEndedAt) {
+        setBriefingComplete(true);
+      } else {
+        setBriefingComplete(false);
+      }
+    }
+  }, [currentStep, briefingConversationId, briefingEndedAt]);
+
+  useEffect(() => {
+    if (selectedGuidance === 'Describe persona' && currentStep === 1) {
+      setCurrentStep(2);
+    }
+  }, [selectedGuidance, currentStep]);
 
   useEffect(() => {
     if (hasHydratedFromParams.current) return;
@@ -242,7 +479,7 @@ export default function UploadPage() {
           }
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.warn('Failed to parse purpose from query params', err);
       }
     }
@@ -251,52 +488,6 @@ export default function UploadPage() {
       router.replace(pathname);
     }
   }, [searchParams, pathname, router, guidanceTexts]);
-
-  useEffect(() => {
-    function updateLine() {
-      const first = circleRefs.current[0];
-      const last = circleRefs.current[circleRefs.current.length - 1];
-      const wrap = timelineWrapRef.current;
-      const line = lineRef.current;
-      const progress = progressRef.current;
-      if (!first || !last || !wrap || !line) return;
-      const wrapRect = wrap.getBoundingClientRect();
-      // compute centers for all circles
-      const centers: number[] = circleRefs.current.map(c => {
-        if (!c) return 0;
-        const r = c.getBoundingClientRect();
-        return r.left + r.width / 2 - wrapRect.left;
-      });
-      const firstCenter = centers[0] ?? 0;
-      const lastCenter = centers[centers.length - 1] ?? firstCenter;
-      const leftPx = Math.max(0, Math.round(firstCenter));
-      const widthPx = Math.max(0, Math.round(lastCenter - firstCenter));
-      line.style.left = `${leftPx}px`;
-      line.style.width = `${widthPx}px`;
-      // progress up to currentStep
-      if (progress) {
-        const stepIndex = Math.max(0, Math.min(currentStep, centers.length - 1));
-        const stepCenter = centers[stepIndex] ?? firstCenter;
-        const progLeft = Math.max(0, Math.round(firstCenter));
-        const progWidth = Math.max(0, Math.round(stepCenter - firstCenter));
-        progress.style.left = `${progLeft}px`;
-        progress.style.width = `${progWidth}px`;
-      }
-
-    }
-
-    // Initial update
-    updateLine();
-
-    // Update on resize
-    const ro = new ResizeObserver(updateLine);
-    if (timelineWrapRef.current) ro.observe(timelineWrapRef.current);
-    window.addEventListener('resize', updateLine);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', updateLine);
-    };
-  }, [files, currentStep]);
 
   // Hydrate staged data from session storage if available
   async function savePurpose(): Promise<boolean> {
@@ -329,9 +520,41 @@ export default function UploadPage() {
     const okPurpose = await savePurpose();
     if (!okPurpose) return;
 
-    if (!tempId || !createdDocs || createdDocs.length === 0) {
-      setNotification({ type: 'error', message: 'Nothing to finalize.' });
+    const docsAvailable = Array.isArray(createdDocs) && createdDocs.length > 0;
+    const briefingAvailable = Boolean(briefingConversationId && briefingEndedAt);
+
+    if (!docsAvailable && !briefingAvailable) {
+      setNotification({ type: 'error', message: 'Please upload at least one document or complete a briefing before finalizing.' });
       return;
+    }
+
+    if (docsAvailable && !tempId) {
+      setNotification({ type: 'error', message: 'Upload session expired. Please re-upload your documents.' });
+      return;
+    }
+
+    const docsPayload: StagedDoc[] = docsAvailable ? [...createdDocs] : [];
+    if (briefingAvailable && briefingTranscript.length > 0) {
+      const transcriptText = buildTranscriptContent(
+        briefingTranscript,
+        briefingConversationId,
+        briefingEndedAt
+      );
+      if (transcriptText) {
+        const transcriptFileName = briefingConversationId
+          ? `briefing-transcript-${briefingConversationId}.txt`
+          : 'briefing-transcript.txt';
+        docsPayload.push({
+          temp_id: uuidv4(),
+          agent_name: 'Briefing transcript',
+          fileName: transcriptFileName,
+          fileType: 'text/plain',
+          fileSize: stringByteLength(transcriptText),
+          dataUrl: stringToDataUrl(transcriptText),
+          lastModified: briefingEndedAt ?? Date.now(),
+          groupTempId: 'briefing-transcript',
+        });
+      }
     }
 
     setFinalizing(true);
@@ -342,9 +565,11 @@ export default function UploadPage() {
         body: JSON.stringify({
           tempId,
           clientSlug,
-          docs: createdDocs,
+          docs: docsPayload,
           purpose: savedPurpose ?? purposeText,
           audienceType: audienceType || "Custom",
+          briefingConversationId,
+          briefingEndedAt,
         }),
       });
       if (!res.ok) {
@@ -362,7 +587,7 @@ export default function UploadPage() {
       }
       setFinalizing(false);
       // navigate to documents or dialogues list
-      router.push(`/client/${clientSlug}/documents`);
+  router.push(`/client/${clientSlug}/personas`);
     } catch (e: any) {
       setNotification({ type: 'error', message: `Failed to finalize: ${e?.message ?? e}` });
       setFinalizing(false);
@@ -371,154 +596,89 @@ export default function UploadPage() {
 
   return (
     <>
-      <main style={{ minHeight: "100dvh", background: "#0a1628", padding: 0, fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif", display: 'flex', flexDirection: 'row' }}>
-        <div style={{ width: 180, flexShrink: 0 }}>
+      <main className="upload-layout">
+        <aside className="upload-layout__sidebar">
           <Sidebar />
-        </div>
-        <div style={{
-          flex: 1,
-          background: "#16213a",
-          borderRadius: 16,
-          boxShadow: "0 8px 32px rgba(10,22,40,0.45)",
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: "inherit",
-          position: 'relative',
-          minHeight: '100dvh',
-          overflow: 'auto',
-        }}>
-          {/* Timeline positioned at top of main content (full width of content area) */}
-          <div style={{ position: 'absolute', top: 20, left: 24, right: 24, zIndex: 20 }}>
-            <div ref={timelineWrapRef} style={{ position: 'relative', height: 64 }}>
-              {/* connecting line that starts/ends at first/last circles */}
-              <div ref={lineRef} style={{ position: 'absolute', top: '50%', transform: 'translateY(-1px)', height: 2, background: 'rgba(255,255,255,0.04)', zIndex: 0, left: 0, width: '0px', transition: 'left 160ms ease, width 160ms ease' }} />
-              {/* progress line up to current step */}
-              <div ref={progressRef} style={{ position: 'absolute', top: '50%', transform: 'translateY(-1px)', height: 2, background: '#7ea0e6', zIndex: 1, left: 0, width: '0px', transition: 'left 200ms ease, width 200ms ease' }} />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, position: 'relative', zIndex: 2 }}>
-                {['Purpose','Upload','Confirm'].map((label, idx) => {
-                  const completed = idx < currentStep;
-                  const active = idx === currentStep;
-                  return (
-                    <div key={label} style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
-                      <div
-                        ref={(el) => setCircleRef(el, idx)}
-                        style={{
-                          position: 'absolute',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: 16,
-                          height: 16,
-                          borderRadius: 999,
-                          background: completed || active ? '#7ea0e6' : 'rgba(255,255,255,0.06)',
-                          boxShadow: active ? '0 0 0 6px rgba(126,160,230,0.06)' : undefined,
-                          zIndex: 2,
-                        }}
-                      />
-                      <div style={{ marginTop: 34, fontSize: 14, color: active ? '#ffffff' : '#a3c0ff', fontWeight: 800 }}>{label}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <div style={{
-            width: 'min(640px, 92%)',
-            marginTop: 56,
-            background: '#192447',
-            borderRadius: 18,
-            boxShadow: '0 4px 24px rgba(10,22,40,0.18)',
-            padding: '24px 24px 24px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}>
-            {/* Conditionally render Purpose / Upload / Confirm card depending on currentStep */}
-            {currentStep === 0 ? (
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                <div style={{ width: 'min(640px, 100%)', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-                    <PurposeCard
-                      guidanceTexts={guidanceTexts}
-                      selectedGuidance={selectedGuidance}
-                      purposeText={purposeText}
-                    onSelectGuidance={(key, purpose, audience) => {
-                      setSelectedGuidance(key);
-                      setSavedPurpose(purpose);
-                      setAudienceType(audience ?? "Custom");
-                    }}
-                    onCustomFocus={() => {
-                      setSelectedGuidance(null);
-                      setSavedPurpose(null);
-                      setAudienceType("Custom");
-                    }}
-                    onPurposeChange={(value) => {
-                      setPurposeText(value);
-                    }}
-                    onPurposeBlur={() => { void savePurpose(); }}
-                    onNext={async () => {
-                      const ok = await savePurpose();
-                      if (ok) setCurrentStep(1);
-                    }}
-                    nextDisabled={purposeSaving || (!selectedGuidance && !purposeText.trim())}
-                    saving={purposeSaving}
-                  />
-                </div>
-              </div>
-            ) : currentStep === 1 ? (
-              <>
-            {/* Upload stage */}
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-            {/* Removed decorative Document Icon for a more compact header */}
-            {/* Heading */}
-            <div style={{ position: 'relative', width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center' }}>
-              <div style={{ flex: '0 0 auto' }}>
-                <button type="button" onClick={() => setCurrentStep(0)} disabled={purposeSaving} style={{ padding: '6px 12px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 600, fontSize: 13, opacity: purposeSaving ? 0.6 : 1, cursor: purposeSaving ? 'not-allowed' : 'pointer' }}>Back</button>
-              </div>
-              <h2 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 20, fontWeight: 800, color: "#e6eaff", fontFamily: "inherit", letterSpacing: 0.5, margin: 0 }}>Add your documents</h2>
-            </div>
-            {/* Chips for Upload/File URL */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignSelf: 'center', justifyContent: 'center', width: '80%' }}>
-              <button
-                type="button"
-                onClick={() => setUploadMode('upload')}
-                style={{
-                  width: '50%',
-                  padding: '10px 0',
-                  borderRadius: 999,
-                  background: uploadMode === 'upload' ? '#2d406b' : '#22325a',
-                  color: uploadMode === 'upload' ? '#fff' : '#a3c0ff',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  border: uploadMode === 'upload' ? '2px solid #7ea0e6' : '1px solid #2d406b',
-                  cursor: 'pointer',
-                  boxShadow: uploadMode === 'upload' ? '0 2px 12px #22325a' : '0 2px 8px rgba(10,22,40,0.13)',
-                  transition: 'background 0.18s, color 0.18s, border 0.18s',
-                }}
+        </aside>
+        <div className="upload-layout__content">
+          <div className="stage-shell">
+            <StagesTimeline steps={timelineStepsData} />
+            {currentStep === 0 && (
+              <StagePanel
+                heading="How are you creating your persona?"
+                subheading="Choose or describe what type of pitch you're preparing for."
               >
-                Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => setUploadMode('url')}
-                style={{
-                  width: '50%',
-                  padding: '10px 0',
-                  borderRadius: 999,
-                  background: uploadMode === 'url' ? '#2d406b' : '#22325a',
-                  color: uploadMode === 'url' ? '#fff' : '#a3c0ff',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  border: uploadMode === 'url' ? '2px solid #7ea0e6' : '1px solid #2d406b',
-                  cursor: 'pointer',
-                  boxShadow: uploadMode === 'url' ? '0 2px 12px #22325a' : '0 2px 8px rgba(10,22,40,0.13)',
-                  transition: 'background 0.18s, color 0.18s, border 0.18s',
-                }}
+                <PurposeCard
+                  guidanceTexts={guidanceTexts}
+                  selectedGuidance={selectedGuidance}
+                  purposeText={purposeText}
+                  onSelectGuidance={async (key, purpose, audience) => {
+                    setSelectedGuidance(key);
+                    setSavedPurpose(purpose);
+                    setAudienceType(audience ?? "Custom");
+                    if (key === "Add my data") {
+                      try {
+                        const ok = await savePurpose();
+                        if (ok) setCurrentStep(1);
+                      } catch (e) {
+                        // handled within savePurpose
+                      }
+                    }
+                    if (key === "Describe persona") {
+                      try {
+                        const ok = await savePurpose();
+                        if (ok) setCurrentStep(2);
+                      } catch (e) {
+                        // handled within savePurpose
+                      }
+                    }
+                  }}
+                  onCustomFocus={() => {
+                    setSelectedGuidance(null);
+                    setSavedPurpose(null);
+                    setAudienceType("Custom");
+                  }}
+                  onPurposeChange={(value) => {
+                    setPurposeText(value);
+                  }}
+                  onPurposeBlur={() => {
+                    void savePurpose();
+                  }}
+                  onNext={async () => {
+                    const ok = await savePurpose();
+                    if (!ok) return;
+                    if (selectedGuidance === "Describe persona") {
+                      setCurrentStep(2);
+                    } else {
+                      setCurrentStep(1);
+                    }
+                  }}
+                  nextDisabled={purposeSaving || (!selectedGuidance && !purposeText.trim())}
+                  saving={purposeSaving}
+                  headingText=""
+                  subheadingText=""
+                />
+              </StagePanel>
+            )}
+            {currentStep === 1 && (
+              <StagePanel
+                heading="Build your persona's knowledge"
+                leading={
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(0)}
+                    disabled={purposeSaving}
+                    aria-label="Back"
+                    title="Back"
+                    className="stage-back"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </button>
+                }
               >
-                File URL
-              </button>
-            </div>
-            {/* Upload form */}
-            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+                <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               {uploadMode === 'upload' ? (
                 <label
                   htmlFor="file-upload"
@@ -527,19 +687,20 @@ export default function UploadPage() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '2px dashed #2d406b',
-                    background: '#22325a',
+                    border: '2px solid #2d406b',
+                    background: 'var(--bg, #f4f8ff)',
                     borderRadius: 12,
-                    padding: '36px 0',
                     marginBottom: 22,
                     color: '#a3c0ff',
                     fontSize: 16,
                     fontWeight: 600,
                     transition: 'border 0.18s',
-                    minHeight: 120,
+                    minHeight: files.length > 0 ? 218 : 186,
                     width: '100%',
                     textAlign: 'center',
                     cursor: 'pointer',
+                    padding: files.length > 0 ? '12px 16px 16px' : 0,
+                    overflow: files.length > 0 ? 'visible' : 'hidden',
                   }}
                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={e => {
@@ -564,16 +725,16 @@ export default function UploadPage() {
                   />
                   {files.length === 0 ? (
                     <>
-                      <div style={{ marginBottom: 8 }}>Drag & drop files here</div>
-                      <div style={{ fontSize: 15, color: '#7ea0e6', fontWeight: 400 }}>or <span style={{ textDecoration: 'underline', color: '#7ea0e6', cursor: 'pointer' }}>click to select from computer</span></div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
+                      <div style={{ marginBottom: 8, color: '#1e293b' }}>Drag & drop files here</div>
+                      <div style={{ fontSize: 15, color: '#1e293b', fontWeight: 400 }}>or <span style={{ textDecoration: 'underline', color: '#1e293b', cursor: 'pointer' }}>click to select from computer</span></div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 24, justifyContent: 'center' }}>
                         {['PDF', 'TXT', 'DOCX', 'HTML'].map(type => (
                           <span
                             key={type}
                             style={{
-                              background: '#22325a',
-                              color: '#7ea0e6',
-                              border: '1px solid #2d406b',
+                              background: 'var(--bg, #f4f8ff)',
+                              color: '#1e293b',
+                              border: '1px solid rgba(30,41,59,0.16)',
                               borderRadius: 8,
                               padding: '2px 10px',
                               fontSize: 13,
@@ -589,17 +750,131 @@ export default function UploadPage() {
                     </>
                   ) : (
                     <>
-                    <ul style={{ color: '#a3c0ff', fontSize: 15, paddingLeft: 0, margin: 0, width: '100%' }}>
+                    <ul style={{ color: '#a3c0ff', fontSize: 15, paddingLeft: 0, margin: 0, width: '100%', display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'center' }}>
                       {files.map((file, idx) => (
-                        <li key={idx} style={{ marginBottom: 6, width: '100%', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none', paddingTop: idx > 0 ? 8 : 0 }}>
-                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360, textAlign: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>{file.name}</span>
-                            <button type="button" onClick={() => handleRemoveFile(idx)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, position: 'absolute', right: 12 }}>Remove</button>
+                        <li
+                          key={idx}
+                          style={{
+                            marginBottom: 6,
+                            flexGrow: 0,
+                            flexShrink: 0,
+                            flexBasis: '130px',
+                            width: '130px',
+                            maxWidth: '130px',
+                            boxSizing: 'border-box',
+                            height: 186,
+                            borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                            paddingTop: 8,
+                            listStyle: 'none',
+                          }}
+                        >
+                          <div
+                            style={{
+                              position: 'relative',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              height: '100%',
+                              padding: '30px 12px 24px',
+                              borderRadius: 10,
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid #1e293b',
+                            }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+                              <div style={{ width: 36, height: 36, flex: '0 0 36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6 }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                  <path d="M14 2v6h6" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                </svg>
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  title={file.name}
+                                  style={{
+                                    maxWidth: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 12,
+                                    color: '#1e293b',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
+                                </div>
+                                <div style={{ fontSize: 12, color: '#1e293b', marginTop: 4, textAlign: 'left' }}>{file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}</div>
+                              </div>
+                            </div>
+
+                            {/* Circular X remove button in top-right of the card */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              aria-label="Remove file"
+                              title="Remove"
+                              style={{
+                                position: 'absolute',
+                                top: -12,
+                                right: -12,
+                                width: 30,
+                                height: 30,
+                                borderRadius: '50%',
+                                background: '#1e293b',
+                                border: '1px solid rgba(255,255,255,0.04)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#9fb3ff',
+                                cursor: 'pointer',
+                                padding: 0,
+                                zIndex: 5,
+                                boxShadow: '0 6px 16px rgba(2,6,23,0.45)'
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                              </svg>
+                            </button>
                           </div>
                         </li>
                       ))}
-                      <li style={{ listStyle: 'none', marginTop: 8, textAlign: 'center' }}>
-                        <div style={{ fontSize: 13, color: '#9fb3ff', opacity: 0.9 }}>Click to add more documents</div>
+                      <li
+                        style={{
+                          listStyle: 'none',
+                          marginBottom: 6,
+                          flexGrow: 0,
+                          flexShrink: 0,
+                          flexBasis: '130px',
+                          width: '130px',
+                          maxWidth: '130px',
+                          boxSizing: 'border-box',
+                          height: 186,
+                          paddingTop: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: 'relative',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: 12,
+                            height: '100%',
+                            padding: '30px 12px 24px',
+                            borderRadius: 10,
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px dashed #1e293b',
+                            color: '#1e293b',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Click to add more documents
+                        </div>
                       </li>
                     </ul>
                     </>
@@ -615,12 +890,12 @@ export default function UploadPage() {
                     border: '2px dashed #2d406b',
                     background: '#22325a',
                     borderRadius: 12,
-                    padding: '36px 0',
+                    padding: 0,
                     marginBottom: 22,
                     color: '#a3c0ff',
                     fontSize: 16,
                     fontWeight: 600,
-                    minHeight: 120,
+                    minHeight: 186,
                     width: '100%',
                     textAlign: 'center',
                   }}
@@ -646,158 +921,462 @@ export default function UploadPage() {
                   />
                 </div>
               )}
-              <button
+              <StageButton
                 type="submit"
+                variant="primary"
+                width="full"
                 disabled={
-                  (uploadMode === 'upload' && (files.length === 0 || submitted)) ||
-                  (uploadMode === 'url' && (fileUrl.trim() === '' || submitted))
+                  (uploadMode === "upload" && (files.length === 0 || submitted)) ||
+                  (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
                 }
-                style={{
-                  background:
-                    (uploadMode === 'upload' && files.length > 0 && !submitted) ||
-                    (uploadMode === 'url' && fileUrl.trim() && !submitted)
-                      ? '#525fe1'
-                      : '#2d406b',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '12px 28px',
-                  fontWeight: 700,
-                  fontSize: 16,
-                  cursor:
-                    (uploadMode === 'upload' && files.length > 0 && !submitted) ||
-                    (uploadMode === 'url' && fileUrl.trim() && !submitted)
-                      ? 'pointer'
-                      : 'not-allowed',
-                  marginTop: 18,
-                  width: '100%',
-                  boxShadow:
-                    (uploadMode === 'upload' && files.length > 0 && !submitted) ||
-                    (uploadMode === 'url' && fileUrl.trim() && !submitted)
-                      ? '0 2px 8px #525fe1'
-                      : 'none',
-                  transition: 'background 0.18s, box-shadow 0.18s',
-                }}
+                style={{ marginTop: 18 }}
               >
-                {submitted ? 'Uploading...' : 'Next'}
-              </button>
+                {submitted ? "Uploading..." : "Next"}
+              </StageButton>
               {/* Uploading message and notification below the button */}
               {submitted && !notification && (
-                <div style={{
-                  marginTop: 18,
-                  color: '#fff',
-                  background: '#22325a',
-                  border: '2px solid #fff',
-                  borderRadius: 8,
-                  padding: '10px 18px',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  textAlign: 'center',
-                  width: '100%',
-                  letterSpacing: 0.1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 10,
-                }}>
-                  Stay on the page while document is uploading.
-                </div>
-              )}
-              {notification && (
-                <div style={{
-                  marginTop: 18,
-                  marginBottom: 0,
-                  color: notification.type === 'success' ? '#22c55e' : '#ef4444',
-                  background: notification.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
-                  border: `1.5px solid ${notification.type === 'success' ? '#22c55e' : '#ef4444'}`,
-                  borderRadius: 8,
-                  padding: '10px 18px',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  textAlign: 'center',
-                  width: '100%',
-                  letterSpacing: 0.1,
-                  display: 'flex',
-                  flexDirection: notification.type === 'success' ? 'row' : 'column',
-                  alignItems: 'center',
-                  gap: notification.type === 'success' ? 16 : 10,
-                  justifyContent: notification.type === 'success' ? 'center' : 'initial',
-                }}>
-                  <span>{notification.message}</span>
-                </div>
-              )}
+                <StageAlert type="info" message="Stay on the page while document is uploading." />
+                  )}
+                  {notification && <StageAlert type={notification.type} message={notification.message} />}
               </form>
-            </div>
-              </>
-            ) : (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                <div style={{ position: 'relative', width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center' }}>
-                  <div style={{ flex: '0 0 auto' }}>
-                    <button type="button" onClick={() => setCurrentStep(1)} disabled={finalizing} style={{ padding: '6px 12px', borderRadius: 8, background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', fontWeight: 600, fontSize: 13, opacity: finalizing ? 0.6 : 1, cursor: finalizing ? 'not-allowed' : 'pointer' }}>Back</button>
-                  </div>
-                  <h2 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 20, fontWeight: 800, color: '#e6eaff', fontFamily: 'inherit', letterSpacing: 0.5, margin: 0 }}>Confirm</h2>
-                </div>
+              </StagePanel>
+            )}
+            {currentStep === 2 && (
+              <StagePanel
+                heading="Let's define your persona"
+                leading={
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(selectedGuidance === 'Describe persona' ? 0 : 1)}
+                    disabled={finalizing}
+                    aria-label="Back"
+                    title="Back"
+                    className="stage-back"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </button>
+                }
+              >
+                <ExecutiveAgent
+                  talkLabel="Start chat"
+                  onConversationStart={(conversationId) => {
+                    setBriefingComplete(false);
+                    setBriefingConversationId(conversationId ?? null);
+                    setBriefingEndedAt(null);
+                    setBriefingTranscript([]);
+                  }}
+                  onConversationEnd={({ conversationId, endedAt }) => {
+                    setBriefingComplete(true);
+                    setBriefingConversationId(conversationId ?? null);
+                    setBriefingEndedAt(endedAt ?? null);
+                  }}
+                  onTranscriptUpdate={(messages) => {
+                    setBriefingTranscript(messages.slice());
+                  }}
+                />
 
-                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, marginBottom: 12 }}>
-                  {createdDocs.length === 0 ? (
-                    <div style={{ color: '#a3c0ff' }}>No uploaded documents</div>
-                  ) : (
-                    createdDocs.map((d) => (
-                      <div key={d.temp_id} style={{ width: 120, height: 140, borderRadius: 8, background: '#0f1724', border: '1px solid #22325a', padding: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#e6eaff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.agent_name}</div>
-                        <div style={{ fontSize: 11, color: '#9fb3ff', wordBreak: 'break-word' }}>
-                          <div>{formatBytes(d.fileSize)} · {d.fileType || 'Unknown type'}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                {briefingConversationId && briefingEndedAt ? (
+                  <p style={{ color: 'rgba(30,41,59,0.7)', fontSize: 14, textAlign: 'center', margin: 0 }}>
+                    Briefing saved on {new Date(briefingEndedAt).toLocaleString()}. Restart briefing call to replace.
+                  </p>
+                ) : null}
 
-                <div style={{ marginBottom: 12 }}>
-                  {/* Show guidance-style card if user selected a guidance OR typed a custom purpose */}
-                  { (selectedGuidance || (purposeText && purposeText.trim() !== '')) ? (
+                <StageButton
+                  type="button"
+                  onClick={() => setCurrentStep(3)}
+                  disabled={!canContinueFromBriefing}
+                  variant="primary"
+                  width="full"
+                  style={{ marginTop: 8 }}
+                >
+                  {hasBriefing
+                    ? 'Continue to confirm'
+                    : canSkipBriefing
+                    ? 'Skip briefing and continue'
+                    : 'Continue to confirm'}
+                </StageButton>
+                {!hasBriefing && canSkipBriefing ? (
+                  <p style={{ color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 6 }}>
+                    You can record a briefing later if needed.
+                  </p>
+                ) : null}
+              </StagePanel>
+            )}
+            {currentStep === 3 && (
+              <StagePanel
+                heading="Confirm"
+                leading={
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    disabled={finalizing}
+                    aria-label="Back"
+                    title="Back"
+                    className="stage-back"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </button>
+                }
+              >
+                <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'nowrap', justifyContent: 'center', overflowX: 'auto', paddingBottom: 6 }}>
+                  {[
+                    {
+                      title: 'Pitch type',
+                      value: selectedGuidance ?? (savedPurpose ? 'Custom brief' : 'Not set'),
+                    },
+                    {
+                      title: 'Documents',
+                      value: hasDocs
+                        ? `${createdDocs.length} document${createdDocs.length === 1 ? '' : 's'}`
+                        : 'No documents',
+                    },
+                    {
+                      title: 'Briefing',
+                      value: hasBriefing
+                        ? 'Call completed'
+                        : canSkipBriefing
+                        ? 'Skipped (optional)'
+                        : 'Pending call',
+                    },
+                  ].map((card) => (
                     <div
-                      style={{
-                        width: '100%',
-                        background: '#122a48',
-                        borderRadius: 10,
-                        padding: 12,
-                        border: '1px solid rgba(126,160,230,0.12)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 6,
-                        position: 'relative',
-                      }}
-                    >
-                      {/* Chip in top-right - use mapping for selected guidance, otherwise show 'Custom' */}
-                      {(() => {
-                        const isCustom = !selectedGuidance;
-                        const label = isCustom ? 'Custom' : (selectedGuidance === 'Prepare' || selectedGuidance === 'Learn' ? 'Personal' : (selectedGuidance === 'Review' ? 'Team' : (selectedGuidance === 'Go-to-market' ? 'Client' : 'Placeholder')));
-                        const s = isCustom ? chipStyleMap.Purpose : (chipStyleMap[label] ?? chipStyleMap.Placeholder);
-                        return (
-                          <div style={{ position: 'absolute', top: 8, right: 8, background: s.bg, color: s.color, border: s.border, padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 700, height: 20, lineHeight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}</div>
-                        );
-                      })()}
-
-                      {/* Title: show guidance title or 'Custom' for user-typed purpose */}
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e6eaff' }}>{selectedGuidance ?? 'Custom description'}</div>
-
-                      {/* Content: guidance text for selectedGuidance, otherwise the user's typed purpose */}
-                      <div style={{ fontSize: 13, color: '#9bb5ff', lineHeight: 1.5 }}>{selectedGuidance ? (guidanceTexts[selectedGuidance] ?? (savedPurpose ?? purposeText) ?? '-') : (purposeText || '-')}</div>
+                        key={card.title}
+                        style={{
+                          position: 'relative',
+                          /* fixed small width so cards line up horizontally */
+                          flex: '0 0 120px',
+                          minWidth: 120,
+                          maxWidth: 160,
+                          aspectRatio: '1 / 1',
+                          /* slightly tighter corners */
+                          borderRadius: 12,
+                          background: '#f4f8ff',
+                          border: '1px solid rgba(30,41,59,0.12)',
+                          padding: 14,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          textAlign: 'center',
+                          color: '#1e293b',
+                          boxShadow: '0 4px 16px rgba(15,23,42,0.08)',
+                        }}
+                      >
+                      <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: '#3b82f6', marginBottom: 6, textAlign: 'center' }}>
+                        {card.title}
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.3, textAlign: 'center' }}>
+                        {card.value}
+                      </div>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: 10,
+                          bottom: 10,
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: '#1e40af',
+                          border: '2px solid rgba(59,130,246,0.65)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#f8fafc',
+                          boxShadow: '0 0 10px rgba(59,130,246,0.35)',
+                        }}
+                        aria-hidden="true"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M6.33333 10.2733L4.06 8L3 9.05333L6.33333 12.3867L13.3333 5.38667L12.28 4.33333L6.33333 10.2733Z" fill="currentColor" />
+                        </svg>
+                      </div>
                     </div>
-                  ) : (
-                    <div style={{ background: '#0f1a33', padding: 10, borderRadius: 8, color: '#e6eaff' }}>{(savedPurpose ?? purposeText) || '-'}</div>
-                  )}
+                  ))}
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, width: '100%' }}>
-                  <button type="button" onClick={handleFinalize} disabled={finalizing} style={{ width: '100%', padding: '12px 14px', borderRadius: 8, background: '#16a34a', color: '#fff', border: 'none', fontWeight: 700, cursor: finalizing ? 'not-allowed' : 'pointer' }}>{finalizing ? 'Creating…' : 'Create Dialogue'}</button>
+                  <StageButton
+                    type="button"
+                    onClick={handleFinalize}
+                    disabled={finalizing}
+                    variant="primary"
+                    width="full"
+                  >
+                    {finalizing ? 'Creating…' : 'Create Dialogue'}
+                  </StageButton>
                 </div>
-              </div>
+              </StagePanel>
             )}
           </div>
         </div>
         <style>{`
+          .upload-layout {
+            min-height: 100dvh;
+            background: var(--bg, #f4f8ff);
+            padding: 0;
+            font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+            display: flex;
+            flex-direction: row;
+          }
+          .upload-layout__sidebar {
+            width: 180px;
+            flex-shrink: 0;
+          }
+          .upload-layout__content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 64px 24px 96px;
+            min-height: 100dvh;
+            overflow-y: auto;
+          }
+          .stage-shell {
+            width: min(760px, 92%);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+          }
+          .stage-timeline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 12px;
+            margin-bottom: 4px;
+          }
+          .stage-timeline__step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .stage-timeline__node {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid rgba(30, 41, 59, 0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: #1e293b;
+            background: rgba(255, 255, 255, 0.85);
+            transition: background 0.18s ease, border 0.18s ease, color 0.18s ease;
+          }
+          .stage-timeline__node--done {
+            background: #1e293b;
+            border-color: #1e293b;
+            color: #f8fafc;
+          }
+          .stage-timeline__node--current {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.65);
+            color: #1d4ed8;
+          }
+          .stage-timeline__node--skipped {
+            background: rgba(148, 163, 184, 0.12);
+            border-style: dashed;
+            border-color: rgba(148, 163, 184, 0.75);
+            color: rgba(71, 85, 105, 0.9);
+          }
+          .stage-timeline__node--optional {
+            border-style: dashed;
+          }
+          .stage-timeline__label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 13px;
+            color: rgba(30, 41, 59, 0.8);
+            text-align: left;
+          }
+          .stage-timeline__label small {
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: rgba(59, 130, 246, 0.75);
+          }
+          .stage-timeline__connector {
+            flex: 1;
+            height: 2px;
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 999px;
+          }
+          .stage-timeline__connector--complete {
+            background: rgba(30, 41, 59, 0.75);
+          }
+          .stage-timeline__connector--active {
+            background: rgba(59, 130, 246, 0.65);
+          }
+          .stage-timeline__connector--skipped {
+            background: repeating-linear-gradient(
+              to right,
+              rgba(148, 163, 184, 0.6),
+              rgba(148, 163, 184, 0.6) 6px,
+              rgba(148, 163, 184, 0.25) 6px,
+              rgba(148, 163, 184, 0.25) 12px
+            );
+          }
+          .stage-panel {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(30, 41, 59, 0.12);
+            border-radius: 18px;
+            padding: 28px;
+            box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            color: #1e293b;
+          }
+          .stage-panel__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+          }
+          .stage-panel__leading,
+          .stage-panel__trailing,
+          .stage-panel__spacer {
+            flex: 0 0 auto;
+            min-width: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .stage-panel__spacer {
+            visibility: hidden;
+          }
+          .stage-panel__titles {
+            flex: 1;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .stage-panel__titles h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #1e293b;
+          }
+          .stage-panel__titles p {
+            margin: 0;
+            font-size: 14px;
+            color: rgba(30, 41, 59, 0.7);
+          }
+          .stage-panel__body {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+          }
+          .stage-panel__footer {
+            margin-top: 12px;
+          }
+          .stage-back,
+          .stage-button {
+            font-family: inherit;
+          }
+          .stage-back {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.08);
+            border: none;
+            color: #1e293b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.18s ease, transform 0.18s ease;
+          }
+          .stage-back:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+          }
+          .stage-back:not(:disabled):hover {
+            background: rgba(30, 41, 59, 0.16);
+            transform: translateX(-2px);
+          }
+          .stage-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+          }
+          .stage-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+          }
+          .stage-button--full {
+            width: 100%;
+          }
+          .stage-button--primary {
+            background: #1e293b;
+            color: #f6f7f9;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+          }
+          .stage-button--primary:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.24);
+          }
+          .stage-button--secondary {
+            background: rgba(30, 41, 59, 0.08);
+            color: #1e293b;
+          }
+          .stage-button--secondary:not(:disabled):hover {
+            background: rgba(30, 41, 59, 0.16);
+            transform: translateY(-1px);
+          }
+          .stage-button--ghost {
+            background: transparent;
+            color: #1e293b;
+          }
+          .stage-button--ghost:not(:disabled):hover {
+            color: #0f172a;
+          }
+          .stage-alert {
+            margin-top: 18px;
+            width: 100%;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+          }
+          .stage-alert--success {
+            color: #166534;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+          }
+          .stage-alert--error {
+            color: #b91c1c;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+          }
+          .stage-alert--info {
+            color: #1d4ed8;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.28);
+          }
           @font-face {
             font-family: 'CooperBT';
             src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');

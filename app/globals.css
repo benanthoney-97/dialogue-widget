@@ -15,8 +15,18 @@
 }
 
 :root {
-  --background: #ffffff;
+  --background: #F6F7F9fff;
   --foreground: #171717;
+  /* Light app theme variables (shared across Personas / Insights / Upload) */
+  --bg: #f6fbff; /* page background (very light bluish) */
+  --panel: #F6F7F9; /* panel/card background */
+  --panel-2: #F6F7F9fff; /* slightly bluish panel */
+  --accent: #03255c; /* primary accent (more vibrant) */
+  --accent-2: #073a70; /* lighter accent */
+  --accent-rgb: 30,115,255; /* rgb for accent */
+  --text: #052033; /* dark text */
+  --muted: #6b7280; /* muted text */
+  --danger: #ff4d6d;
 }
 
 @theme inline {

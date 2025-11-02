@@ -161,7 +161,7 @@ useEffect(() => {
     padding: 12,
     paddingLeft: 0,
     borderRadius: 20,
-    // background: "#fff",   ❌ removed
+    // background: "#F6F7F9",   ❌ removed
     // boxShadow: "0 4px 16px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.5)", ❌ removed
     width: "100%",
     boxSizing: "border-box",
@@ -248,7 +248,7 @@ useEffect(() => {
                 borderRadius: 12,
                 border: "1px solid rgba(0,0,0,.06)",
                 background: phase === "connecting" ? "#d1d5db" : connected ? "#525fe1" : "#525fe1",
-                color: "#fff",
+                color: "#F6F7F9",
                 fontWeight: 700,
                 cursor: phase === "connecting" ? "default" : "pointer",
                 transition: "background .15s ease, opacity .15s ease",
@@ -282,7 +282,7 @@ useEffect(() => {
                 borderRadius: 12,
                 border: "none",
                 background: connected ? "#525fe1" : "#525fe1",
-                color: "#fff",
+                color: "#F6F7F9",
                 fontWeight: 500,
                 cursor: phase === "connecting" ? "default" : "pointer",
                 transition: "background .15s ease",

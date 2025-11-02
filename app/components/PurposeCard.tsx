@@ -32,24 +32,14 @@ export const defaultChipStyleMap: Record<string, ChipStyle> = {
 
 const guidanceOptions = [
   {
-    title: "Prepare",
-    subtitle: "Prepare for presentations, seminars and meetings using all the documents you’ll need.",
-    chip: "Personal",
+    title: "Add my data",
+    subtitle: "Upload unlimited persona documents and links",
+    chip: "Internal",
   },
   {
-    title: "Learn",
-    subtitle: "Master complex topics across multiple documents.",
-    chip: "Personal",
-  },
-  {
-    title: "Review",
-    subtitle: "Send documents to teammates for in-depth audio-led review.",
+    title: "Describe persona",
+    subtitle: "Start from scratch with a vision of your target audience",
     chip: "Team",
-  },
-  {
-    title: "Go-to-market",
-    subtitle: "Send documents to clients and gather valuable insights.",
-    chip: "Client",
   },
 ] as const;
 
@@ -85,26 +75,25 @@ export default function PurposeCard({
   saving,
   nextLabel = "Next",
   chipStyleMap = defaultChipStyleMap,
-  headingText = "What do you want to do?",
-  subheadingText = "Choose or describe a goal for your Dialogue.",
+  headingText = "How are you creating your persona?",
+  subheadingText = "Choose or describe what type of pitch you're preparing for",
 }: PurposeCardProps) {
   const [hoveredGuidance, setHoveredGuidance] = useState<GuidanceKey | null>(null);
 
   return (
     <>
-      <div style={{ textAlign: "center", fontSize: 20, fontWeight: 800, color: "#e6eaff", marginBottom: 0 }}>{headingText}</div>
-      <div style={{ textAlign: "center", fontSize: 13, color: "#9fb3ff", marginBottom: 4, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-        {subheadingText}
-      </div>
-      {guidanceOptions.map((item) => {
+      <div style={{ textAlign: "center", fontSize: 20, fontWeight: 800, color: "#1e293b", marginBottom: 0 }}>{headingText}</div>
+  {/* subheading intentionally removed */}
+  <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'nowrap', overflowX: 'auto', paddingTop: 12, paddingBottom: 6 }}>
+      {guidanceOptions.map((item, idx) => {
         const label = item.chip ?? "Placeholder";
         const style = chipStyleMap[label] ?? chipStyleMap.Placeholder;
         const active = selectedGuidance === item.title;
         const hovered = hoveredGuidance === item.title;
 
         return (
+          <React.Fragment key={item.title}>
           <div
-            key={item.title}
             onClick={() => {
               onSelectGuidance(item.title, guidanceTexts[item.title] ?? null, label);
             }}
@@ -115,119 +104,67 @@ export default function PurposeCard({
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") onSelectGuidance(item.title, guidanceTexts[item.title] ?? null, label);
             }}
-            style={{
-              width: "100%",
-              background: active ? "#122a48" : hovered ? "#0f1f36" : "#101931",
-              borderRadius: 10,
-              padding: 12,
-              border: active ? "1px solid rgba(126,160,230,0.26)" : "1px solid rgba(34,50,90,0.6)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              position: "relative",
-              cursor: "pointer",
-              boxShadow: active ? "0 10px 30px rgba(30,60,110,0.26)" : undefined,
-              transition: "background 140ms ease, border 140ms ease, box-shadow 160ms ease",
-            }}
+    style={{
+      /* fixed small width so cards line up horizontally under the heading */
+      flex: '0 0 160px',
+      minWidth: 120,
+      maxWidth: 220,
+      aspectRatio: '1 / 1',
+      background: '#f4f8ff',
+      borderRadius: 10,
+      padding: 12,
+      border: active
+        ? '1.5px solid rgba(30,41,59,0.5)'
+        : '1.5px solid rgba(30,41,59,0.42)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+      position: 'relative',
+      cursor: 'pointer',
+      boxShadow: 'none',
+      transition: 'border 140ms ease',
+        }}
           >
-            <div
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                background: style.bg,
-                color: style.color,
-                border: style.border,
-                padding: "2px 8px",
-                borderRadius: 999,
-                fontSize: 12,
-                fontWeight: 700,
-                height: 20,
-                lineHeight: "16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {label}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#e6eaff" }}>{item.title}</div>
-            <div style={{ fontSize: 13, color: "#9bb5ff", lineHeight: 1.5 }}>{item.subtitle}</div>
+            {(label !== 'Internal' && label !== 'Team') ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  background: style.bg,
+                  color: style.color,
+                  border: style.border,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  height: 20,
+                  lineHeight: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {label}
+              </div>
+            ) : null}
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b", textAlign: 'center' }}>{item.title}</div>
           </div>
+          {idx < guidanceOptions.length - 1 ? (
+            <div style={{ alignSelf: 'center', margin: '0 6px', color: '#1e293b', fontWeight: 700, fontSize: 13 }} aria-hidden>
+              or
+            </div>
+          ) : null}
+          </React.Fragment>
         );
-      })}
+  })}
+  </div>
 
-      <div style={{ position: "relative", width: "100%" }}>
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 5,
-            background: chipStyleMap.Purpose.bg,
-            color: chipStyleMap.Purpose.color,
-            border: chipStyleMap.Purpose.border,
-            padding: "2px 8px",
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 700,
-            height: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          Custom
-        </div>
-        <textarea
-          placeholder="Describe your own goal..."
-          value={purposeText}
-          onChange={(e) => {
-            onPurposeChange(e.target.value);
-          }}
-          onFocus={() => {
-            onCustomFocus();
-          }}
-          onBlur={() => {
-            if (onPurposeBlur) {
-              void onPurposeBlur();
-            }
-          }}
-          style={{
-            width: "100%",
-            minHeight: 96,
-            borderRadius: 8,
-            padding: "12px",
-            background: "#0f1a33",
-            color: "#e6eaff",
-            border: "1px solid #22325a",
-          }}
-        />
-      </div>
+      {/* custom freeform input removed per design: no textarea or 'Custom' chip */}
 
-      <div style={{ width: "100%", marginTop: 0 }}>
-        <button
-          type="button"
-          onClick={async () => {
-            await onNext();
-          }}
-          disabled={nextDisabled}
-          style={{
-            width: "100%",
-            padding: "10px 18px",
-            borderRadius: 8,
-            background: nextDisabled ? "#2d406b" : "#525fe1",
-            color: "#fff",
-            border: "none",
-            fontWeight: 700,
-            opacity: nextDisabled ? 0.75 : 1,
-            cursor: nextDisabled ? "not-allowed" : "pointer",
-            transition: "background 120ms, opacity 120ms",
-          }}
-        >
-          {saving ? "Saving..." : nextLabel}
-        </button>
-      </div>
+      {/* action button removed by design */}
     </>
   );
 }

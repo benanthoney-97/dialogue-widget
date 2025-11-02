@@ -46,7 +46,7 @@ export default function DialogueBarTalkButton({
   useSignedUrl = false,
   serverLocation = "us",
   buttonColor = "#525fe1",
-  buttonTextColor = "#ffffff",
+  buttonTextColor = "#F6F7F9fff",
   buttonBorderColor,
   title = "",
   talkLabel = "Talk",
@@ -85,7 +85,6 @@ export default function DialogueBarTalkButton({
     work_label?: string | null;
     url?: string | null;
     client_id?: number | null;
-    testing_mode?: boolean | null;
   }>(null);
 
   useEffect(() => {
@@ -95,7 +94,7 @@ export default function DialogueBarTalkButton({
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image, testing_mode"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image"
           )
           .eq("agent_id", agentId)
           .maybeSingle();
@@ -327,40 +326,21 @@ export default function DialogueBarTalkButton({
         }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
-        // determine testing_mode preference: agentMap takes precedence, fall back to page global
-        const testingModeFromAgent = agentMap?.testing_mode;
-        const testingModeFromWindow = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
-          ? Boolean((window as any).__DOC_TESTING_MODE__)
-          : undefined;
-        const testing_mode =
-          typeof testingOverride === "boolean"
-            ? testingOverride
-            : typeof testingModeFromAgent !== "undefined"
-              ? Boolean(testingModeFromAgent)
-              : testingModeFromWindow;
+        const dynamicVariables =
+          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
 
         await startSession({
           signedUrl: data.signedUrl,
           connectionType: "websocket",
-          dynamicVariables: testing_mode !== undefined ? { testing_mode } : undefined,
+          dynamicVariables,
         });
       } else {
-        // determine testing_mode preference: agentMap takes precedence, fall back to page global
-        const testingModeFromAgent2 = agentMap?.testing_mode;
-        const testingModeFromWindow2 = (typeof window !== "undefined" && (window as any).__DOC_TESTING_MODE__ !== undefined)
-          ? Boolean((window as any).__DOC_TESTING_MODE__)
-          : undefined;
-        const testing_mode2 =
-          typeof testingOverride === "boolean"
-            ? testingOverride
-            : typeof testingModeFromAgent2 !== "undefined"
-              ? Boolean(testingModeFromAgent2)
-              : testingModeFromWindow2;
-
+        const dynamicVariables =
+          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
         await startSession({
           agentId: effectiveAgent,
           connectionType: "websocket",
-          dynamicVariables: testing_mode2 !== undefined ? { testing_mode: testing_mode2 } : undefined,
+          dynamicVariables,
         });
       }
 
@@ -852,7 +832,7 @@ export default function DialogueBarTalkButton({
                 fontWeight: 700,
                 fontSize: 14,
                 background: contactSubmitted ? "#10b981" : "#525fe1",
-                color: "#fff",
+                color: "#F6F7F9",
                 cursor: contactSubmitted ? "default" : "pointer",
                 transition: "background .18s ease, transform .18s ease",
               }}
@@ -934,7 +914,7 @@ export default function DialogueBarTalkButton({
                 fontWeight: 700,
                 fontSize: 14,
                 background: summarySubmitted ? "#10b981" : "#525fe1",
-                color: "#fff",
+                color: "#F6F7F9",
                 cursor: summarySubmitted ? "default" : "pointer",
                 transition: "background .18s ease, transform .18s ease",
               }}

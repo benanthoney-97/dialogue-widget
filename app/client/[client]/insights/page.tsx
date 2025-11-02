@@ -1,24 +1,4 @@
 "use client";
-
-const tdStyle = {
-	padding: "10px 8px",
-	color: "#e6eaff",
-	background: "#16213a",
-	fontSize: 15,
-};
-
-const buttonStyle = {
-	padding: "7px 16px",
-	borderRadius: 8,
-	border: "1px solid #2d406b",
-	background: "#22325a",
-	color: "#a3c0ff",
-	fontWeight: 600,
-	fontSize: 14,
-	cursor: "pointer",
-	transition: "background 0.18s, border 0.18s, color 0.18s",
-	boxShadow: "0 2px 8px rgba(10,22,40,0.13)",
-};
 import React, { useState, useEffect, useRef } from "react";
 import { BriefMeButton } from "@/app/components/BriefMeButton";
 import { usePathname } from "next/navigation";
@@ -39,22 +19,22 @@ type AgentMapRow = {
 };
 
 type InsightsRow = {
-	sourceDocument: string;
-	lead: { value: string; source: string };
-	engagementTime: string;
-	keyFocus: string;
-	intent: string;
-	date: string;
-	briefReport: string;
-	conversation_id: string;
-	transcript?: any; // transcript jsonb
-	questions?: any; // questions jsonb
-	transcript_summary?: string;
-	main_topics?: any;
-	content_gaps?: any;
-	pipeline_intent_reasoning?: any;
-	competitive_comparison_summary?: any;
-	main_language?: string;
+    sourceDocument: string;
+    lead: { value: string; source: string };
+    engagementTime: string;
+	status: 'Quant' | 'Qual';
+    intent: string;
+    date: string;
+    briefReport: string;
+    conversation_id: string;
+    transcript?: any; // transcript jsonb
+    questions?: any; // questions jsonb
+    transcript_summary?: string;
+    main_topics?: any;
+    content_gaps?: any;
+    pipeline_intent_reasoning?: any;
+    competitive_comparison_summary?: any;
+    main_language?: string;
 };
 // Helper to get unique values for dropdowns
 function getUniqueValues<T>(arr: T[], key: keyof T) {
@@ -63,25 +43,83 @@ function getUniqueValues<T>(arr: T[], key: keyof T) {
 
 const reportDropdownOptions = [
 	"Transcript",
-	"Questions",
-	"Insights",
-	"Metadata",
 ];
+
+// Status options for the connected segmented control (kept here so length is available)
+const statusOptions = (['All','Quant','Qual','Agent'] as const);
+
+
+type StagePanelProps = {
+	heading: string;
+	subheading?: string;
+	leading?: React.ReactNode;
+	trailing?: React.ReactNode;
+	footer?: React.ReactNode;
+	children: React.ReactNode;
+};
+
+function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
+	const hasHeader = Boolean(heading || subheading || leading || trailing);
+	return (
+		<section className="stage-panel">
+			{hasHeader && (
+				<header className="stage-panel__header">
+					{leading ? <div className="stage-panel__leading">{leading}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
+					<div className="stage-panel__titles">
+						<h2>{heading}</h2>
+						{subheading ? <p>{subheading}</p> : null}
+					</div>
+					{trailing ? <div className="stage-panel__trailing">{trailing}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
+				</header>
+			)}
+			<div className="stage-panel__body">{children}</div>
+			{footer ? <footer className="stage-panel__footer">{footer}</footer> : null}
+		</section>
+	);
+}
+
+type StageButtonVariant = "primary" | "secondary" | "ghost";
+
+type StageButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+	variant?: StageButtonVariant;
+	width?: "auto" | "full";
+};
+
+function StageButton({ variant = "primary", width = "auto", className = "", ...props }: StageButtonProps) {
+	const classes = [
+		"stage-button",
+		`stage-button--${variant}`,
+		width === "full" ? "stage-button--full" : "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	return <button className={`${classes} ${className}`.trim()} {...props} />;
+}
+
+type StageAlertProps = {
+	type: "success" | "error" | "info";
+	message: string;
+};
+
+function StageAlert({ type, message }: StageAlertProps) {
+	return (
+		<div className={`stage-alert stage-alert--${type}`}>
+			<span>{message}</span>
+		</div>
+	);
+}
 
 
 export default function InsightsTable() {
 	const [openDropdown, setOpenDropdown] = useState<number | null>(null);
 	const [selectedChip, setSelectedChip] = useState<{ [rowIdx: number]: string }>({});
-	const [filters, setFilters] = useState({
-		sourceDocument: '',
-		search: '',
-		dateAfter: '',
-		dateBefore: '',
-		intent: '',
-		leads: '',
-	});
-	// showTesting: false = show Live (default), true = show Testing dialogues
-	const [showTesting, setShowTesting] = useState(false);
+const [filters, setFilters] = useState({
+	sourceDocument: '',
+	search: '',
+});
+// Multi-select status chips: when `allStatuses` is true we show everything.
+const [allStatuses, setAllStatuses] = useState<boolean>(true);
+const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual: boolean; Agent: boolean }>({ Quant: false, Qual: false, Agent: false });
 	const [activeFilter, setActiveFilter] = useState<string | null>(null);
 	const filterBarRef = useRef<HTMLDivElement>(null);
 	// Move filtersOpen state to top level so it persists across renders
@@ -131,32 +169,36 @@ export default function InsightsTable() {
 	useEffect(() => {
 				async function fetchClientAndRows() {
 					if (!clientSlug) return;
-					// Get client display name, id, and default_agent_id
-					const { data: clientData, error: clientError } = await supabase
-						.from('clients')
+					// Get profile display name, id, and default_agent_id
+					const { data: profileData, error: profileError } = await supabase
+						.from('profiles')
 						.select('id, display_name, default_agent_id')
-						.eq('name', clientSlug)
+						.eq('id', clientSlug)
 						.single();
-					if (clientData && clientData.display_name) {
-						setClientDisplayName(clientData.display_name);
+					if (profileError || !profileData) {
+						setError('Profile not found');
+						setClientDisplayName(null);
+						setDefaultAgentId(null);
+						setLoading(false);
+						return;
+					}
+					if (profileData.display_name) {
+						setClientDisplayName(profileData.display_name);
 					} else {
 						setClientDisplayName(null);
 					}
-					if (clientData && clientData.default_agent_id) {
-						setDefaultAgentId(clientData.default_agent_id);
+					if (profileData.default_agent_id) {
+						setDefaultAgentId(profileData.default_agent_id);
 					} else {
 						setDefaultAgentId(null);
 					}
-					if (!clientData) return;
 					setLoading(true);
 					setError(null);
-					// Get all dialogues for this client
-					let q = supabase
+					// Get all dialogues for this profile/user
+					const q = supabase
 						.from('dialogues')
 						.select('id, conversation_id, agent_id, call_duration_secs, received_at, transcript, pipeline_intent, questions, transcript_summary, main_topics, content_gaps, pipeline_intent_reasoning, competitive_comparison_summary, main_language, testing_mode')
-						.eq('client_id', clientData.id);
-					// default: showTesting === false -> fetch testing_mode = false (Live)
-					q = q.eq('testing_mode', showTesting);
+						.eq('user_id', profileData.id);
 					const { data: dialogueRows, error: dialogueError } = await q;
 					console.log('[DEBUG] dialogueRows from Supabase:', dialogueRows);
 					if (dialogueError) {
@@ -206,12 +248,12 @@ export default function InsightsTable() {
 						const summaryByConvId: { [id: string]: string } = {};
 						summaryRequests.forEach(r => { if (r.conversation_id) summaryByConvId[r.conversation_id] = r.user_email; });
 
-						const rows: InsightsRow[] = (dialogueRows || []).map((d) => {
-							const agent = agentMapByAgentId[d.agent_id];
-							let lead = '';
-							let leadSource = 'none';
-							if (contactByConvId[d.conversation_id]) {
-								lead = contactByConvId[d.conversation_id];
+                        const rows: InsightsRow[] = (dialogueRows || []).map((d) => {
+                            const agent = agentMapByAgentId[d.agent_id];
+                            let lead = '';
+                            let leadSource = 'none';
+                            if (contactByConvId[d.conversation_id]) {
+                                lead = contactByConvId[d.conversation_id];
 								leadSource = 'contact_requests';
 							} else if (summaryByConvId[d.conversation_id]) {
 								lead = summaryByConvId[d.conversation_id];
@@ -219,18 +261,19 @@ export default function InsightsTable() {
 							}
 							if (d.conversation_id === 'conv_9601k7c1fz2nervs6tj7zf9w0ps1') {
 								console.log('[DEBUG] For conversation_id conv_9601k7c1fz2nervs6tj7zf9w0ps1, lead:', lead, 'source:', leadSource);
-							}
-							const row = {
+                            }
+							const status: 'Qual' | 'Quant' = d.testing_mode ? 'Qual' : 'Quant';
+							const row: InsightsRow = {
 								sourceDocument: agent ? agent.agent_name : '',
 								lead: { value: lead, source: leadSource },
 								engagementTime: d.call_duration_secs != null ?
 									new Date(d.call_duration_secs * 1000).toISOString().substr(11, 8) : '',
-								keyFocus: '',
-								intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
-								date: d.received_at || '',
-								briefReport: '',
-								conversation_id: d.conversation_id,
-								transcript: d.transcript,
+								status,
+                                intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
+                                date: d.received_at || '',
+                                briefReport: '',
+                                conversation_id: d.conversation_id,
+                                transcript: d.transcript,
 								questions: d.questions,
 								transcript_summary: d.transcript_summary,
 								main_topics: d.main_topics,
@@ -243,41 +286,33 @@ export default function InsightsTable() {
 						});
 						setInsightsRows(rows);
 						setLoading(false);
-				}
-				fetchClientAndRows();
-		}, [clientSlug, showTesting]);
+                }
+                fetchClientAndRows();
+        }, [clientSlug]);
 
 		// Filtering logic (unchanged, but now uses insightsRows)
 			// Sort by date descending (most recent first)
-				const sortedRows = [...insightsRows].sort((a, b) => {
-					if (!a.date && !b.date) return 0;
-					if (!a.date) return 1;
-					if (!b.date) return -1;
-					return new Date(b.date).getTime() - new Date(a.date).getTime();
-				});
-	       const filteredRows = sortedRows.filter((row) => { 
-		       if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
-		       if (filters.leads && !row.lead.value) return false;
-		       if (filters.dateAfter) {
-					const after = new Date(filters.dateAfter);
-					if (!row.date || new Date(row.date) < after) return false;
-				}
-				if (filters.dateBefore) {
-					// Add 1 day to include the selected day fully
-					const before = new Date(filters.dateBefore);
-					before.setDate(before.getDate() + 1);
-					if (!row.date || new Date(row.date) >= before) return false;
-				}
-				if (filters.intent && row.intent !== filters.intent) return false;
+       const sortedRows = [...insightsRows].sort((a, b) => {
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+	   const filteredRows = sortedRows.filter((row) => { 
+		   // Status filtering: if `allStatuses` is true we include all rows.
+		   if (!allStatuses) {
+			   // Only include row if its status (Quant|Qual) is selected.
+			   const statusKey = row.status as 'Quant' | 'Qual';
+			   if (!(selectedStatuses[statusKey])) return false;
+		   }
+		   if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
+           // (Date-after filter removed)
 				if (filters.search) {
 					const search = filters.search.toLowerCase();
 					const rowString = Object.values(row).join(' ').toLowerCase();
 					const dropdownStrings = reportDropdownOptions.map(opt => {
 						switch (opt) {
 							case "Transcript": return "This is a dummy transcript summary.";
-							case "Questions": return "Example questions asked in this session.";
-							case "Insights": return "Key insights extracted from the conversation.";
-							case "Metadata": return "Session metadata and details.";
 							default: return "Sample content.";
 						}
 					}).join(' ').toLowerCase();
@@ -287,270 +322,184 @@ export default function InsightsTable() {
 			});
 
 	return (
-						<main style={{ minHeight: "100dvh", background: "#0a1628", padding: 0, fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif", display: 'flex', flexDirection: 'row' }}>
-							   <div style={{ width: 180, flexShrink: 0 }}>
-								   <Sidebar />
-							   </div>
-							<div style={{
-								flex: 1,
-								background: "#16213a",
-								borderRadius: 16,
-								boxShadow: "0 8px 32px rgba(10,22,40,0.45)",
-								padding: 40,
-								fontFamily: "inherit",
-								position: 'relative',
-								minHeight: '100dvh',
-								overflow: 'auto',
-							}}>
-									<h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, color: "#e6eaff", fontFamily: "inherit" }}>
-										{clientDisplayName ? `${clientDisplayName} Insights` : "Insights"}
-									</h2>
-						   {/* FILTERS DROPDOWN BUTTON AND DROPDOWN */}
-						   {(() => {
-							  // Click-away handler
-							  React.useEffect(() => {
-								  if (!filtersOpen) return;
-								  function handleClick(e: MouseEvent) {
-									  if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
-									  setFiltersOpen(false);
-								  }
-								  document.addEventListener('mousedown', handleClick);
-								  return () => document.removeEventListener('mousedown', handleClick);
-							  }, [filtersOpen]);
-							  return (
-								  <div ref={filterBarRef} style={{ position: 'relative', marginBottom: 18, display: 'flex', justifyContent: 'flex-end' }}>
-									  <button
-										  onClick={() => setFiltersOpen(open => !open)}
-										  style={{
-											  background: '#22325a',
-											  color: '#a3c0ff',
-											  border: '1px solid #2d406b',
-											  borderRadius: 6,
-											  padding: '8px 22px',
-											  fontWeight: 600,
-											  fontSize: 15,
-											  cursor: 'pointer',
-											  boxShadow: '0 2px 8px rgba(10,22,40,0.13)',
-										  }}
-									  >
-										  {filtersOpen ? 'Hide filters' : 'Filters'}
-									  </button>
-									  {/* Live / Testing toggle button */}
-									  <button
-										  type="button"
-										  onClick={(e) => { e.stopPropagation(); setShowTesting(prev => !prev); }}
-										  aria-pressed={showTesting}
-										  title={showTesting ? 'Showing TESTING dialogues — click to show Live' : 'Showing LIVE dialogues — click to show Testing'}
-										  style={{
-											  marginLeft: 12,
-											  padding: '6px 10px',
-											  borderRadius: 999,
-											  fontSize: 13,
-											  fontWeight: 700,
-											  color: '#fff',
-											  background: showTesting ? '#f97316' : '#525fe1',
-											  boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-											  alignSelf: 'center',
-											  border: 'none',
-											  cursor: 'pointer',
-										  }}
-									  >
-										  {showTesting ? 'Testing' : 'Live'}
-									  </button>
-									  {filtersOpen && (
-										  <div
-											  style={{
-												  position: 'absolute',
-												  top: 44,
-												  right: 0,
-												  background: '#16213a',
-												  border: '1px solid #2d406b',
-												  borderRadius: 12,
-												  boxShadow: '0 8px 32px rgba(10,22,40,0.45)',
-												  padding: 24,
-												  zIndex: 10,
-												  minWidth: 600,
-												  display: 'flex',
-												  flexDirection: 'column',
-												  gap: 12,
-											  }}
-										  >
-											  <div style={{ display: 'flex', gap: 18, marginBottom: 8 }}>
-												  {/* Row 1: Search, Source Document, Leads */}
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Search:</span>
-													   <input
-														   type='text'
-														   value={filters.search}
-														   onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-														   placeholder='Search all fields...'
-														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 120, maxWidth: 180 }}
-													   />
-												   </div>
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Dialogue:</span>
-													   <select
-														   value={filters.sourceDocument}
-														   onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
-														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 80, maxWidth: 140 }}
-													   >
-														   <option value=''>All</option>
-														   {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
-															   <option key={doc as string} value={doc as string}>{doc}</option>
-														   ))}
-													   </select>
-												   </div>
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <button
-														   type="button"
-														   onClick={() => setFilters(filts => ({ ...filts, leads: filts.leads ? '' : '1' }))}
-														   style={{
-															   background: filters.leads ? '#2d406b' : '#22325a',
-															   color: filters.leads ? '#fff' : '#a3c0ff',
-															   fontWeight: 600,
-															   fontSize: 14,
-															   borderRadius: 6,
-															   border: filters.leads ? '2px solid #7ea0e6' : '1px solid #2d406b',
-															   padding: '7px 18px',
-															   cursor: 'pointer',
-															   boxShadow: filters.leads ? '0 2px 12px #22325a' : '0 2px 8px rgba(10,22,40,0.13)',
-															   transition: 'background 0.18s, color 0.18s, border 0.18s',
-														   }}
-													   >
-														   {filters.leads ? 'All' : 'Leads'}
-													   </button>
-												   </div>
-											   {/* Removed inline Show: Testing/Live toggle — use the pill next to Filters to toggle instead */}
-											   </div>
-											   <div style={{ display: 'flex', gap: 18 }}>
-												   {/* Row 2: Date After, Date Before, Intent */}
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Date after:</span>
-													   <input
-														   type='date'
-														   value={filters.dateAfter}
-														   onChange={e => setFilters(f => ({ ...f, dateAfter: e.target.value }))}
-														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14 }}
-													   />
-												   </div>
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Date before:</span>
-													   <input
-														   type='date'
-														   value={filters.dateBefore}
-														   onChange={e => setFilters(f => ({ ...f, dateBefore: e.target.value }))}
-														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14 }}
-													   />
-												   </div>
-												   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-													   <span style={{ color: '#a3c0ff', fontWeight: 600, fontSize: 14 }}>Intent:</span>
-													   <select
-														   value={filters.intent}
-														   onChange={e => setFilters(f => ({ ...f, intent: e.target.value }))}
-														   style={{ background: '#22325a', color: '#a3c0ff', border: '1px solid #2d406b', borderRadius: 6, padding: '6px 12px', fontSize: 14, minWidth: 80, maxWidth: 180 }}
-													   >
-														   <option value=''>All</option>
-														   <option value='Interest'>Interest</option>
-														   <option value='Consideration'>Consideration</option>
-														   <option value='Intent'>Intent</option>
-													   </select>
-												   </div>
-											   </div>
-											   {/* Reset chip on its own line at the bottom of dropdown */}
-											   {(filters.sourceDocument || filters.search || filters.dateAfter || filters.dateBefore || filters.intent || filters.leads) && (
-												   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-													   <button
-														   type="button"
-														   onClick={() => setFilters({
-															   sourceDocument: '',
-															   search: '',
-															   dateAfter: '',
-															   dateBefore: '',
-															   intent: '',
-															   leads: '',
-														   })}
-														   title="Reset filters"
-														   style={{
-															   background: '#22325a',
-															   color: '#fff',
-															   border: '2px solid #fff',
-															   borderRadius: 8,
-															   fontWeight: 700,
-															   fontSize: 15,
-															   height: 38,
-															   padding: '0 24px',
-															   cursor: 'pointer',
-															   boxShadow: '0 2px 8px rgba(10,22,40,0.13)',
-															   transition: 'background 0.18s, color 0.18s, border 0.18s',
-															   zIndex: 2,
-															   display: 'flex',
-															   alignItems: 'center',
-														   }}
-													   >
-														   Reset
-													   </button>
-												   </div>
-											   )}
-										   </div>
-									   )}
-								   </div>
-							   );
-						   })()}
+		<main className="stage-layout">
+			<aside className="stage-layout__sidebar">
+				<Sidebar />
+			</aside>
+			<div className="stage-layout__content">
+				<div className="stage-shell">
+					<StagePanel
+						heading="Playbacks"
+					>
+					{loading && <StageAlert type="info" message="Loading insights…" />}
+					{!loading && error && <StageAlert type="error" message={error} />}
+					{/* FILTERS DROPDOWN BUTTON AND DROPDOWN */}
+						  {(() => {
+									 // Click-away handler for the inline filter row
+									 React.useEffect(() => {
+										 if (!filtersOpen) return;
+										 function handleClick(e: MouseEvent) {
+											 if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
+											 setFiltersOpen(false);
+										 }
+										 document.addEventListener('mousedown', handleClick);
+										 return () => document.removeEventListener('mousedown', handleClick);
+									 }, [filtersOpen]);
 
-						<div style={{ overflowX: "auto", width: "100%" }}>
-							<table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
-						<thead>
-							<tr style={{ background: "#1b2947" }}>
-								<th style={{ ...thStyle, maxWidth: 220, minWidth: 150 }}>Source Document</th>
-								<th style={thStyle}>Length</th>
-								<th style={thStyle}>Date</th>
-								<th style={thStyle}>Lead</th>
-								<th style={thStyle}></th>
-								<th style={thStyle}></th>
-							</tr>
-						</thead>
+									 // Render a single-row inline filter area: when open it grows to fill the row before the controls
+									 return (
+					  <div ref={filterBarRef} className="insights-filters" data-open={filtersOpen}>
+						  {/* Inline filter panel - grows when open */}
+						  <div className={`insights-filters__panel${filtersOpen ? ' insights-filters__panel--open' : ''}`}>
+						  <div className="insights-filters__row">
+							  {/* Row 1: Source Document */}
+							  <div className="insights-filters__field insights-filters__field--pull">
+								  <span className="insights-filters__label">Persona:</span>
+								  <select
+									  value={filters.sourceDocument}
+									  onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
+									  className="insights-select"
+								  >
+											  <option value=''>All</option>
+											  {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
+												  <option key={doc as string} value={doc as string}>{doc}</option>
+											  ))}
+										  </select>
+									  </div>
+							  {/* Move status chips into the inline panel next to Dialogue */}
+							  <div className="insights-filters__field">
+								  <div className="insights-status-group" role="tablist" aria-label="Research type">
+							  {statusOptions.map((opt, idx) => {
+								  const isAll = opt === 'All';
+							  const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
+							  const chipClasses = [
+								  'insights-status-chip',
+								  isActive ? 'insights-status-chip--active' : '',
+								  idx === 0 ? 'insights-status-chip--start' : '',
+								  idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
+							  ].filter(Boolean).join(' ');
+							  return (
+									  <StageButton
+										  key={opt}
+										  type="button"
+										  role="tab"
+										  variant="ghost"
+										  className={chipClasses}
+										  aria-selected={isActive}
+										  onClick={(e) => {
+															  e.stopPropagation();
+															  if (isAll) {
+																  setAllStatuses(true);
+																  setSelectedStatuses({ Quant: false, Qual: false, Agent: false });
+															  } else {
+																  setAllStatuses(false);
+																  setSelectedStatuses(prev => {
+																	  const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
+																	  if (!next.Quant && !next.Qual && !next.Agent) {
+																		  setAllStatuses(true);
+																		  return { Quant: false, Qual: false, Agent: false };
+																	  }
+																	  return next;
+																  });
+															  }
+														  }}
+									  title={isActive ? (opt === 'Agent' ? `Agent selected` : (isAll ? `All statuses` : `Selected ${opt}`)) : (opt === 'Agent' ? `Toggle Agent` : (isAll ? `Show all statuses` : `Toggle ${opt}`)) }
+								  >
+										  {opt}
+									  </StageButton>
+												  );
+											  })}
+										  </div>
+									  </div>
+								  </div>
+
+								  {/* Reset button removed — filters reset is no longer shown here */}
+							  </div>
+
+							  {/* Controls group (search, filters button, status pill) */}
+				  <div className="insights-filters__controls">
+					  <StageButton
+						  type="button"
+						  variant="secondary"
+						  className="insights-action-button"
+						  onClick={() => setFiltersOpen((open) => !open)}
+					  >
+						  {filtersOpen ? 'Hide filters' : 'Filters'}
+					  </StageButton>
+
+								  {/* Status chips have been moved into the inline panel */}
+
+				  <input
+					  type='text'
+					  value={filters.search}
+					  onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+					  placeholder='Search all fields...'
+					  className="insights-input"
+				  />
+							  </div>
+						  </div>
+									   );
+								   })()}
+
+				<div className="insights-table-wrap">
+					<table className="insights-table">
+									<thead>
+										<tr className="insights-table__head-row">
+										<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
+										<th className="insights-table__head-cell">Research Type</th>
+										<th className="insights-table__head-cell">Date</th>
+										<th className="insights-table__head-cell">Owner</th>
+										<th className="insights-table__head-cell">Results</th>
+										<th className="insights-table__head-cell"> </th>
+										<th className="insights-table__head-cell">Export</th>
+										</tr>
+									</thead>
 						<tbody>
-							{filteredRows.map((row, i) => (
-								<React.Fragment key={i}>
-									<tr style={{ background: "#16213a", borderBottom: "1px solid #22325a" }}>
-										<td style={sourceDocTdStyle}>{row.sourceDocument}</td>
-										<td style={tdStyle}>{row.engagementTime}</td>
-										<td style={tdStyle}>{
+						{filteredRows.map((row, i) => (
+							<React.Fragment key={i}>
+								<tr className="insights-table__row">
+									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument}</td>
+									<td className="insights-table__cell">{row.status}</td>
+										{/* Length column removed - engagementTime omitted */}
+										<td className="insights-table__cell">{
 											row.date
 												? new Date(row.date).toLocaleString('en-US', {
-														year: 'numeric',
-														month: 'short',
-														day: 'numeric',
-														hour: 'numeric',
-														minute: '2-digit',
-														hour12: true
-													})
-												: ''
+													year: 'numeric',
+													month: 'short',
+													day: 'numeric',
+													hour: 'numeric',
+													minute: '2-digit',
+													hour12: true
+												})
+											: ''
 										}</td>
-										<td style={tdStyle}>
-											<span
-												style={{
-													color:
-														row.lead.source === 'contact_requests'
-															? '#2ecc40' // green
-															: row.lead.source === 'summary_requests'
-															? '#ffb347' // amber
-															: undefined,
-												}}
-											>
-												{row.lead.value}
-											</span>
+										<td className="insights-table__cell">{row.lead?.value || ''}</td>
+										<td className="insights-table__cell insights-table__cell--actions">
+						<StageButton
+							type="button"
+							variant="secondary"
+							className="insights-action-button"
+							onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
+							aria-expanded={openDropdown === i}
+						>
+							<span className="insights-action-button__content">
+								<span>{openDropdown === i ? 'Hide Results' : 'View Results'}</span>
+											  <svg
+												className={`insights-action-button__chevron${openDropdown === i ? ' insights-action-button__chevron--open' : ''}`}
+												width="12"
+												height="12"
+												viewBox="0 0 24 24"
+												fill="none"
+												xmlns="http://www.w3.org/2000/svg"
+												aria-hidden="true"
+												focusable="false"
+											  >
+									<path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+								</svg>
+							</span>
+						</StageButton>
 										</td>
-										<td style={{ ...tdStyle, paddingRight: 4 }}>
-											<button
-												style={buttonStyle}
-												onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
-												aria-expanded={openDropdown === i}
-											>
-												{openDropdown === i ? 'Hide Details' : 'View Details'}
-											</button>
-										</td>
-										<td style={{ ...tdStyle, paddingLeft: 4, paddingRight: 4 }}>
+										<td className="insights-table__cell insights-table__cell--compact">
 											{defaultAgentId && (
 												<BriefMeButton
 													agentId={defaultAgentId}
@@ -559,279 +508,179 @@ export default function InsightsTable() {
 												/>
 											)}
 										</td>
+										<td className="insights-table__cell insights-table__cell--compact">
+						<StageButton
+							type="button"
+							variant="ghost"
+							className="insights-action-button insights-action-button--icon"
+							onClick={() => {
+								// Simple client-side JSON export of the row
+								try {
+									const data = JSON.stringify(row, null, 2);
+									const blob = new Blob([data], { type: 'application/json' });
+									const url = URL.createObjectURL(blob);
+														const a = document.createElement('a');
+														a.href = url;
+														a.download = `${row.conversation_id || 'results'}.json`;
+														a.click();
+														URL.revokeObjectURL(url);
+								} catch (e) {
+									console.error('Export failed', e);
+								}
+							}}
+						>
+									<span className="insights-action-button__content" aria-hidden="false">
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+											<polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+											<line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+										</svg>
+										<span className="sr-only">Export</span>
+							</span>
+						</StageButton>
+										</td>
 									</tr>
 														{openDropdown === i && (
 															<tr>
-																<td colSpan={6} style={{ padding: 0, background: "#10192b" }}>
-																<div
-																	style={{
-																		padding: "18px 32px 18px 32px",
-																		borderBottomLeftRadius: 12,
-																		borderBottomRightRadius: 12,
-																		border: "1px solid #22325a",
-																		borderTop: "none",
-																		boxShadow: "0 4px 18px rgba(10,22,40,0.18)",
-																		animation: "slideDown 0.32s cubic-bezier(.4,2,.6,1)",
-																	height: 420,
-																	maxHeight: 420,
-																		overflow: 'hidden',
-																		display: 'flex',
-																		flexDirection: 'column',
-																	}}
-																>
-																		<div style={{ display: "flex", gap: 16, marginBottom: 10 }}>
-																			{reportDropdownOptions.map((opt) => {
-																				const isSelected = selectedChip[i] === opt || (!selectedChip[i] && opt === reportDropdownOptions[0]);
-																				return (
-																					<span
-																						key={opt}
-																						style={{
-																							display: "inline-block",
-																							padding: "7px 18px",
-																							borderRadius: 999,
-																							background: isSelected ? "#2d406b" : "#22325a",
-																							color: isSelected ? "#fff" : "#a3c0ff",
-																							fontWeight: 600,
-																							fontSize: 14,
-																							cursor: "pointer",
-																							boxShadow: isSelected ? "0 2px 12px #22325a" : "0 2px 8px rgba(10,22,40,0.13)",
-																							border: isSelected ? "2px solid #7ea0e6" : "1px solid #2d406b",
-																							transition: "background 0.18s, color 0.18s, border 0.18s"
-																						}}
-																						onClick={() => setSelectedChip((prev) => ({ ...prev, [i]: opt }))}
-																					>
-																						{opt}
-																					</span>
-																				);
-																			})}
-																		</div>
-																		<div style={{ color: "#7ea0e6", fontSize: 15, minHeight: 32, paddingLeft: 2, flex: 1, overflowY: 'auto' }}>
-																			{(() => {
-																				const opt = selectedChip[i] || reportDropdownOptions[0];
-																				if (opt === "Transcript") {
-																					// Render transcript as chat interface
-																									// Find the correct transcript for this row by matching a unique property (e.g., date, sourceDocument, etc.)
-																									// Fallback to filteredRows[i] if unique property is not available
+																<td colSpan={7} className="insights-table__expanded-cell">
+																	<div className="insights-results">
+																		{(() => {
+																			const optionsForRow = row.status === 'Quant' ? [] : reportDropdownOptions;
+																			const hasOptions = optionsForRow.length > 0;
+																			const activeOption = hasOptions ? (selectedChip[i] || optionsForRow[0]) : null;
+
+																			return (
+																				<>
+																					<div className="insights-results__chips">
+																						{hasOptions ? (
+																							optionsForRow.map((opt) => {
+																								const isSelected = selectedChip[i] === opt || (!selectedChip[i] && opt === optionsForRow[0]);
+																								const chipClasses = [
+																									"insights-results__chip",
+																									isSelected ? "insights-results__chip--active" : "",
+																								]
+																									.filter(Boolean)
+																									.join(" ");
+																								return (
+																									<button
+																										key={opt}
+																										type="button"
+																										className={chipClasses}
+																										aria-pressed={isSelected}
+																										onClick={() => setSelectedChip((prev) => ({ ...prev, [i]: opt }))}
+																									>
+																										{opt}
+																									</button>
+																								);
+																							})
+																						) : (
+																							<div className="insights-results__empty">Quant results: transcript view not available.</div>
+																						)}
+																					</div>
+
+																					<div className="insights-results__content">
+																						{hasOptions && activeOption === "Transcript"
+																							? (() => {
+																									// Render transcript as chat interface
 																									let transcript = filteredRows[i]?.transcript;
-																									// Try to find the original row in insightsRows if transcript is missing
 																									if (!transcript) {
-																										const orig = insightsRows.find(r =>
-																											r.date === filteredRows[i]?.date &&
-																											r.sourceDocument === filteredRows[i]?.sourceDocument
+																										const orig = insightsRows.find(
+																											(r) =>
+																												r.date === filteredRows[i]?.date &&
+																												r.sourceDocument === filteredRows[i]?.sourceDocument,
 																										);
 																										transcript = orig?.transcript;
 																									}
-																									console.log('[DEBUG] Rendering transcript for row', i, transcript);
-																													// If transcript is a string, parse it into chat messages
-																													let chatMessages: { role: 'agent' | 'user', content: string }[] = [];
-																													if (typeof transcript === 'string') {
-																														// Split by double newlines, then by speaker
-																														const lines = transcript.split(/\n\n+/);
-																														let currentRole: 'agent' | 'user' | null = null;
-																														let buffer = '';
-																														lines.forEach((line) => {
-																															const trimmed = line.trim();
-																															if (/^Agent:/i.test(trimmed)) {
-																																if (buffer && currentRole) {
-																																	chatMessages.push({ role: currentRole, content: buffer.trim() });
-																																}
-																																currentRole = 'agent';
-																																buffer = trimmed.replace(/^Agent:/i, '').trim();
-																															} else if (/^User:/i.test(trimmed)) {
-																																if (buffer && currentRole) {
-																																	chatMessages.push({ role: currentRole, content: buffer.trim() });
-																																}
-																																currentRole = 'user';
-																																buffer = trimmed.replace(/^User:/i, '').trim();
-																															} else {
-																																// Continuation of previous message
-																																buffer += (buffer ? '\n' : '') + trimmed;
-																															}
-																														});
-																														if (buffer && currentRole) {
-																															chatMessages.push({ role: currentRole, content: buffer.trim() });
-																														}
-																													} else if (Array.isArray(transcript)) {
-																														chatMessages = transcript;
-																													}
-																													if (!chatMessages.length) {
-																														return <div>
-																															<span style={{ color: '#a3c0ff' }}>No transcript available.</span>
-																															<pre style={{ color: '#ffb347', background: '#222', fontSize: 12, marginTop: 8, padding: 8, borderRadius: 6 }}>
-																																{typeof transcript === 'undefined' ? 'transcript: undefined' : 'transcript: ' + JSON.stringify(transcript, null, 2)}
-																															</pre>
-																														</div>;
-																													}
-																													return (
-																														<div>
-																															<div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, marginBottom: 8 }}>
-																																{chatMessages.map((msg, idx) => {
-																																					const isAgent = msg.role === 'agent';
-																																					// Reverse: Agent on left, User on right
-																																									return (
-																																										<div key={idx} style={{
-																																											display: 'flex',
-																																											flexDirection: isAgent ? 'row' : 'row-reverse',
-																																											alignItems: 'flex-start',
-																																											gap: 10,
-																																											marginBottom: 2,
-																																										}}>
-																																											<div style={{ display: 'flex', flexDirection: 'column', alignItems: isAgent ? 'flex-start' : 'flex-end', maxWidth: 420 }}>
-																																																	<span style={{
-																																																		fontWeight: 700,
-																																																		fontSize: 13,
-																																																		opacity: 0.7,
-																																																		marginBottom: 4,
-																																																		color: isAgent ? '#7ea0e6' : '#a3c0ff',
-																																																		letterSpacing: 0.2,
-																																																	}}>
-																																																		{isAgent ? 'Agent' : 'User'}
-																																																	</span>
-																																												<div style={{
-																																													background: isAgent ? '#22325a' : '#2d406b',
-																																													color: isAgent ? '#a3c0ff' : '#fff',
-																																													borderRadius: 16,
-																																													padding: '10px 16px',
-																																													maxWidth: 420,
-																																													fontSize: 15,
-																																													boxShadow: isAgent ? '0 2px 8px rgba(10,22,40,0.13)' : '0 2px 12px #22325a',
-																																													border: isAgent ? '1px solid #2d406b' : '2px solid #7ea0e6',
-																																													marginLeft: isAgent ? 0 : 32,
-																																													marginRight: isAgent ? 32 : 0,
-																																													wordBreak: 'break-word',
-																																												}}>
-																																													{msg.content}
-																																												</div>
-																																											</div>
-																																										</div>
-																																									);
-																																})}
+																									console.log("[DEBUG] Rendering transcript for row", i, transcript);
+																									let chatMessages: { role: "agent" | "user"; content: string }[] = [];
+																									if (typeof transcript === "string") {
+																										const lines = transcript.split(/\n\n+/);
+																										let currentRole: "agent" | "user" | null = null;
+																										let buffer = "";
+																										lines.forEach((line) => {
+																											const trimmed = line.trim();
+																											if (/^Agent:/i.test(trimmed)) {
+																												if (buffer && currentRole) {
+																													chatMessages.push({ role: currentRole, content: buffer.trim() });
+																												}
+																												currentRole = "agent";
+																												buffer = trimmed.replace(/^Agent:/i, "").trim();
+																											} else if (/^User:/i.test(trimmed)) {
+																												if (buffer && currentRole) {
+																													chatMessages.push({ role: currentRole, content: buffer.trim() });
+																												}
+																												currentRole = "user";
+																												buffer = trimmed.replace(/^User:/i, "").trim();
+																											} else {
+																												buffer += (buffer ? "\n" : "") + trimmed;
+																											}
+																										});
+																										if (buffer && currentRole) {
+																											chatMessages.push({ role: currentRole, content: buffer.trim() });
+																										}
+																									} else if (Array.isArray(transcript)) {
+																										chatMessages = transcript;
+																									}
+																									if (!chatMessages.length) {
+																										return (
+																											<div className="insights-results__empty insights-results__empty--content">
+																												<span>No transcript available.</span>
+																												<pre className="insights-results__debug">
+																													{typeof transcript === "undefined"
+																														? "transcript: undefined"
+																														: "transcript: " + JSON.stringify(transcript, null, 2)}
+																												</pre>
+																											</div>
+																										);
+																									}
+																									return (
+																										<div className="insights-chat">
+																											{chatMessages.map((msg, idx) => {
+																												const isAgent = msg.role === "agent";
+																												return (
+																													<div
+																														key={idx}
+																														className={`insights-chat__row ${
+																															isAgent ? "insights-chat__row--agent" : "insights-chat__row--user"
+																														}`}
+																													>
+																														<div
+																															className={`insights-chat__col ${
+																																isAgent ? "insights-chat__col--agent" : "insights-chat__col--user"
+																															}`}
+																														>
+																															<span
+																																className={`insights-chat__label ${
+																																	isAgent ? "insights-chat__label--agent" : "insights-chat__label--user"
+																																}`}
+																															>
+																																{isAgent ? "Agent" : "User"}
+																															</span>
+																															<div
+																																className={`insights-chat__bubble ${
+																																	isAgent ? "insights-chat__bubble--agent" : "insights-chat__bubble--user"
+																																}`}
+																															>
+																																{msg.content}
 																															</div>
 																														</div>
-																													);
-																				}
-																				// Fallback for other chips
-																				switch (opt) {
-																					case "Questions": {
-																						// Render questions as a list
-																						let questions = filteredRows[i]?.questions;
-																						if (!questions) {
-																							const orig = insightsRows.find(r =>
-																								r.date === filteredRows[i]?.date &&
-																								r.sourceDocument === filteredRows[i]?.sourceDocument
-																							);
-																							questions = orig?.questions;
-																						}
-																						if (!questions || (Array.isArray(questions) && questions.length === 0)) {
-																							return <span style={{ color: '#a3c0ff' }}>No questions available.</span>;
-																						}
-																						// If questions is a string, try to parse as JSON
-																						if (typeof questions === 'string') {
-																							try {
-																								questions = JSON.parse(questions);
-																							} catch {
-																								// fallback: show as plain text
-																								return <pre style={{ color: '#ffb347', background: '#222', fontSize: 13, padding: 8, borderRadius: 6 }}>{questions}</pre>;
-																							}
-																						}
-																						if (Array.isArray(questions)) {
-																							return (
-																								<ul style={{ color: '#a3c0ff', paddingLeft: 0, margin: 0, marginTop: 16 }}>
-																									{questions.map((q, idx) => (
-																										<li key={idx} style={{ marginBottom: 10, background: '#22325a', borderRadius: 10, padding: '10px 16px', color: '#a3c0ff', fontSize: 15, listStyle: 'none', marginTop: idx === 0 ? 0 : 0 }}>
-																											{typeof q === 'string' ? q : JSON.stringify(q)}
-																										</li>
-																									))}
-																								</ul>
-																							);
-																						}
-																						// fallback: show as JSON
-																						return <pre style={{ color: '#ffb347', background: '#222', fontSize: 13, padding: 8, borderRadius: 6 }}>{JSON.stringify(questions, null, 2)}</pre>;
-																					}
-																					case "Insights": {
-																						// Render insights fields
-																						let row = filteredRows[i];
-																						if (!row) {
-																							row = insightsRows.find(r =>
-																								r.date === filteredRows[i]?.date &&
-																								r.sourceDocument === filteredRows[i]?.sourceDocument
-																							) || {} as InsightsRow;
-																						}
-																						if (!row) return <span style={{ color: '#a3c0ff' }}>No insights available.</span>;
-
-																						// Helper to render JSONB fields as pretty lists or fallback
-																						function renderJsonbField(field: any) {
-																							if (!field) return <span style={{ color: '#a3c0ff' }}>None</span>;
-																							if (typeof field === 'string') {
-																								try {
-																									const parsed = JSON.parse(field);
-																									field = parsed;
-																								} catch {
-																									return <pre style={{ color: '#ffb347', background: '#222', fontSize: 13, padding: 8, borderRadius: 6 }}>{field}</pre>;
-																								}
-																							}
-																							if (Array.isArray(field)) {
-																								return (
-																									<ul style={{ color: '#a3c0ff', paddingLeft: 18, margin: 0 }}>
-																										{field.map((item, idx) => (
-																											<li key={idx} style={{ marginBottom: 4 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</li>
-																										))}
-																									</ul>
-																								);
-																							}
-																							if (typeof field === 'object') {
-																								return <pre style={{ color: '#a3c0ff', background: '#22325a', fontSize: 13, padding: 8, borderRadius: 6 }}>{JSON.stringify(field, null, 2)}</pre>;
-																							}
-																							return String(field);
-																						}
-
-																						return (
-																							<div style={{ width: '100%', marginTop: 18 }}>
-																								{/* Transcript Summary */}
-																								<div style={{ background: '#22325a', borderRadius: 10, padding: '14px 18px', color: '#fff', fontSize: 16, fontWeight: 500, marginBottom: 24 }}>
-																									{row.transcript_summary || <span style={{ color: '#a3c0ff' }}>No transcript summary available.</span>}
+																													</div>
+																												);
+																											})}
+																										</div>
+																									);
+																							  })()
+																							: hasOptions
+																							? "Sample content."
+																							: (
+																								<div className="insights-results__empty insights-results__empty--content">
+																									Quant results: transcript view not available.
 																								</div>
-																								{/* Grid for the other four fields */}
-																								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
-																									<div style={{ background: '#22325a', borderRadius: 10, padding: '12px 16px', color: '#a3c0ff', minHeight: 80 }}>
-																										<div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Main Topics</div>
-																										{renderJsonbField(row.main_topics)}
-																									</div>
-																									<div style={{ background: '#22325a', borderRadius: 10, padding: '12px 16px', color: '#a3c0ff', minHeight: 80 }}>
-																										<div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Content Gaps</div>
-																										{renderJsonbField(row.content_gaps)}
-																									</div>
-																									<div style={{ background: '#22325a', borderRadius: 10, padding: '12px 16px', color: '#a3c0ff', minHeight: 80 }}>
-																										<div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Intent Reasoning</div>
-																										{renderJsonbField(row.pipeline_intent_reasoning)}
-																									</div>
-																									<div style={{ background: '#22325a', borderRadius: 10, padding: '12px 16px', color: '#a3c0ff', minHeight: 80 }}>
-																										<div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Competitive Comparison</div>
-																										{renderJsonbField(row.competitive_comparison_summary)}
-																									</div>
-																								</div>
-																							</div>
-																						);
-																					}
-																					case "Metadata": {
-																						let row = filteredRows[i];
-																						if (!row) {
-																							row = insightsRows.find(r =>
-																								r.date === filteredRows[i]?.date &&
-																								r.sourceDocument === filteredRows[i]?.sourceDocument
-																							) || {} as InsightsRow;
-																						}
-																						return (
-																							<div style={{ color: '#a3c0ff', fontSize: 15, marginTop: 18 }}>
-																								Main language: {row.main_language || <span style={{ color: '#7ea0e6' }}>Unknown</span>}
-																							</div>
-																						);
-																					}
-																					default:
-																						return "Sample content.";
-																				}
-																			})()}
-																		</div>
+																							  )}
+																					</div>
+																				</>
+																			);
+																		})()}
 																	</div>
 																</td>
 															</tr>
@@ -854,31 +703,503 @@ export default function InsightsTable() {
 									to { opacity: 1; transform: translateY(0); }
 								}
 							`}</style>
-						</div>
-				</main>
-	   );
+					</StagePanel>
+				</div>
+			</div>
+			<style>{`
+				.stage-layout {
+					min-height: 100dvh;
+					background: var(--bg, #f4f8ff);
+					padding: 0;
+					font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+					display: flex;
+					flex-direction: row;
+				}
+				.stage-layout__sidebar {
+					width: 180px;
+					flex-shrink: 0;
+				}
+				.stage-layout__content {
+					flex: 1;
+					display: flex;
+					justify-content: center;
+					align-items: flex-start;
+					padding: 64px 24px 96px;
+					min-height: 100dvh;
+					overflow-y: auto;
+				}
+				.stage-shell {
+					width: min(1120px, 96%);
+					display: flex;
+					flex-direction: column;
+					gap: 24px;
+				}
+				.stage-panel {
+					background: rgba(255, 255, 255, 0.94);
+					border: 1px solid rgba(30, 41, 59, 0.12);
+					border-radius: 20px;
+					padding: 32px;
+					box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+					display: flex;
+					flex-direction: column;
+					gap: 24px;
+					color: #1e293b;
+				}
+				.stage-panel__header {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 16px;
+				}
+				.stage-panel__leading,
+				.stage-panel__trailing,
+				.stage-panel__spacer {
+					flex: 0 0 auto;
+					min-width: 48px;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+				}
+				.stage-panel__spacer {
+					visibility: hidden;
+				}
+				.stage-panel__titles {
+					flex: 1;
+					text-align: center;
+					display: flex;
+					flex-direction: column;
+					gap: 6px;
+				}
+				.stage-panel__titles h2 {
+					margin: 0;
+					font-size: 22px;
+					font-weight: 800;
+					letter-spacing: 0.5px;
+					color: #1e293b;
+				}
+				.stage-panel__titles p {
+					margin: 0;
+					font-size: 14px;
+					color: rgba(30, 41, 59, 0.68);
+				}
+			.stage-panel__body {
+				display: flex;
+				flex-direction: column;
+				gap: 24px;
+			}
+			.stage-panel__footer {
+				margin-top: 12px;
+			}
+			.stage-button {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				padding: 12px 20px;
+				border-radius: 12px;
+				border: none;
+				font-weight: 700;
+				font-size: 15px;
+				cursor: pointer;
+				transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+				font-family: inherit;
+			}
+			.stage-button:disabled {
+				cursor: not-allowed;
+				opacity: 0.55;
+			}
+			.stage-button--full {
+				width: 100%;
+			}
+			.stage-button--primary {
+				background: #1e293b;
+				color: #f6f7f9;
+				box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+			}
+			.stage-button--primary:not(:disabled):hover {
+				transform: translateY(-1px);
+				box-shadow: 0 16px 32px rgba(15, 23, 42, 0.24);
+			}
+			.stage-button--secondary {
+				background: rgba(30, 41, 59, 0.08);
+				color: #1e293b;
+			}
+			.stage-button--secondary:not(:disabled):hover {
+				background: rgba(30, 41, 59, 0.16);
+				transform: translateY(-1px);
+			}
+			.stage-button--ghost {
+				background: transparent;
+				color: #1e293b;
+			}
+			.stage-button--ghost:not(:disabled):hover {
+				color: #0f172a;
+			}
+			.stage-alert {
+				width: 100%;
+				border-radius: 12px;
+				padding: 12px 18px;
+				font-weight: 600;
+				font-size: 14px;
+				text-align: center;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: 12px;
+			}
+			.stage-alert--success {
+				color: #166534;
+				background: rgba(34, 197, 94, 0.12);
+				border: 1px solid rgba(34, 197, 94, 0.35);
+			}
+			.stage-alert--error {
+				color: #b91c1c;
+				background: rgba(239, 68, 68, 0.12);
+				border: 1px solid rgba(239, 68, 68, 0.35);
+			}
+			.stage-alert--info {
+				color: #1d4ed8;
+				background: rgba(59, 130, 246, 0.12);
+				border: 1px solid rgba(59, 130, 246, 0.28);
+			}
+			.insights-action-button {
+				padding: 10px 16px;
+				font-size: 14px;
+			}
+			.insights-action-button__content {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.insights-action-button--icon {
+				padding: 6px 10px;
+				font-size: 14px;
+				color: #1d4ed8;
+			}
+			.insights-action-button--icon .insights-action-button__content {
+				gap: 6px;
+			}
+			.insights-status-group {
+				display: inline-flex;
+				gap: 4px;
+				align-items: center;
+				background: rgba(30, 41, 59, 0.06);
+				border: 1px solid rgba(30, 41, 59, 0.08);
+				border-radius: 999px;
+				padding: 4px;
+			}
+			.insights-status-chip {
+				padding: 6px 14px;
+				font-size: 13px;
+				border-radius: 999px;
+				color: rgba(30, 41, 59, 0.72);
+			}
+			.insights-status-chip--active {
+				background: #1e293b;
+				color: #f6f7f9;
+				box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+			}
+			.insights-status-chip--start {
+				border-top-left-radius: 999px;
+				border-bottom-left-radius: 999px;
+			}
+			.insights-status-chip--end {
+				border-top-right-radius: 999px;
+				border-bottom-right-radius: 999px;
+			}
+			.insights-filters {
+				display: flex;
+				align-items: flex-start;
+				gap: 12px;
+				margin-bottom: 0;
+			}
+			.insights-filters__panel {
+				flex: 0 0 auto;
+				max-width: 0;
+				opacity: 0;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				padding: 0;
+				transition: max-width 260ms ease, padding 200ms ease, opacity 160ms ease;
+			}
+			.insights-filters__panel--open {
+				flex: 1 1 0%;
+				max-width: 100%;
+				opacity: 1;
+				padding: 0 18px;
+			}
+			.insights-filters__row {
+				display: flex;
+				flex-wrap: nowrap;
+				gap: 18px;
+				margin-bottom: 8px;
+			}
+			.insights-filters__field {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.insights-filters__field--pull {
+				margin-left: 0;
+				margin-right: 0;
+			}
+			.insights-filters__label {
+				color: var(--accent-2, #7fb3ff);
+				font-weight: 600;
+				font-size: 14px;
+			}
+			.insights-select,
+			.insights-input {
+				background: var(--panel, #F6F7F9fff);
+				color: var(--text, #052033);
+				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+				border-radius: 10px;
+				padding: 8px 14px;
+				font-size: 14px;
+				transition: border 0.2s ease, box-shadow 0.2s ease;
+			}
+			.insights-select {
+				min-width: 140px;
+				max-width: 260px;
+			}
+			.insights-select:focus,
+			.insights-input:focus {
+				outline: none;
+				border-color: rgba(var(--accent-rgb, 43,108,176),0.32);
+				box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 43,108,176),0.12);
+			}
+			.insights-input {
+				min-width: 200px;
+			}
+			.insights-filters__controls {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				margin-left: auto;
+			}
+			.insights-table-wrap {
+				overflow-x: auto;
+				width: 100%;
+			}
+			.insights-table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 15px;
+				background: var(--panel, #F6F7F9fff);
+			}
+			.insights-table__head-row {
+				background: var(--panel, #F6F7F9fff);
+			}
+			.insights-table__head-cell {
+				text-align: left;
+				padding: 10px 8px;
+				color: var(--accent-2, #7fb3ff);
+				font-size: 13px;
+				font-weight: 700;
+				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+				position: sticky;
+				top: 0;
+				z-index: 1;
+				background: var(--panel-2, #F6F7F9fff);
+			}
+			.insights-table__head-cell--persona {
+				min-width: 150px;
+				max-width: 220px;
+			}
+			.insights-table__row {
+				background: var(--panel, #F6F7F9fff);
+				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+			}
+			.insights-table__cell {
+				padding: 10px 8px;
+				color: var(--text, #052033);
+				background: var(--panel-2, #F6F7F9fff);
+				font-size: 15px;
+				vertical-align: middle;
+			}
+			.insights-table__cell--persona {
+				max-width: 220px;
+				min-width: 150px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				padding-bottom: 0;
+			}
+			.insights-table__cell--actions {
+				white-space: nowrap;
+				padding-right: 4px;
+			}
+			.insights-table__cell--compact {
+				padding: 8px 6px;
+			}
+			.insights-action-button__chevron {
+				transition: transform 0.18s ease;
+			}
+			.insights-action-button__chevron--open {
+				transform: rotate(180deg);
+			}
+			.sr-only {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0,0,0,0);
+				white-space: nowrap;
+				border: 0;
+			}
+			.insights-table__expanded-cell {
+				padding: 0;
+				background: var(--panel, #F6F7F9fff);
+			}
+			.insights-results {
+				padding: 18px 32px;
+				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.12);
+				border-top: none;
+				border-bottom-left-radius: 12px;
+				border-bottom-right-radius: 12px;
+				box-shadow: 0 4px 18px rgba(2,6,23,0.06);
+				animation: slideDown 0.32s cubic-bezier(.4,2,.6,1);
+				height: 420px;
+				max-height: 420px;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				gap: 20px;
+			}
+			.insights-results__chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 16px;
+				margin-bottom: 4px;
+			}
+			.insights-results__chip {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 7px 18px;
+				border-radius: 999px;
+				background: var(--panel, #F6F7F9fff);
+				color: var(--accent-2, #7fb3ff);
+				font-weight: 600;
+				font-size: 14px;
+				cursor: pointer;
+				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+				box-shadow: 0 2px 8px rgba(2,6,23,0.04);
+				transition: background 0.18s ease, color 0.18s ease, border 0.18s ease;
+				line-height: 1;
+				font-family: inherit;
+				outline: none;
+			}
+			.insights-results__chip--active {
+				background: rgba(var(--accent-rgb, 43,108,176),0.16);
+				color: #f6f7f9;
+				border: 2px solid rgba(var(--accent-rgb, 43,108,176),0.22);
+				box-shadow: 0 2px 12px rgba(2,6,23,0.06);
+			}
+			.insights-results__chip:focus-visible {
+				outline: 3px solid rgba(var(--accent-rgb, 43,108,176),0.32);
+				outline-offset: 2px;
+			}
+			.insights-results__content {
+				color: var(--accent-2, #7ea0e6);
+				font-size: 15px;
+				min-height: 32px;
+				padding-left: 2px;
+				flex: 1;
+				overflow-y: auto;
+			}
+			.insights-results__empty {
+				color: var(--muted, #7b8aa8);
+				font-size: 14px;
+				padding: 8px 12px;
+			}
+			.insights-results__empty--content {
+				padding: 0;
+				font-size: 15px;
+			}
+			.insights-results__debug {
+				color: var(--accent, #2b6cb0);
+				background: var(--panel-2, #f1f7ff);
+				font-size: 12px;
+				margin-top: 8px;
+				padding: 8px;
+				border-radius: 6px;
+				overflow-x: auto;
+			}
+			.insights-chat {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				margin: 8px 0;
+			}
+			.insights-chat__row {
+				display: flex;
+				align-items: flex-start;
+				gap: 10px;
+				margin-bottom: 2px;
+			}
+			.insights-chat__row--agent {
+				flex-direction: row;
+			}
+			.insights-chat__row--user {
+				flex-direction: row-reverse;
+			}
+			.insights-chat__col {
+				display: flex;
+				flex-direction: column;
+				max-width: 420px;
+			}
+			.insights-chat__col--agent {
+				align-items: flex-start;
+			}
+			.insights-chat__col--user {
+				align-items: flex-end;
+			}
+			.insights-chat__label {
+				font-weight: 700;
+				font-size: 13px;
+				opacity: 0.7;
+				margin-bottom: 4px;
+				letter-spacing: 0.2px;
+			}
+			.insights-chat__label--agent {
+				color: var(--accent-2, #7ea0e6);
+			}
+			.insights-chat__label--user {
+				color: var(--accent-2, #7fb3ff);
+			}
+			.insights-chat__bubble {
+				border-radius: 16px;
+				padding: 10px 16px;
+				max-width: 420px;
+				font-size: 15px;
+				box-shadow: 0 2px 12px rgba(2,6,23,0.06);
+			}
+			.insights-chat__bubble--agent {
+				background: var(--panel-2, #22325a);
+				color: var(--accent-2, #7fb3ff);
+				box-shadow: 0 2px 8px rgba(2,6,23,0.04);
+				margin-right: 32px;
+			}
+			.insights-chat__bubble--user {
+				background: var(--panel, #F6F7F9fff);
+				color: var(--text, #052033);
+				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.22);
+				margin-left: 32px;
+			}
+			@media (max-width: 1024px) {
+				.insights-filters__row {
+					flex-wrap: wrap;
+				}
+				.insights-filters__field--pull {
+					margin-right: 0;
+				}
+			}
+		`}</style>
+	</main>
+	);
 }
-
-const thStyle = {
-  textAlign: "left" as const,
-  padding: "10px 8px",
-  color: "#a3c0ff",
-  fontSize: 13,
-  fontWeight: 700,
-  borderBottom: "1px solid #22325a",
-  background: "#1b2947",
-  position: "sticky" as const,
-  top: 0,
-  zIndex: 1,
-};
-
-const sourceDocTdStyle = {
-    ...tdStyle,
-    maxWidth: 220,
-    minWidth: 150,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    verticalAlign: 'middle',
-    paddingBottom: 0,
-  };

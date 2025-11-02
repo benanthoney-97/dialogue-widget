@@ -44,7 +44,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
   useSignedUrl = false,
   serverLocation = "us",
   buttonColor = "#525fe1",
-  buttonTextColor = "#ffffff",
+  buttonTextColor = "#F6F7F9fff",
   buttonBorderColor,
   title = "",
   talkLabel = "Talk",
@@ -620,7 +620,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
   }, []);
 
   const cardStyle: CSSProperties = {
-    background: "#fff",
+    background: "#F6F7F9",
     border: `1px solid ${cardBorderColor}`,
     borderRadius: 8,
     boxShadow: "0 4px 12px rgba(0,0,0,.10)",
@@ -705,7 +705,7 @@ export const BriefMeButton: React.FC<BriefMeButtonProps> = ({
               borderRadius: 8,
               border: "1px solid #2d406b",
               background: connected ? "#ef4444" : "#525fe1",
-              color: "#fff",
+              color: "#F6F7F9",
               fontWeight: 600,
               fontSize: 14,
               cursor: phase === "connecting" ? "default" : "pointer",

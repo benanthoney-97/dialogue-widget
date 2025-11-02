@@ -23,6 +23,8 @@ type CreateDialoguePayload = {
   docs?: IncomingDoc[];
   purpose?: string;
   audienceType?: string;
+  briefingConversationId?: string | null;
+  briefingEndedAt?: number | null;
 };
 
 function decodeDataUrl(dataUrl: string) {
@@ -48,41 +50,52 @@ export async function POST(req: Request) {
   let agentId: string | null = null;
   try {
     const body = (await req.json()) as CreateDialoguePayload;
-    const { clientSlug, docs, purpose, audienceType } = body;
+    const { clientSlug, docs, purpose, audienceType, briefingConversationId, briefingEndedAt } = body;
 
     if (!clientSlug) {
-      return NextResponse.json({ error: 'Missing client slug' }, { status: 400 });
-    }
-    if (!Array.isArray(docs) || docs.length === 0) {
-      return NextResponse.json({ error: 'No documents provided' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing profile identifier' }, { status: 400 });
     }
 
-    const { data: client, error: clientError } = await supabaseAdmin
-      .from('clients')
+    const docsArray: IncomingDoc[] = Array.isArray(docs) ? docs : [];
+
+    console.log('[CreateDialogue] incoming payload', {
+      clientSlug,
+      docsCount: docsArray.length,
+      hasPurpose: Boolean(purpose),
+      hasBriefing: Boolean(briefingConversationId),
+      hasBriefingEndedAt: Boolean(briefingEndedAt),
+    });
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
       .select('id')
-      .eq('name', clientSlug)
+      .eq('id', clientSlug)
       .single();
 
-    if (clientError || !client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
     agentId = randomUUID();
-    const primaryDoc = docs[0];
-    const key = safeFileName(primaryDoc?.fileName || `dialogue-${agentId}`);
+    const primaryDoc = docsArray[0];
+    const key = randomUUID().replace(/-/g, '').slice(0, 12);
     const nowIso = new Date().toISOString();
+    const derivedAgentName =
+      primaryDoc?.agent_name ??
+      (key ? `Persona ${key.slice(0, 6)}` : 'Persona');
 
     const { error: createAgentError } = await supabaseAdmin
       .from('agent_map')
       .insert([
         {
           agent_id: agentId,
-          client_id: client.id,
+          user_id: profile.id,
           key,
-          agent_name: primaryDoc?.agent_name ?? key,
+          agent_name: derivedAgentName,
           created_at: nowIso,
           description: purpose ?? null,
           audience_type: audienceType ?? null,
+          briefing_conversation_id: briefingConversationId ?? null,
         } as any,
       ]);
 
@@ -100,7 +113,7 @@ export async function POST(req: Request) {
       source: string | null;
     }> = [];
 
-    for (const doc of docs) {
+    for (const doc of docsArray) {
       if (!doc) continue;
       const isExternalUrl = doc.fileType === 'text/url' && /^https?:\/\//i.test(doc.dataUrl);
       if (isExternalUrl) {
@@ -157,7 +170,6 @@ export async function POST(req: Request) {
     if (documentsToInsert.length > 0) {
       const preparedDocs = documentsToInsert.map((doc) => ({
         ...doc,
-        added_stage: doc.added_stage ?? 'seed',
       }));
       const { error: docsError } = await supabaseAdmin.from('agent_documents').insert(preparedDocs);
       if (docsError) {

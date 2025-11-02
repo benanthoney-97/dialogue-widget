@@ -65,7 +65,7 @@ export default function WidgetBySlugPage() {
       style={{
         minHeight: "100dvh",
         position: "relative",
-        background: "#ffffffff",
+        background: "#F6F7F9fffff",
         margin: 0,
       }}
     >
@@ -78,7 +78,7 @@ export default function WidgetBySlugPage() {
             transform: "translateX(-50%)",
             padding: 16,
             borderRadius: 12,
-            background: "#fff",
+            background: "#F6F7F9",
             border: "1px solid rgba(0,0,0,.08)",
             color: "#b91c1c",
             fontWeight: 600,

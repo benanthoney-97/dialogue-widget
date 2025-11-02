@@ -94,7 +94,7 @@ const debug = sp?.get("debug") === "1";
             style={{
               width: "100%",
               height: "100%",
-              background: "#fff",
+              background: "#F6F7F9",
             }}
           />
         ) : isTouch ? (
@@ -111,7 +111,7 @@ const debug = sp?.get("debug") === "1";
               height: "100dvh",
               border: "none",
               display: "block",
-              background: "#fff",
+              background: "#F6F7F9",
             }}
           >
             <div style={{ padding: 16 }}>

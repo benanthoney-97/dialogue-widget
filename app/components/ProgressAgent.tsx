@@ -8,9 +8,12 @@ import {
   useRef,
   type CSSProperties,
 } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
-import Image from "next/image";
-import { docMap } from "@/app/lib/docMap";
+// metadata now comes from Supabase agent_map; docMap is no longer used here
+import { insertContactRequest } from "@/app/lib/contactRequests";
+import { insertSummaryRequest } from "@/app/lib/summaryRequests";
+
 
 const POST_CALL_BASE =
   process.env.NEXT_PUBLIC_POST_CALL_BASE_URL?.replace(/\/$/, "") ?? "";
@@ -18,38 +21,105 @@ const POST_CALL_ENDPOINT = POST_CALL_BASE
   ? `${POST_CALL_BASE}/api/eleven/post-call`
   : "/api/eleven/post-call";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 type Props = {
-  agentId: string;
+  agentId?: string;
   useSignedUrl?: boolean;
   serverLocation?: "us" | "eu-residency" | "in-residency" | "global";
   buttonColor?: string;
   buttonTextColor?: string;
   buttonBorderColor?: string;
   title?: string;
+  subtitle?: string;
   talkLabel?: string;
+  testingOverride?: boolean;
+  onConversationStart?: (conversationId: string | null) => void;
+  onConversationEnd?: (info: { conversationId: string | null; endedAt: number }) => void;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
 
-export default function DialogueBarEmail({
-  agentId,
-  useSignedUrl = true,
+export default function ProgressAgent({
+  agentId = "agent_9701k8jk0755e9areqv4km5wsmw3",
+  useSignedUrl = false,
   serverLocation = "us",
   buttonColor = "#525fe1",
   buttonTextColor = "#F6F7F9fff",
   buttonBorderColor,
   title = "",
+  subtitle = "",
   talkLabel = "Talk",
+  testingOverride,
+  onConversationStart,
+  onConversationEnd,
 }: Props) {
+  const [theme, setTheme] = useState<{
+    background?: string;
+    text_color?: string;
+    border?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchTheme() {
+      if (!agentId) return;
+      const { data, error } = await supabase
+        .from("theme_map")
+        .select("background, text_color, border")
+        .eq("agent_id", agentId)
+        .single();
+      if (data) setTheme(data);
+    }
+    fetchTheme();
+  }, [agentId]);
+  // load agent metadata from Supabase agent_map (if present)
+  const [agentMap, setAgentMap] = useState<null | {
+    idx?: number;
+    key?: string | null;
+    pdf_path?: string | null;
+    agent_id?: string | null;
+    agent_name?: string | null;
+    region?: string | null;
+    auth?: string | null;
+    talk_label?: string | null;
+    screenshot_path?: string | null;
+    author?: string | null;
+    work_label?: string | null;
+    url?: string | null;
+    client_id?: number | null;
+  }>(null);
+
+  useEffect(() => {
+    async function fetchAgentMap() {
+      if (!agentId) return;
+      try {
+        const { data, error, status } = await supabase
+          .from("agent_map")
+          .select(
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image"
+          )
+          .eq("agent_id", agentId)
+          .maybeSingle();
+        if (error) {
+          // Log warning but don't throw
+        }
+        if (data) setAgentMap(data as any);
+      } catch (e) {
+        // ignore - keep using passed agentId as fallback
+        // console.debug('No agent_map row found for', agentId, e?.toString?.());
+      }
+    }
+    fetchAgentMap();
+  }, [agentId]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
   const [isNarrow, setIsNarrow] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [wasMutedBeforePause, setWasMutedBeforePause] = useState(false);
-  const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "error">(
-    "idle"
-  );
   const [contactOpen, setContactOpen] = useState(false);
   const [contactClosing, setContactClosing] = useState(false);
   const [contactHeight, setContactHeight] = useState(300);
@@ -83,6 +153,7 @@ export default function DialogueBarEmail({
   const [summaryEmail, setSummaryEmail] = useState("");
   const summaryFormRef = useRef<HTMLFormElement | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const lastStartNotifiedRef = useRef<string | null>(null);
   const measureSummaryHeight = useCallback(() => {
     const node = summaryFormRef.current;
     if (!node) return 0;
@@ -129,7 +200,12 @@ export default function DialogueBarEmail({
     setSummaryClosing(false);
     setSummarySubmitted(false);
     setSummaryEmail("");
-  }, []);
+    onConversationEnd?.({
+      conversationId: conversationIdRef.current ?? null,
+      endedAt: Date.now(),
+    });
+    lastStartNotifiedRef.current = null;
+  }, [onConversationEnd]);
 
   const handleConversationError = useCallback((e: unknown) => {
     setErr(e instanceof Error ? e.message : String(e));
@@ -142,13 +218,38 @@ export default function DialogueBarEmail({
         setContactSubmitted(false);
         setContactOpen((prev) => (prev ? prev : true));
       },
+      // Handler for the `open_document` client tool. Forwards payload to session page.
+      open_document: async (payload: any) => {
+        try {
+          const bc = new BroadcastChannel("elevenlabs");
+          bc.postMessage({ type: "elevenlabs.openDocument", payload });
+          bc.close();
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (typeof window !== "undefined" && window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: "elevenlabs.openDocument", payload }, "*");
+          }
+        } catch (e) {
+          // ignore
+        }
+      },
     }),
     []
   );
 
+  // prefer region from agent_map if available
+  const effectiveAgentId = agentMap?.agent_id || agentId;
+  const effectiveServerLocation = (agentMap?.region as
+    | "us"
+    | "eu-residency"
+    | "in-residency"
+    | "global") || serverLocation;
+
   const conversationOptions = useMemo(
     () => ({
-      serverLocation,
+      serverLocation: effectiveServerLocation,
       onConnect: handleConversationConnect,
       onDisconnect: handleConversationDisconnect,
       onError: handleConversationError,
@@ -156,13 +257,29 @@ export default function DialogueBarEmail({
       micMuted,
     }),
     [
-      serverLocation,
+      effectiveServerLocation,
       handleConversationConnect,
       handleConversationDisconnect,
       handleConversationError,
       conversationClientTools,
       micMuted,
     ]
+  );
+
+  const conversationOverrides = useMemo(
+    () => ({
+      agent: {
+        prompt: {
+          prompt:
+            "Analyse the transcripts from the user's recent prep sessions ahead of their upcoming client pitch. Give a highly objective, critical view of their pitch performance and response quality. Don't be overly kind.",
+        },
+        firstMessage: "I've analysed your recent prep sessions. Ready to dive in?",
+      },
+      tts: {
+        voiceId: "lUTamkMw7gOzZbFIwmq4",
+      },
+    }),
+    []
   );
 
   const {
@@ -176,11 +293,15 @@ export default function DialogueBarEmail({
     useConversation(conversationOptions);
 
   useEffect(() => {
-    const id = getId?.();
+    const id = getId?.() ?? null;
     if (id) {
       conversationIdRef.current = id;
+      if (lastStartNotifiedRef.current !== id) {
+        onConversationStart?.(id);
+        lastStartNotifiedRef.current = id;
+      }
     }
-  }, [getId, status]);
+  }, [getId, status, onConversationStart]);
 
   useEffect(() => {
     const s = String(status);
@@ -213,21 +334,45 @@ export default function DialogueBarEmail({
       setMicMuted(false);
       setIsPaused(false);
       setWasMutedBeforePause(false);
+      conversationIdRef.current = null;
       await ensureMicPerms();
 
-      if (useSignedUrl) {
-        const res = await fetch(
-          `/api/eleven/get-signed-url?agent_id=${encodeURIComponent(agentId)}`
-        );
-        const data = await res.json();
+      const effectiveUseSignedUrl = agentMap?.auth === "signed" ? true : useSignedUrl;
+      const effectiveAgent = agentMap?.agent_id || agentId;
+
+      if (effectiveUseSignedUrl) {
+        const res = await fetch('/api/eleven/get-signed-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent_id: effectiveAgent })
+        });
+        let data;
+        try {
+          data = await res.json();
+        } catch (err) {
+          const text = await res.text();
+          throw new Error(`Failed to parse JSON: ${err}\nResponse text: ${text}`);
+        }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
+        const dynamicVariables =
+          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
+
         await startSession({
           signedUrl: data.signedUrl,
           connectionType: "websocket",
+          overrides: conversationOverrides,
+          ...(dynamicVariables ? { dynamicVariables } : {}),
         });
       } else {
-        await startSession({ agentId, connectionType: "websocket" });
+        const dynamicVariables =
+          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
+        await startSession({
+          agentId: effectiveAgent,
+          connectionType: "websocket",
+          overrides: conversationOverrides,
+          ...(dynamicVariables ? { dynamicVariables } : {}),
+        });
       }
 
       const latestId = getId?.();
@@ -267,21 +412,32 @@ export default function DialogueBarEmail({
   }
 
   const connected = String(status) === "connected";
-  const effectiveTalkLabel = talkLabel?.trim() ? talkLabel.trim() : "Talk";
-  const talkBackground = buttonColor;
-  const talkTextColor = buttonTextColor;
+  // prefer talk label from agent_map if present
+  const effectiveTalkLabel = (agentMap?.talk_label || talkLabel)?.trim()
+    ? (agentMap?.talk_label || talkLabel)!.trim()
+    : "Talk";
+  const talkBackground = theme?.background || buttonColor;
+  const talkTextColor = theme?.text_color || buttonTextColor;
   const talkIdleAriaLabel = `Connect and ${effectiveTalkLabel}`;
   const talkActiveAriaLabel = effectiveTalkLabel;
-  const cardBorderColor = buttonBorderColor ?? buttonColor ?? "#525fe1";
-  const agentMatch = useMemo(() => {
-    for (const [slug, entry] of Object.entries(docMap)) {
-      if (entry.agentId === agentId)
-        return { slug, entry };
-    }
-    return undefined;
-  }, [agentId]);
-  const agentSlug = agentMatch?.slug ?? "";
-  const agentEntry = agentMatch?.entry;
+  const cardBorderColor = theme?.border || "rgba(126, 160, 230, 0.45)";
+  // derive frontend metadata from agent_map row if present
+  const agentSlug = agentMap?.key || "";
+  const agentEntry = agentMap
+    ? {
+        pdfPath: agentMap.pdf_path ?? undefined,
+        agentId: agentMap.agent_id ?? undefined,
+        agentName: agentMap.agent_name ?? undefined,
+        region: agentMap.region ?? undefined,
+        auth: agentMap.auth ?? undefined,
+        talkLabel: agentMap.talk_label ?? undefined,
+        url: agentMap.url ?? undefined,
+        screenshotPath: agentMap.screenshot_path ?? undefined,
+        author: agentMap.author ?? undefined,
+        workLabel: agentMap.work_label ?? undefined,
+      }
+    : undefined;
+
   const contactAuthorLabel = agentEntry?.author?.trim()
     ? agentEntry.author.trim()
     : "the author";
@@ -289,68 +445,6 @@ export default function DialogueBarEmail({
     ? agentEntry.workLabel.trim()
     : "research";
   const contactTitle = `Contact ${contactAuthorLabel} about this ${contactWorkLabel}`;
-  const [shareUrl, setShareUrl] = useState("");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const base = window.location.origin;
-    const resolvedUrl = agentEntry?.url
-      ? agentEntry.url.startsWith("http")
-        ? agentEntry.url
-        : `${base}${agentEntry.url}`
-      : agentSlug
-      ? `${base}/widget/${agentSlug}`
-      : window.location.href;
-    setShareUrl(resolvedUrl);
-  }, [agentEntry, agentSlug]);
-
-  const handleCopyShareLink = useCallback(async () => {
-    if (!shareUrl) return;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = shareUrl;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textarea);
-        if (!copied) throw new Error("Fallback copy command failed");
-      }
-      setCopyFeedback("copied");
-    } catch (error) {
-      console.error("Failed to copy agent link", error);
-      setCopyFeedback("error");
-    }
-  }, [shareUrl]);
-
-  useEffect(() => {
-    if (copyFeedback === "idle") return;
-    const timeout = window.setTimeout(() => setCopyFeedback("idle"), 2200);
-    return () => window.clearTimeout(timeout);
-  }, [copyFeedback]);
-
-  const toggleContact = useCallback(() => {
-    if (contactOpen) {
-      setContactSubmitted(false);
-      beginContactClose();
-    } else if (!contactClosing) {
-      setContactOpen(true);
-    }
-  }, [beginContactClose, contactClosing, contactOpen]);
-
-  const toggleSummary = useCallback(() => {
-    if (summaryOpen) {
-      setSummarySubmitted(false);
-      beginSummaryClose();
-    } else if (!summaryClosing) {
-      setSummaryOpen(true);
-    }
-  }, [beginSummaryClose, summaryClosing, summaryOpen]);
 
   const postSummaryOrContact = useCallback(
     async (payload: Record<string, unknown>) => {
@@ -377,6 +471,30 @@ export default function DialogueBarEmail({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setContactSubmitted(true);
+      const conversationId = conversationIdRef.current;
+      console.log("Submitting contact request", {
+        agent_id: agentId,
+        user_name: contactName,
+        user_email: contactEmail,
+        user_phone: contactPhone,
+        conversation_id: conversationId,
+      });
+      try {
+        const result = await insertContactRequest({
+          agent_id: effectiveAgentId,
+          name: contactName,
+          user_email: contactEmail,
+          phone: contactPhone,
+          conversation_id: conversationId || undefined,
+        });
+        if (result.error) {
+          console.error("Supabase insert error:", result.error, result);
+        } else {
+          console.log("insertContactRequest result", result);
+        }
+      } catch (e) {
+      }
+      // Optionally still call webhook for legacy/other flows
       const payload = {
         contact: {
           email: contactEmail,
@@ -413,6 +531,20 @@ export default function DialogueBarEmail({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setSummarySubmitted(true);
+      // Insert into Supabase summary_requests
+      const conversationId = conversationIdRef.current;
+      if (agentId && summaryEmail && conversationId) {
+        try {
+          await insertSummaryRequest({
+            agent_id: effectiveAgentId,
+            user_email: summaryEmail,
+            conversation_id: conversationId,
+          });
+        } catch (e) {
+          console.error('Failed to insert summary request in Supabase', e);
+        }
+      }
+      // Still call webhook for legacy/other flows
       const payload = {
         summary: {
           email: summaryEmail,
@@ -423,7 +555,7 @@ export default function DialogueBarEmail({
         beginSummaryClose();
       }, 1200);
     },
-    [beginSummaryClose, postSummaryOrContact, summaryEmail]
+    [beginSummaryClose, postSummaryOrContact, summaryEmail, agentId]
   );
 
   useEffect(() => {
@@ -465,12 +597,6 @@ export default function DialogueBarEmail({
     }
   }, [summaryClosing, summaryOpen, summarySubmitted]);
 
-  const shareButtonLabel =
-    copyFeedback === "copied"
-      ? "Agent link copied"
-      : copyFeedback === "error"
-      ? "Copy failed, try again"
-      : "Copy link";
   const contactVisible = contactOpen || contactClosing;
   const summaryVisible = summaryOpen || summaryClosing;
   const contactSectionHeight = Math.max(contactHeight + 24, 320);
@@ -482,24 +608,24 @@ export default function DialogueBarEmail({
   const verticalPadding = isNarrow ? 12 : 12;
   const expanded = connected || contactVisible || summaryVisible;
   const cardStyle: CSSProperties = {
-    background: "rgb(229, 231, 235)",
+    background: "linear-gradient(135deg, rgba(10,17,30,0.95), rgba(23,52,105,0.9))",
     border: `1px solid ${cardBorderColor}`,
-    borderRadius: 16,
-    boxShadow: "0 8px 24px rgba(0,0,0,.12)",
-    backdropFilter: "saturate(1.2) blur(6px)",
-    WebkitBackdropFilter: "saturate(1.2) blur(6px)",
-    padding: `${verticalPadding}px ${horizontalPadding}px`,
+    borderRadius: 28,
+    boxShadow: "0 20px 65px rgba(6,9,20,0.55)",
+    backdropFilter: "saturate(1.4) blur(10px)",
+    WebkitBackdropFilter: "saturate(1.4) blur(10px)",
+    padding: `${verticalPadding + 12}px ${horizontalPadding + (isNarrow ? 6 : 18)}px`,
     transition: "transform 160ms ease, padding 160ms ease",
-    display: "inline-flex",
+    display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    width: isNarrow ? "100%" : expanded ? "auto" : `${baseCollapsedWidth}px`,
+    alignItems: "stretch",
+    width: "100%",
     maxWidth: isNarrow ? "100%" : expanded ? `${baseExpandedWidth}px` : `${baseCollapsedWidth}px`,
+    margin: "0 auto",
     fontFamily: '"Cooper Light BT", "Cooper Lt BT", "Cooper", serif',
     fontWeight: 500,
     letterSpacing: "0.02em",
-    WebkitFontSmoothing: "antialiased",
-    MozOsxFontSmoothing: "grayscale",
+    color: "#eef3ff",
   };
   const actionRowJustify = isNarrow
     ? "stretch"
@@ -513,14 +639,6 @@ export default function DialogueBarEmail({
     gap: expanded || isNarrow ? (isNarrow ? 12 : 16) : 0,
     flexWrap: isNarrow ? "wrap" : "nowrap",
     width: expanded || isNarrow ? "100%" : "auto",
-  };
-  const leftGroupStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 10,
-    flexWrap: isNarrow ? "wrap" : "nowrap",
-    flex: isNarrow ? "1 1 100%" : "0 0 auto",
   };
   const middleGroupStyle: CSSProperties = {
     display: "inline-flex",
@@ -541,25 +659,48 @@ export default function DialogueBarEmail({
     <div
       style={{
         width: "100%",
-        maxWidth: isNarrow ? "100%" : `${maxDesktopWidth}px`,
-        margin: "0 auto",
-        padding: isNarrow ? "0 8px" : "0",
+        display: "flex",
+        justifyContent: "center",
+        padding: isNarrow ? "0 10px" : "0",
         boxSizing: "border-box",
-        textAlign: "center",
-        overflow: "visible",
       }}
     >
-      <div style={cardStyle}>
-        {title ? (
+      <div
+        style={{
+          width: isNarrow ? "100%" : "auto",
+          maxWidth: `${maxDesktopWidth}px`,
+          flex: isNarrow ? "1 1 auto" : "0 1 auto",
+        }}
+      >
+        <div style={cardStyle}>
+          {title ? (
           <div
             style={{
-              fontSize: isNarrow ? 16 : 18,
-              fontWeight: 700,
-              marginBottom: 12,
-              color: "#111827",
+              marginBottom: subtitle ? 4 : 18,
             }}
           >
-            {title}
+            <div
+              style={{
+                fontSize: isNarrow ? 18 : 24,
+                fontWeight: 800,
+                color: "#f5f7ff",
+                letterSpacing: 0.3,
+              }}
+            >
+              {title}
+            </div>
+            {subtitle ? (
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: isNarrow ? 13 : 15,
+                  color: "rgba(226,232,255,0.8)",
+                  lineHeight: 1.4,
+                }}
+              >
+                {subtitle}
+              </p>
+            ) : null}
           </div>
         ) : null}
         <div
@@ -765,168 +906,13 @@ export default function DialogueBarEmail({
 
         <div
           style={{
-            width: expanded || isNarrow ? "100%" : "auto",
+            width: "100%",
             padding: expanded || isNarrow ? "0 12px" : "0",
             boxSizing: "border-box",
           }}
         >
-        <div style={actionRowStyle}>
-          {connected ? (
-            <div style={leftGroupStyle}>
-              <button
-                type="button"
-                onClick={handleCopyShareLink}
-                aria-label={shareButtonLabel}
-                title={shareButtonLabel}
-                style={{
-                  border: "1px solid rgba(0,0,0,.12)",
-                  background:
-                    copyFeedback === "copied"
-                      ? "#dcfce7"
-                      : copyFeedback === "error"
-                      ? "#fee2e2"
-                      : "#e5e7eb",
-                  color:
-                    copyFeedback === "copied"
-                      ? "#15803d"
-                      : copyFeedback === "error"
-                      ? "#b91c1c"
-                      : "#111827",
-                  cursor: shareUrl ? "pointer" : "not-allowed",
-                  padding: "8px 10px",
-                  borderRadius: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 40,
-                  minWidth: 44,
-                  width: isNarrow ? "calc(33.33% - 8px)" : undefined,
-                  flex: isNarrow ? "1 1 calc(33.33% - 8px)" : "0 0 auto",
-                  opacity: shareUrl ? 1 : 0.6,
-                  transition:
-                    "background .15s ease, color .15s ease, opacity .15s ease",
-                }}
-                disabled={!shareUrl}
-              >
-                {copyFeedback === "copied" ? (
-                  <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                    <path
-                      d="M6.5 11.293 3.854 8.646a.5.5 0 0 0-.708.708l3 3a.5.5 0 0 0 .708 0l6-6a.5.5 0 0 0-.708-.708L6.5 11.293Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                ) : (
-                  <Image
-                    src="/icons/share (1).png"
-                    alt=""
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                    style={{
-                      display: "block",
-                      width: 18,
-                      height: 18,
-                      objectFit: "contain",
-                    }}
-                  />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={toggleSummary}
-                aria-label={
-                  summaryVisible ? "Hide summary form" : "Show summary form"
-                }
-                title={summaryVisible ? "Hide summary form" : "Get a summary"}
-                disabled={summaryClosing && !summaryOpen}
-                style={{
-                  border: "1px solid rgba(0,0,0,.12)",
-                  background: summaryVisible ? "#e0f2fe" : "#e5e7eb",
-                  color: "#0f172a",
-                  cursor:
-                    summaryClosing && !summaryOpen ? "default" : "pointer",
-                  padding: "8px 10px",
-                  borderRadius: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 40,
-                  minWidth: 44,
-                  width: isNarrow ? "calc(33.33% - 8px)" : undefined,
-                  flex: isNarrow ? "1 1 calc(33.33% - 8px)" : "0 0 auto",
-                  opacity: summaryClosing && !summaryOpen ? 0.7 : 1,
-                  transition:
-                    "background .15s ease, color .15s ease, opacity .15s ease",
-                }}
-              >
-                {summaryVisible ? (
-                  <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                    <path
-                      d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                    <circle cx="3.5" cy="4.5" r="1.25" fill="currentColor" />
-                    <rect x="6" y="3.75" width="7.5" height="1.5" rx="0.75" fill="currentColor" />
-                    <circle cx="3.5" cy="8" r="1.25" fill="currentColor" />
-                    <rect x="6" y="7.25" width="7.5" height="1.5" rx="0.75" fill="currentColor" />
-                    <circle cx="3.5" cy="11.5" r="1.25" fill="currentColor" />
-                    <rect x="6" y="10.75" width="7.5" height="1.5" rx="0.75" fill="currentColor" />
-                  </svg>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={toggleContact}
-                aria-label={
-                  contactVisible ? "Hide contact form" : contactTitle
-                }
-                title={contactVisible ? "Hide contact form" : contactTitle}
-                disabled={contactClosing && !contactOpen}
-                style={{
-                  border: "1px solid rgba(0,0,0,.12)",
-                  background: contactVisible ? "#e0f2fe" : "#e5e7eb",
-                  color: "#0f172a",
-                  cursor:
-                    contactClosing && !contactOpen ? "default" : "pointer",
-                  padding: "8px 10px",
-                  borderRadius: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 40,
-                  minWidth: 44,
-                  width: isNarrow ? "calc(33.33% - 8px)" : undefined,
-                  flex: isNarrow ? "1 1 calc(33.33% - 8px)" : "0 0 auto",
-                  opacity: contactClosing && !contactOpen ? 0.7 : 1,
-                  transition: "background .15s ease, color .15s ease, opacity .15s ease",
-                }}
-              >
-                {contactVisible ? (
-                  <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                    <path
-                      d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                    <path
-                      d="M8 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M4.5 9.5A2.5 2.5 0 0 1 7 7h2a2.5 2.5 0 0 1 2.5 2.5v.25a2.25 2.25 0 0 1-2.25 2.25h-2.5A2.75 2.75 0 0 1 4 9.25v-.25h.5Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-          ) : null}
-          {connected ? (
+          <div style={actionRowStyle}>
+            {connected ? (
             <div style={middleGroupStyle}>
               <button
                 type="button"
@@ -1098,12 +1084,13 @@ export default function DialogueBarEmail({
               )}
             </button>
           </div>
-        </div>
+          </div>
         </div>
 
         {err && (
           <div style={{ color: "#b91c1c", marginTop: 16, fontSize: 14 }}>{err}</div>
         )}
+        </div>
       </div>
     </div>
   );

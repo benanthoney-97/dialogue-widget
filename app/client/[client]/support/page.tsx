@@ -47,8 +47,8 @@ export default function SupportPage() {
         >
           <h2 style={{ marginBottom: 16, fontSize: 24, fontWeight: 700 }}>Support</h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "#a3c0ff", margin: 0 }}>
-            Contact <a href="mailto:support@dialogue-ai.co" style={{ color: "#ffffff", textDecoration: "underline" }}>support@dialogue-ai.co</a> or call us on{" "}
-            <a href="tel:+447956215839" style={{ color: "#ffffff", textDecoration: "underline" }}>+44&nbsp;7956&nbsp;215&nbsp;839</a>. We'll get back to you in no time!
+            Contact <a href="mailto:support@dialogue-ai.co" style={{ color: "#F6F7F9fff", textDecoration: "underline" }}>support@dialogue-ai.co</a> or call us on{" "}
+            <a href="tel:+447956215839" style={{ color: "#F6F7F9fff", textDecoration: "underline" }}>+44&nbsp;7956&nbsp;215&nbsp;839</a>. We'll get back to you in no time!
           </p>
         </div>
       </div>

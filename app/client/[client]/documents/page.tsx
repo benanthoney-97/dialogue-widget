@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
 import PurposeCard, { defaultChipStyleMap } from "../../../components/PurposeCard";
+import PrepAgent from "../../../components/PrepAgent";
+import ProgressAgent from "../../../components/ProgressAgent";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -60,6 +62,8 @@ export default function DocumentsPage() {
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [detailsExpandedKey, setDetailsExpandedKey] = useState<string | null>(null);
+  const [progressExpandedKey, setProgressExpandedKey] = useState<string | null>(null);
   const [agentDocuments, setAgentDocuments] = useState<Record<
     string,
     { loading: boolean; docs: AgentDocumentRow[]; error: string | null }
@@ -81,7 +85,7 @@ export default function DocumentsPage() {
   const guidanceTexts = PURPOSE_GUIDANCE_TEXTS;
   const chipStyleMap = defaultChipStyleMap;
 
-  // Get client slug from URL
+  // Get profile slug from URL
   function getClientSlug(pathname: string | null): string {
     if (!pathname) return "";
     const match = pathname.match(/^\/client\/([^\/]+)/);
@@ -93,22 +97,22 @@ export default function DocumentsPage() {
     async function fetchDocs() {
       setLoading(true);
       setError(null);
-      // Get client id from clients table
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
+      // Get profile id from profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
         .select('id')
-        .eq('name', clientSlug)
+        .eq('id', clientSlug)
         .single();
-      if (clientError || !client) {
-        setError("Client not found");
+      if (profileError || !profile) {
+        setError("Profile not found");
         setLoading(false);
         return;
       }
-      // Get agent_map rows for this client (include testing_mode)
+      // Get agent_map rows for this profile/user
       const { data: agentRows, error: agentError } = await supabase
         .from('agent_map')
         .select('agent_id, agent_name, content_type, audience_type, created_at, status, dialogue_created_date, key')
-        .eq('client_id', client.id)
+        .eq('user_id', profile.id)
         .order('created_at', { ascending: false });
       if (agentError) {
         setError("Error fetching documents");
@@ -116,10 +120,10 @@ export default function DocumentsPage() {
         return;
       }
   // debug: log fetched data (use console.log so messages are visible in browser consoles)
-  // eslint-disable-next-line no-console
-  console.log('DocumentsPage.fetchDocs', { clientSlug, client: client ?? null, agentRows: agentRows ?? [] });
+   
+  console.log('DocumentsPage.fetchDocs', { clientSlug, profile: profile ?? null, agentRows: agentRows ?? [] });
       setDocs(agentRows || []);
-  // eslint-disable-next-line no-console
+   
   console.log('DocumentsPage.setDocs count', (agentRows || []).length);
       setLoading(false);
     }
@@ -133,7 +137,7 @@ export default function DocumentsPage() {
 
   // Debug: log when docs/loading/error change
   useEffect(() => {
-    // eslint-disable-next-line no-console
+     
     console.log('DocumentsPage.state', { clientSlug, docsLength: docs.length, loading, error });
   }, [clientSlug, docs.length, loading, error]);
 
@@ -162,21 +166,48 @@ export default function DocumentsPage() {
     }));
   };
 
+  const handleProgressToggle = (row: any) => {
+    if (!row || !row.key) return;
+    const rowKey = row.key as string;
+    setExpandedKey(null);
+    if (progressExpandedKey === rowKey) {
+      setProgressExpandedKey(null);
+      return;
+    }
+    setProgressExpandedKey(rowKey);
+    setDetailsExpandedKey(null);
+  };
+
   const handleRowToggle = (row: any) => {
     if (!row || !row.key) return;
     const rowKey = row.key as string;
     const agentId = typeof row.agent_id === 'string' ? row.agent_id : null;
     if (expandedKey === rowKey) {
       setExpandedKey(null);
+      setProgressExpandedKey((prev) => (prev === rowKey ? null : prev));
       return;
     }
     setExpandedKey(rowKey);
+    setDetailsExpandedKey(null);
+    setProgressExpandedKey(null);
     if (agentId) {
       const cached = agentDocuments[agentId];
       if (!cached || (!cached.loading && (cached.docs.length === 0 || cached.error))) {
         void ensureAgentDocuments(agentId);
       }
     }
+  };
+
+  const handleDetailsToggle = (row: any) => {
+    if (!row || !row.key) return;
+    const rowKey = row.key as string;
+    setExpandedKey(null);
+    setProgressExpandedKey(null);
+    if (detailsExpandedKey === rowKey) {
+      setDetailsExpandedKey(null);
+      return;
+    }
+    setDetailsExpandedKey(rowKey);
   };
 
   const handleDocumentFileInputChange = (agentId: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,21 +329,22 @@ export default function DocumentsPage() {
           {loading || error || docs.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15, background: "#16213a" }}>
               <thead>
-                <tr style={{ background: "#1b2947" }}>
+                <tr style={{ background: "#F6F7F9fff" }}>
                   <th style={thStyle}>Dialogue</th>
                   <th style={thStyle}>Audience</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Last Updated</th>
-                  <th style={thStyle}>Test</th>
+                  <th style={thStyle}>Prepare</th>
+                  <th style={thStyle}>Progress</th>
                   <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
                   <th style={{ ...thStyle, width: 24, minWidth: 18, maxWidth: 28, textAlign: 'center', padding: 0 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
+                  <tr><td colSpan={8} style={{ color: '#a3c0ff', textAlign: 'center', padding: 24 }}>Loading…</td></tr>
                 ) : error ? (
-                  <tr><td colSpan={7} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
+                  <tr><td colSpan={8} style={{ color: '#ef4444', textAlign: 'center', padding: 24 }}>{error}</td></tr>
                 ) : (
                   docs.map((row, i) => {
                   const rowKey = row?.key ?? String(i);
@@ -322,7 +354,7 @@ export default function DocumentsPage() {
                   return (
                     <React.Fragment key={rowKey}>
                       <tr
-                        onClick={() => handleRowToggle(row)}
+                        onClick={() => handleDetailsToggle(row)}
                         aria-expanded={isExpanded}
                         style={{
                           background: isExpanded ? "#1c2744" : "#16213a",
@@ -392,7 +424,7 @@ export default function DocumentsPage() {
                             style={{
                               ...buttonStyle,
                               background: row.status === 'Ready' ? '#525fe1' : '#22325a',
-                              color: row.status === 'Ready' ? '#fff' : '#a3c0ff',
+                              color: row.status === 'Ready' ? '#F6F7F9' : '#a3c0ff',
                               opacity: row.status === 'Ready' ? 1 : 0.5,
                               cursor: row.status === 'Ready' ? 'pointer' : 'not-allowed',
                               display: 'flex',
@@ -403,11 +435,8 @@ export default function DocumentsPage() {
                             disabled={row.status !== 'Ready'}
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (row && row.key && row.status === 'Ready') {
-                                const baseUrl = `https://embed.dialogue-ai.co/doc/${row.key}`;
-                                const testUrl = `${baseUrl}?testing=1`;
-                                window.open(testUrl, '_blank');
-                              }
+                              if (!row || row.status !== 'Ready') return;
+                              handleDetailsToggle(row);
                             }}
                           >
                             <span style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -417,7 +446,37 @@ export default function DocumentsPage() {
                                 <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
                               </svg>
                             </span>
-                            Test
+                            Start Prep
+                          </button>
+                        </td>
+                        <td style={tdStyle}>
+                          <button
+                            style={{
+                              ...buttonStyle,
+                              background: row.status === 'Ready' ? '#525fe1' : '#22325a',
+                              color: row.status === 'Ready' ? '#F6F7F9' : '#a3c0ff',
+                              opacity: row.status === 'Ready' ? 1 : 0.5,
+                              cursor: row.status === 'Ready' ? 'pointer' : 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              pointerEvents: row.status === 'Ready' ? 'auto' : 'none',
+                            }}
+                            disabled={row.status !== 'Ready'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (!row || row.status !== 'Ready') return;
+                              handleProgressToggle(row);
+                            }}
+                          >
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+                                <rect x="2" y="6" width="3" height="8" rx="1" fill="currentColor" />
+                                <rect x="8.5" y="3" width="3" height="14" rx="1" fill="currentColor" />
+                                <rect x="15" y="8" width="3" height="6" rx="1" fill="currentColor" />
+                              </svg>
+                            </span>
+                            View Progress
                           </button>
                         </td>
                         <td style={{
@@ -538,7 +597,7 @@ export default function DocumentsPage() {
                             onClick={(event) => {
                               event.stopPropagation();
                               if (!row.key) return;
-                              setConfirmingKey(row.key);
+                              handleRowToggle(row);
                             }}
                             style={{
                               background: 'transparent',
@@ -566,20 +625,54 @@ export default function DocumentsPage() {
                           </button>
                         </td>
                       </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={7} style={{ padding: '18px 28px 24px 28px', background: "#10192b", borderBottom: '1px solid #22325a' }}>
-                            {!agentId ? (
-                              <div style={{ color: '#a3c0ff' }}>No agent identifier available for this dialogue.</div>
-                            ) : (
-                              <>
-                                {docState?.error && (
-                                  <div style={{ color: '#ef4444', marginBottom: 12 }}>Failed to load documents: {docState.error}</div>
-                                )}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
-                                  {(() => {
-                                    const draft = agentDocumentDrafts[agentId] ?? { file: null, saving: false, error: null };
-                                    const uploadInputId = `doc-upload-${agentId}`;
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0, background: 'transparent', borderBottom: 'none' }}>
+                          <div
+                            style={{
+                              maxHeight: isExpanded ? 640 : 0,
+                              opacity: isExpanded ? 1 : 0,
+                              overflow: 'hidden',
+                              transition: 'max-height 220ms ease, opacity 220ms ease',
+                            }}
+                          >
+                            <div style={{ padding: '18px 28px 24px 28px', background: "#10192b", borderBottom: '1px solid #22325a' }}>
+                              {!agentId ? (
+                                <div style={{ color: '#a3c0ff' }}>No agent identifier available for this dialogue.</div>
+                              ) : (
+                                <>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                    <div style={{ color: '#7ea0e6', fontSize: 14, fontWeight: 600 }}>Documents & uploads</div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!row.key || deletingKey === row.key) return;
+                                        setConfirmingKey(row.key);
+                                      }}
+                                      style={{
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        border: '1px solid #c24141',
+                                        background: '#2a1a1a',
+                                        color: '#f9b4b4',
+                                        fontWeight: 700,
+                                        fontSize: 12,
+                                        letterSpacing: 0.4,
+                                        cursor: deletingKey === row.key ? 'wait' : 'pointer',
+                                        opacity: deletingKey === row.key ? 0.7 : 1,
+                                      }}
+                                      disabled={deletingKey === row.key}
+                                    >
+                                      Delete pitch
+                                    </button>
+                                  </div>
+                                  {docState?.error && (
+                                    <div style={{ color: '#ef4444', marginBottom: 12 }}>Failed to load documents: {docState.error}</div>
+                                  )}
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+                                    {(() => {
+                                      const draft = agentDocumentDrafts[agentId] ?? { file: null, saving: false, error: null };
+                                      const uploadInputId = `doc-upload-${agentId}`;
                                     const draftHasFile = !!draft.file;
                                     const triggerFilePicker = () => {
                                       if (typeof document === "undefined") return;
@@ -652,7 +745,7 @@ export default function DocumentsPage() {
                                                   borderRadius: 8,
                                                   border: '1px solid #2d406b',
                                                   background: draft.saving ? '#374771' : '#2d406b',
-                                                  color: '#ffffff',
+                                                  color: '#F6F7F9fff',
                                                   fontWeight: 700,
                                                   fontSize: 13,
                                                   cursor: draft.saving ? 'wait' : 'pointer',
@@ -823,9 +916,50 @@ export default function DocumentsPage() {
                                 )}
                               </>
                             )}
-                          </td>
-                        </tr>
-                      )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0, background: 'transparent', borderBottom: 'none' }}>
+                          <div
+                            style={{
+                              maxHeight: detailsExpandedKey === rowKey ? 360 : 0,
+                              opacity: detailsExpandedKey === rowKey ? 1 : 0,
+                              overflow: 'hidden',
+                              transition: 'max-height 220ms ease, opacity 220ms ease',
+                            }}
+                          >
+                            <div style={{ padding: '16px 28px 22px 28px', background: '#0f1628', borderBottom: '1px solid #22325a', color: '#a3c0ff', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                              <div style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.2 }}>Pitch preparation</div>
+                              <PrepAgent
+                                agentId={typeof row.agent_id === 'string' ? row.agent_id : undefined}
+                                talkLabel="Start pitch"
+                                panelExpanded={detailsExpandedKey === rowKey}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0, background: 'transparent', borderBottom: 'none' }}>
+                          <div
+                            style={{
+                              maxHeight: progressExpandedKey === rowKey ? 640 : 0,
+                              opacity: progressExpandedKey === rowKey ? 1 : 0,
+                              overflow: 'hidden',
+                              transition: 'max-height 220ms ease, opacity 220ms ease',
+                            }}
+                          >
+                            <div style={{ padding: '16px 28px 22px 28px', background: '#0f1628', borderBottom: '1px solid #22325a', color: '#a3c0ff', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                              <div style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.2 }}>Dialogue progress</div>
+                              <ProgressAgent
+                                agentId={typeof row.agent_id === 'string' ? row.agent_id : undefined}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                     </React.Fragment>
                   );
                 })
@@ -1002,7 +1136,7 @@ export default function DocumentsPage() {
                   borderRadius: 8,
                   border: '1px solid #c24141',
                   background: '#ef4444',
-                  color: '#fff',
+                  color: '#F6F7F9',
                   fontWeight: 700,
                   fontSize: 14,
                   cursor: deletingKey ? 'wait' : 'pointer',
@@ -1117,7 +1251,7 @@ export default function DocumentsPage() {
                   borderRadius: 8,
                   border: '1px solid #c24141',
                   background: '#ef4444',
-                  color: '#fff',
+                  color: '#F6F7F9',
                   fontWeight: 700,
                   fontSize: 14,
                   cursor: deletingDoc ? 'wait' : 'pointer',

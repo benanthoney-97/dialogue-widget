@@ -114,7 +114,7 @@ export default function DocComparePage() {
             {/* LEFT pane */}
             <div
               style={{
-                background: "#fff",
+                background: "#F6F7F9",
                 border: "1px solid #eee",
                 borderRadius: 8,
                 overflow: "hidden",
@@ -128,7 +128,7 @@ export default function DocComparePage() {
               </header>
               <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 {!mounted ? (
-                  <div style={{ width: "100%", height: "100%", background: "#fff" }} />
+                  <div style={{ width: "100%", height: "100%", background: "#F6F7F9" }} />
                 ) : isTouch ? (
                   <div style={{ height: "100%", overflow: "auto" }}>
                     <PDFJSViewer key={`left-${leftPdf}`} file={leftPdf} />
@@ -143,7 +143,7 @@ export default function DocComparePage() {
                       height: "100%",
                       border: "none",
                       display: "block",
-                      background: "#fff",
+                      background: "#F6F7F9",
                     }}
                   >
                     <div style={{ padding: 16 }}>
@@ -162,7 +162,7 @@ export default function DocComparePage() {
             {/* RIGHT pane */}
             <div
               style={{
-                background: "#fff",
+                background: "#F6F7F9",
                 border: "1px solid #eee",
                 borderRadius: 8,
                 overflow: "hidden",
@@ -176,7 +176,7 @@ export default function DocComparePage() {
               </header>
               <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 {!mounted ? (
-                  <div style={{ width: "100%", height: "100%", background: "#fff" }} />
+                  <div style={{ width: "100%", height: "100%", background: "#F6F7F9" }} />
                 ) : isTouch ? (
                   <div style={{ height: "100%", overflow: "auto" }}>
                     <PDFJSViewer key={`right-${rightPdf}`} file={rightPdf} />
@@ -191,7 +191,7 @@ export default function DocComparePage() {
                       height: "100%",
                       border: "none",
                       display: "block",
-                      background: "#fff",
+                      background: "#F6F7F9",
                     }}
                   >
                     <div style={{ padding: 16 }}>

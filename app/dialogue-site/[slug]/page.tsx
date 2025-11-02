@@ -33,7 +33,7 @@ export default function DialogueSitePage() {
           minHeight: "100dvh",
           display: "grid",
           placeItems: "center",
-          background: "#ffffff",
+          background: "#F6F7F9fff",
           padding: 16,
         }}
       >
@@ -42,7 +42,7 @@ export default function DialogueSitePage() {
             padding: 16,
             borderRadius: 12,
             border: "1px solid rgba(0,0,0,.1)",
-            background: "#fff",
+            background: "#F6F7F9",
             color: "#b91c1c",
             fontWeight: 600,
           }}
@@ -57,7 +57,7 @@ export default function DialogueSitePage() {
     <main
       style={{
         minHeight: "100dvh",
-        background: "#ffffff",
+        background: "#F6F7F9fff",
         display: "grid",
         placeItems: "center",
         padding: 16,
