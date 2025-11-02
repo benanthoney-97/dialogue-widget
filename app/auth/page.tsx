@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
@@ -104,66 +104,18 @@ export default function AuthPage() {
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "radial-gradient(circle at top, #243b6b 0%, #0a1628 65%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
-        padding: "24px",
-      }}
-    >
-      <div
-        style={{
-          width: "min(420px, 100%)",
-          background: "rgba(12, 22, 42, 0.92)",
-          borderRadius: 18,
-          padding: "32px 36px",
-          color: "#e6eaff",
-          boxShadow: "0 22px 55px rgba(7, 12, 24, 0.6)",
-          border: "1px solid rgba(82, 95, 225, 0.22)",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: "-50% -20% auto auto",
-            width: 240,
-            height: 240,
-            background:
-              "radial-gradient(circle, rgba(82,95,225,0.35) 0%, rgba(82,95,225,0) 70%)",
-            transform: "rotate(25deg)",
-          }}
-        />
-        <div style={{ position: "relative" }}>
-          <header style={{ marginBottom: 26 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>{heading}</h1>
-            <p
-              style={{
-                marginTop: 10,
-                marginBottom: 0,
-                fontSize: 15,
-                color: "#9fb3ff",
-                lineHeight: 1.5,
-              }}
-            >
-              {subheading}
-            </p>
+    <main className="auth-page">
+      <div className="auth-card">
+        <div aria-hidden="true" className="auth-card__glow" />
+        <div className="auth-card__content">
+          <header className="auth-card__header">
+            <h1 className="auth-card__title">{heading}</h1>
+            <p className="auth-card__subtitle">{subheading}</p>
           </header>
 
-          <form
-            onSubmit={onSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: 18 }}
-          >
-            <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#c7d5ff" }}>
-                Email address
-              </span>
+          <form onSubmit={onSubmit} className="auth-form">
+            <label className="auth-form__field">
+              <span className="auth-form__label">Email address</span>
               <input
                 type="email"
                 required
@@ -171,13 +123,11 @@ export default function AuthPage() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 onChange={(event) => setEmail(event.target.value)}
-                style={inputStyle}
+                className="auth-form__input"
               />
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#c7d5ff" }}>
-                Password
-              </span>
+            <label className="auth-form__field">
+              <span className="auth-form__label">Password</span>
               <input
                 type="password"
                 required
@@ -185,14 +135,12 @@ export default function AuthPage() {
                 placeholder="••••••••"
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 onChange={(event) => setPassword(event.target.value)}
-                style={inputStyle}
+                className="auth-form__input"
               />
             </label>
             {mode === "signup" && (
-              <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#c7d5ff" }}>
-                  Confirm password
-                </span>
+              <label className="auth-form__field">
+                <span className="auth-form__label">Confirm password</span>
                 <input
                   type="password"
                   required
@@ -200,27 +148,14 @@ export default function AuthPage() {
                   placeholder="••••••••"
                   autoComplete="new-password"
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  style={inputStyle}
+                  className="auth-form__input"
                 />
               </label>
             )}
 
             <button
               type="submit"
-              style={{
-                marginTop: 8,
-                padding: "12px 18px",
-                borderRadius: 12,
-                border: "none",
-                fontWeight: 800,
-                fontSize: 15,
-                background: "linear-gradient(135deg, #525fe1 0%, #4350d1 100%)",
-                color: "#F6F7F9fff",
-                cursor: submitting ? "wait" : "pointer",
-                boxShadow: "0 12px 40px rgba(82, 95, 225, 0.35)",
-                transition: "transform 0.18s ease, box-shadow 0.18s ease",
-                opacity: submitting ? 0.7 : 1,
-              }}
+              className="auth-button auth-button--primary"
               disabled={submitting}
               onMouseDown={(event) => event.currentTarget.blur()}
             >
@@ -229,58 +164,262 @@ export default function AuthPage() {
           </form>
 
           {feedback && (
-            <div
-              role="status"
-              style={{
-                marginTop: 18,
-                padding: "12px 14px",
-                borderRadius: 12,
-                fontSize: 13,
-                background:
-                  feedback.type === "success" ? "rgba(34, 197, 94, 0.18)" : "rgba(239, 68, 68, 0.18)",
-                color: feedback.type === "success" ? "#bbf7d0" : "#fca5a5",
-                border:
-                  feedback.type === "success"
-                    ? "1px solid rgba(34, 197, 94, 0.4)"
-                    : "1px solid rgba(239, 68, 68, 0.4)",
-              }}
-            >
+            <div role="status" className={`auth-feedback auth-feedback--${feedback.type}`}>
               {feedback.message}
             </div>
           )}
 
-          <div
-            style={{
-              marginTop: 28,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <div style={{ fontSize: 13, color: "#9fb3ff" }}>{helperText}</div>
-            <button
-              type="button"
-              onClick={toggleMode}
-              style={{
-                border: "none",
-                background: "transparent",
-                color: "#7ea0e6",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
+          <div className="auth-card__helper-row">
+            <div className="auth-card__helper-text">{helperText}</div>
+            <button type="button" onClick={toggleMode} className="auth-button auth-button--link">
               {helperActionText}
             </button>
           </div>
         </div>
       </div>
-      <style>{`
+      <style jsx>{`
+        .auth-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 36px clamp(18px, 4vw, 48px);
+          position: relative;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 18% -10%, rgba(169, 198, 255, 0.42) 0%, rgba(244, 248, 255, 0) 40%),
+            radial-gradient(circle at 82% 0%, rgba(132, 180, 255, 0.36) 0%, rgba(244, 248, 255, 0) 38%),
+            linear-gradient(150deg, #f8fbff 0%, #edf4ff 48%, #e1edff 100%);
+          color: #052033;
+          font-family: "Cooper Light BT", "CooperBT", "Cooper", serif;
+        }
+
+        .auth-page::before,
+        .auth-page::after {
+          content: "";
+          position: absolute;
+          width: clamp(320px, 45vw, 520px);
+          height: clamp(320px, 45vw, 520px);
+          filter: blur(110px);
+          opacity: 0.32;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .auth-page::before {
+          top: -220px;
+          left: -140px;
+          background: radial-gradient(circle, rgba(168, 207, 255, 0.5) 0%, rgba(244, 248, 255, 0) 65%);
+        }
+
+        .auth-page::after {
+          bottom: -240px;
+          right: -180px;
+          background: radial-gradient(circle, rgba(123, 170, 255, 0.48) 0%, rgba(244, 248, 255, 0) 70%);
+        }
+
+        .auth-card {
+          width: min(440px, 100%);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.88) 100%);
+          border-radius: 28px;
+          padding: clamp(30px, 4vw, 42px);
+          color: inherit;
+          box-shadow: 0 28px 68px rgba(42, 82, 160, 0.18);
+          border: 1px solid rgba(209, 223, 255, 0.78);
+          position: relative;
+          overflow: hidden;
+          backdrop-filter: blur(20px);
+        }
+
+        .auth-card__glow {
+          position: absolute;
+          inset: -60% -20% auto auto;
+          width: clamp(200px, 28vw, 280px);
+          height: clamp(200px, 28vw, 280px);
+          background: radial-gradient(circle at center, rgba(132, 180, 255, 0.26) 0%, rgba(132, 180, 255, 0) 70%);
+          transform: rotate(18deg);
+          opacity: 0.9;
+        }
+
+        .auth-card__content {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+          z-index: 1;
+        }
+
+        .auth-card__header {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .auth-card__title {
+          margin: 0;
+          font-size: clamp(26px, 4vw, 30px);
+          font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+
+        .auth-card__subtitle {
+          margin: 0;
+          font-size: clamp(14px, 3vw, 16px);
+          line-height: 1.6;
+          color: rgba(55, 82, 124, 0.82);
+          max-width: 360px;
+        }
+
+        .auth-form {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+
+        .auth-form__field {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .auth-form__label {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(63, 96, 150, 0.72);
+        }
+
+        .auth-form__input {
+          appearance: none;
+          border-radius: 16px;
+          border: 1px solid rgba(178, 199, 240, 0.8);
+          background: #ffffff;
+          padding: 13px 16px;
+          color: #052033;
+          font-size: 15px;
+          transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+          box-shadow: 0 16px 40px rgba(59, 118, 216, 0.08);
+        }
+
+        .auth-form__input::placeholder {
+          color: rgba(107, 132, 176, 0.6);
+        }
+
+        .auth-form__input:focus-visible {
+          outline: none;
+          border-color: rgba(82, 146, 255, 0.85);
+          box-shadow: 0 18px 46px rgba(68, 116, 210, 0.16);
+          background: #fafdff;
+        }
+
+        .auth-form__input:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .auth-button {
+          border: none;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, color 0.18s ease;
+        }
+
+        .auth-button:disabled {
+          cursor: wait;
+          opacity: 0.72;
+          transform: none;
+          box-shadow: none;
+        }
+
+        .auth-button--primary {
+          margin-top: 12px;
+          padding: 13px 18px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #5c9cff 0%, #2b6cb0 100%);
+          color: #f6fbff;
+          box-shadow: 0 18px 48px rgba(82, 146, 255, 0.32);
+        }
+
+        .auth-button--primary:not(:disabled):hover,
+        .auth-button--primary:not(:disabled):focus-visible {
+          transform: translateY(-1px);
+          box-shadow: 0 22px 54px rgba(82, 146, 255, 0.4);
+        }
+
+        .auth-button--link {
+          padding: 0;
+          background: none;
+          color: rgba(43, 108, 176, 0.92);
+          text-decoration: underline;
+          text-decoration-thickness: 1.5px;
+          text-underline-offset: 4px;
+        }
+
+        .auth-button--link:hover,
+        .auth-button--link:focus-visible {
+          color: rgba(24, 82, 155, 0.98);
+        }
+
+        .auth-feedback {
+          margin-top: -12px;
+          padding: 12px 14px;
+          border-radius: 16px;
+          font-size: 13px;
+          border: 1px solid transparent;
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 18px 42px rgba(76, 124, 210, 0.14);
+        }
+
+        .auth-feedback--success {
+          border-color: rgba(34, 197, 94, 0.28);
+          color: rgba(22, 101, 52, 0.92);
+          background: linear-gradient(135deg, rgba(236, 253, 245, 0.96) 0%, rgba(217, 249, 233, 0.92) 100%);
+        }
+
+        .auth-feedback--error {
+          border-color: rgba(248, 113, 113, 0.34);
+          color: rgba(153, 27, 27, 0.92);
+          background: linear-gradient(135deg, rgba(254, 242, 242, 0.96) 0%, rgba(254, 226, 226, 0.9) 100%);
+        }
+
+        .auth-card__helper-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .auth-card__helper-text {
+          font-size: 13px;
+          color: rgba(55, 82, 124, 0.72);
+        }
+
+        @media (max-width: 540px) {
+          .auth-card {
+            border-radius: 24px;
+            padding: 28px;
+          }
+
+          .auth-card__content {
+            gap: 28px;
+          }
+
+          .auth-card__helper-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .auth-button--link {
+            align-self: flex-end;
+          }
+        }
+      `}</style>
+      <style jsx global>{`
         @font-face {
-          font-family: 'CooperBT';
-          src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');
+          font-family: "CooperBT";
+          src: url("/fonts/CooperBT/Cooper Light BT.ttf") format("truetype");
           font-weight: normal;
           font-style: normal;
           font-display: swap;
@@ -289,15 +428,3 @@ export default function AuthPage() {
     </main>
   );
 }
-
-const inputStyle: CSSProperties = {
-  borderRadius: 12,
-  border: "1px solid rgba(126, 160, 230, 0.35)",
-  background: "rgba(16, 28, 54, 0.85)",
-  padding: "11px 14px",
-  color: "#e6eaff",
-  fontSize: 14,
-  outline: "none",
-  boxShadow: "0 6px 24px rgba(7, 13, 26, 0.25)",
-  transition: "border 0.18s ease, box-shadow 0.18s ease",
-};
