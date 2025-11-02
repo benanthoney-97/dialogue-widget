@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/app/lib/supabaseClient";
@@ -29,7 +29,7 @@ function formatDate(value: string | null) {
   });
 }
 
-export default function AcceptInvitePage() {
+function AcceptInvitePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token")?.trim() ?? "";
@@ -391,6 +391,31 @@ export default function AcceptInvitePage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function AcceptInvitePageWithSuspense() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "radial-gradient(circle at top, #243b6b 0%, #0a1628 65%)",
+            fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+            color: "#e6eaff",
+            padding: "24px",
+          }}
+        >
+          <p style={{ fontSize: 16 }}>Loading…</p>
+        </main>
+      }
+    >
+      <AcceptInvitePage />
+    </Suspense>
   );
 }
 
