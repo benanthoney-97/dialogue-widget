@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/app/lib/supabaseClient";
@@ -15,6 +15,7 @@ type InviteDetails = {
   clientId: number;
   clientName: string | null;
   expiresAt: string | null;
+  hasAccount: boolean;
 };
 
 type Feedback = { type: "success" | "error"; message: string } | null;
@@ -36,6 +37,7 @@ function AcceptInvitePage() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [mode, setMode] = useState<AuthMode>("login");
+  const userSelectedModeRef = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -133,9 +135,18 @@ function AcceptInvitePage() {
     return true;
   }, [invite, session, sessionEmailMismatch]);
 
+  useEffect(() => {
+    if (!invite?.email) return;
+    setEmail(invite.email);
+  }, [invite?.email]);
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (authSubmitting) return;
+    if (!invite?.email || email.toLowerCase() !== invite.email.toLowerCase()) {
+      setAuthFeedback({ type: "error", message: "Please use the invited email to sign in." });
+      return;
+    }
     setAuthFeedback(null);
     setAuthSubmitting(true);
     try {
@@ -154,6 +165,10 @@ function AcceptInvitePage() {
   const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (authSubmitting) return;
+    if (!invite?.email || email.toLowerCase() !== invite.email.toLowerCase()) {
+      setAuthFeedback({ type: "error", message: "Please sign up using the invited email." });
+      return;
+    }
     if (password !== confirmPassword) {
       setAuthFeedback({ type: "error", message: "Passwords do not match." });
       return;
@@ -208,7 +223,8 @@ function AcceptInvitePage() {
   };
 
   const handleToggleMode = () => {
-    setMode((prev) => (prev === "login" ? "signup" : "login"));
+  userSelectedModeRef.current = true;
+  setMode((prev) => (prev === "login" ? "signup" : "login"));
     setAuthFeedback(null);
     setConfirmPassword("");
   };
@@ -219,7 +235,14 @@ function AcceptInvitePage() {
     setPassword("");
     setConfirmPassword("");
     setAuthFeedback(null);
+    userSelectedModeRef.current = false;
   };
+
+  useEffect(() => {
+    if (session || !invite) return;
+    if (userSelectedModeRef.current) return;
+    setMode(invite.hasAccount ? "login" : "signup");
+  }, [invite, session]);
 
   return (
     <main style={pageStyle}>
@@ -278,9 +301,18 @@ function AcceptInvitePage() {
                       type="email"
                       required
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      autoComplete="email"
-                      style={inputStyle}
+                      onChange={(event) => {
+                        if (!invite?.email) {
+                          setEmail(event.target.value);
+                        }
+                      }}
+                      autoComplete="off"
+                      readOnly={Boolean(invite?.email)}
+                      style={{
+                        ...inputStyle,
+                        background: invite?.email ? "rgba(16, 28, 54, 0.5)" : inputStyle.background,
+                        cursor: invite?.email ? "not-allowed" : "text",
+                      }}
                     />
                   </label>
                   <label style={labelStyle}>

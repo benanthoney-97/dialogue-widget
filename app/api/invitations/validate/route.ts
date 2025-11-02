@@ -34,6 +34,10 @@ type ClientRow = {
   display_name: string | null;
 };
 
+type ProfileRow = {
+  id: string;
+};
+
 export async function GET(request: Request) {
   if (!supabaseUrl || !serviceKey) {
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
@@ -68,6 +72,17 @@ export async function GET(request: Request) {
     .eq("id", invite.client_id)
     .maybeSingle<ClientRow>();
 
+  const { data: profileMatch, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("email", invite.email)
+    .maybeSingle<ProfileRow>();
+
+  if (profileError && profileError.code !== "PGRST116") {
+    // eslint-disable-next-line no-console
+    console.error("[invite-validate] Failed to check profile", profileError);
+  }
+
   const now = Date.now();
   const expiresAtEpoch = invite.expires_at ? Date.parse(invite.expires_at) : null;
   const isExpired = typeof expiresAtEpoch === "number" && expiresAtEpoch < now;
@@ -85,6 +100,7 @@ export async function GET(request: Request) {
       expiresAt: invite.expires_at,
       invitedBy: invite.invited_by,
       createdAt: invite.created_at,
+      hasAccount: Boolean(profileMatch),
     },
     {
       headers: {
