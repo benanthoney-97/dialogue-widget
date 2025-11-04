@@ -19,34 +19,72 @@ export default function Sidebar() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("sidebarCollapsed");
+    if (stored === "true") {
+      setCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("sidebarCollapsed", collapsed ? "true" : "false");
+    document.documentElement.style.setProperty(
+      "--sidebar-width",
+      collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width-expanded)"
+    );
+    document.body.dataset.sidebar = collapsed ? "collapsed" : "expanded";
+  }, [collapsed]);
 
   useEffect(() => {
     let isMounted = true;
+
     async function fetchProfileName() {
-      if (!clientId) {
-        setProfileName(null);
-        setProfileError(null);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', clientId)
-        .single();
-      if (!isMounted) return;
-      if (error) {
-        setProfileError(error.message ?? 'Failed to load profile');
-        setProfileName(null);
-        return;
-      }
+      setProfileName(null);
       setProfileError(null);
-      setProfileName(data?.display_name ?? null);
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      if (userError || !userData?.user) {
+        const message = userError?.message ?? "Profile unavailable";
+        setProfileError(message);
+        setProfileName(null);
+        return;
+      }
+
+      const userId = userData.user.id;
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      const userMeta = (userData.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+      const fallbackName = userMeta.full_name ?? userMeta.name ?? userData.user.email ?? null;
+
+      if (profileError) {
+        setProfileError(profileError.message ?? "Profile unavailable");
+        setProfileName(fallbackName);
+        return;
+      }
+
+      const displayName = profileData?.display_name ?? null;
+      setProfileName(displayName ?? fallbackName);
+      setProfileError(displayName ? null : "Profile unavailable");
     }
+
     fetchProfileName();
+
     return () => {
       isMounted = false;
     };
-  }, [clientId]);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -64,6 +102,10 @@ export default function Sidebar() {
 
   const handleToggleMenu = () => {
     setMenuOpen((prev) => !prev);
+  };
+
+  const handleToggleCollapsed = () => {
+    setCollapsed((prev) => !prev);
   };
 
   const handleLogout = async () => {
@@ -127,6 +169,15 @@ export default function Sidebar() {
     },
   ];
 
+  const labelVisibilityStyle: React.CSSProperties = {
+    opacity: collapsed ? 0 : 1,
+    visibility: collapsed ? "hidden" : "visible",
+    maxWidth: collapsed ? 0 : 160,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    transition: "opacity 0.18s ease, max-width 0.18s ease",
+  };
+
   const teamItem = {
     label: "Team",
     href: `/client/${clientId}/teams`,
@@ -153,36 +204,82 @@ export default function Sidebar() {
 
   return (
     <aside
+      data-collapsed={collapsed ? "true" : "false"}
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         height: "100dvh",
-        // Use theme panel color (light background in persona-root) with dark fallback
         background: "var(--panel, #0f172a)",
         borderTopRightRadius: 16,
         borderBottomRightRadius: 16,
         boxShadow: "0 4px 24px rgba(10,22,40,0.06)",
         zIndex: 100,
-        minWidth: 180,
-        width: 180,
+        minWidth: "var(--sidebar-width)",
+        width: "var(--sidebar-width)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "32px 0 12px 0",
-        gap: 8,
+        padding: collapsed ? "24px 0 12px 0" : "32px 0 12px 0",
+        gap: collapsed ? 4 : 8,
+        transition: "width 0.24s ease",
       }}
     >
-      <div style={{
-        fontSize: 24,
-        fontWeight: 800,
-        color: 'var(--accent, #2b6cb0)',
-        letterSpacing: 1,
-        marginBottom: 28,
-        fontFamily: 'inherit',
-        textShadow: '0 2px 8px rgba(10,22,40,0.06)',
-      }}>
-        Dialogue
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "space-between",
+          width: "100%",
+          padding: collapsed ? "0 12px 20px" : "0 20px 28px",
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            display: collapsed ? "none" : "block",
+            fontSize: collapsed ? 20 : 24,
+            fontWeight: 800,
+            color: "var(--accent, #2b6cb0)",
+            letterSpacing: 1,
+            fontFamily: "inherit",
+            textShadow: "0 2px 8px rgba(10,22,40,0.06)",
+            transition: "transform 0.18s ease, opacity 0.18s ease",
+          }}
+        >
+          Dialogue
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Open sidebar" : "Close sidebar"}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 12,
+            border: "none",
+            background: "transparent",
+            color: "var(--accent-2, #7fb3ff)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "background 0.18s ease, transform 0.18s ease",
+          }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            color="currentColor"
+          >
+            <rect x="7" y="6.5" width="7" height="1.5" rx="0.75" transform="rotate(90 7 6.5)" fill="currentColor" />
+            <rect x="3" y="4" width="14" height="12" rx="2.8" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </button>
       </div>
       {navItems.map((item) => {
         let active = false;
@@ -198,22 +295,34 @@ export default function Sidebar() {
               display: "flex",
               alignItems: "center",
               width: "100%",
-              padding: "10px 20px",
+              padding: collapsed ? "10px 12px" : "10px 20px",
               color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
               background: active ? `rgba(var(--accent-rgb, 43,108,176), 0.12)` : "none",
               borderRadius: 10,
               fontWeight: 600,
               fontSize: 14,
               textDecoration: "none",
-              transition: "background 0.18s, color 0.18s, padding 0.18s, margin 0.18s",
-              justifyContent: "flex-start",
-              gap: 10,
-              marginRight: active ? 16 : 0,
+              transition: "background 0.18s, color 0.18s, padding 0.18s, margin 0.18s, gap 0.18s, justify-content 0.18s",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: collapsed ? 0 : 10,
+              marginRight: active && !collapsed ? 16 : 0,
             }}
             title={item.label}
+            aria-label={item.label}
           >
-            <span style={{ fontSize: 20, display: 'flex', alignItems: 'center', color: active ? 'var(--text, #052033)' : 'var(--accent-2, #7fb3ff)' }}>{item.icon}</span>
-            {item.label}
+            <span
+              aria-hidden="true"
+              style={{
+                fontSize: 20,
+                display: "flex",
+                alignItems: "center",
+                color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+                transition: "color 0.18s ease",
+              }}
+            >
+              {item.icon}
+            </span>
+            <span style={labelVisibilityStyle}>{item.label}</span>
           </Link>
         );
       })}
@@ -223,74 +332,75 @@ export default function Sidebar() {
         style={{
           display: "flex",
           alignItems: "center",
-          width: "calc(100% - 36px)",
-          padding: "10px 18px",
+          width: collapsed ? "100%" : "calc(100% - 24px)",
+          padding: collapsed ? "0 8px" : "0 12px",
           color: pathname?.startsWith(teamItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-          background: pathname?.startsWith(teamItem.href)
-            ? `rgba(var(--accent-rgb, 43,108,176), 0.16)`
-            : "rgba(59, 130, 246, 0.08)",
+          background: "none",
           borderRadius: 12,
           fontWeight: 600,
           fontSize: 14,
           textDecoration: "none",
-          transition: "background 0.18s, color 0.18s",
-          justifyContent: "flex-start",
-          gap: 10,
-          marginBottom: 12,
+          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: collapsed ? 0 : 10,
+          marginBottom: 8,
         }}
         title={teamItem.label}
+        aria-label={teamItem.label}
       >
         <span
+          aria-hidden="true"
           style={{
             fontSize: 20,
             display: "flex",
             alignItems: "center",
             color: pathname?.startsWith(teamItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+            transition: "color 0.18s ease",
           }}
         >
           {teamItem.icon}
         </span>
-        {teamItem.label}
+        <span style={labelVisibilityStyle}>{teamItem.label}</span>
       </Link>
       <Link
         href={settingsItem.href}
         style={{
           display: "flex",
           alignItems: "center",
-          width: "calc(100% - 36px)",
-          padding: "10px 18px",
+          width: collapsed ? "100%" : "calc(100% - 24px)",
+          padding: collapsed ? "0 8px" : "0 12px",
           color: pathname?.startsWith(settingsItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-          background: pathname?.startsWith(settingsItem.href)
-            ? `rgba(var(--accent-rgb, 43,108,176), 0.16)`
-            : "rgba(59, 130, 246, 0.08)",
+      background: "none",
           borderRadius: 12,
           fontWeight: 600,
           fontSize: 14,
           textDecoration: "none",
-          transition: "background 0.18s, color 0.18s",
-          justifyContent: "flex-start",
-          gap: 10,
-          marginBottom: 12,
-          marginTop: -4,
+          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: collapsed ? 0 : 10,
+          marginBottom: 8,
         }}
         title={settingsItem.label}
+        aria-label={settingsItem.label}
       >
         <span
+          aria-hidden="true"
           style={{
             fontSize: 20,
             display: "flex",
             alignItems: "center",
             color: pathname?.startsWith(settingsItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+            transition: "color 0.18s ease",
           }}
         >
           {settingsItem.icon}
         </span>
-        {settingsItem.label}
+        <span style={labelVisibilityStyle}>{settingsItem.label}</span>
       </Link>
       <div
         style={{
           width: "100%",
-          padding: "14px 18px",
+          padding: collapsed ? "12px 8px" : "14px 18px",
           borderTop: `1px solid rgba(var(--accent-rgb, 43,108,176), 0.12)`,
           background: "var(--panel-2, rgba(16,25,43,0.92))",
           color: "var(--accent-2, #7fb3ff)",
@@ -298,16 +408,19 @@ export default function Sidebar() {
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
-          gap: 12,
+          gap: collapsed ? 0 : 12,
           marginTop: "auto",
+          justifyContent: collapsed ? "center" : "flex-start",
         }}
         ref={menuRef}
         onClick={handleToggleMenu}
+        aria-label="Profile menu"
+        title={profileName ?? "Anonymous"}
       >
         <div
           style={{
-            width: 34,
-            height: 34,
+            width: collapsed ? 32 : 34,
+            height: collapsed ? 32 : 34,
             borderRadius: "50%",
             background: "var(--accent, #2b6cb0)",
             color: "var(--panel, #F6F7F9fff)",
@@ -322,7 +435,7 @@ export default function Sidebar() {
         >
           {(profileName ?? "Anonymous").charAt(0) || "A"}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <div style={{ display: collapsed ? "none" : "flex", flexDirection: "column", flex: 1 }}>
           <div style={{ fontWeight: 700, color: "var(--text, #052033)", marginBottom: 2, fontSize: 13 }}>
             {profileName ?? "Anonymous"}
           </div>
@@ -330,7 +443,16 @@ export default function Sidebar() {
             <div style={{ fontSize: 11, color: "#fda4af" }}>Profile unavailable</div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, color: "var(--accent-2, #7fb3ff)", marginLeft: 4 }}>
+        <div
+          style={{
+            display: collapsed ? "none" : "flex",
+            flexDirection: "column",
+            gap: 2,
+            color: "var(--accent-2, #7fb3ff)",
+            marginLeft: 4,
+            transition: "opacity 0.18s ease",
+          }}
+        >
           <span style={{ fontSize: 12, lineHeight: 1, transform: menuOpen ? "rotate(180deg)" : "none" }}>⌃</span>
           <span style={{ fontSize: 12, lineHeight: 1, transform: menuOpen ? "rotate(180deg)" : "none" }}>⌄</span>
         </div>
@@ -338,9 +460,9 @@ export default function Sidebar() {
           <div
             style={{
               position: "absolute",
-              bottom: "64px",
-              left: "18px",
-              width: "calc(100% - 36px)",
+              bottom: collapsed ? "56px" : "64px",
+              left: collapsed ? "8px" : "18px",
+              width: collapsed ? "calc(100% - 16px)" : "calc(100% - 36px)",
               background: "var(--panel, #0f1628)",
               borderRadius: 12,
               border: `1px solid rgba(var(--accent-rgb, 43,108,176),0.18)`,
@@ -360,7 +482,7 @@ export default function Sidebar() {
                 router.push(`/client/${clientId}/support`);
               }}
               style={{
-                padding: "10px 12px",
+                padding: "0 12px",
                 borderRadius: 10,
                 border: `1px solid rgba(var(--accent-rgb, 43,108,176),0.35)`,
                 background: `rgba(var(--accent-rgb, 43,108,176),0.08)`,
@@ -369,6 +491,10 @@ export default function Sidebar() {
                 fontWeight: 700,
                 cursor: "pointer",
                 textAlign: "center",
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               Support
@@ -377,7 +503,7 @@ export default function Sidebar() {
               type="button"
               onClick={handleLogout}
               style={{
-                padding: "10px 12px",
+                padding: "0 12px",
                 borderRadius: 10,
                 border: `1px solid rgba(var(--danger, 239,68,68),0.35)` ,
                 background: `rgba(var(--danger, 239,68,68),0.08)`,
@@ -385,6 +511,10 @@ export default function Sidebar() {
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: "pointer",
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               Log out

@@ -18,6 +18,16 @@ type Props = {
   buttonTextColor?: string;
   buttonBorderColor?: string;
   personaName?: string;
+  userId?: string;
+  personaKeyTraits?: string[] | null;
+  personaIntentSignals?: string[] | null;
+  personaCustomerStatus?: string | null;
+  personaKeyPainPoints?: string[] | null;
+  autoStart?: boolean;
+  promptTemplate?: string;
+  promptContext?: string | null;
+  firstMessage?: string;
+  autoStartUserMessage?: string;
 };
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
@@ -182,6 +192,16 @@ export default function DialogueText({
   buttonColor = "#60a5fa",
   buttonTextColor = "#0f172a",
   personaName,
+  userId,
+  personaKeyTraits,
+  personaIntentSignals,
+  personaCustomerStatus,
+  personaKeyPainPoints,
+  autoStart = false,
+  promptTemplate,
+  promptContext,
+  firstMessage,
+  autoStartUserMessage,
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
@@ -191,6 +211,7 @@ export default function DialogueText({
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  const autoStartRef = useRef(false);
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -384,16 +405,79 @@ export default function DialogueText({
     };
   }, []);
 
+  const dynamicVariables = useMemo(() => {
+    const joinValues = (values?: string[] | null) => {
+      if (!Array.isArray(values)) return "";
+      return values
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter((value) => value.length > 0)
+        .join(", ");
+    };
+
+    const variables: Record<string, string> = {
+      research_type: "chat",
+      user_id: userId ?? "",
+      agent_name: personaName?.trim() ?? "",
+      key_traits: joinValues(personaKeyTraits),
+      intent_signals: joinValues(personaIntentSignals),
+      customer_status: personaCustomerStatus?.trim() ?? "",
+      key_pain_points: joinValues(personaKeyPainPoints),
+    };
+
+    return variables;
+  }, [
+    personaCustomerStatus,
+    personaIntentSignals,
+    personaKeyPainPoints,
+    personaKeyTraits,
+    personaName,
+    userId,
+  ]);
+
+  const composedPrompt = useMemo(() => {
+    const baseTemplate = promptTemplate ?? CHAT_PROMPT_TEMPLATE;
+    if (!promptContext || !promptContext.trim()) return baseTemplate;
+    return `${baseTemplate}\n\n${promptContext.trim()}`;
+  }, [promptContext, promptTemplate]);
+
+  const overrides = useMemo(
+    () =>
+      ({
+        agent: {
+          firstMessage: firstMessage ?? "",
+          prompt: {
+            prompt: composedPrompt,
+          },
+        },
+      }) as unknown as {
+        agent: { firstMessage?: string; prompt?: { prompt: string } };
+      },
+    [composedPrompt, firstMessage]
+  );
+
+  const hasEndedCall = endedTranscript.length > 0;
+
+  const handleResetChat = () => {
+    setEndedTranscript([]);
+    setMessages([]);
+    setDraft("");
+    setPhase("ready");
+    setErr("");
+  };
   const connect = useCallback(async () => {
     try {
       if (String(status) === "connected" || String(status) === "connecting") return;
       setPhase("connecting");
       setEndedTranscript([]);
       if (useSignedUrl) {
+        const payload: Record<string, unknown> = { agent_id: agentId };
+        if (dynamicVariables) {
+          payload.dynamic_variables = dynamicVariables;
+        }
         const res = await fetch("/api/eleven/get-signed-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agent_id: agentId }),
+          body: JSON.stringify(payload),
         });
         let data: { signedUrl?: string; error?: string } | null = null;
         try {
@@ -410,22 +494,66 @@ export default function DialogueText({
         });
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
-        await startSession({
+        const sessionOptions = {
           signedUrl: data.signedUrl,
-          connectionType: "websocket",
-        });
+          connectionType: "websocket" as const,
+          ...(dynamicVariables ? { dynamicVariables } : {}),
+          overrides,
+        };
+        await startSession(sessionOptions);
       } else {
-        await startSession({
+        const sessionOptions = {
           agentId,
-          connectionType: "websocket",
-        });
+          connectionType: "websocket" as const,
+          ...(dynamicVariables ? { dynamicVariables } : {}),
+          overrides,
+        };
+        await startSession(sessionOptions);
       }
       setPhase("connected");
     } catch (error) {
       setPhase("ready");
       throw error;
     }
-  }, [agentId, startSession, status, useSignedUrl]);
+  }, [agentId, dynamicVariables, overrides, startSession, status, useSignedUrl]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartRef.current) return;
+    autoStartRef.current = true;
+    let messageQueued = false;
+
+    const run = async () => {
+      try {
+        await connect();
+        const initialMessage = autoStartUserMessage?.trim();
+        if (initialMessage) {
+          appendUserMessage(initialMessage);
+          lastLocalUserMessageRef.current = initialMessage;
+          setIsSending(true);
+          messageQueued = true;
+          setErr("");
+          setEndedTranscript([]);
+          await sendUserMessage?.(initialMessage);
+        }
+      } catch (error) {
+        console.error("[DialogueText] auto-start failed", error);
+        setErr(error instanceof Error ? error.message : String(error ?? "Unknown error"));
+      } finally {
+        if (messageQueued) {
+          setIsSending(false);
+        }
+      }
+    };
+
+    run();
+  }, [
+    appendUserMessage,
+    autoStart,
+    autoStartUserMessage,
+    connect,
+    sendUserMessage,
+    setEndedTranscript,
+  ]);
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
@@ -626,27 +754,59 @@ export default function DialogueText({
                 height: "100%",
               }}
             >
-              <button
-                type="button"
-                onClick={handleDownloadTranscript}
+              <div
                 style={{
-                  padding: "0 22px",
-                  height: 46,
-                  borderRadius: 14,
-                  border: "1px solid rgba(148, 163, 184, 0.3)",
-                  background: "rgba(59, 130, 246, 0.18)",
-                  color: "#e2e8f0",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  minWidth: 200,
-                  transition: "background .18s ease, color .18s ease, opacity .18s ease",
+                  gap: 12,
                 }}
               >
-                Download transcript
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTranscript}
+                  style={{
+                    padding: "0 22px",
+                    height: 46,
+                    borderRadius: 14,
+                    border: "1px solid rgba(148, 163, 184, 0.3)",
+                    background: "rgba(59, 130, 246, 0.18)",
+                    color: "#e2e8f0",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 200,
+                    transition:
+                      "background .18s ease, color .18s ease, opacity .18s ease",
+                  }}
+                >
+                  Download transcript
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetChat}
+                  style={{
+                    padding: "0 22px",
+                    height: 46,
+                    borderRadius: 14,
+                    border: "1px solid rgba(148, 163, 184, 0.3)",
+                    background: "rgba(30, 41, 59, 0.65)",
+                    color: "#e2e8f0",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 200,
+                    transition:
+                      "background .18s ease, color .18s ease, opacity .18s ease",
+                  }}
+                >
+                  Start new chat
+                </button>
+              </div>
             </div>
           ) : (
             <div
@@ -666,95 +826,68 @@ export default function DialogueText({
           )}
         </div>
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void handleSend();
-          }}
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: 12,
-            background: "rgba(14, 21, 36, 0.9)",
-            borderRadius: 16,
-            border: "1px solid rgba(148, 163, 184, 0.25)",
-            padding: "10px 12px",
-            marginTop: "auto",
-          }}
-        >
-          <textarea
-            ref={draftInputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                void handleSend();
-              }
+        {!hasEndedCall ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSend();
             }}
-            placeholder="Type your question…"
-            aria-label="Type your question"
-            rows={1}
-            style={{
-              flex: 1,
-              minHeight: MIN_TEXTAREA_HEIGHT,
-              resize: "none",
-              border: "none",
-              outline: "none",
-              fontSize: 14,
-              lineHeight: 1.5,
-              color: "#e2e8f0",
-              background: "transparent",
-              overflow: "hidden",
-            }}
-          />
-          <div
             style={{
               display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "nowrap",
+              alignItems: "flex-end",
+              gap: 12,
+              background: "rgba(14, 21, 36, 0.9)",
+              borderRadius: 16,
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              padding: "10px 12px",
+              marginTop: "auto",
             }}
           >
-            <button
-              type="submit"
-              disabled={sendDisabled || !draft.trim()}
+            <textarea
+              ref={draftInputRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void handleSend();
+                }
+              }}
+              placeholder="Type your question…"
+              aria-label="Type your question"
+              rows={1}
               style={{
-                padding: "0 16px",
-                height: 42,
-                borderRadius: 12,
-                border: "1px solid rgba(59, 130, 246, 0.45)",
-                background: sendDisabled ? "rgba(148, 163, 184, 0.2)" : buttonColor,
-                color: sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor,
-                cursor: sendDisabled ? "not-allowed" : "pointer",
-                fontWeight: 600,
-                display: "inline-flex",
+                flex: 1,
+                minHeight: MIN_TEXTAREA_HEIGHT,
+                resize: "none",
+                border: "none",
+                outline: "none",
+                fontSize: 14,
+                lineHeight: 1.5,
+                color: "#e2e8f0",
+                background: "transparent",
+                overflow: "hidden",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                minWidth: 110,
-                transition:
-                  "background .18s ease, color .18s ease, opacity .18s ease",
+                gap: 10,
+                flexWrap: "nowrap",
               }}
             >
-              {sendDisabled ? "Sending…" : "Send"}
-            </button>
-            {phase === "connected" && (
               <button
-                type="button"
-                onClick={() => {
-                  void handleEndCall();
-                }}
-                disabled={isEnding}
+                type="submit"
+                disabled={sendDisabled || !draft.trim()}
                 style={{
-                  padding: "0 14px",
+                  padding: "0 16px",
                   height: 42,
                   borderRadius: 12,
-                  border: "1px solid rgba(148, 163, 184, 0.35)",
-                  background: isEnding
-                    ? "rgba(30, 41, 59, 0.35)"
-                    : "rgba(30, 41, 59, 0.85)",
-                  color: isEnding ? "rgba(226, 232, 240, 0.6)" : "#e2e8f0",
-                  cursor: isEnding ? "not-allowed" : "pointer",
+                  border: "1px solid rgba(59, 130, 246, 0.45)",
+                  background: sendDisabled ? "rgba(148, 163, 184, 0.2)" : buttonColor,
+                  color: sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor,
+                  cursor: sendDisabled ? "not-allowed" : "pointer",
                   fontWeight: 600,
                   display: "inline-flex",
                   alignItems: "center",
@@ -764,11 +897,40 @@ export default function DialogueText({
                     "background .18s ease, color .18s ease, opacity .18s ease",
                 }}
               >
-                {isEnding ? "Ending…" : "End call"}
+                {sendDisabled ? "Sending…" : "Send"}
               </button>
-            )}
-          </div>
-        </form>
+              {phase === "connected" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleEndCall();
+                  }}
+                  disabled={isEnding}
+                  style={{
+                    padding: "0 14px",
+                    height: 42,
+                    borderRadius: 12,
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    background: isEnding
+                      ? "rgba(30, 41, 59, 0.35)"
+                      : "rgba(30, 41, 59, 0.85)",
+                    color: isEnding ? "rgba(226, 232, 240, 0.6)" : "#e2e8f0",
+                    cursor: isEnding ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 110,
+                    transition:
+                      "background .18s ease, color .18s ease, opacity .18s ease",
+                  }}
+                >
+                  {isEnding ? "Ending…" : "End call"}
+                </button>
+              ) : null}
+            </div>
+          </form>
+        ) : null}
 
         {err ? (
           <div style={{ color: "#fca5a5", fontSize: 13 }}>{err}</div>
@@ -777,3 +939,5 @@ export default function DialogueText({
     </div>
   );
 }
+const CHAT_PROMPT_TEMPLATE =
+  "You are assuming the role of customer persona who the user is having a conversation with. Your role is to produce hyper-realistic responses, emotions and views using what's in your knowledge base. Analyse the documents and links in your knowledge base to act as your brain, and to generate highly realistic, human reactions to the user's questions and proposals. As well as the documents in your knowledge base, here are the critical details about your persona: Name:{{agent_name}}; Key traits:{{key_traits}}; Intent Signals:{{intent_signals}}; Customer Status:{{customer_status}}; Key Pain Points:{{key_pain_points}}. Be direct and ask deep contextual questions based on what's in your knowledge base. Always try to provide justification for your responses using the data that's in your knowledge base. Don't be afraid to push back on responses and ask strings of follow up questions, just as a real customer would. The user might have a presentation document up in front of them on the screen during your interview, so it's very helpful if you can reference which page or part of the document you're referencing at the start of your responses. Be assertive in how you engage with the user. For example, instead of asking “Do you want to focus on X or Y next?”, you should say “Now let’s move on to X”. Regularly refer to specific text or references from the documents during the session. But do not mention their \"script\". Once the user has completed the interview, thank them for their time and end the call.   CRITICAL RULES: - Never, for any reason, generate responses or reactions that don't align with the script's text. You can provide factual explanations and definitions to help the user. But always guide them back to the session's focus based on the script's text. User ID:{{user_id}}. Research Type:{{research_type}}.";

@@ -27,6 +27,14 @@ type CreateDialoguePayload = {
   briefingEndedAt?: number | null;
 };
 
+function decodeSlug(rawSlug: string): string {
+  try {
+    return decodeURIComponent(rawSlug);
+  } catch {
+    return rawSlug;
+  }
+}
+
 function decodeDataUrl(dataUrl: string) {
   const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
   if (!match) {
@@ -53,28 +61,73 @@ export async function POST(req: Request) {
     const { clientSlug, docs, purpose, audienceType, briefingConversationId, briefingEndedAt } = body;
 
     if (!clientSlug) {
-      return NextResponse.json({ error: 'Missing profile identifier' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing workspace identifier' }, { status: 400 });
     }
 
     const docsArray: IncomingDoc[] = Array.isArray(docs) ? docs : [];
 
+    const decodedSlug = decodeSlug(clientSlug);
+
+    let clientRecord: { id: number; name?: string | null; display_name?: string | null } | null = null;
+    let clientLookupError: unknown = null;
+
+    const trimmedSlug = decodedSlug.trim();
+    if (trimmedSlug.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('clients')
+        .select('id, name, display_name')
+        .eq('id', trimmedSlug)
+        .maybeSingle();
+      if (data) {
+        clientRecord = data;
+      } else if (error) {
+        clientLookupError = error;
+      }
+    }
+
+    if (!clientRecord && trimmedSlug.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('clients')
+        .select('id, name, display_name')
+        .eq('name', trimmedSlug)
+        .maybeSingle();
+      if (data) {
+        clientRecord = data;
+      } else if (error) {
+        clientLookupError = error;
+      }
+    }
+
+    if (!clientRecord) {
+      if (clientLookupError) {
+        console.error('[CreateDialogue] Failed to resolve workspace', clientLookupError);
+      }
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
+    }
+
+    const clientId = clientRecord.id;
+
+    const { data: profileCandidates, error: ownerLookupError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (ownerLookupError) {
+      console.warn('[CreateDialogue] Unable to locate workspace owner profile', ownerLookupError);
+    }
+
+    const ownerProfileId = profileCandidates?.[0]?.id ?? null;
+
     console.log('[CreateDialogue] incoming payload', {
-      clientSlug,
+      clientSlug: decodedSlug,
+      clientId,
       docsCount: docsArray.length,
       hasPurpose: Boolean(purpose),
       hasBriefing: Boolean(briefingConversationId),
       hasBriefingEndedAt: Boolean(briefingEndedAt),
     });
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', clientSlug)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-    }
 
     agentId = randomUUID();
     const primaryDoc = docsArray[0];
@@ -84,19 +137,25 @@ export async function POST(req: Request) {
       primaryDoc?.agent_name ??
       (key ? `Persona ${key.slice(0, 6)}` : 'Persona');
 
+    const insertPayload: Record<string, unknown> = {
+      agent_id: agentId,
+      client_id: clientId,
+      key,
+      agent_name: derivedAgentName,
+      created_at: nowIso,
+      description: purpose ?? null,
+      audience_type: audienceType ?? null,
+      briefing_conversation_id: briefingConversationId ?? null,
+    };
+
+    if (ownerProfileId) {
+      insertPayload.user_id = ownerProfileId;
+    }
+
     const { error: createAgentError } = await supabaseAdmin
       .from('agent_map')
       .insert([
-        {
-          agent_id: agentId,
-          user_id: profile.id,
-          key,
-          agent_name: derivedAgentName,
-          created_at: nowIso,
-          description: purpose ?? null,
-          audience_type: audienceType ?? null,
-          briefing_conversation_id: briefingConversationId ?? null,
-        } as any,
+        insertPayload as any,
       ]);
 
     if (createAgentError) {
@@ -134,8 +193,8 @@ export async function POST(req: Request) {
       }
 
       const { buffer, mimeType } = decodeDataUrl(doc.dataUrl);
-      const fileName = safeFileName(doc.fileName || `file-${randomUUID()}`);
-      const storagePath = `clients/${clientSlug}/${agentId}/${fileName}`;
+    const fileName = safeFileName(doc.fileName || `file-${randomUUID()}`);
+    const storagePath = `clients/${clientId}/${agentId}/${fileName}`;
 
       const { error: uploadError } = await supabaseAdmin.storage
         .from('docs')

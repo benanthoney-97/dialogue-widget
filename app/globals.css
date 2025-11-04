@@ -27,6 +27,9 @@
   --text: #052033; /* dark text */
   --muted: #6b7280; /* muted text */
   --danger: #ff4d6d;
+  --sidebar-width-expanded: 180px;
+  --sidebar-width-collapsed: 64px;
+  --sidebar-width: var(--sidebar-width-expanded);
 }
 
 @theme inline {

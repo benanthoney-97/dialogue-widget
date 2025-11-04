@@ -68,20 +68,26 @@ export default function FullscreenModal({
 
   if (!open) return null;
 
+  const anchorStyles =
+    anchorRect !== null
+      ? {
+          top: 0,
+          left: Math.max(anchorRect.left, 0),
+          width:
+            typeof window !== "undefined"
+              ? Math.min(anchorRect.width, window.innerWidth)
+              : anchorRect.width,
+          height: "100vh" as const,
+        }
+      : { inset: 0 as const };
+
   return (
     <div
       role="presentation"
       onClick={onCloseAction}
       style={{
         position: "fixed",
-        ...(anchorRect
-          ? {
-              top: anchorRect.top,
-              left: anchorRect.left,
-              width: anchorRect.width,
-              height: anchorRect.height,
-            }
-          : { inset: 0 }),
+        ...anchorStyles,
         zIndex: 1000,
         // Use theme accent for a subtle translucent backdrop; fallback keeps previous behaviour.
         background: "rgba(var(--accent-rgb, 43,108,176), 0.08)",

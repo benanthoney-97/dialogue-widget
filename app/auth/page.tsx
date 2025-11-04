@@ -69,18 +69,26 @@ export default function AuthPage() {
         try {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("default_agent_id")
+            .select("client_id, default_agent_id")
             .eq("id", userId)
             .maybeSingle();
+          const clientIdValue =
+            profile?.client_id !== null && profile?.client_id !== undefined
+              ? String(profile.client_id)
+              : null;
           const defaultAgentId = profile?.default_agent_id as string | null | undefined;
-          if (defaultAgentId) {
+          if (clientIdValue) {
+            destination = `/client/${clientIdValue}/personas`;
+          }
+          if (clientIdValue && defaultAgentId) {
             const { data: agentRow } = await supabase
               .from("agent_map")
               .select("key")
               .eq("agent_id", defaultAgentId)
+              .eq("client_id", clientIdValue)
               .maybeSingle();
             if (agentRow?.key) {
-              destination = `/client/${userId}/documents/${agentRow.key}`;
+              destination = `/client/${clientIdValue}/documents/${agentRow.key}`;
             }
           }
         } catch {

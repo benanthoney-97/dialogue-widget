@@ -326,7 +326,13 @@ export default function UploadPage() {
   function getClientSlug(pathname: string | null): string {
     if (!pathname) return "";
     const match = pathname.match(/^\/client\/([^\/]+)/);
-    return match ? match[1] : "";
+    if (!match) return "";
+    const rawSlug = match[1];
+    try {
+      return decodeURIComponent(rawSlug);
+    } catch {
+      return rawSlug;
+    }
   }
   const clientSlug = getClientSlug(pathname);
   async function handleSubmit(e: React.FormEvent) {
@@ -1123,7 +1129,7 @@ export default function UploadPage() {
             flex-direction: row;
           }
           .upload-layout__sidebar {
-            width: 180px;
+            width: var(--sidebar-width);
             flex-shrink: 0;
           }
           .upload-layout__content {

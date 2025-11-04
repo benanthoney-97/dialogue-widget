@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import { supabase } from "@/app/lib/supabaseClient";
@@ -12,7 +12,7 @@ function getClientSlug(pathname: string | null): string {
 }
 
 type StagePanelProps = {
-  heading: string;
+  heading?: string;
   subheading?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
@@ -28,7 +28,7 @@ function StagePanel({ heading, subheading, leading, trailing, footer, children }
         <header className="stage-panel__header">
           {leading ? <div className="stage-panel__leading">{leading}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
           <div className="stage-panel__titles">
-            <h2>{heading}</h2>
+            {heading ? <h2>{heading}</h2> : null}
             {subheading ? <p>{subheading}</p> : null}
           </div>
           {trailing ? <div className="stage-panel__trailing">{trailing}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
@@ -49,57 +49,418 @@ export default function TeamsPage() {
   const [inviteFeedback, setInviteFeedback] = useState<
     { type: "success" | "error"; message: string }
   >();
-
-  const members = useMemo(
-    () => [
-      {
-        id: "m-1",
-        name: "Alex Morgan",
-        email: "alex.morgan@example.com",
-        role: "admin",
-        status: "Active",
-        joinedAt: "10 Oct 2025",
-      },
-      {
-        id: "m-2",
-        name: "Priya Kapoor",
-        email: "priya.kapoor@example.com",
-        role: "owner",
-        status: "Active",
-        joinedAt: "14 Oct 2025",
-      },
-      {
-        id: "m-3",
-        name: "Javier Ruiz",
-        email: "javier.ruiz@example.com",
-        role: "viewer",
-        status: "Active",
-        joinedAt: "22 Oct 2025",
-      },
-    ],
-    []
-  );
-
-  const pendingInvites = useMemo(
-    () => [
-      {
-        id: "i-1",
-        email: "casey.todd@example.com",
-        role: "viewer",
-        invitedAt: "28 Oct 2025",
-        expiresAt: "Expires 11 Nov",
-      },
-    ],
-    []
-  );
-
+  const [members, setMembers] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+      joinedAt: string;
+    }>
+  >([]);
+  const [pendingInvites, setPendingInvites] = useState<
+    Array<{
+      id: string;
+      email: string;
+      role: string;
+      invitedAt: string;
+      expiresAt: string;
+      status: string;
+    }>
+  >([]);
+  const [loadingTeam, setLoadingTeam] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+  const [memberPendingRemoval, setMemberPendingRemoval] = useState<{
+    id: string;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
+  const [roleEditTarget, setRoleEditTarget] = useState<{ id: string; role: string } | null>(null);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const roleSelectRef = useRef<HTMLSelectElement | null>(null);
   const totalActive = members.length;
-  const totalPending = pendingInvites.length;
+  const totalPending = pendingInvites.filter((invite) => invite.status === "pending").length;
+  const totalAdmins = members.filter((member) => member.role === "admin").length;
   const showRoleSelect = inviteEmail.trim().length > 0;
+  const roleOptions = ["admin", "owner", "viewer"] as const;
+
+  const formatDate = useCallback((value: string | null | undefined) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, []);
+
+  const formatExpiry = useCallback((value: string | null | undefined) => {
+    if (!value) return "No expiry";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "No expiry";
+    return `Expires ${date.toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "short",
+    })}`;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchProfileRole() {
+      if (!clientSlug) {
+        if (!isMounted) return;
+        setProfileRole(null);
+        setProfileLoadError("Workspace not found");
+        setProfileReady(true);
+        return;
+      }
+      if (isMounted) {
+        setProfileReady(false);
+        setProfileLoadError(null);
+      }
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        if (userError) {
+          setProfileRole(null);
+          setProfileLoadError(userError.message ?? "Unable to load session");
+          return;
+        }
+        const user = userData?.user;
+        if (!user) {
+          setProfileRole(null);
+          setProfileLoadError("You must be signed in");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, client_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!isMounted) return;
+        if (profileError || !profile) {
+          setProfileRole(null);
+          setProfileLoadError(profileError?.message ?? "Profile not found");
+          return;
+        }
+        if (profile.client_id !== clientSlug) {
+          setProfileRole(null);
+          setProfileLoadError("This workspace is unavailable");
+          return;
+        }
+        setProfileLoadError(null);
+        setProfileRole(typeof profile.role === "string" ? profile.role : null);
+      } catch (error) {
+        if (!isMounted) return;
+        setProfileRole(null);
+        setProfileLoadError(error instanceof Error ? error.message : "Failed to load profile");
+      } finally {
+        if (isMounted) {
+          setProfileReady(true);
+        }
+      }
+    }
+
+    void fetchProfileRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clientSlug]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchTeam() {
+      if (!profileReady) {
+        return;
+      }
+      if (profileLoadError) {
+        if (!isMounted) return;
+        setLoadingTeam(false);
+        setTeamError(null);
+        setMembers([]);
+        setPendingInvites([]);
+        setWorkspaceName(null);
+        return;
+      }
+      if (!clientSlug) {
+        if (isMounted) {
+          setTeamError("Workspace not found");
+          setMembers([]);
+          setPendingInvites([]);
+          setWorkspaceName(null);
+        }
+        return;
+      }
+      if (isMounted) {
+        setLoadingTeam(true);
+        setTeamError(null);
+      }
+      try {
+        const { data: clientRows, error: clientError } = await supabase
+          .from("clients")
+          .select("id, display_name, name")
+          .eq("id", clientSlug)
+          .limit(1);
+        if (!isMounted) return;
+        let clientRecord = (clientRows?.[0] as { id: string; display_name: string | null; name: string | null } | undefined) ?? null;
+        if (clientError) {
+          console.error("[Teams] Unable to load workspace record", clientError);
+        }
+        if (!clientRecord) {
+          const { data: clientByNameRows, error: clientByNameError } = await supabase
+              .from("clients")
+              .select("id, display_name, name")
+              .eq("name", clientSlug)
+              .limit(1);
+          if (!isMounted) return;
+          if (clientByNameError) {
+            console.error("[Teams] Unable to load workspace by name", clientByNameError);
+          }
+          clientRecord =
+            (clientByNameRows?.[0] as { id: string; display_name: string | null; name: string | null } | undefined) ??
+            null;
+          if (!clientRecord) {
+            setTeamError((prev) => prev ?? "Workspace not found");
+          }
+        }
+
+        const resolvedClientId = clientRecord?.id ?? clientSlug;
+        setWorkspaceName(clientRecord?.display_name ?? clientRecord?.name ?? null);
+
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, email, display_name, role, created_at")
+          .eq("client_id", resolvedClientId)
+          .order("created_at", { ascending: true });
+
+        if (!isMounted) return;
+        if (profileError) {
+          setTeamError("Unable to load team members");
+          setMembers([]);
+        } else {
+          const formattedMembers = (profileRows ?? []).map((row) => {
+            const name = row.display_name?.trim() || row.email?.trim() || "Member";
+            return {
+              id: row.id,
+              name,
+              email: row.email ?? "",
+              role: row.role ?? "viewer",
+              status: "Active",
+              joinedAt: formatDate(row.created_at) || "",
+            };
+          });
+          setMembers(formattedMembers);
+          if (!clientRecord && formattedMembers.length > 0) {
+            setWorkspaceName(formattedMembers[0].name ? `${formattedMembers[0].name}'s workspace` : null);
+          }
+        }
+
+        const { data: inviteRows, error: inviteError } = await supabase
+          .from("team_invites")
+          .select("id, email, role, status, created_at, expires_at")
+          .eq("client_id", resolvedClientId)
+          .order("created_at", { ascending: false });
+
+        if (!isMounted) return;
+        if (inviteError) {
+          setPendingInvites([]);
+          if (!teamError) {
+            setTeamError("Unable to load invitations");
+          }
+        } else {
+          const formattedInvites = (inviteRows ?? [])
+            .filter((invite) => (invite.status ?? "pending") !== "accepted")
+            .map((invite) => ({
+              id: invite.id,
+              email: invite.email,
+              role: invite.role,
+              status: invite.status ?? "pending",
+              invitedAt: formatDate(invite.created_at) || "",
+              expiresAt: formatExpiry(invite.expires_at ?? null),
+            }));
+          setPendingInvites(formattedInvites);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        setTeamError("Failed to load workspace data");
+        console.error("[Teams] Failed to load team data", error);
+        setMembers([]);
+        setPendingInvites([]);
+      } finally {
+        if (isMounted) {
+          setLoadingTeam(false);
+        }
+      }
+    }
+
+    void fetchTeam();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clientSlug, refreshToken, formatDate, formatExpiry, profileReady, profileRole, profileLoadError]);
+  const canManageTeam = profileReady && !profileLoadError && profileRole !== "viewer";
+  const handleRequestRemoveMember = useCallback(
+    (member: { id: string; name: string; email: string }) => {
+      if (!canManageTeam) return;
+      setMemberActionError(null);
+      setMemberPendingRemoval(member);
+    },
+    [canManageTeam],
+  );
+
+  const handleCancelRemoveMember = useCallback(() => {
+    if (isRemovingMember) return;
+    setMemberPendingRemoval(null);
+    setMemberActionError(null);
+    setRoleEditTarget(null);
+    roleSelectRef.current = null;
+  }, [isRemovingMember]);
+
+  const handleConfirmRemoveMember = useCallback(async () => {
+    if (!memberPendingRemoval) return;
+    setIsRemovingMember(true);
+    setMemberActionError(null);
+    try {
+      const adminMembers = members.filter((member) => member.role === "admin");
+      const isRemovingOnlyAdmin =
+        adminMembers.length === 1 && adminMembers[0]?.id === memberPendingRemoval.id;
+      if (isRemovingOnlyAdmin) {
+        setMemberActionError("Each workspace must always have at least one admin.");
+        setIsRemovingMember(false);
+        return;
+      }
+      const { error } = await supabase.from("profiles").delete().eq("id", memberPendingRemoval.id);
+      if (error) throw error;
+      setMembers((existing) => existing.filter((member) => member.id !== memberPendingRemoval.id));
+      setMemberPendingRemoval(null);
+      setRefreshToken((token) => token + 1);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to remove team member. Please try again.";
+      setMemberActionError(message);
+    } finally {
+      setIsRemovingMember(false);
+    }
+  }, [memberPendingRemoval, members]);
+
+  const handleStartEditRole = useCallback(
+    (member: { id: string; role: string }) => {
+      if (!canManageTeam || isUpdatingRole) return;
+      setMemberActionError(null);
+      setRoleEditTarget({ id: member.id, role: member.role });
+      roleSelectRef.current = null;
+    },
+    [canManageTeam, isUpdatingRole],
+  );
+
+  const handleRoleSelectChange = useCallback(
+    async (memberId: string, nextRole: string) => {
+      if (!canManageTeam) return;
+      const currentRole =
+        members.find((member) => member.id === memberId)?.role ??
+        (roleEditTarget?.id === memberId ? roleEditTarget.role : "viewer");
+      if (profileRole !== "admin" && nextRole === "admin" && currentRole !== "admin") {
+        setMemberActionError("Only admins can assign the admin role.");
+        setRoleEditTarget({ id: memberId, role: currentRole });
+        return;
+      }
+      const adminMembers = members.filter((member) => member.role === "admin");
+      const currentIsAdmin = currentRole === "admin";
+      const isDemotingSoleAdmin =
+        currentIsAdmin &&
+        adminMembers.length === 1 &&
+        adminMembers[0]?.id === memberId &&
+        nextRole !== "admin";
+      if (isDemotingSoleAdmin) {
+        setMemberActionError("You need at least one admin in this workspace.");
+        setRoleEditTarget({ id: memberId, role: currentRole });
+        return;
+      }
+      setRoleEditTarget({ id: memberId, role: nextRole });
+      setIsUpdatingRole(true);
+      setMemberActionError(null);
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ role: nextRole })
+          .eq("id", memberId);
+        if (error) throw error;
+        setMembers((existing) =>
+          existing.map((member) =>
+            member.id === memberId ? { ...member, role: nextRole } : member,
+          ),
+        );
+        setRoleEditTarget(null);
+        roleSelectRef.current = null;
+        setRefreshToken((token) => token + 1);
+      } catch (error) {
+        const fallbackRole =
+          members.find((member) => member.id === memberId)?.role ??
+          (roleEditTarget?.id === memberId ? roleEditTarget.role : "viewer");
+        setRoleEditTarget({ id: memberId, role: fallbackRole });
+        const message =
+          error instanceof Error ? error.message : "Unable to update role. Please try again.";
+        setMemberActionError(message);
+      } finally {
+        setIsUpdatingRole(false);
+      }
+    },
+    [canManageTeam, members, roleEditTarget, profileRole],
+  );
+
+  useEffect(() => {
+    if (!roleEditTarget || !canManageTeam) return;
+    const select = roleSelectRef.current;
+    if (!select) return;
+    const openPicker = () => {
+      select.focus({ preventScroll: true });
+      if (typeof select.showPicker === "function") {
+        try {
+          select.showPicker();
+          return;
+        } catch {
+          // ignore failures, fall back below
+        }
+      }
+      // Fallback: trigger a mousedown to hint the dropdown should open.
+      const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+      select.dispatchEvent(event);
+    };
+    const frame = requestAnimationFrame(openPicker);
+    return () => cancelAnimationFrame(frame);
+  }, [roleEditTarget, canManageTeam]);
+
+  useEffect(() => {
+    if (!memberPendingRemoval) return;
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCancelRemoveMember();
+      }
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, [memberPendingRemoval, handleCancelRemoveMember]);
 
   const handleInviteSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!inviteEmail.trim()) return;
+    if (!canManageTeam) {
+      setInviteFeedback({ type: "error", message: "You don't have permission to manage invites." });
+      return;
+    }
     setIsSubmittingInvite(true);
     setInviteFeedback(undefined);
     try {
@@ -169,6 +530,7 @@ export default function TeamsPage() {
       setInviteFeedback({ type: "success", message: "Invite sent." });
       setInviteEmail("");
       setInviteRole("viewer");
+      setRefreshToken((token) => token + 1);
       console.log("Invite teammate success");
     } catch (error) {
       const message =
@@ -187,126 +549,272 @@ export default function TeamsPage() {
       </aside>
       <div className="stage-layout__content">
         <div className="stage-shell">
-          <StagePanel
-            heading="Team workspace"
-            subheading="Manage members, invitations, and roles for your Dialogue team."
-          >
-            <form className="teams-invite" onSubmit={handleInviteSubmit}>
-              <div className="teams-invite__input">
-                <input
-                  type="email"
-                  placeholder="Enter teammate email"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  required
-                  autoComplete="off"
-                />
-                {showRoleSelect ? (
-                  <select
-                    value={inviteRole}
-                    onChange={(event) => setInviteRole(event.target.value)}
-                    className="teams-invite__role"
-                    aria-label="Permission level"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="owner">Owner</option>
-                    <option value="viewer">Viewer</option>
-                  </select>
-                ) : null}
+          <StagePanel>
+            {!profileReady ? (
+              <div className="teams-feedback teams-feedback--info" role="status">
+                Checking your permissions…
               </div>
-              <button type="submit" className="teams-invite__submit" disabled={isSubmittingInvite}>
-                {isSubmittingInvite ? "Sending…" : "Invite"}
-              </button>
-            </form>
-
-            <div className="teams-table">
-              <header className="teams-table__header">
-                <div>
-                  <h3>Team members</h3>
-                  <p>{totalActive} active · {totalPending} pending</p>
-                </div>
-              </header>
-              {inviteFeedback ? (
-                <div
-                  className={`teams-feedback teams-feedback--${inviteFeedback.type}`}
-                  role="status"
-                >
-                  {inviteFeedback.message}
-                </div>
-              ) : null}
-              <div className="teams-table__grid" role="table" aria-label="Team members">
-                <div className="teams-table__row teams-table__row--head" role="row">
-                  <div role="columnheader">Member</div>
-                  <div role="columnheader">Role</div>
-                  <div role="columnheader">Status</div>
-                  <div role="columnheader">Joined</div>
-                  <div role="columnheader" aria-label="Actions" />
-                </div>
-                {members.map((member) => (
-                  <div key={member.id} className="teams-table__row" role="row">
-                    <div role="cell" data-label="Member">
-                      <div className="teams-member">
-                        <div className="teams-member__avatar" aria-hidden="true">
-                          {member.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="teams-member__details">
-                          <span className="teams-member__name">{member.name}</span>
-                          <span className="teams-member__email">{member.email}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div role="cell" data-label="Role">
-                      <span className={`teams-badge teams-badge--${member.role}`}>
-                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                      </span>
-                    </div>
-                    <div role="cell" data-label="Status">
-                      <span className="teams-status teams-status--active">{member.status}</span>
-                    </div>
-                    <div role="cell" data-label="Joined">{member.joinedAt}</div>
-                    <div role="cell" data-label="Actions">
-                      <button type="button" className="teams-action" aria-label={`Manage ${member.name}`}>
-                        •••
-                      </button>
-                    </div>
+            ) : profileLoadError ? (
+              <div className="teams-feedback teams-feedback--error" role="alert">
+                {profileLoadError}
+              </div>
+            ) : (
+              <>
+                {!canManageTeam ? (
+                  <div className="teams-feedback teams-feedback--info" role="status">
+                    Ask an admin if you need access to manage team members.
                   </div>
-                ))}
-
-                {totalPending > 0 ? (
-                  <div className="teams-table__section" role="rowgroup">
-                    <div className="teams-table__section-title" role="row">
-                      <div role="cell" className="teams-table__section-label">Pending invites</div>
+                ) : null}
+                <header className="teams-table__header teams-table__header--summary">
+                  <div>
+                    <h3>Team members{workspaceName ? ` · ${workspaceName}` : ""}</h3>
+                    <p>
+                      {loadingTeam ? "Loading team…" : `${totalActive} active · ${totalPending} pending`}
+                    </p>
+                  </div>
+                </header>
+                {canManageTeam ? (
+                  <form className="teams-invite" onSubmit={handleInviteSubmit}>
+                    <div className="teams-invite__input">
+                      <input
+                        type="email"
+                        placeholder="Enter teammate email"
+                        value={inviteEmail}
+                        onChange={(event) => setInviteEmail(event.target.value)}
+                        required
+                        autoComplete="off"
+                      />
+                      {showRoleSelect ? (
+                        <select
+                          value={inviteRole}
+                          onChange={(event) => setInviteRole(event.target.value)}
+                          className="teams-invite__role"
+                          aria-label="Permission level"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="owner">Owner</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                      ) : null}
                     </div>
-                    {pendingInvites.map((invite) => (
-                      <div key={invite.id} className="teams-table__row teams-table__row--pending" role="row">
-                        <div role="cell" data-label="Invite">
+                    <button type="submit" className="teams-invite__submit" disabled={isSubmittingInvite}>
+                      {isSubmittingInvite ? "Sending…" : "Invite"}
+                    </button>
+                  </form>
+                ) : null}
+
+                <div className="teams-table">
+                  {canManageTeam && inviteFeedback ? (
+                    <div
+                      className={`teams-feedback teams-feedback--${inviteFeedback.type}`}
+                      role="status"
+                    >
+                      {inviteFeedback.message}
+                    </div>
+                  ) : null}
+                  {teamError ? (
+                    <div className="teams-feedback teams-feedback--error" role="alert">
+                      {teamError}
+                    </div>
+                  ) : null}
+                  {memberActionError && !memberPendingRemoval ? (
+                    <div className="teams-feedback teams-feedback--error" role="alert">
+                      {memberActionError}
+                    </div>
+                  ) : null}
+                  <div
+                    className={`teams-table__grid${canManageTeam ? "" : " teams-table__grid--readonly"}`}
+                    role="table"
+                    aria-label="Team members"
+                  >
+                    <div className="teams-table__row teams-table__row--head" role="row">
+                      <div role="columnheader">Member</div>
+                      <div role="columnheader">Role</div>
+                      <div role="columnheader">Status</div>
+                      <div role="columnheader">Joined</div>
+                      {canManageTeam ? (
+                        <div role="columnheader" aria-label="Actions" />
+                      ) : (
+                        <div role="columnheader" aria-hidden="true" />
+                      )}
+                    </div>
+                    {members.map((member) => (
+                      <div key={member.id} className="teams-table__row" role="row">
+                        <div role="cell" data-label="Member">
                           <div className="teams-member">
-                            <div className="teams-member__avatar teams-member__avatar--pending" aria-hidden="true">@</div>
+                            <div className="teams-member__avatar" aria-hidden="true">
+                              {member.name.charAt(0).toUpperCase()}
+                            </div>
                             <div className="teams-member__details">
-                              <span className="teams-member__name">{invite.email}</span>
-                              <span className="teams-member__email">Sent {invite.invitedAt}</span>
+                              <span className="teams-member__name">{member.name}</span>
+                              <span className="teams-member__email">{member.email}</span>
                             </div>
                           </div>
                         </div>
-                        <div role="cell" data-label="Role">
-                          <span className={`teams-badge teams-badge--${invite.role}`}>
-                            {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
-                          </span>
+                        <div role="cell" data-label="Role" className="teams-role-cell">
+                          {(() => {
+                            const isSoleAdminRow = totalAdmins === 1 && member.role === "admin";
+                            const isEditingRole = canManageTeam && roleEditTarget?.id === member.id;
+                            if (isEditingRole) {
+                              return (
+                                <select
+                                  className="teams-role-select"
+                                  value={roleEditTarget.role}
+                                  onChange={(event) => handleRoleSelectChange(member.id, event.target.value)}
+                                  onBlur={() => {
+                                    if (!isUpdatingRole) {
+                                      setRoleEditTarget(null);
+                                      roleSelectRef.current = null;
+                                    }
+                                  }}
+                                  disabled={isUpdatingRole}
+                                  ref={roleSelectRef}
+                                >
+                                  {roleOptions.map((option) => {
+                                    const disableNonAdminPromotion =
+                                      profileRole !== "admin" &&
+                                      option === "admin" &&
+                                      roleEditTarget?.role !== "admin";
+                                    const disableSoleAdminDemotion =
+                                      isSoleAdminRow && option !== "admin";
+                                    const disableOption = disableNonAdminPromotion || disableSoleAdminDemotion;
+                                    return (
+                                      <option key={option} value={option} disabled={disableOption}>
+                                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                className={`teams-role-chip teams-badge teams-badge--${member.role}${canManageTeam ? " teams-role-chip--editable" : ""}`}
+                                onClick={canManageTeam ? () => handleStartEditRole(member) : undefined}
+                                disabled={!canManageTeam || isUpdatingRole}
+                                aria-disabled={!canManageTeam || isUpdatingRole}
+                              >
+                                <span className="teams-role-chip__label">
+                                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                </span>
+                                {canManageTeam ? (
+                                  <span className="teams-role-chip__icon" aria-hidden="true">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })()}
                         </div>
                         <div role="cell" data-label="Status">
-                          <span className="teams-status teams-status--pending">Pending</span>
+                          <span className="teams-status teams-status--active">{member.status}</span>
                         </div>
-                        <div role="cell" data-label="Expiry">{invite.expiresAt}</div>
-                        <div role="cell" data-label="Actions" className="teams-invite-actions">
-                          <button type="button" className="teams-action teams-action--secondary">Resend</button>
-                          <button type="button" className="teams-action teams-action--danger">Revoke</button>
-                        </div>
+                        <div role="cell" data-label="Joined">{member.joinedAt}</div>
+                        {canManageTeam ? (
+                          <div role="cell" data-label="Actions">
+                            <button
+                              type="button"
+                              className="teams-action"
+                              aria-label={`Manage ${member.name}`}
+                              onClick={() => handleRequestRemoveMember(member)}
+                              disabled={isRemovingMember && memberPendingRemoval?.id === member.id}
+                            >
+                              •••
+                            </button>
+                          </div>
+                        ) : (
+                          <div role="cell" data-label="Actions" aria-hidden="true" />
+                        )}
                       </div>
                     ))}
+
+                    {canManageTeam && pendingInvites.length > 0 ? (
+                      <div className="teams-table__section" role="rowgroup">
+                        <div className="teams-table__section-title" role="row">
+                          <div role="cell" className="teams-table__section-label">Pending invites</div>
+                        </div>
+                        {pendingInvites.map((invite) => (
+                          <div key={invite.id} className="teams-table__row teams-table__row--pending" role="row">
+                            <div role="cell" data-label="Invite">
+                              <div className="teams-member">
+                                <div className="teams-member__avatar teams-member__avatar--pending" aria-hidden="true">@</div>
+                                <div className="teams-member__details">
+                                  <span className="teams-member__name">{invite.email}</span>
+                                  <span className="teams-member__email">Sent {invite.invitedAt}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div role="cell" data-label="Role">
+                              <span className={`teams-badge teams-badge--${invite.role}`}>
+                                {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
+                              </span>
+                            </div>
+                            <div role="cell" data-label="Status">
+                              <span className={`teams-status teams-status--${invite.status === "pending" ? "pending" : "active"}`}>
+                                {invite.status.charAt(0).toUpperCase() + invite.status.slice(1)}
+                              </span>
+                            </div>
+                            <div role="cell" data-label="Expiry">{invite.expiresAt}</div>
+                            <div role="cell" data-label="Actions" className="teams-invite-actions">
+                              <button type="button" className="teams-action teams-action--secondary">Resend</button>
+                              <button type="button" className="teams-action teams-action--danger">Revoke</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {canManageTeam && memberPendingRemoval ? (
+                  <div
+                    className="teams-dialog-backdrop"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="teams-remove-dialog-title"
+                    onClick={handleCancelRemoveMember}
+                  >
+                    <div
+                      className="teams-dialog"
+                      role="document"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <h4 id="teams-remove-dialog-title">Remove team member?</h4>
+                      <p>
+                        Are you sure you want to remove{" "}
+                        <strong>{memberPendingRemoval.name || "this member"}</strong> (
+                        {memberPendingRemoval.email}) from the team?<br />
+                        This action cannot be undone.
+                      </p>
+                      {memberActionError ? (
+                        <div className="teams-dialog__feedback">{memberActionError}</div>
+                      ) : null}
+                      <div className="teams-dialog__actions">
+                        <button
+                          type="button"
+                          className="teams-dialog__button teams-dialog__button--secondary"
+                          onClick={handleCancelRemoveMember}
+                          disabled={isRemovingMember}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="teams-dialog__button teams-dialog__button--danger"
+                          onClick={handleConfirmRemoveMember}
+                          disabled={isRemovingMember}
+                        >
+                          {isRemovingMember ? "Removing…" : "Remove member"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
-              </div>
-            </div>
+              </>
+            )}
           </StagePanel>
         </div>
       </div>
@@ -319,7 +827,7 @@ export default function TeamsPage() {
           flex-direction: row;
         }
         .stage-layout__sidebar {
-          width: 180px;
+          width: var(--sidebar-width);
           flex-shrink: 0;
         }
         .stage-layout__content {
@@ -477,16 +985,29 @@ export default function TeamsPage() {
           color: #b91c1c;
           border: 1px solid rgba(239, 68, 68, 0.32);
         }
+        .teams-feedback--info {
+          background: rgba(59, 130, 246, 0.12);
+          color: #1d4ed8;
+          border: 1px solid rgba(59, 130, 246, 0.28);
+        }
         .teams-table__header h3 {
           margin: 0;
           font-size: 18px;
           font-weight: 700;
           color: #0f172a;
+          text-align: center;
         }
         .teams-table__header p {
           margin: 4px 0 0;
           font-size: 13px;
           color: rgba(15, 23, 42, 0.6);
+          text-align: center;
+        }
+        .teams-table__header--summary {
+          padding: 0 4px;
+          margin-bottom: 4px;
+          display: flex;
+          justify-content: center;
         }
         .teams-table__grid {
           display: flex;
@@ -495,6 +1016,14 @@ export default function TeamsPage() {
           border-radius: 16px;
           overflow: hidden;
           background: rgba(248, 250, 252, 0.92);
+        }
+        .teams-table__grid--readonly .teams-table__row,
+        .teams-table__grid--readonly .teams-table__row--head {
+          grid-template-columns: minmax(240px, 2fr) 120px 120px 120px;
+        }
+        .teams-table__grid--readonly .teams-table__row > [data-label="Actions"],
+        .teams-table__grid--readonly .teams-table__row--head > div:last-child {
+          display: none;
         }
         .teams-table__row {
           display: grid;
@@ -535,6 +1064,84 @@ export default function TeamsPage() {
           color: rgba(15, 23, 42, 0.6);
           padding: 14px 20px;
           border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        .teams-dialog-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.55);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 24px;
+          z-index: 200;
+        }
+        .teams-dialog {
+          background: #0f172a;
+          color: #f8fafc;
+          border-radius: 18px;
+          padding: 28px;
+          width: min(420px, 90%);
+          box-shadow: 0 28px 64px rgba(15, 23, 42, 0.45);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .teams-dialog h4 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: 0.2px;
+        }
+        .teams-dialog p {
+          margin: 0;
+          font-size: 14px;
+          line-height: 1.6;
+          color: rgba(226, 232, 240, 0.9);
+        }
+        .teams-dialog__feedback {
+          background: rgba(239, 68, 68, 0.14);
+          border: 1px solid rgba(239, 68, 68, 0.4);
+          color: #fecaca;
+          padding: 10px 12px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .teams-dialog__actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+        }
+        .teams-dialog__button {
+          padding: 10px 16px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          border: none;
+          transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+        }
+        .teams-dialog__button:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+        .teams-dialog__button--secondary {
+          background: rgba(148, 163, 184, 0.16);
+          color: #e2e8f0;
+          border: 1px solid rgba(148, 163, 184, 0.32);
+        }
+        .teams-dialog__button--secondary:not(:disabled):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 26px rgba(148, 163, 184, 0.26);
+        }
+        .teams-dialog__button--danger {
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+          color: #fef2f2;
+          box-shadow: 0 18px 36px rgba(220, 38, 38, 0.28);
+        }
+        .teams-dialog__button--danger:not(:disabled):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 24px 48px rgba(220, 38, 38, 0.36);
         }
         .teams-table__section-label {
           width: 100%;
@@ -583,6 +1190,48 @@ export default function TeamsPage() {
           font-weight: 700;
           text-transform: capitalize;
         }
+        .teams-role-cell {
+          display: flex;
+          align-items: center;
+          min-height: 32px;
+        }
+        .teams-role-chip {
+          border: none;
+          padding: 6px 12px;
+          cursor: pointer;
+          font: inherit;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+        }
+        .teams-role-chip:focus-visible {
+          outline: 2px solid rgba(59, 130, 246, 0.45);
+          outline-offset: 2px;
+        }
+        .teams-role-chip:disabled {
+          cursor: default;
+          opacity: 0.6;
+        }
+        .teams-role-chip--editable {
+          gap: 6px;
+          padding: 6px 14px;
+        }
+        .teams-role-chip__label {
+          display: inline-flex;
+          align-items: center;
+        }
+        .teams-role-chip__icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: currentColor;
+          opacity: 0.8;
+          transition: transform 0.2s ease;
+        }
+        .teams-role-chip--editable:not(:disabled):hover .teams-role-chip__icon {
+          transform: translateY(1px);
+        }
         .teams-badge--admin {
           background: rgba(29, 78, 216, 0.1);
           color: #1d4ed8;
@@ -594,6 +1243,28 @@ export default function TeamsPage() {
         .teams-badge--viewer {
           background: rgba(99, 102, 241, 0.12);
           color: #4338ca;
+        }
+        .teams-role-select {
+          padding: 8px 36px 8px 14px;
+          border-radius: 14px;
+          border: 2px solid rgba(59, 130, 246, 0.32);
+          background: rgba(255, 255, 255, 0.9);
+          font-size: 12px;
+          font-weight: 600;
+          color: #0f172a;
+          min-width: 170px;
+          box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+          appearance: none;
+          background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+            linear-gradient(135deg, currentColor 50%, transparent 50%);
+          background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+          background-size: 6px 6px, 6px 6px;
+          background-repeat: no-repeat;
+        }
+        .teams-role-select:focus {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.6);
+          box-shadow: 0 14px 32px rgba(59, 130, 246, 0.24);
         }
         .teams-status {
           display: inline-flex;

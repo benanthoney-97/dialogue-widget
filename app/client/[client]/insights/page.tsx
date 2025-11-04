@@ -1,40 +1,94 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { BriefMeButton } from "@/app/components/BriefMeButton";
+import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
+const COOPER_FONT_NAME = "CooperBT";
+const COOPER_FONT_FILE = "Cooper Light BT.ttf";
+const COOPER_FONT_PATH = "/fonts/CooperBT/Cooper Light BT.ttf";
+
+let cooperFontDataPromise: Promise<string> | null = null;
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+	const bytes = new Uint8Array(buffer);
+	let binary = "";
+	const chunkSize = 0x8000;
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		const chunk = bytes.subarray(i, i + chunkSize);
+		binary += String.fromCharCode(...chunk);
+	}
+	return btoa(binary);
+}
+
+async function loadCooperFontData(): Promise<string> {
+	if (!cooperFontDataPromise) {
+		cooperFontDataPromise = fetch(COOPER_FONT_PATH)
+			.then((res) => {
+				if (!res.ok) {
+					throw new Error(`Failed to fetch Cooper font: ${res.status}`);
+				}
+				return res.arrayBuffer();
+			})
+			.then(arrayBufferToBase64);
+	}
+	return cooperFontDataPromise;
+}
+
+async function ensureCooperFont(doc: jsPDF): Promise<boolean> {
+	try {
+		const fontData = await loadCooperFontData();
+		doc.addFileToVFS(COOPER_FONT_FILE, fontData);
+		doc.addFont(COOPER_FONT_FILE, COOPER_FONT_NAME, "normal");
+		return true;
+	} catch (fontError) {
+		console.warn("[Insights] Failed to load Cooper font for PDF export", fontError);
+		return false;
+	}
+}
 
 // Data from Supabase
 type DialogueRow = {
 	id: number;
-	agent_id: number;
+	agent_id: string | null;
 	call_duration_secs: number | null;
-	received_at: string;
+	received_at: string | null;
 	transcript?: any; // jsonb, can be array or object
+	transcript_summary?: string;
+	main_language?: string | null;
+	research_type?: string | null;
+	conversation_id?: string | null;
+	user_id?: string | null;
 };
 type AgentMapRow = {
 	agent_id: string;
 	agent_name: string;
+	owner?: string | null;
+};
+
+type ProfileRow = {
+	id: string;
+	display_name: string | null;
+};
+
+type ClientRow = {
+	id: string;
+	display_name: string | null;
+	default_agent_id: string | null;
 };
 
 type InsightsRow = {
     sourceDocument: string;
     lead: { value: string; source: string };
     engagementTime: string;
-	status: 'Quant' | 'Qual';
-    intent: string;
+	status: 'Questionnaire' | 'Interview' | 'Chat';
     date: string;
     briefReport: string;
     conversation_id: string;
     transcript?: any; // transcript jsonb
-    questions?: any; // questions jsonb
     transcript_summary?: string;
-    main_topics?: any;
-    content_gaps?: any;
-    pipeline_intent_reasoning?: any;
-    competitive_comparison_summary?: any;
     main_language?: string;
+	ownerDisplayName?: string | null;
 };
 // Helper to get unique values for dropdowns
 function getUniqueValues<T>(arr: T[], key: keyof T) {
@@ -46,7 +100,7 @@ const reportDropdownOptions = [
 ];
 
 // Status options for the connected segmented control (kept here so length is available)
-const statusOptions = (['All','Quant','Qual','Agent'] as const);
+const statusOptions = (['All','Questionnaire','Interview','Chat'] as const);
 
 
 type StagePanelProps = {
@@ -109,6 +163,71 @@ function StageAlert({ type, message }: StageAlertProps) {
 	);
 }
 
+type TranscriptMessage = {
+	role: "agent" | "user";
+	content: string;
+};
+
+type QuestionnaireResultEntry = {
+	id?: string;
+	question?: string;
+	response?: string;
+	selectedOption?: string;
+	freeText?: string;
+	confidence?: number | string;
+};
+
+type ParsedQuestionnaireResult = {
+	questions: QuestionnaireResultEntry[];
+};
+
+function parseQuestionnaireResponses(input: unknown): ParsedQuestionnaireResult | null {
+	if (input === null || typeof input === "undefined") {
+		return null;
+	}
+
+	let data: unknown = input;
+	if (typeof input === "string") {
+		try {
+			data = JSON.parse(input);
+		} catch (error) {
+			console.warn("[Insights] Failed to parse questionnaire transcript string", error);
+			return null;
+		}
+	}
+
+	if (typeof data !== "object" || data === null) {
+		return null;
+	}
+
+	let rawQuestions: unknown[] = [];
+	if (Array.isArray((data as { questions?: unknown[] }).questions)) {
+		rawQuestions = (data as { questions?: unknown[] }).questions ?? [];
+	} else if (Array.isArray(data)) {
+		rawQuestions = data;
+	}
+
+	const questions = rawQuestions.map((entry): QuestionnaireResultEntry => {
+		if (typeof entry !== "object" || entry === null) {
+			return {};
+		}
+		const item = entry as Record<string, unknown>;
+		return {
+			id: typeof item.id === "string" ? item.id : undefined,
+			question: typeof item.question === "string" ? item.question : undefined,
+			response: typeof item.response === "string" ? item.response : undefined,
+			selectedOption: typeof item.selected_option === "string" ? item.selected_option : undefined,
+			freeText: typeof item.free_text === "string" ? item.free_text : undefined,
+			confidence:
+				typeof item.confidence === "number" || typeof item.confidence === "string"
+					? item.confidence
+					: undefined,
+		};
+	});
+
+	return { questions };
+}
+
 
 export default function InsightsTable() {
 	const [openDropdown, setOpenDropdown] = useState<number | null>(null);
@@ -119,7 +238,7 @@ const [filters, setFilters] = useState({
 });
 // Multi-select status chips: when `allStatuses` is true we show everything.
 const [allStatuses, setAllStatuses] = useState<boolean>(true);
-const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual: boolean; Agent: boolean }>({ Quant: false, Qual: false, Agent: false });
+const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' | 'Interview' | 'Chat', boolean>>({ Questionnaire: false, Interview: false, Chat: false });
 	const [activeFilter, setActiveFilter] = useState<string | null>(null);
 	const filterBarRef = useRef<HTMLDivElement>(null);
 	// Move filtersOpen state to top level so it persists across renders
@@ -152,7 +271,6 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 		};
 	}, [filtersOpen]);
 	const [clientDisplayName, setClientDisplayName] = useState<string | null>(null);
-	const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
 	const [insightsRows, setInsightsRows] = useState<InsightsRow[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -167,128 +285,189 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 	const clientSlug = getClientSlug(pathname);
 
 	useEffect(() => {
-				async function fetchClientAndRows() {
-					if (!clientSlug) return;
-					// Get profile display name, id, and default_agent_id
-					const { data: profileData, error: profileError } = await supabase
-						.from('profiles')
-						.select('id, display_name, default_agent_id')
-						.eq('id', clientSlug)
-						.single();
-					if (profileError || !profileData) {
-						setError('Profile not found');
-						setClientDisplayName(null);
-						setDefaultAgentId(null);
-						setLoading(false);
-						return;
-					}
-					if (profileData.display_name) {
-						setClientDisplayName(profileData.display_name);
-					} else {
-						setClientDisplayName(null);
-					}
-					if (profileData.default_agent_id) {
-						setDefaultAgentId(profileData.default_agent_id);
-					} else {
-						setDefaultAgentId(null);
-					}
-					setLoading(true);
-					setError(null);
-					// Get all dialogues for this profile/user
-					const q = supabase
-						.from('dialogues')
-						.select('id, conversation_id, agent_id, call_duration_secs, received_at, transcript, pipeline_intent, questions, transcript_summary, main_topics, content_gaps, pipeline_intent_reasoning, competitive_comparison_summary, main_language, testing_mode')
-						.eq('user_id', profileData.id);
-					const { data: dialogueRows, error: dialogueError } = await q;
-					console.log('[DEBUG] dialogueRows from Supabase:', dialogueRows);
-					if (dialogueError) {
-						setError('Failed to fetch dialogues');
-						setLoading(false);
-						return;
-					}
-						// Get unique agent_ids from dialogues
-						const agentIds = Array.from(new Set((dialogueRows || []).map(d => d.agent_id)));
-						// Fetch agent_map rows for these agent_ids only (join on agent_id string)
-						let agentMapRows: AgentMapRow[] = [];
-						if (agentIds.length > 0) {
-							const { data: agentMapData, error: agentMapError } = await supabase
-								.from('agent_map')
-								.select('agent_id, agent_name')
-								.in('agent_id', agentIds);
-							if (agentMapError) {
-								setError('Failed to fetch agent_map');
-								setLoading(false);
-								return;
-							}
-							agentMapRows = agentMapData || [];
-						}
-						// Join dialogues with agent_map on agent_id (string)
-						const agentMapByAgentId: { [agent_id: string]: AgentMapRow } = {};
-						for (const agent of agentMapRows) {
-							agentMapByAgentId[agent.agent_id] = agent;
-						}
-						// Fetch contact_requests and summary_requests for all conversation_ids
-						const conversationIds = (dialogueRows || []).map(d => d.conversation_id);
-						let contactRequests: any[] = [];
-						let summaryRequests: any[] = [];
-						if (conversationIds.length > 0) {
-							const { data: contactData } = await supabase
-								.from('contact_requests')
-								.select('conversation_id, user_email')
-								.in('conversation_id', conversationIds);
-							contactRequests = contactData || [];
-							const { data: summaryData } = await supabase
-								.from('summary_requests')
-								.select('conversation_id, user_email')
-								.in('conversation_id', conversationIds);
-							summaryRequests = summaryData || [];
-						}
-						const contactByConvId: { [id: string]: string } = {};
-						contactRequests.forEach(r => { if (r.conversation_id) contactByConvId[r.conversation_id] = r.user_email; });
-						const summaryByConvId: { [id: string]: string } = {};
-						summaryRequests.forEach(r => { if (r.conversation_id) summaryByConvId[r.conversation_id] = r.user_email; });
+		const previousBodyOverflow = document.body.style.overflow;
+		const previousHtmlOverflow = document.documentElement.style.overflow;
+		document.body.style.overflow = 'hidden';
+		document.documentElement.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = previousBodyOverflow;
+			document.documentElement.style.overflow = previousHtmlOverflow;
+		};
+	}, []);
 
-                        const rows: InsightsRow[] = (dialogueRows || []).map((d) => {
-                            const agent = agentMapByAgentId[d.agent_id];
-                            let lead = '';
-                            let leadSource = 'none';
-                            if (contactByConvId[d.conversation_id]) {
-                                lead = contactByConvId[d.conversation_id];
-								leadSource = 'contact_requests';
-							} else if (summaryByConvId[d.conversation_id]) {
-								lead = summaryByConvId[d.conversation_id];
-								leadSource = 'summary_requests';
-							}
-							if (d.conversation_id === 'conv_9601k7c1fz2nervs6tj7zf9w0ps1') {
-								console.log('[DEBUG] For conversation_id conv_9601k7c1fz2nervs6tj7zf9w0ps1, lead:', lead, 'source:', leadSource);
-                            }
-							const status: 'Qual' | 'Quant' = d.testing_mode ? 'Qual' : 'Quant';
-							const row: InsightsRow = {
-								sourceDocument: agent ? agent.agent_name : '',
-								lead: { value: lead, source: leadSource },
-								engagementTime: d.call_duration_secs != null ?
-									new Date(d.call_duration_secs * 1000).toISOString().substr(11, 8) : '',
-								status,
-                                intent: ['Interest', 'Consideration', 'Intent'].includes(d.pipeline_intent) ? d.pipeline_intent : '',
-                                date: d.received_at || '',
-                                briefReport: '',
-                                conversation_id: d.conversation_id,
-                                transcript: d.transcript,
-								questions: d.questions,
-								transcript_summary: d.transcript_summary,
-								main_topics: d.main_topics,
-								content_gaps: d.content_gaps,
-								pipeline_intent_reasoning: d.pipeline_intent_reasoning,
-								competitive_comparison_summary: d.competitive_comparison_summary,
-								main_language: d.main_language,
-							};
-							return row;
-						});
-						setInsightsRows(rows);
-						setLoading(false);
-                }
-                fetchClientAndRows();
-        }, [clientSlug]);
+	useEffect(() => {
+		let isMounted = true;
+		async function fetchClientAndRows() {
+			if (!clientSlug) {
+				if (isMounted) {
+					setError('Workspace not found');
+					setClientDisplayName(null);
+					setInsightsRows([]);
+				}
+				return;
+			}
+			if (!isMounted) return;
+			setLoading(true);
+			setError(null);
+			try {
+				const { data: clientData, error: clientError } = await supabase
+					.from('clients')
+					.select('id, display_name, default_agent_id')
+					.eq('id', clientSlug)
+					.maybeSingle<ClientRow>();
+				if (!isMounted) return;
+				if (clientError || !clientData) {
+					setError('Workspace not found');
+					setClientDisplayName(null);
+					setInsightsRows([]);
+					return;
+				}
+				setClientDisplayName(clientData.display_name ?? null);
+
+				const { data: dialogueRows, error: dialogueError } = await supabase
+					.from('dialogues')
+					.select('id, conversation_id, agent_id, user_id, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type')
+					.eq('client_id', clientData.id);
+				if (!isMounted) return;
+				if (dialogueError) {
+					setError('Failed to fetch dialogues');
+					setInsightsRows([]);
+					return;
+				}
+
+				const agentIds = Array.from(
+					new Set((dialogueRows || []).map((d) => d.agent_id).filter((id): id is string => Boolean(id)))
+				);
+				let agentMapRows: AgentMapRow[] = [];
+				if (agentIds.length > 0) {
+					const { data: agentMapData, error: agentMapError } = await supabase
+						.from('agent_map')
+						.select('agent_id, agent_name')
+						.in('agent_id', agentIds)
+						.eq('client_id', clientData.id);
+					if (!isMounted) return;
+					if (agentMapError) {
+						setError('Failed to fetch agent_map');
+						setInsightsRows([]);
+						return;
+					}
+					agentMapRows = agentMapData || [];
+				}
+				const agentMapByAgentId: { [agent_id: string]: AgentMapRow } = {};
+				for (const agent of agentMapRows) {
+					agentMapByAgentId[agent.agent_id] = agent;
+				}
+
+				const userIds = Array.from(
+					new Set((dialogueRows || []).map((d) => d.user_id).filter((id): id is string => Boolean(id)))
+				);
+				let profileByUserId: Record<string, ProfileRow> = {};
+				if (userIds.length > 0) {
+					const { data: userProfiles, error: userProfilesError } = await supabase
+						.from('profiles')
+						.select('id, display_name')
+						.in('id', userIds);
+					if (!isMounted) return;
+					if (userProfilesError) {
+						setError('Failed to fetch participant profiles');
+						setInsightsRows([]);
+						return;
+					}
+					profileByUserId = (userProfiles || []).reduce((acc, profile) => {
+						acc[profile.id] = profile;
+						return acc;
+					}, {} as Record<string, ProfileRow>);
+				}
+
+				const conversationIds = (dialogueRows || [])
+					.map((d) => d.conversation_id)
+					.filter((id): id is string => Boolean(id));
+				let contactRequests: any[] = [];
+				let summaryRequests: any[] = [];
+				if (conversationIds.length > 0) {
+					const { data: contactData } = await supabase
+						.from('contact_requests')
+						.select('conversation_id, user_email')
+						.in('conversation_id', conversationIds);
+					if (!isMounted) return;
+					contactRequests = contactData || [];
+					const { data: summaryData } = await supabase
+						.from('summary_requests')
+						.select('conversation_id, user_email')
+						.in('conversation_id', conversationIds);
+					if (!isMounted) return;
+					summaryRequests = summaryData || [];
+				}
+				const contactByConvId: { [id: string]: string } = {};
+				contactRequests.forEach((request) => {
+					if (request.conversation_id) contactByConvId[request.conversation_id] = request.user_email;
+				});
+				const summaryByConvId: { [id: string]: string } = {};
+				summaryRequests.forEach((request) => {
+					if (request.conversation_id) summaryByConvId[request.conversation_id] = request.user_email;
+				});
+
+			    const rows: InsightsRow[] = (dialogueRows || []).map((dialogue) => {
+							const agent = dialogue.agent_id ? agentMapByAgentId[dialogue.agent_id] : undefined;
+					const leadFromContact = dialogue.conversation_id ? contactByConvId[dialogue.conversation_id] : undefined;
+					const leadFromSummary = dialogue.conversation_id ? summaryByConvId[dialogue.conversation_id] : undefined;
+					const lead = leadFromContact ?? leadFromSummary ?? '';
+					const leadSource = leadFromContact
+						? 'contact_requests'
+						: leadFromSummary
+						  ? 'summary_requests'
+						  : 'none';
+					const normalizedResearchType = typeof dialogue.research_type === 'string'
+						? dialogue.research_type.trim().toLowerCase()
+						: null;
+					let status: InsightsRow['status'];
+					switch (normalizedResearchType) {
+						case 'interview':
+							status = 'Interview';
+							break;
+						case 'chat':
+							status = 'Chat';
+							break;
+						case 'questionnaire':
+							status = 'Questionnaire';
+							break;
+						default:
+							status = 'Questionnaire';
+					}
+					const ownerDisplayName = dialogue.user_id
+						? profileByUserId[dialogue.user_id]?.display_name ?? null
+						: null;
+					return {
+						sourceDocument: agent ? agent.agent_name : '',
+						lead: { value: lead, source: leadSource },
+						engagementTime:
+							dialogue.call_duration_secs != null
+								? new Date(dialogue.call_duration_secs * 1000).toISOString().substr(11, 8)
+								: '',
+						status,
+						date: dialogue.received_at || '',
+						briefReport: '',
+						conversation_id: dialogue.conversation_id ?? '',
+						transcript: dialogue.transcript,
+						transcript_summary: dialogue.transcript_summary,
+						main_language: dialogue.main_language,
+						ownerDisplayName,
+					};
+				});
+				setInsightsRows(rows);
+			} catch (loadError) {
+				if (!isMounted) return;
+				setError('Failed to load insights');
+				console.error('[Insights] Failed to load client insights', loadError);
+			} finally {
+				if (isMounted) setLoading(false);
+			}
+		}
+		fetchClientAndRows();
+		return () => {
+			isMounted = false;
+		};
+	}, [clientSlug]);
 
 		// Filtering logic (unchanged, but now uses insightsRows)
 			// Sort by date descending (most recent first)
@@ -301,9 +480,9 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 	   const filteredRows = sortedRows.filter((row) => { 
 		   // Status filtering: if `allStatuses` is true we include all rows.
 		   if (!allStatuses) {
-			   // Only include row if its status (Quant|Qual) is selected.
-			   const statusKey = row.status as 'Quant' | 'Qual';
-			   if (!(selectedStatuses[statusKey])) return false;
+		   	// Only include row if its status (Questionnaire|Interview) is selected.
+		   	const statusKey = row.status;
+		   	if (!(selectedStatuses[statusKey])) return false;
 		   }
 		   if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
            // (Date-after filter removed)
@@ -333,115 +512,116 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 					>
 					{loading && <StageAlert type="info" message="Loading insights…" />}
 					{!loading && error && <StageAlert type="error" message={error} />}
+					<div className="insights-table-section">
 					{/* FILTERS DROPDOWN BUTTON AND DROPDOWN */}
-						  {(() => {
-									 // Click-away handler for the inline filter row
-									 React.useEffect(() => {
-										 if (!filtersOpen) return;
-										 function handleClick(e: MouseEvent) {
-											 if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
-											 setFiltersOpen(false);
-										 }
-										 document.addEventListener('mousedown', handleClick);
-										 return () => document.removeEventListener('mousedown', handleClick);
-									 }, [filtersOpen]);
+					{(() => {
+							 // Click-away handler for the inline filter row
+							 React.useEffect(() => {
+								 if (!filtersOpen) return;
+								 function handleClick(e: MouseEvent) {
+									 if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
+									 setFiltersOpen(false);
+								 }
+								 document.addEventListener('mousedown', handleClick);
+								 return () => document.removeEventListener('mousedown', handleClick);
+							 }, [filtersOpen]);
 
-									 // Render a single-row inline filter area: when open it grows to fill the row before the controls
-									 return (
-					  <div ref={filterBarRef} className="insights-filters" data-open={filtersOpen}>
-						  {/* Inline filter panel - grows when open */}
-						  <div className={`insights-filters__panel${filtersOpen ? ' insights-filters__panel--open' : ''}`}>
-						  <div className="insights-filters__row">
-							  {/* Row 1: Source Document */}
-							  <div className="insights-filters__field insights-filters__field--pull">
-								  <span className="insights-filters__label">Persona:</span>
-								  <select
-									  value={filters.sourceDocument}
-									  onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
-									  className="insights-select"
-								  >
-											  <option value=''>All</option>
-											  {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
-												  <option key={doc as string} value={doc as string}>{doc}</option>
-											  ))}
-										  </select>
-									  </div>
-							  {/* Move status chips into the inline panel next to Dialogue */}
-							  <div className="insights-filters__field">
-								  <div className="insights-status-group" role="tablist" aria-label="Research type">
-							  {statusOptions.map((opt, idx) => {
-								  const isAll = opt === 'All';
-							  const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
-							  const chipClasses = [
-								  'insights-status-chip',
-								  isActive ? 'insights-status-chip--active' : '',
-								  idx === 0 ? 'insights-status-chip--start' : '',
-								  idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
-							  ].filter(Boolean).join(' ');
-							  return (
-									  <StageButton
-										  key={opt}
-										  type="button"
-										  role="tab"
-										  variant="ghost"
-										  className={chipClasses}
-										  aria-selected={isActive}
-										  onClick={(e) => {
-															  e.stopPropagation();
-															  if (isAll) {
-																  setAllStatuses(true);
-																  setSelectedStatuses({ Quant: false, Qual: false, Agent: false });
-															  } else {
-																  setAllStatuses(false);
-																  setSelectedStatuses(prev => {
-																	  const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
-																	  if (!next.Quant && !next.Qual && !next.Agent) {
-																		  setAllStatuses(true);
-																		  return { Quant: false, Qual: false, Agent: false };
-																	  }
-																	  return next;
-																  });
-															  }
-														  }}
-									  title={isActive ? (opt === 'Agent' ? `Agent selected` : (isAll ? `All statuses` : `Selected ${opt}`)) : (opt === 'Agent' ? `Toggle Agent` : (isAll ? `Show all statuses` : `Toggle ${opt}`)) }
-								  >
-										  {opt}
-									  </StageButton>
-												  );
-											  })}
-										  </div>
-									  </div>
-								  </div>
-
-								  {/* Reset button removed — filters reset is no longer shown here */}
+							 // Render a single-row inline filter area: when open it grows to fill the row before the controls
+							 return (
+				 <div ref={filterBarRef} className="insights-filters" data-open={filtersOpen}>
+				 	 {/* Inline filter panel - grows when open */}
+				 	 <div className={`insights-filters__panel${filtersOpen ? ' insights-filters__panel--open' : ''}`}>
+				 	 <div className="insights-filters__row">
+				 	 	 {/* Row 1: Source Document */}
+				 	 	 <div className="insights-filters__field insights-filters__field--pull">
+				 	 	 	 <span className="insights-filters__label">Persona:</span>
+				 	 	 	 <select
+				 	 	 	 	 value={filters.sourceDocument}
+				 	 	 	 	 onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
+				 	 	 	 	 className="insights-select"
+				 	 	 	 >
+				 			  <option value=''>All</option>
+				 			  {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
+				 			 	  <option key={doc as string} value={doc as string}>{doc}</option>
+				 			  ))}
+				 			  </select>
+				 		  </div>
+				 	 	 {/* Move status chips into the inline panel next to Dialogue */}
+				 	 	 <div className="insights-filters__field">
+				 	 	 	 <div className="insights-status-group" role="tablist" aria-label="Research type">
+				 		  {statusOptions.map((opt, idx) => {
+				 		  	 const isAll = opt === 'All';
+				 		  const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
+				 		  const chipClasses = [
+				 		  	 'insights-status-chip',
+				 		  	 isActive ? 'insights-status-chip--active' : '',
+				 		  	 idx === 0 ? 'insights-status-chip--start' : '',
+				 		  	 idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
+				 		  ].filter(Boolean).join(' ');
+				 		  return (
+				 			  <StageButton
+							  key={opt}
+							  type="button"
+							  role="tab"
+							  variant="ghost"
+							  className={chipClasses}
+							  aria-selected={isActive}
+							  onClick={(e) => {
+									 e.stopPropagation();
+									 if (isAll) {
+									 	 setAllStatuses(true);
+									 	 setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
+									 } else {
+									 	 setAllStatuses(false);
+									 	 setSelectedStatuses(prev => {
+							  const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
+									 		 if (!next.Questionnaire && !next.Interview && !next.Chat) {
+									 		 	 setAllStatuses(true);
+									 		 	 return { Questionnaire: false, Interview: false, Chat: false };
+									 		 }
+									 		 return next;
+									 	 });
+									 }
+							  }}
+							  title={isActive ? (opt === 'Chat' ? `Chat selected` : (isAll ? `All statuses` : `Selected ${opt}`)) : (opt === 'Chat' ? `Toggle Chat` : (isAll ? `Show all statuses` : `Toggle ${opt}`)) }
+						  >
+							  {opt}
+						  </StageButton>
+							  );
+							  })}
 							  </div>
+							  </div>
+							 </div>
 
-							  {/* Controls group (search, filters button, status pill) */}
+							 {/* Reset button removed — filters reset is no longer shown here */}
+							 </div>
+
+							 {/* Controls group (search, filters button, status pill) */}
 				  <div className="insights-filters__controls">
-					  <StageButton
-						  type="button"
-						  variant="secondary"
-						  className="insights-action-button"
-						  onClick={() => setFiltersOpen((open) => !open)}
-					  >
-						  {filtersOpen ? 'Hide filters' : 'Filters'}
-					  </StageButton>
+				  	 <StageButton
+				  	 	 type="button"
+				  	 	 variant="secondary"
+				  	 	 className="insights-action-button"
+				  	 	 onClick={() => setFiltersOpen((open) => !open)}
+				  	 >
+				  	 	 {filtersOpen ? 'Hide filters' : 'Filters'}
+				  	 </StageButton>
 
-								  {/* Status chips have been moved into the inline panel */}
+						  {/* Status chips have been moved into the inline panel */}
 
 				  <input
-					  type='text'
-					  value={filters.search}
-					  onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-					  placeholder='Search all fields...'
-					  className="insights-input"
+				  	 type='text'
+				  	 value={filters.search}
+				  	 onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+				  	 placeholder='Search all fields...'
+				  	 className="insights-input"
 				  />
-							  </div>
 						  </div>
-									   );
-								   })()}
+						 </div>
+						 	   );
+						   })()}
 
-				<div className="insights-table-wrap">
+					<div className="insights-table-wrap">
 					<table className="insights-table">
 									<thead>
 										<tr className="insights-table__head-row">
@@ -450,7 +630,6 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 										<th className="insights-table__head-cell">Date</th>
 										<th className="insights-table__head-cell">Owner</th>
 										<th className="insights-table__head-cell">Results</th>
-										<th className="insights-table__head-cell"> </th>
 										<th className="insights-table__head-cell">Export</th>
 										</tr>
 									</thead>
@@ -459,7 +638,20 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 							<React.Fragment key={i}>
 								<tr className="insights-table__row">
 									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument}</td>
-									<td className="insights-table__cell">{row.status}</td>
+									<td className="insights-table__cell">
+										{(() => {
+											const statusClass = row.status === 'Questionnaire'
+												? 'questionnaire'
+												: row.status === 'Interview'
+													? 'interview'
+													: 'chat';
+											return (
+												<span className={`insights-status-badge insights-status-badge--${statusClass}`}>
+													{row.status}
+												</span>
+											);
+										})()}
+									</td>
 										{/* Length column removed - engagementTime omitted */}
 										<td className="insights-table__cell">{
 											row.date
@@ -473,7 +665,7 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 												})
 											: ''
 										}</td>
-										<td className="insights-table__cell">{row.lead?.value || ''}</td>
+										<td className="insights-table__cell">{row.ownerDisplayName ?? row.lead?.value ?? ''}</td>
 										<td className="insights-table__cell insights-table__cell--actions">
 						<StageButton
 							type="button"
@@ -500,60 +692,352 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 						</StageButton>
 										</td>
 										<td className="insights-table__cell insights-table__cell--compact">
-											{defaultAgentId && (
-												<BriefMeButton
-													agentId={defaultAgentId}
-													conversationId={row.conversation_id}
-													transcript={row.transcript}
-												/>
-											)}
+											<StageButton
+												type="button"
+												variant="ghost"
+												className="insights-action-button insights-action-button--icon"
+												onClick={async () => {
+													try {
+														const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+														const cooperLoaded = await ensureCooperFont(doc);
+														let cursorY = 48;
+														const textFont = cooperLoaded ? COOPER_FONT_NAME : 'helvetica';
+														const monoFont = 'courier';
+														const titleFontSize = cooperLoaded ? 26 : 18;
+														const sectionTitleSize = cooperLoaded ? 15 : 13;
+														const bodyFontSize = cooperLoaded ? 12 : 11;
+														const drawPageFrame = (isFirstPage: boolean) => {
+															doc.setFillColor(30, 41, 59);
+															doc.rect(0, 0, doc.internal.pageSize.getWidth(), 60, 'F');
+															doc.setFont(textFont, "normal");
+															doc.setTextColor(246, 247, 249);
+															doc.setFontSize(titleFontSize);
+															doc.text(`Playback - ${row.sourceDocument || 'Untitled'}`, 40, 40);
+															doc.setFontSize(12);
+															doc.text('powered by Dialogue', doc.internal.pageSize.getWidth() - 40, 40, { align: 'right' });
+															doc.setDrawColor(230, 235, 243);
+															doc.setFillColor(246, 247, 249);
+															doc.roundedRect(30, 70, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 100, 12, 12, 'FD');
+															doc.setTextColor(5, 32, 51);
+															cursorY = 82;
+														};
+														drawPageFrame(true);
+														const addSectionHeading = (title: string) => {
+															doc.setFont(textFont, "normal");
+															doc.setFontSize(sectionTitleSize);
+															cursorY += 20;
+															doc.text(title, 40, cursorY);
+														};
+														const addSection = (title: string, text: string | string[] | undefined, isMono = false) => {
+															if (!text) return;
+															addSectionHeading(title);
+															doc.setFont(isMono ? monoFont : textFont, "normal");
+															doc.setFontSize(isMono ? 10 : bodyFontSize);
+															const safeText = Array.isArray(text) ? text.join('\n') : text;
+															const wrapped = doc.splitTextToSize(safeText, 512) as string[];
+															wrapped.forEach((line: string) => {
+																if (cursorY > doc.internal.pageSize.getHeight() - 60) {
+																	doc.addPage();
+																	drawPageFrame(false);
+																	addSectionHeading(`${title} (continued)`);
+																}
+																cursorY += 18;
+																doc.setFont(isMono ? monoFont : textFont, "normal");
+																doc.setFontSize(isMono ? 10 : bodyFontSize);
+																doc.text(line, 40, cursorY);
+															});
+														};
+														const addSummarySection = (summary: string | undefined) => {
+															if (!summary) return;
+															const panelLeft = 40;
+															const panelRight = doc.internal.pageSize.getWidth() - 40;
+															const blockWidth = panelRight - panelLeft;
+															const maxTextWidth = blockWidth - 32; // paddingX * 2
+															const paddingX = 16;
+															const paddingY = 12;
+															const lineHeight = bodyFontSize + 4;
+															const panelBottomMargin = 60;
+															let remaining = doc.splitTextToSize(summary, maxTextWidth) as string[];
+															let headingLabel = 'Summary';
+															const ensureSpace = () => {
+																const minNeeded = 20 + paddingY * 2 + lineHeight + 12; // heading + block with at least one line
+																const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
+																if (cursorY + minNeeded > pageBottom) {
+																	doc.addPage();
+																	drawPageFrame(false);
+																}
+															};
+															while (remaining.length) {
+																ensureSpace();
+																addSectionHeading(headingLabel);
+																const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
+																let availableHeight = pageBottom - (cursorY + paddingY + 12);
+																if (availableHeight < lineHeight + paddingY * 2) {
+																	doc.addPage();
+																	drawPageFrame(false);
+																	headingLabel = headingLabel === 'Summary' ? 'Summary (continued)' : headingLabel;
+																	addSectionHeading(headingLabel);
+																	availableHeight = (doc.internal.pageSize.getHeight() - panelBottomMargin) - (cursorY + paddingY + 12);
+																}
+																const maxLines = Math.max(1, Math.floor((availableHeight - paddingY * 2) / lineHeight));
+																const linesForPage = remaining.splice(0, maxLines);
+																const blockHeight = linesForPage.length * lineHeight + paddingY * 2;
+																const blockX = panelLeft;
+																const blockY = cursorY + 12;
+																doc.setFillColor(232, 237, 245);
+																doc.setDrawColor(200, 210, 222);
+																doc.roundedRect(blockX, blockY, blockWidth, blockHeight, 10, 10, 'F');
+																doc.setFont(textFont, "normal");
+																doc.setFontSize(bodyFontSize);
+																doc.setTextColor(5, 32, 51);
+																let textY = blockY + paddingY + bodyFontSize;
+																const textX = blockX + paddingX;
+																linesForPage.forEach((line) => {
+																	doc.text(line, textX, textY);
+																	textY += lineHeight;
+																});
+																cursorY = blockY + blockHeight;
+																doc.setDrawColor(230, 235, 243);
+																if (remaining.length) {
+																	doc.addPage();
+																	drawPageFrame(false);
+																	headingLabel = 'Summary (continued)';
+																}
+															}
+															doc.setTextColor(5, 32, 51);
+														};
+														const parseTranscript = (transcriptValue: any): TranscriptMessage[] => {
+															if (!transcriptValue) return [];
+															if (Array.isArray(transcriptValue)) {
+																return (transcriptValue.map((entry) => {
+																	if (!entry) return null;
+																	if (typeof entry === 'string') {
+																		const trimmed = entry.trim();
+																		return trimmed ? ({ role: 'agent', content: trimmed } as TranscriptMessage) : null;
+																	}
+																	const role: TranscriptMessage['role'] = entry.role === 'agent' ? 'agent' : 'user';
+																	const content = typeof entry.content === 'string' ? entry.content.trim() : '';
+																	if (!content) return null;
+																	return { role, content };
+																})
+																	.filter(Boolean)) as TranscriptMessage[];
+															}
+															if (typeof transcriptValue === 'string') {
+																const messages: TranscriptMessage[] = [];
+																const sections = transcriptValue.split(/\n\n+/);
+																let currentRole: TranscriptMessage['role'] | null = null;
+																let buffer = '';
+																const pushBuffer = () => {
+																	const trimmed = buffer.trim();
+																	if (trimmed && currentRole) {
+																		messages.push({ role: currentRole, content: trimmed });
+																	}
+																	buffer = '';
+																};
+																sections.forEach((section) => {
+																	const trimmed = section.trim();
+																	if (!trimmed) return;
+																	if (/^Agent:/i.test(trimmed)) {
+																		pushBuffer();
+																		currentRole = 'agent';
+																		buffer = trimmed.replace(/^Agent:/i, '').trim();
+																	} else if (/^User:/i.test(trimmed)) {
+																		pushBuffer();
+																		currentRole = 'user';
+																		buffer = trimmed.replace(/^User:/i, '').trim();
+																	} else {
+																		buffer += (buffer ? '\n' : '') + trimmed;
+																	}
+																});
+																pushBuffer();
+																return messages;
+															}
+															return [];
+														};
+														const renderTranscript = (messages: TranscriptMessage[]) => {
+															if (!messages.length) return false;
+															addSectionHeading('Transcript');
+															doc.setFont(textFont, "normal");
+															doc.setFontSize(bodyFontSize);
+															const panelLeft = 50;
+															const panelRight = doc.internal.pageSize.getWidth() - 50;
+															const bubblePaddingX = 14;
+															const bubblePaddingY = 12;
+															const bubbleGap = 14;
+															const bubbleMaxWidth = panelRight - panelLeft - 120;
+															const lineHeight = bodyFontSize + 4;
+															messages.forEach((message, index) => {
+																const content = message.content.trim();
+																if (!content) return;
+																const lines = doc.splitTextToSize(content, bubbleMaxWidth) as string[];
+																let measuredWidth = 0;
+																lines.forEach((line) => {
+																	measuredWidth = Math.max(measuredWidth, doc.getTextWidth(line));
+																});
+																const innerWidth = Math.min(bubbleMaxWidth, measuredWidth || bubbleMaxWidth);
+																const bubbleWidth = innerWidth + bubblePaddingX * 2;
+																const bubbleHeight = lines.length * lineHeight + bubblePaddingY * 2;
+																if (cursorY + bubbleGap + bubbleHeight > doc.internal.pageSize.getHeight() - 60) {
+																	doc.addPage();
+																	drawPageFrame(false);
+																	addSectionHeading('Transcript (continued)');
+																}
+																const bubbleX = message.role === 'agent'
+																	? panelLeft
+																	: panelRight - bubbleWidth;
+																const bubbleY = cursorY + bubbleGap;
+																if (message.role === 'agent') {
+																	doc.setFillColor(34, 50, 90);
+																	doc.setDrawColor(34, 50, 90);
+																	doc.setTextColor(126, 160, 230);
+																} else {
+																	doc.setFillColor(246, 247, 249);
+																	doc.setDrawColor(200, 210, 222);
+																	doc.setTextColor(5, 32, 51);
+																}
+																doc.roundedRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 12, 12, 'F');
+																let textX = bubbleX + bubblePaddingX;
+																let textY = bubbleY + bubblePaddingY + bodyFontSize;
+																lines.forEach((line) => {
+																	doc.text(line, textX, textY);
+																	textY += lineHeight;
+																});
+																cursorY = bubbleY + bubbleHeight;
+															});
+															doc.setTextColor(5, 32, 51);
+															doc.setDrawColor(230, 235, 243);
+															cursorY += 6;
+															return true;
+														};
+														const researchDate = row.date
+															? new Date(row.date).toLocaleString('en-US', {
+																year: 'numeric',
+																month: 'short',
+																day: 'numeric',
+																hour: 'numeric',
+																minute: '2-digit',
+																hour12: true,
+															})
+															: '';
+														addSection('Details', [
+															`Persona: ${row.sourceDocument || '—'}`,
+															`Research Type: ${row.status}`,
+															`Date: ${researchDate || '—'}`,
+															`Owner: ${row.ownerDisplayName || row.lead?.value || '—'}`,
+														].join('\n'));
+														if (row.transcript_summary) {
+															cursorY += 20;
+															addSummarySection(row.transcript_summary);
+															cursorY += 24;
+														}
+														if (row.transcript) {
+															const parsed = parseTranscript(row.transcript);
+															const rendered = renderTranscript(parsed);
+															if (!rendered) {
+																const transcriptText = typeof row.transcript === 'string'
+																	? row.transcript
+																	: JSON.stringify(row.transcript, null, 2);
+																addSection('Transcript', transcriptText, true);
+															}
+														}
+														doc.save(`${row.conversation_id || 'results'}.pdf`);
+													} catch (e) {
+														console.error('Export failed', e);
+													}
+												}}
+											>
+												<span className="insights-action-button__content" aria-hidden="false">
+													<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+														<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+														<polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+														<line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+													</svg>
+													<span className="sr-only">Export</span>
+												</span>
+											</StageButton>
 										</td>
-										<td className="insights-table__cell insights-table__cell--compact">
-						<StageButton
-							type="button"
-							variant="ghost"
-							className="insights-action-button insights-action-button--icon"
-							onClick={() => {
-								// Simple client-side JSON export of the row
-								try {
-									const data = JSON.stringify(row, null, 2);
-									const blob = new Blob([data], { type: 'application/json' });
-									const url = URL.createObjectURL(blob);
-														const a = document.createElement('a');
-														a.href = url;
-														a.download = `${row.conversation_id || 'results'}.json`;
-														a.click();
-														URL.revokeObjectURL(url);
-								} catch (e) {
-									console.error('Export failed', e);
-								}
-							}}
-						>
-									<span className="insights-action-button__content" aria-hidden="false">
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-											<polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-											<line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-										</svg>
-										<span className="sr-only">Export</span>
-							</span>
-						</StageButton>
-										</td>
-									</tr>
+										</tr>
 														{openDropdown === i && (
 															<tr>
-																<td colSpan={7} className="insights-table__expanded-cell">
+																<td colSpan={6} className="insights-table__expanded-cell">
 																	<div className="insights-results">
 																		{(() => {
-																			const optionsForRow = row.status === 'Quant' ? [] : reportDropdownOptions;
+																			if (row.status === 'Questionnaire') {
+																				const parsed = parseQuestionnaireResponses(row.transcript);
+																				const questions = parsed?.questions ?? [];
+																				const hasQuestions = questions.length > 0;
+																				const rawContent =
+																					typeof row.transcript === 'string'
+																						? row.transcript
+																						: row.transcript
+																						? JSON.stringify(row.transcript, null, 2)
+																						: null;
+
+																				return (
+																					<div className="insights-questionnaire">
+																						<div className="insights-questionnaire__header">
+																							<h4>Questionnaire responses</h4>
+																							{parsed ? (
+																								<span className="insights-questionnaire__count">
+																									{questions.length} {questions.length === 1 ? 'response' : 'responses'}
+																								</span>
+																							) : null}
+																						</div>
+																						<div className="insights-questionnaire__scroll">
+																							{hasQuestions ? (
+																								<ul className="insights-questionnaire__grid">
+																									{questions.map((entry, idx) => (
+																										<li
+																											key={entry.id ?? `question-${idx}`}
+																											className="insights-questionnaire__item"
+																										>
+																											<span className="insights-questionnaire__question">
+																												{entry.question ?? 'Question'}
+																											</span>
+																											<div className="insights-questionnaire__answer">
+																												<span className="insights-questionnaire__label">Response:</span>
+																												<span>{entry.response ?? entry.selectedOption ?? '—'}</span>
+																											</div>
+																											{entry.freeText ? (
+																												<div className="insights-questionnaire__answer">
+																													<span className="insights-questionnaire__label">Free text:</span>
+																													<span>{entry.freeText}</span>
+																												</div>
+																											) : null}
+																											{entry.confidence !== undefined && entry.confidence !== null ? (
+																												<div className="insights-questionnaire__answer">
+																													<span className="insights-questionnaire__label">Confidence:</span>
+																													<span>
+																														{typeof entry.confidence === 'number'
+																															? entry.confidence.toFixed(2)
+																															: entry.confidence}
+																													</span>
+																												</div>
+																											) : null}
+																										</li>
+																									))}
+																								</ul>
+																							) : rawContent ? (
+																								<pre className="insights-questionnaire__raw">{rawContent}</pre>
+																							) : (
+																								<div className="insights-questionnaire__placeholder">
+																									No questionnaire responses captured yet.
+																								</div>
+																							)}
+																						</div>
+																					</div>
+																				);
+																			}
+
+																			const optionsForRow = reportDropdownOptions;
 																			const hasOptions = optionsForRow.length > 0;
 																			const activeOption = hasOptions ? (selectedChip[i] || optionsForRow[0]) : null;
 
 																			return (
 																				<>
-																					<div className="insights-results__chips">
-																						{hasOptions ? (
-																							optionsForRow.map((opt) => {
+																					{hasOptions ? (
+																						<div className="insights-results__chips">
+																							{optionsForRow.map((opt) => {
 																								const isSelected = selectedChip[i] === opt || (!selectedChip[i] && opt === optionsForRow[0]);
 																								const chipClasses = [
 																									"insights-results__chip",
@@ -572,11 +1056,9 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 																										{opt}
 																									</button>
 																								);
-																							})
-																						) : (
-																							<div className="insights-results__empty">Quant results: transcript view not available.</div>
-																						)}
-																					</div>
+																							})}
+																						</div>
+																					) : null}
 
 																					<div className="insights-results__content">
 																						{hasOptions && activeOption === "Transcript"
@@ -653,9 +1135,9 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 																																className={`insights-chat__label ${
 																																	isAgent ? "insights-chat__label--agent" : "insights-chat__label--user"
 																																}`}
-																															>
-																																{isAgent ? "Agent" : "User"}
-																															</span>
+																														>
+																															{isAgent ? "Chat" : "User"}
+																														</span>
 																															<div
 																																className={`insights-chat__bubble ${
 																																	isAgent ? "insights-chat__bubble--agent" : "insights-chat__bubble--user"
@@ -672,11 +1154,7 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 																							  })()
 																							: hasOptions
 																							? "Sample content."
-																							: (
-																								<div className="insights-results__empty insights-results__empty--content">
-																									Quant results: transcript view not available.
-																								</div>
-																							  )}
+																							: null}
 																					</div>
 																				</>
 																			);
@@ -688,8 +1166,9 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 								</React.Fragment>
 							))}
 						</tbody>
-								</table>
-							</div>
+							</table>
+						</div>
+				</div>
 							<style>{`
 								@font-face {
 									font-family: 'CooperBT';
@@ -708,31 +1187,37 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 			</div>
 			<style>{`
 				.stage-layout {
+					height: 100dvh;
 					min-height: 100dvh;
 					background: var(--bg, #f4f8ff);
 					padding: 0;
 					font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
 					display: flex;
 					flex-direction: row;
+					overflow: hidden;
 				}
 				.stage-layout__sidebar {
-					width: 180px;
+					width: var(--sidebar-width);
 					flex-shrink: 0;
 				}
 				.stage-layout__content {
 					flex: 1;
 					display: flex;
 					justify-content: center;
-					align-items: flex-start;
+					align-items: stretch;
 					padding: 64px 24px 96px;
-					min-height: 100dvh;
-					overflow-y: auto;
+					height: 100%;
+					min-height: 0;
+					overflow: hidden;
+					box-sizing: border-box;
 				}
 				.stage-shell {
 					width: min(1120px, 96%);
 					display: flex;
 					flex-direction: column;
 					gap: 24px;
+					height: 100%;
+					min-height: 0;
 				}
 				.stage-panel {
 					background: rgba(255, 255, 255, 0.94);
@@ -744,6 +1229,8 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 					flex-direction: column;
 					gap: 24px;
 					color: #1e293b;
+					flex: 1;
+					min-height: 0;
 				}
 				.stage-panel__header {
 					display: flex;
@@ -786,6 +1273,8 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 				display: flex;
 				flex-direction: column;
 				gap: 24px;
+				flex: 1;
+				min-height: 0;
 			}
 			.stage-panel__footer {
 				margin-top: 12px;
@@ -907,6 +1396,28 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 				border-top-right-radius: 999px;
 				border-bottom-right-radius: 999px;
 			}
+			.insights-status-badge {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 4px 12px;
+				border-radius: 999px;
+				font-size: 13px;
+				font-weight: 600;
+				line-height: 1;
+			}
+			.insights-status-badge--questionnaire {
+				background: rgba(148, 197, 255, 0.24);
+				color: #0f416f;
+			}
+			.insights-status-badge--interview {
+				background: rgba(134, 239, 172, 0.24);
+				color: #166534;
+			}
+			.insights-status-badge--chat {
+				background: rgba(196, 181, 253, 0.24);
+				color: #5b21b6;
+			}
 			.insights-filters {
 				display: flex;
 				align-items: flex-start;
@@ -979,9 +1490,21 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 				gap: 12px;
 				margin-left: auto;
 			}
+			.insights-table-section {
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 0;
+				gap: 16px;
+			}
 			.insights-table-wrap {
-				overflow-x: auto;
+				flex: 1;
+				min-height: 0;
 				width: 100%;
+				border-radius: 12px;
+				overflow: hidden;
+				overflow-x: auto;
+				overflow-y: auto;
 			}
 			.insights-table {
 				width: 100%;
@@ -989,20 +1512,17 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 				font-size: 15px;
 				background: var(--panel, #F6F7F9fff);
 			}
-			.insights-table__head-row {
-				background: var(--panel, #F6F7F9fff);
-			}
 			.insights-table__head-cell {
 				text-align: left;
 				padding: 10px 8px;
-				color: var(--accent-2, #7fb3ff);
+				color: #f6f7f9;
 				font-size: 13px;
 				font-weight: 700;
 				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
 				position: sticky;
 				top: 0;
 				z-index: 1;
-				background: var(--panel-2, #F6F7F9fff);
+				background: #1e293b;
 			}
 			.insights-table__head-cell--persona {
 				min-width: 150px;
@@ -1129,6 +1649,111 @@ const [selectedStatuses, setSelectedStatuses] = useState<{ Quant: boolean; Qual:
 				padding: 8px;
 				border-radius: 6px;
 				overflow-x: auto;
+			}
+			.insights-questionnaire {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+				width: 100%;
+				height: 100%;
+				background: rgba(15, 23, 42, 0.78);
+				border: 1px solid rgba(59, 130, 246, 0.22);
+				border-radius: 12px;
+				padding: 18px;
+				color: #e2e8f0;
+			}
+			.insights-questionnaire__header {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.insights-questionnaire__header h4 {
+				margin: 0;
+				font-size: 16px;
+				font-weight: 700;
+			}
+			.insights-questionnaire__count {
+				font-size: 13px;
+				font-weight: 600;
+				color: rgba(148, 163, 184, 0.9);
+				white-space: nowrap;
+			}
+			.insights-questionnaire__scroll {
+				flex: 1 1 auto;
+				min-height: 0;
+				overflow-y: auto;
+				padding-right: 4px;
+			}
+			.insights-questionnaire__grid {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: 16px;
+				align-content: start;
+			}
+			.insights-questionnaire__item {
+				border: 1px solid rgba(59, 130, 246, 0.22);
+				border-radius: 10px;
+				padding: 14px;
+				background: rgba(30, 41, 59, 0.65);
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				height: 100%;
+				box-shadow: 0 6px 18px rgba(2, 6, 23, 0.14);
+			}
+			.insights-questionnaire__question {
+				font-weight: 700;
+				font-size: 14px;
+				color: #bfdbfe;
+			}
+			.insights-questionnaire__answer {
+				display: flex;
+				gap: 6px;
+				font-size: 13px;
+				line-height: 1.4;
+				word-break: break-word;
+			}
+			.insights-questionnaire__label {
+				color: #94a3b8;
+				font-weight: 600;
+				flex-shrink: 0;
+			}
+			.insights-questionnaire__placeholder {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 140px;
+				font-size: 14px;
+				color: #cbd5f5;
+				border: 1px dashed rgba(59, 130, 246, 0.35);
+				border-radius: 10px;
+				background: rgba(15, 23, 42, 0.5);
+			}
+			.insights-questionnaire__raw {
+				margin: 0;
+				font-family: var(--font-mono, monospace);
+				font-size: 12px;
+				background: rgba(15, 23, 42, 0.6);
+				border: 1px solid rgba(59, 130, 246, 0.28);
+				border-radius: 10px;
+				padding: 12px;
+				white-space: pre-wrap;
+				word-break: break-word;
+				color: #f8fafc;
+			}
+			@media (max-width: 1500px) {
+				.insights-questionnaire__grid {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+			}
+			@media (max-width: 900px) {
+				.insights-questionnaire__grid {
+					grid-template-columns: 1fr;
+				}
 			}
 			.insights-chat {
 				display: flex;

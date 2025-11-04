@@ -40,6 +40,7 @@ type Props = {
   subtitle?: string;
   talkLabel?: string;
   testingOverride?: boolean;
+  userId?: string;
   onConversationStart?: (conversationId: string | null) => void;
   onConversationEnd?: (info: { conversationId: string | null; endedAt: number }) => void;
   // when provided, this comes from the parent (e.g. documents page) and
@@ -63,6 +64,7 @@ export default function PrepAgent({
   subtitle = "",
   talkLabel = "Start interview",
   testingOverride,
+  userId,
   onConversationStart,
   onConversationEnd,
   panelExpanded,
@@ -449,12 +451,25 @@ export default function PrepAgent({
 
       const effectiveUseSignedUrl = agentMap?.auth === "signed" ? true : useSignedUrl;
       const effectiveAgent = agentMap?.agent_id || agentId;
+      const dynamicVariables: Record<string, string | boolean> = {
+        research_type: "interview",
+      };
+      if (userId) {
+        dynamicVariables.user_id = userId;
+      }
+      if (typeof testingOverride === "boolean") {
+        dynamicVariables.testing_mode = testingOverride;
+      }
 
       if (effectiveUseSignedUrl) {
-        const res = await fetch('/api/eleven/get-signed-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agent_id: effectiveAgent })
+        const payload: Record<string, unknown> = { agent_id: effectiveAgent };
+        if (dynamicVariables) {
+          payload.dynamic_variables = dynamicVariables;
+        }
+        const res = await fetch("/api/eleven/get-signed-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
         let data;
         try {
@@ -465,17 +480,12 @@ export default function PrepAgent({
         }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
-        const dynamicVariables =
-          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
-
         await startSession({
           signedUrl: data.signedUrl,
           connectionType: "websocket",
           dynamicVariables,
         });
       } else {
-        const dynamicVariables =
-          typeof testingOverride === "boolean" ? { testing_mode: testingOverride } : undefined;
         await startSession({
           agentId: effectiveAgent,
           connectionType: "websocket",

@@ -79,27 +79,104 @@ export default function BatchPage() {
   const [uploadFileType, setUploadFileType] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchProfileRole() {
+      if (!clientSlug) {
+        if (!isMounted) return;
+        setProfileRole(null);
+        setProfileLoadError("Workspace not found");
+        setProfileReady(true);
+        return;
+      }
+      if (isMounted) {
+        setProfileReady(false);
+        setProfileLoadError(null);
+      }
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        if (userError) {
+          setProfileRole(null);
+          setProfileLoadError(userError.message ?? "Unable to load session");
+          return;
+        }
+        const user = userData?.user;
+        if (!user) {
+          setProfileRole(null);
+          setProfileLoadError("You must be signed in");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, client_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!isMounted) return;
+        if (profileError || !profile) {
+          setProfileRole(null);
+          setProfileLoadError(profileError?.message ?? "Profile not found");
+          return;
+        }
+        if (profile.client_id !== clientSlug) {
+          setProfileRole(null);
+          setProfileLoadError("This workspace is unavailable");
+          return;
+        }
+        setProfileRole(typeof profile.role === "string" ? profile.role : null);
+        setProfileLoadError(null);
+      } catch (error) {
+        if (!isMounted) return;
+        setProfileRole(null);
+        setProfileLoadError(error instanceof Error ? error.message : "Failed to load profile");
+      } finally {
+        if (isMounted) {
+          setProfileReady(true);
+        }
+      }
+    }
+
+    void fetchProfileRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clientSlug]);
 
   useEffect(() => {
     async function fetchPersonas() {
-      if (!clientSlug) return;
+      if (!clientSlug) {
+        setError("Workspace not found");
+        setPersonas([]);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
+        const { data: client, error: clientError } = await supabase
+          .from("clients")
           .select("id")
           .eq("id", clientSlug)
-          .single();
-        if (profileError || !profile) {
-          setError("Profile not found");
+          .maybeSingle<{ id: string }>();
+        if (clientError) {
+          setError("Unable to load workspace");
+          setPersonas([]);
+          return;
+        }
+        if (!client) {
+          setError("Workspace not found");
           setPersonas([]);
           return;
         }
         const { data, error: personaError } = await supabase
           .from("agent_map")
           .select("agent_id, agent_name, audience_type, content_type")
-          .eq("user_id", profile.id)
+          .eq("client_id", client.id)
           .order("created_at", { ascending: false });
         if (personaError) {
           setError("Unable to load personas");
@@ -126,7 +203,10 @@ export default function BatchPage() {
     };
   }, [uploadFileURL]);
 
+  const canCreateGroups = profileReady && !profileLoadError && profileRole !== "viewer";
+
   const handleTogglePersona = (personaId: string) => {
+    if (!canCreateGroups) return;
     setSelectedPersonaIds((prev) => {
       const next = new Set(prev);
       if (next.has(personaId)) {
@@ -145,6 +225,7 @@ export default function BatchPage() {
   );
 
   const handleContinueToUpload = () => {
+    if (!canCreateGroups) return;
     if (selectedCount === 0) return;
     setUploadError(null);
     setStage("upload");
@@ -155,6 +236,7 @@ export default function BatchPage() {
   };
 
   const handlePickUploadFile = () => {
+    if (!canCreateGroups) return;
     uploadInputRef.current?.click();
   };
 
@@ -184,6 +266,10 @@ export default function BatchPage() {
   };
 
   const handleLaunchBatch = () => {
+    if (!canCreateGroups) {
+      setUploadError("You don't have permission to launch a batch run.");
+      return;
+    }
     if (!uploadFileURL || !uploadFileName) {
       setUploadError("Upload a questionnaire before launching the batch run.");
       return;
@@ -202,6 +288,18 @@ export default function BatchPage() {
     }
   };
 
+    useEffect(() => {
+      if (stage === "upload" && !canCreateGroups) {
+        setStage("select");
+      }
+    }, [stage, canCreateGroups]);
+
+    useEffect(() => {
+      if (!canCreateGroups && selectedPersonaIds.size > 0) {
+        setSelectedPersonaIds(new Set<string>());
+      }
+    }, [canCreateGroups, selectedPersonaIds]);
+
   return (
     <main className="stage-layout batch-root">
       <aside className="stage-layout__sidebar">
@@ -212,9 +310,15 @@ export default function BatchPage() {
           <StagePanel
             heading="Persona groups"
             subheading={
-              stage === "select"
-                ? "Group multiple personas and launch a shared questionnaire run."
-                : "Upload a questionnaire to run across your selected personas."
+              !profileReady
+                ? "Checking your permissions…"
+                : profileLoadError
+                  ? profileLoadError
+                  : !canCreateGroups
+                    ? "You can browse persona groups, but only admins can create new ones."
+                    : stage === "select"
+                      ? "Group multiple personas and launch a shared questionnaire run."
+                      : "Upload a questionnaire to run across your selected personas."
             }
             leading={
               <div className="batch-step-indicator">
@@ -237,29 +341,55 @@ export default function BatchPage() {
                       type="button"
                       variant="primary"
                       onClick={handleLaunchBatch}
-                      disabled={!uploadFileURL || isLaunching}
+                      disabled={!profileReady || !canCreateGroups || !uploadFileURL || isLaunching}
                     >
-                      {isLaunching ? "Launching…" : `Launch batch (${selectedCount})`}
+                      {!profileReady
+                        ? "Checking access…"
+                        : !canCreateGroups
+                        ? "View only access"
+                        : isLaunching
+                          ? "Launching…"
+                          : `Launch batch (${selectedCount})`}
                     </StageButton>
                   </>
                 ) : (
                   <StageButton
                     type="button"
                     variant="primary"
-                    disabled={selectedCount === 0}
+                    disabled={!profileReady || !canCreateGroups || selectedCount === 0}
                     onClick={handleContinueToUpload}
                   >
-                    {selectedCount === 0 ? "Select personas" : `Continue (${selectedCount})`}
+                    {!profileReady
+                      ? "Checking access…"
+                      : !canCreateGroups
+                      ? "View only access"
+                      : selectedCount === 0
+                        ? "Select personas"
+                        : `Continue (${selectedCount})`}
                   </StageButton>
                 )}
               </div>
             }
           >
+            {profileLoadError ? (
+              <div className="batch-notice batch-notice--error" role="alert">
+                {profileLoadError}
+              </div>
+            ) : null}
+            {profileReady && !profileLoadError && !canCreateGroups ? (
+              <div className="batch-notice batch-notice--info" role="status">
+                You can view persona groups, but only admins can create or launch them.
+              </div>
+            ) : null}
             {stage === "select" ? (
               <section className="batch-section">
                 <div className="batch-intro">
-                  <h3>Create your first group</h3>
-                  <p>Pick the personas you want to include in this batch run. You can refine and save it once you choose the questionnaire file.</p>
+                  <h3>{profileReady && !canCreateGroups ? "Persona groups" : "Create your first group"}</h3>
+                  <p>
+                    {profileReady && !canCreateGroups
+                      ? "Browse the personas available in this workspace. Ask an admin if you need to launch a new group questionnaire."
+                      : "Pick the personas you want to include in this batch run. You can refine and save it once you choose the questionnaire file."}
+                  </p>
                 </div>
                 <div className="batch-persona-grid" role="list">
                   {loading && (
@@ -278,6 +408,7 @@ export default function BatchPage() {
                           type="button"
                           className="batch-persona-card"
                           onClick={() => handleTogglePersona(persona.agent_id)}
+                          disabled={!canCreateGroups}
                           aria-pressed={isSelected}
                         >
                           <span className="batch-persona-card__select" aria-hidden="true">
@@ -379,7 +510,7 @@ export default function BatchPage() {
           flex-direction: row;
         }
         .stage-layout__sidebar {
-          width: 180px;
+          width: var(--sidebar-width);
           flex-shrink: 0;
         }
         .stage-layout__content {
@@ -566,6 +697,15 @@ export default function BatchPage() {
           box-shadow: 0 18px 44px rgba(10, 22, 40, 0.16);
           transform: translateY(-2px);
         }
+        .batch-persona-card:disabled,
+        .batch-persona-card:disabled:hover,
+        .batch-persona-card:disabled[aria-pressed="true"] {
+          cursor: not-allowed;
+          opacity: 0.72;
+          border-color: rgba(43, 108, 176, 0.16);
+          box-shadow: none;
+          transform: none;
+        }
         .batch-persona-card:focus-visible {
           outline: 2px solid rgba(43, 108, 176, 0.75);
           outline-offset: 4px;
@@ -621,6 +761,24 @@ export default function BatchPage() {
           border-color: rgba(239, 68, 68, 0.35);
           background: rgba(254, 226, 226, 0.4);
           color: rgba(185, 28, 28, 0.9);
+        }
+        .batch-notice {
+          margin-bottom: 18px;
+          padding: 14px 16px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.5;
+        }
+        .batch-notice--info {
+          background: rgba(59, 130, 246, 0.12);
+          border: 1px solid rgba(59, 130, 246, 0.28);
+          color: #1d4ed8;
+        }
+        .batch-notice--error {
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.32);
+          color: #b91c1c;
         }
         .batch-upload-stage {
           display: grid;
