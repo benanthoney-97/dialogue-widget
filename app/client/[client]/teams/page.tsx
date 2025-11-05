@@ -311,6 +311,7 @@ export default function TeamsPage() {
     };
   }, [clientSlug, refreshToken, formatDate, formatExpiry, profileReady, profileRole, profileLoadError]);
   const canManageTeam = profileReady && !profileLoadError && profileRole !== "viewer";
+  const canInviteMembers = canManageTeam && profileRole === "admin";
   const handleRequestRemoveMember = useCallback(
     (member: { id: string; name: string; email: string }) => {
       if (!canManageTeam) return;
@@ -457,8 +458,8 @@ export default function TeamsPage() {
   const handleInviteSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!inviteEmail.trim()) return;
-    if (!canManageTeam) {
-      setInviteFeedback({ type: "error", message: "You don't have permission to manage invites." });
+    if (!canInviteMembers) {
+      setInviteFeedback({ type: "error", message: "Only admins can invite new team members." });
       return;
     }
     setIsSubmittingInvite(true);
@@ -565,6 +566,11 @@ export default function TeamsPage() {
                     Ask an admin if you need access to manage team members.
                   </div>
                 ) : null}
+                {canManageTeam && !canInviteMembers ? (
+                  <div className="teams-feedback teams-feedback--info" role="status">
+                    Only admins can invite new team members.
+                  </div>
+                ) : null}
                 <header className="teams-table__header teams-table__header--summary">
                   <div>
                     <h3>Team members{workspaceName ? ` · ${workspaceName}` : ""}</h3>
@@ -573,7 +579,7 @@ export default function TeamsPage() {
                     </p>
                   </div>
                 </header>
-                {canManageTeam ? (
+                {canInviteMembers ? (
                   <form className="teams-invite" onSubmit={handleInviteSubmit}>
                     <div className="teams-invite__input">
                       <input

@@ -1,9 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QuestionnaireResults, { QuestionnaireEntry, parseQuestionnaireResponses } from "@/app/components/QuestionnaireResults";
+import FullscreenModal from "@/app/components/FullscreenModal";
+import QuestionnaireCompareModal from "@/app/components/QuestionnaireCompareModal";
+import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import { supabase } from "../../../lib/supabaseClient";
+import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
 function getClientSlug(pathname: string | null): string {
   if (!pathname) return "";
@@ -65,6 +70,57 @@ function StageButton({ variant = "primary", width = "auto", className = "", ...p
   return <button className={`${classes} ${className}`.trim()} {...props} />;
 }
 
+type BatchStage = "select" | "upload" | "monitor";
+
+type BatchJobMeta = {
+  id: string;
+  status: string;
+  questionnaire_file_url: string;
+  questionnaire_file_name: string | null;
+  questionnaire_file_type: string | null;
+  questionnaire_file_size: number | null;
+  created_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+type BatchPersonaStatus = {
+  id: string;
+  agent_id: string;
+  agent_name: string | null;
+  status: string;
+  error_message: string | null;
+  dialogue_id: string | null;
+  dialogue?: {
+    research_type: string | null;
+    transcript_summary: string | null;
+    transcript?: unknown;
+  } | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+const TERMINAL_PERSONA_STATUSES = new Set(["parsed", "failed"]);
+const TERMINAL_BATCH_STATUSES = new Set(["complete", "failed"]);
+
+type BatchJobHydrationRow = {
+  id: string;
+  status: string | null;
+  questionnaire_file_url: string | null;
+  questionnaire_file_name: string | null;
+  questionnaire_file_type: string | null;
+  questionnaire_file_size: number | string | null;
+  created_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+function makeSafeFilename(input: string): string {
+  const base = input.trim().replace(/\.[^/.]+$/, "");
+  const safe = base.replace(/[^a-z0-9]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return safe || "persona";
+}
+
 export default function BatchPage() {
   const pathname = usePathname();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
@@ -72,16 +128,472 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(() => new Set());
-  const [stage, setStage] = useState<"select" | "upload">("select");
+  const [stage, setStage] = useState<BatchStage>("select");
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadFileName, setUploadFileName] = useState<string | null>(null);
   const [uploadFileURL, setUploadFileURL] = useState<string | null>(null);
   const [uploadFileType, setUploadFileType] = useState<string | null>(null);
+  const [uploadFileSize, setUploadFileSize] = useState<number | null>(null);
+  const [uploadFileDataUrl, setUploadFileDataUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [profileReady, setProfileReady] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+  const [batchJobMeta, setBatchJobMeta] = useState<BatchJobMeta | null>(null);
+  const [batchPersonasStatus, setBatchPersonasStatus] = useState<BatchPersonaStatus[]>([]);
+  const [batchStatusError, setBatchStatusError] = useState<string | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const batchJobMetaRef = useRef<BatchJobMeta | null>(null);
+  const batchPersonasStatusRef = useRef<BatchPersonaStatus[]>([]);
+  const [openPersonaId, setOpenPersonaId] = useState<string | null>(null);
+  const [exportingPersonaId, setExportingPersonaId] = useState<string | null>(null);
+  const [isExportingBatch, setIsExportingBatch] = useState(false);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareInitialPersonaId, setCompareInitialPersonaId] = useState<string | null>(null);
+  const contentAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [isHydratingBatchJob, setIsHydratingBatchJob] = useState(false);
+  const dismissedBatchJobIdRef = useRef<string | null>(null);
+
+  const stopBatchPolling = useCallback(() => {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  const updateBatchJobMeta = useCallback((meta: BatchJobMeta | null) => {
+    batchJobMetaRef.current = meta;
+    setBatchJobMeta(meta);
+  }, []);
+
+  const updateBatchPersonasStatus = useCallback(
+    (list: BatchPersonaStatus[]) => {
+      batchPersonasStatusRef.current = list;
+      setBatchPersonasStatus(list);
+      if (openPersonaId && !list.some((persona) => persona.id === openPersonaId)) {
+        setOpenPersonaId(null);
+      }
+    },
+    [openPersonaId],
+  );
+
+  const resetBatchState = useCallback(() => {
+    stopBatchPolling();
+    updateBatchJobMeta(null);
+    updateBatchPersonasStatus([]);
+    setBatchStatusError(null);
+    setOpenPersonaId(null);
+  }, [stopBatchPolling, updateBatchJobMeta, updateBatchPersonasStatus]);
+
+  const currentStep = stage === "select" ? 1 : stage === "upload" ? 2 : 3;
+  const totalSteps = 3;
+  const formatStatus = (status: string | null | undefined) => {
+    if (!status) return "Pending";
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+  const batchTotalCount = batchPersonasStatus.length;
+  const completedCount = batchPersonasStatus.filter((persona) =>
+    TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase()),
+  ).length;
+  const inProgressCount = batchTotalCount - completedCount;
+  const batchStatusLabel = formatStatus(batchJobMeta?.status);
+  const batchFinished =
+    batchJobMeta?.status && TERMINAL_BATCH_STATUSES.has(batchJobMeta.status.toLowerCase());
+  const exportablePersonas = useMemo(
+    () =>
+      batchPersonasStatus.filter(
+        (persona) =>
+          TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase()) &&
+          persona.dialogue &&
+          persona.dialogue.transcript,
+      ),
+    [batchPersonasStatus],
+  );
+  const comparablePersonasForModal = useMemo(
+    () =>
+      batchPersonasStatus
+        .filter(
+          (persona) =>
+            persona.dialogue?.transcript &&
+            TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase()),
+        )
+        .map((persona) => {
+          const base = personas.find((entry) => entry.agent_id === persona.agent_id);
+          return {
+            id: persona.id,
+            name: persona.agent_name || base?.agent_name || "Untitled persona",
+            status: persona.status ? formatStatus(persona.status) : null,
+            audience: base?.audience_type ?? null,
+            updatedAt: persona.updated_at,
+            transcript: persona.dialogue?.transcript ?? null,
+          };
+        }),
+    [batchPersonasStatus, personas],
+  );
+  const exportPersonasToPdf = useCallback(
+    async (personasList: BatchPersonaStatus[], filename: string) => {
+      if (!personasList.length) return;
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const cooperLoaded = await ensureCooperFont(doc);
+      const textFont = cooperLoaded ? COOPER_FONT_NAME : "helvetica";
+      const monoFont = "courier";
+      const titleFontSize = cooperLoaded ? 26 : 18;
+      const sectionTitleSize = cooperLoaded ? 15 : 13;
+      const bodyFontSize = cooperLoaded ? 12 : 11;
+      const pageBottomOffset = 60;
+
+      const renderPersona = (persona: BatchPersonaStatus) => {
+        let cursorY = 48;
+        const personaTitle = persona.agent_name || persona.agent_id || "Untitled persona";
+
+        const drawPageFrame = (_isFirstPage: boolean) => {
+          doc.setFillColor(30, 41, 59);
+          doc.rect(0, 0, doc.internal.pageSize.getWidth(), 60, "F");
+          doc.setFont(textFont, "normal");
+          doc.setTextColor(246, 247, 249);
+          doc.setFontSize(titleFontSize);
+          doc.text(`Questionnaire - ${personaTitle}`, 40, 40);
+          doc.setFontSize(12);
+          doc.text("powered by Dialogue", doc.internal.pageSize.getWidth() - 40, 40, { align: "right" });
+          doc.setDrawColor(230, 235, 243);
+          doc.setFillColor(246, 247, 249);
+          doc.roundedRect(
+            30,
+            70,
+            doc.internal.pageSize.getWidth() - 60,
+            doc.internal.pageSize.getHeight() - 100,
+            12,
+            12,
+            "FD",
+          );
+          doc.setTextColor(5, 32, 51);
+          cursorY = 82;
+        };
+
+        const addSectionHeading = (title: string) => {
+          doc.setFont(textFont, "normal");
+          doc.setFontSize(sectionTitleSize);
+          cursorY += 20;
+          doc.text(title, 40, cursorY);
+        };
+
+        const addSection = (title: string, text: string | string[] | undefined, isMono = false) => {
+          if (!text) return;
+          addSectionHeading(title);
+          doc.setFont(isMono ? monoFont : textFont, "normal");
+          doc.setFontSize(isMono ? 10 : bodyFontSize);
+          const safeText = Array.isArray(text) ? text.join("\n") : text;
+          const wrapped = doc.splitTextToSize(safeText, 512) as string[];
+          wrapped.forEach((line) => {
+            if (cursorY > doc.internal.pageSize.getHeight() - pageBottomOffset) {
+              doc.addPage();
+              drawPageFrame(false);
+              addSectionHeading(`${title} (continued)`);
+              doc.setFont(isMono ? monoFont : textFont, "normal");
+              doc.setFontSize(isMono ? 10 : bodyFontSize);
+            }
+            cursorY += 18;
+            doc.text(line, 40, cursorY);
+          });
+        };
+
+        const addSummarySection = (summary: string | undefined) => {
+          if (!summary) return;
+          const panelLeft = 40;
+          const panelRight = doc.internal.pageSize.getWidth() - 40;
+          const blockWidth = panelRight - panelLeft;
+          const paddingX = 16;
+          const paddingY = 12;
+          const lineHeight = bodyFontSize + 4;
+          const panelBottomMargin = pageBottomOffset;
+          let remaining = doc.splitTextToSize(summary, blockWidth - paddingX * 2) as string[];
+          let headingLabel = "Summary";
+          const ensureSpace = () => {
+            const minNeeded = 20 + paddingY * 2 + lineHeight + 12;
+            const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
+            if (cursorY + minNeeded > pageBottom) {
+              doc.addPage();
+              drawPageFrame(false);
+            }
+          };
+          while (remaining.length) {
+            ensureSpace();
+            addSectionHeading(headingLabel);
+            const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
+            let availableHeight = pageBottom - (cursorY + paddingY + 12);
+            if (availableHeight < lineHeight + paddingY * 2) {
+              doc.addPage();
+              drawPageFrame(false);
+              headingLabel = headingLabel === "Summary" ? "Summary (continued)" : headingLabel;
+              addSectionHeading(headingLabel);
+              availableHeight =
+                doc.internal.pageSize.getHeight() - panelBottomMargin - (cursorY + paddingY + 12);
+            }
+            const maxLines = Math.max(1, Math.floor((availableHeight - paddingY * 2) / lineHeight));
+            const linesForPage = remaining.splice(0, maxLines);
+            const blockHeight = linesForPage.length * lineHeight + paddingY * 2;
+            const blockX = panelLeft;
+            const blockY = cursorY + 12;
+            doc.setFillColor(232, 237, 245);
+            doc.setDrawColor(200, 210, 222);
+            doc.roundedRect(blockX, blockY, blockWidth, blockHeight, 10, 10, "F");
+            doc.setFont(textFont, "normal");
+            doc.setFontSize(bodyFontSize);
+            doc.setTextColor(5, 32, 51);
+            let textY = blockY + paddingY + bodyFontSize;
+            const textX = blockX + paddingX;
+            linesForPage.forEach((line) => {
+              doc.text(line, textX, textY);
+              textY += lineHeight;
+            });
+            cursorY = blockY + blockHeight;
+            doc.setDrawColor(230, 235, 243);
+            if (remaining.length) {
+              doc.addPage();
+              drawPageFrame(false);
+              headingLabel = "Summary (continued)";
+            }
+          }
+          doc.setTextColor(5, 32, 51);
+        };
+
+        const addQuestionnaireSection = (questions: QuestionnaireEntry[]) => {
+          if (!questions.length) return;
+
+          addSectionHeading("Questionnaire Results");
+          cursorY += 12;
+
+          const panelLeft = 40;
+          const panelRight = doc.internal.pageSize.getWidth() - 40;
+          const blockWidth = panelRight - panelLeft;
+          const paddingX = 16;
+          const paddingY = 14;
+          const lineHeight = bodyFontSize + 4;
+          const labelFontSize = Math.max(bodyFontSize - 1, 10);
+          const detailSpacing = 12;
+          const pageBottom = doc.internal.pageSize.getHeight() - pageBottomOffset;
+          const contentWidth = blockWidth - paddingX * 2;
+          const labelClampWidth = contentWidth * 0.45;
+
+          questions.forEach((entry, index) => {
+            const questionNumber = index + 1;
+            const questionText = entry.question
+              ? `Q${questionNumber}. ${entry.question}`
+              : `Question ${questionNumber}`;
+            const questionLines = doc.splitTextToSize(questionText, contentWidth) as string[];
+
+            const detailPairs: Array<{ label: string; value: string }> = [];
+            const responseValue = entry.response ?? entry.selected_option ?? "—";
+            detailPairs.push({ label: "Response", value: String(responseValue) });
+            if (entry.free_text) {
+              detailPairs.push({ label: "Free text", value: entry.free_text });
+            }
+            if (entry.confidence !== undefined && entry.confidence !== null) {
+              const confidenceValue =
+                typeof entry.confidence === "number"
+                  ? entry.confidence.toFixed(2)
+                  : String(entry.confidence);
+              detailPairs.push({ label: "Confidence", value: confidenceValue });
+            }
+
+            const measuredDetails = detailPairs.map((pair) => {
+              const labelText = `${pair.label}:`;
+              const rawLabelWidth = doc.getTextWidth(labelText) + 6;
+              const labelWidth = Math.min(rawLabelWidth, labelClampWidth);
+              const valueWidth = Math.max(24, contentWidth - labelWidth);
+              const valueLines = doc.splitTextToSize(pair.value, valueWidth) as string[];
+              if (!valueLines.length) {
+                valueLines.push("—");
+              }
+              return { labelText, labelWidth, valueLines };
+            });
+
+            let blockHeight = paddingY * 2;
+            blockHeight += questionLines.length * lineHeight;
+            if (measuredDetails.length) {
+              measuredDetails.forEach((detail) => {
+                blockHeight += detailSpacing;
+                blockHeight += detail.valueLines.length * lineHeight;
+              });
+            } else {
+              blockHeight += lineHeight;
+            }
+
+            const blockGap = index === 0 ? 20 : 18;
+            if (cursorY + blockGap + blockHeight > pageBottom) {
+              doc.addPage();
+              drawPageFrame(false);
+              addSectionHeading("Questionnaire Results (continued)");
+              cursorY += 12;
+            }
+
+            cursorY += blockGap;
+            const blockY = cursorY;
+            doc.setFillColor(30, 41, 59);
+            doc.setDrawColor(59, 130, 246);
+            doc.roundedRect(panelLeft, blockY, blockWidth, blockHeight, 12, 12, "F");
+
+            let textY = blockY + paddingY + bodyFontSize;
+            const textX = panelLeft + paddingX;
+
+            doc.setFont(textFont, "normal");
+            doc.setFontSize(bodyFontSize + 1);
+            doc.setTextColor(191, 219, 254);
+            questionLines.forEach((line) => {
+              doc.text(line, textX, textY);
+              textY += lineHeight;
+            });
+
+            doc.setFont(textFont, "normal");
+            doc.setFontSize(bodyFontSize);
+            doc.setTextColor(241, 245, 249);
+
+            measuredDetails.forEach((detail) => {
+              textY += detailSpacing;
+
+              doc.setFont(textFont, "normal");
+              doc.setFontSize(labelFontSize);
+              doc.setTextColor(148, 163, 184);
+              doc.text(detail.labelText, textX, textY);
+
+              doc.setFont(textFont, "normal");
+              doc.setFontSize(bodyFontSize);
+              doc.setTextColor(241, 245, 249);
+              doc.text(detail.valueLines[0], textX + detail.labelWidth, textY);
+              for (let i = 1; i < detail.valueLines.length; i++) {
+                textY += lineHeight;
+                doc.text(detail.valueLines[i], textX + detail.labelWidth, textY);
+              }
+            });
+
+            cursorY = blockY + blockHeight;
+            doc.setTextColor(5, 32, 51);
+            doc.setFont(textFont, "normal");
+            doc.setFontSize(bodyFontSize);
+            doc.setDrawColor(230, 235, 243);
+            doc.setFillColor(246, 247, 249);
+          });
+
+          cursorY += 12;
+          doc.setTextColor(5, 32, 51);
+        };
+
+        drawPageFrame(true);
+
+        const updatedAt = persona.updated_at
+          ? new Date(persona.updated_at).toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "";
+
+        const detailsLines = [
+          `Persona: ${persona.agent_name || persona.agent_id || "—"}`,
+          `Status: ${formatStatus(persona.status)}`,
+        ];
+        if (updatedAt) {
+          detailsLines.push(`Updated: ${updatedAt}`);
+        }
+        if (persona.dialogue_id) {
+          detailsLines.push(`Dialogue ID: ${persona.dialogue_id}`);
+        }
+        if (persona.dialogue?.research_type) {
+          detailsLines.push(`Research Type: ${persona.dialogue.research_type}`);
+        }
+
+        addSection("Details", detailsLines.join("\n"));
+
+        if (persona.dialogue?.transcript_summary) {
+          cursorY += 20;
+          addSummarySection(persona.dialogue.transcript_summary);
+          cursorY += 24;
+        }
+
+        const parsed = parseQuestionnaireResponses(persona.dialogue?.transcript ?? null);
+        const questions = parsed?.questions ?? [];
+
+        if (questions.length) {
+          cursorY += 24;
+          addQuestionnaireSection(questions);
+        } else {
+          const rawContent =
+            typeof persona.dialogue?.transcript === "string"
+              ? persona.dialogue?.transcript
+              : persona.dialogue?.transcript
+              ? JSON.stringify(persona.dialogue?.transcript, null, 2)
+              : null;
+          if (rawContent) {
+            addSection("Responses", rawContent, true);
+          } else {
+            addSection("Responses", "No questionnaire responses captured yet.");
+          }
+        }
+      };
+
+      personasList.forEach((persona, index) => {
+        if (index > 0) {
+          doc.addPage();
+        }
+        renderPersona(persona);
+      });
+
+      const outputName = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+      doc.save(outputName);
+    },
+    [formatStatus],
+  );
+  const handleExportPersona = useCallback(
+    async (persona: BatchPersonaStatus) => {
+      if (exportingPersonaId || !persona.dialogue?.transcript) return;
+      setExportingPersonaId(persona.id);
+      try {
+        const personaLabel = persona.agent_name || persona.agent_id || "persona";
+        const safeName = `${makeSafeFilename(personaLabel)}-questionnaire`;
+        await exportPersonasToPdf([persona], safeName);
+      } catch (error) {
+        console.error("[batch] persona export failed", error);
+      } finally {
+        setExportingPersonaId(null);
+      }
+    },
+    [exportPersonasToPdf, exportingPersonaId],
+  );
+  const handleExportBatch = useCallback(async () => {
+    if (isExportingBatch || exportablePersonas.length === 0) return;
+    setIsExportingBatch(true);
+    try {
+      const personaCountLabel = `${exportablePersonas.length} Personas`;
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      const baseLabel = ["Group Questionnaire", personaCountLabel, formattedDate].join(" - ");
+      const safeName = makeSafeFilename(baseLabel);
+      await exportPersonasToPdf(exportablePersonas, safeName);
+    } catch (error) {
+      console.error("[batch] batch export failed", error);
+    } finally {
+      setIsExportingBatch(false);
+    }
+  }, [batchJobMeta?.questionnaire_file_name, exportPersonasToPdf, exportablePersonas, isExportingBatch]);
+  const handleOpenCompare = useCallback(
+    (personaId?: string | null) => {
+      if (comparablePersonasForModal.length === 0) return;
+      const validInitial =
+        personaId && comparablePersonasForModal.some((persona) => persona.id === personaId)
+          ? personaId
+          : comparablePersonasForModal[0]?.id ?? null;
+      setCompareInitialPersonaId(validInitial);
+      setIsCompareOpen(true);
+    },
+    [comparablePersonasForModal],
+  );
+  const handleCloseCompare = useCallback(() => {
+    setIsCompareOpen(false);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -196,12 +708,120 @@ export default function BatchPage() {
       if (uploadFileURL) {
         try {
           URL.revokeObjectURL(uploadFileURL);
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
     };
   }, [uploadFileURL]);
+
+  useEffect(() => {
+    if (!clientSlug) {
+      return;
+    }
+    if (stage !== "select") {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const hydrateLatestBatchJob = async () => {
+      setIsHydratingBatchJob(true);
+      try {
+        const { data, error } = await supabase
+          .from("batch_jobs")
+          .select(
+            [
+              "id",
+              "status",
+              "questionnaire_file_url",
+              "questionnaire_file_name",
+              "questionnaire_file_type",
+              "questionnaire_file_size",
+              "created_at",
+              "started_at",
+              "completed_at",
+            ].join(","),
+          )
+          .eq("client_id", clientSlug)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (error) {
+          console.error("[batch] failed to hydrate latest batch job", error);
+          return;
+        }
+
+        const batchRows = (data as unknown as BatchJobHydrationRow[] | null) ?? null;
+        const latestJob = batchRows && batchRows.length > 0 ? batchRows[0] : null;
+        if (!latestJob || typeof latestJob.id !== "string") {
+          return;
+        }
+
+        const latestJobId = latestJob.id;
+        const statusValue =
+          typeof latestJob.status === "string" ? latestJob.status.toLowerCase() : "pending";
+        const jobIsTerminal = TERMINAL_BATCH_STATUSES.has(statusValue);
+        if (jobIsTerminal && dismissedBatchJobIdRef.current === latestJobId) {
+          return;
+        }
+
+        dismissedBatchJobIdRef.current = null;
+
+        const rawSize = latestJob.questionnaire_file_size;
+        let normalizedSize: number | null = null;
+        if (typeof rawSize === "number") {
+          normalizedSize = Number.isFinite(rawSize) ? rawSize : null;
+        } else if (typeof rawSize === "string") {
+          const parsedSize = Number(rawSize);
+          normalizedSize = Number.isFinite(parsedSize) ? parsedSize : null;
+        }
+
+        updateBatchJobMeta({
+          id: latestJobId,
+          status: typeof latestJob.status === "string" ? latestJob.status : "pending",
+          questionnaire_file_url:
+            typeof latestJob.questionnaire_file_url === "string"
+              ? latestJob.questionnaire_file_url
+              : "",
+          questionnaire_file_name:
+            typeof latestJob.questionnaire_file_name === "string"
+              ? latestJob.questionnaire_file_name
+              : null,
+          questionnaire_file_type:
+            typeof latestJob.questionnaire_file_type === "string"
+              ? latestJob.questionnaire_file_type
+              : null,
+          questionnaire_file_size: normalizedSize,
+          created_at: typeof latestJob.created_at === "string" ? latestJob.created_at : null,
+          started_at: typeof latestJob.started_at === "string" ? latestJob.started_at : null,
+          completed_at: typeof latestJob.completed_at === "string" ? latestJob.completed_at : null,
+        });
+        updateBatchPersonasStatus([]);
+        setBatchStatusError(null);
+        setSelectedPersonaIds(new Set<string>());
+        setStage("monitor");
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("[batch] unexpected hydration error", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsHydratingBatchJob(false);
+        }
+      }
+    };
+
+    void hydrateLatestBatchJob();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [clientSlug, stage, updateBatchJobMeta, updateBatchPersonasStatus]);
 
   const canCreateGroups = profileReady && !profileLoadError && profileRole !== "viewer";
 
@@ -232,6 +852,13 @@ export default function BatchPage() {
   };
 
   const handleBackToSelect = () => {
+    const previousJobId = batchJobMetaRef.current?.id ?? null;
+    if (previousJobId) {
+      dismissedBatchJobIdRef.current = previousJobId;
+    }
+    resetBatchState();
+    clearUploadFile();
+    setSelectedPersonaIds(new Set<string>());
     setStage("select");
   };
 
@@ -244,13 +871,16 @@ export default function BatchPage() {
     if (uploadFileURL) {
       try {
         URL.revokeObjectURL(uploadFileURL);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
     setUploadFileName(null);
     setUploadFileType(null);
     setUploadFileURL(null);
+    setUploadFileSize(null);
+    setUploadFileDataUrl(null);
+    setUploadError(null);
   };
 
   const handleUploadFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,28 +891,102 @@ export default function BatchPage() {
     setUploadFileName(file.name);
     setUploadFileType(file.type || null);
     setUploadFileURL(objectUrl);
+    setUploadFileSize(file.size ?? null);
     setUploadError(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setUploadFileDataUrl(reader.result);
+      } else {
+        setUploadFileDataUrl(null);
+        setUploadError("Unable to read questionnaire file. Please try another file.");
+      }
+    };
+    reader.onerror = () => {
+      setUploadFileDataUrl(null);
+      setUploadError("Unable to read questionnaire file. Please try again.");
+    };
+    reader.readAsDataURL(file);
+
     event.target.value = "";
   };
 
-  const handleLaunchBatch = () => {
+  const handleLaunchBatch = async () => {
     if (!canCreateGroups) {
       setUploadError("You don't have permission to launch a batch run.");
       return;
     }
-    if (!uploadFileURL || !uploadFileName) {
+    if (!uploadFileDataUrl || !uploadFileName) {
       setUploadError("Upload a questionnaire before launching the batch run.");
       return;
     }
     setIsLaunching(true);
+    setUploadError(null);
     try {
-      // TODO: replace with actual batch run API integration
-      // eslint-disable-next-line no-console
-      console.log("Launch batch run", {
-        personas: Array.from(selectedPersonaIds),
-        file: uploadFileName,
-        fileType: uploadFileType,
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("[batch] failed to fetch session", sessionError);
+      }
+      const accessToken = sessionData?.session?.access_token ?? null;
+      if (!accessToken) {
+        setUploadError("Missing authentication. Please sign in again.");
+        return;
+      }
+
+      const response = await fetch("/api/questionnaires/batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          persona_ids: Array.from(selectedPersonaIds),
+          questionnaire: {
+            file_name: uploadFileName,
+            file_type: uploadFileType,
+            file_size: uploadFileSize,
+            data_url: uploadFileDataUrl,
+          },
+        }),
       });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({ error: "Failed to launch batch." }));
+        setUploadError(errorPayload?.error || "Unable to launch batch run.");
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        batch_job?: BatchJobMeta;
+        personas?: Array<{ id: string; agent_id: string; status: string }>;
+      };
+
+      if (!payload?.batch_job?.id) {
+        setUploadError("Unexpected response launching batch.");
+        return;
+      }
+
+      stopBatchPolling();
+      updateBatchJobMeta(payload.batch_job);
+      updateBatchPersonasStatus(
+        (payload.personas ?? []).map((item) => ({
+          id: item.id,
+          agent_id: item.agent_id,
+          agent_name: personas.find((persona) => persona.agent_id === item.agent_id)?.agent_name ?? null,
+          status: item.status,
+          error_message: null,
+          dialogue_id: null,
+          dialogue: null,
+          created_at: null,
+          updated_at: null,
+        })),
+      );
+      setBatchStatusError(null);
+      clearUploadFile();
+      dismissedBatchJobIdRef.current = null;
+      setStage("monitor");
     } finally {
       setIsLaunching(false);
     }
@@ -299,13 +1003,106 @@ export default function BatchPage() {
         setSelectedPersonaIds(new Set<string>());
       }
     }, [canCreateGroups, selectedPersonaIds]);
+  useEffect(() => {
+    const batchId = batchJobMeta?.id ?? null;
+    if (stage !== "monitor" || !batchId) {
+      stopBatchPolling();
+      return;
+    }
+
+    let isCancelled = false;
+    let isFetching = false;
+
+    const fetchStatus = async () => {
+      if (isCancelled || isFetching) return;
+      isFetching = true;
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error("[batch] failed to fetch session during polling", sessionError);
+        }
+        const accessToken = sessionData?.session?.access_token ?? null;
+        if (!accessToken) {
+          setBatchStatusError("Missing authentication. Please sign in again.");
+          stopBatchPolling();
+          return;
+        }
+
+        const response = await fetch(`/api/questionnaires/batch/${batchId}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({ error: "Failed to fetch batch status." }));
+          setBatchStatusError(payload?.error || "Unable to refresh batch status.");
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          batch_job?: BatchJobMeta;
+          personas?: BatchPersonaStatus[];
+        };
+
+        if (payload.batch_job) {
+          updateBatchJobMeta(payload.batch_job);
+        }
+
+        if (payload.personas) {
+          updateBatchPersonasStatus(
+            payload.personas.map((persona) => ({
+              ...persona,
+              agent_name:
+                persona.agent_name ??
+                personas.find((entry) => entry.agent_id === persona.agent_id)?.agent_name ??
+                null,
+            })),
+          );
+        }
+        setBatchStatusError(null);
+
+        const jobStatus = (
+          payload.batch_job?.status ?? batchJobMetaRef.current?.status ?? ""
+        ).toLowerCase();
+        const allPersonasTerminal =
+          (payload.personas ?? batchPersonasStatusRef.current).length > 0 &&
+          (payload.personas ?? batchPersonasStatusRef.current).every((persona) =>
+            TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase()),
+          );
+
+        if (
+          TERMINAL_BATCH_STATUSES.has(jobStatus) &&
+          allPersonasTerminal
+        ) {
+          stopBatchPolling();
+        }
+      } catch (error) {
+        console.error("[batch] polling failed", error);
+        setBatchStatusError("Unexpected error while refreshing batch status.");
+      } finally {
+        isFetching = false;
+      }
+    };
+
+    fetchStatus();
+    stopBatchPolling();
+    pollingRef.current = window.setInterval(fetchStatus, 4000);
+
+    return () => {
+      isCancelled = true;
+      stopBatchPolling();
+    };
+  }, [batchJobMeta?.id, personas, stage, stopBatchPolling, updateBatchJobMeta, updateBatchPersonasStatus]);
 
   return (
     <main className="stage-layout batch-root">
       <aside className="stage-layout__sidebar">
         <Sidebar />
       </aside>
-      <div className="stage-layout__content">
+      <div className="stage-layout__content" ref={contentAnchorRef}>
         <div className="stage-shell">
           <StagePanel
             heading="Persona groups"
@@ -317,12 +1114,16 @@ export default function BatchPage() {
                   : !canCreateGroups
                     ? "You can browse persona groups, but only admins can create new ones."
                     : stage === "select"
-                      ? "Group multiple personas and launch a shared questionnaire run."
-                      : "Upload a questionnaire to run across your selected personas."
+                      ? isHydratingBatchJob
+                        ? "Loading your latest batch questionnaire run…"
+                        : "Group multiple personas and launch a shared questionnaire run."
+                      : stage === "upload"
+                        ? "Upload a questionnaire to run across your selected personas."
+                        : "Monitor the questionnaire run across your persona group."
             }
             leading={
               <div className="batch-step-indicator">
-                <span>Step {stage === "select" ? "1" : "2"} of 2</span>
+                <span>Step {currentStep} of {totalSteps}</span>
               </div>
             }
             trailing={
@@ -341,22 +1142,33 @@ export default function BatchPage() {
                       type="button"
                       variant="primary"
                       onClick={handleLaunchBatch}
-                      disabled={!profileReady || !canCreateGroups || !uploadFileURL || isLaunching}
+                      disabled={!profileReady || !canCreateGroups || !uploadFileURL || !uploadFileDataUrl || isLaunching}
                     >
                       {!profileReady
                         ? "Checking access…"
                         : !canCreateGroups
                         ? "View only access"
-                        : isLaunching
-                          ? "Launching…"
-                          : `Launch batch (${selectedCount})`}
+                      : isLaunching
+                        ? "Launching…"
+                        : `Launch batch (${selectedCount})`}
+                    </StageButton>
+                  </>
+                ) : stage === "monitor" ? (
+                  <>
+                    <StageButton
+                      type="button"
+                      variant="ghost"
+                      onClick={handleBackToSelect}
+                      disabled={inProgressCount > 0 && !batchFinished}
+                    >
+                      Start new batch
                     </StageButton>
                   </>
                 ) : (
                   <StageButton
                     type="button"
                     variant="primary"
-                    disabled={!profileReady || !canCreateGroups || selectedCount === 0}
+                    disabled={!profileReady || !canCreateGroups || selectedCount === 0 || isHydratingBatchJob}
                     onClick={handleContinueToUpload}
                   >
                     {!profileReady
@@ -431,7 +1243,7 @@ export default function BatchPage() {
                     })}
                 </div>
               </section>
-            ) : (
+            ) : stage === "upload" ? (
               <section className="batch-upload-stage">
                 <div className="batch-selected-panel">
                   <div className="batch-selected-header">
@@ -496,18 +1308,142 @@ export default function BatchPage() {
                   {uploadError ? <p className="batch-upload-error">{uploadError}</p> : null}
                 </div>
               </section>
+            ) : (
+              <section className="batch-monitor-stage">
+                <div className="batch-monitor-summary">
+                  <div className="batch-monitor-summary__details">
+                    <h3>Batch progress</h3>
+                    <span className={`batch-status-chip batch-status-chip--${(batchJobMeta?.status ?? "pending").toLowerCase()}`}>
+                      {batchStatusLabel}
+                    </span>
+                  </div>
+                  <div className="batch-monitor-summary__counts">
+                    <span>{completedCount}/{batchTotalCount} completed</span>
+                    {inProgressCount > 0 ? <span>{inProgressCount} in progress</span> : null}
+                  </div>
+                  {batchJobMeta?.questionnaire_file_name ? (
+                    <div className="batch-monitor-summary__file">
+                      <span>Questionnaire: {batchJobMeta.questionnaire_file_name}</span>
+                    </div>
+                  ) : null}
+                </div>
+                {batchStatusError ? (
+                  <p className="batch-monitor-error" role="alert">{batchStatusError}</p>
+                ) : null}
+                <div className="batch-monitor-list">
+                  {batchPersonasStatus.length === 0 ? (
+                    <div className="batch-state">No personas queued for this batch.</div>
+                  ) : (
+                    <ul className="batch-monitor-items">
+                      {batchPersonasStatus.map((persona) => {
+                        const statusLabel = formatStatus(persona.status);
+                        const isComplete = TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase());
+                        const canViewResults = isComplete && persona.dialogue && persona.dialogue.transcript;
+                        const isExpanded = openPersonaId === persona.id;
+                        const personaExporting = exportingPersonaId === persona.id;
+                        const canExportPersona = Boolean(persona.dialogue?.transcript);
+                        const personaCanCompare = comparablePersonasForModal.some((entry) => entry.id === persona.id);
+                        return (
+                          <li key={persona.id} className="batch-monitor-item">
+                            <div className="batch-monitor-row">
+                              <div className="batch-monitor-persona">
+                                <strong>{persona.agent_name || "Untitled persona"}</strong>
+                                <span>{persona.agent_id}</span>
+                              </div>
+                              <div className="batch-monitor-status">
+                                <span className={`batch-status-chip batch-status-chip--${(persona.status ?? "pending").toLowerCase()}`}>
+                                  {statusLabel}
+                                </span>
+                                {persona.error_message ? (
+                                  <span className="batch-monitor-error-text">{persona.error_message}</span>
+                                ) : null}
+                              </div>
+                              <div className="batch-monitor-actions">
+                                {canViewResults ? (
+                                  <button
+                                    type="button"
+                                    className="batch-monitor-toggle"
+                                    onClick={() => setOpenPersonaId(isExpanded ? null : persona.id)}
+                                  >
+                                    {isExpanded ? "Hide results" : "View results"}
+                                  </button>
+                                ) : (
+                                  <span className="batch-monitor-placeholder">
+                                    {isComplete ? "Results syncing…" : "Processing…"}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {isExpanded && canViewResults ? (
+                              <div className="batch-monitor-results insights-results">
+                                <QuestionnaireResults raw={persona.dialogue?.transcript ?? null} />
+                                <div className="batch-options-bar batch-options-inline" role="group" aria-label="Questionnaire options">
+                                  <button
+                                    type="button"
+                                    className="batch-options-button"
+                                    onClick={() => handleOpenCompare(persona.id)}
+                                    disabled={!personaCanCompare}
+                                  >
+                                    Compare full screen
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="batch-options-button"
+                                    onClick={() => handleExportPersona(persona)}
+                                    disabled={personaExporting || !canExportPersona}
+                                  >
+                                    {personaExporting ? "Exporting…" : "Export"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                {batchFinished ? (
+                  <div className="batch-options-bar batch-options-footer" role="group" aria-label="Batch options">
+                    <button
+                      type="button"
+                      className="batch-options-button"
+                      onClick={() => handleOpenCompare()}
+                      disabled={comparablePersonasForModal.length < 2}
+                    >
+                      Compare full screen
+                    </button>
+                    <button
+                      type="button"
+                      className="batch-options-button"
+                      onClick={handleExportBatch}
+                      disabled={isExportingBatch || exportablePersonas.length === 0}
+                    >
+                      {isExportingBatch ? "Exporting…" : "Export all"}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
             )}
           </StagePanel>
         </div>
       </div>
+      <FullscreenModal open={isCompareOpen} onCloseAction={handleCloseCompare} anchorRef={contentAnchorRef}>
+        <QuestionnaireCompareModal
+          personas={comparablePersonasForModal}
+          initialPersonaId={compareInitialPersonaId}
+          onClose={handleCloseCompare}
+        />
+      </FullscreenModal>
       <style>{`
         .stage-layout {
-          min-height: 100dvh;
+          height: 100dvh;
           background: var(--bg, #f4f8ff);
           padding: 0;
           font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
           display: flex;
           flex-direction: row;
+          overflow: hidden;
         }
         .stage-layout__sidebar {
           width: var(--sidebar-width);
@@ -517,10 +1453,11 @@ export default function BatchPage() {
           flex: 1;
           display: flex;
           justify-content: center;
-          align-items: flex-start;
+          align-items: stretch;
           padding: 64px 24px 96px;
-          min-height: 100dvh;
-          overflow-y: auto;
+          height: 100%;
+          min-height: 0;
+          overflow: hidden;
         }
         .stage-shell {
           width: min(1120px, 96%);
@@ -528,6 +1465,8 @@ export default function BatchPage() {
           flex-direction: column;
           gap: 32px;
           color: var(--text);
+          height: 100%;
+          min-height: 0;
         }
         .stage-panel {
           background: rgba(255, 255, 255, 0.94);
@@ -539,6 +1478,8 @@ export default function BatchPage() {
           flex-direction: column;
           gap: 24px;
           color: #1e293b;
+          flex: 1;
+          min-height: 0;
         }
         .stage-panel__header {
           display: flex;
@@ -582,6 +1523,9 @@ export default function BatchPage() {
           display: flex;
           flex-direction: column;
           gap: 24px;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
         }
         .stage-panel__footer {
           margin-top: 12px;
@@ -652,6 +1596,9 @@ export default function BatchPage() {
           display: flex;
           flex-direction: column;
           gap: 24px;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
         }
         .batch-intro {
           display: flex;
@@ -675,6 +1622,9 @@ export default function BatchPage() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
           gap: 18px;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
         }
         .batch-persona-card {
           display: flex;
@@ -785,6 +1735,9 @@ export default function BatchPage() {
           grid-template-columns: 1.05fr 1fr;
           gap: 28px;
           align-items: start;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
         }
         .batch-selected-panel {
           display: flex;
@@ -794,6 +1747,8 @@ export default function BatchPage() {
           border-radius: 18px;
           border: 1px solid rgba(43, 108, 176, 0.15);
           background: rgba(248, 250, 252, 0.75);
+          min-height: 0;
+          overflow: auto;
         }
         .batch-selected-header {
           display: flex;
@@ -815,6 +1770,9 @@ export default function BatchPage() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
           gap: 12px;
+          flex: 1;
+          min-height: 0;
+          overflow: auto;
         }
         .batch-selected-pill {
           display: flex;
@@ -847,6 +1805,8 @@ export default function BatchPage() {
           border: 1px solid rgba(43, 108, 176, 0.15);
           background: rgba(255, 255, 255, 0.96);
           box-shadow: 0 16px 40px rgba(10, 22, 40, 0.12);
+          min-height: 0;
+          overflow: auto;
         }
         .batch-upload-card h3 {
           margin: 0;
@@ -927,6 +1887,320 @@ export default function BatchPage() {
           font-size: 13px;
           font-weight: 600;
         }
+        .batch-monitor-stage {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          flex: 1;
+          min-height: 0;
+        }
+        .batch-monitor-summary {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          padding: 18px 20px;
+          border-radius: 16px;
+          border: 1px solid rgba(43, 108, 176, 0.18);
+          background: rgba(248, 250, 252, 0.75);
+        }
+        .batch-monitor-summary__details {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .batch-monitor-summary__details h3 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+        }
+        .batch-monitor-summary__counts {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-weight: 600;
+          color: rgba(15, 23, 42, 0.65);
+        }
+        .batch-monitor-summary__file {
+          display: flex;
+          align-items: center;
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .batch-monitor-error {
+          margin: 0;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(185, 28, 28, 0.9);
+        }
+        .batch-monitor-list {
+          border: 1px solid rgba(43, 108, 176, 0.15);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.95);
+          padding: 0;
+          overflow: hidden;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .batch-monitor-items {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          overflow-y: auto;
+        }
+        .batch-monitor-item {
+          padding: 16px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .batch-monitor-item:last-of-type {
+          border-bottom: none;
+        }
+        .batch-monitor-row {
+          display: grid;
+          grid-template-columns: minmax(0, 260px) minmax(0, 180px) minmax(0, 200px);
+          gap: 16px;
+          align-items: flex-start;
+        }
+        .batch-monitor-persona {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .batch-monitor-persona strong {
+          font-size: 15px;
+          color: #0f172a;
+        }
+        .batch-monitor-persona span {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.55);
+        }
+        .batch-monitor-status {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          align-items: flex-start;
+        }
+        .batch-status-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: capitalize;
+          background: rgba(59, 130, 246, 0.12);
+          color: rgba(30, 64, 175, 0.95);
+        }
+        .batch-status-chip--running {
+          background: rgba(59, 130, 246, 0.18);
+          color: rgba(30, 64, 175, 0.98);
+        }
+        .batch-status-chip--parsed,
+        .batch-status-chip--complete {
+          background: rgba(34, 197, 94, 0.18);
+          color: rgba(22, 163, 74, 0.95);
+        }
+        .batch-status-chip--failed {
+          background: rgba(248, 113, 113, 0.2);
+          color: rgba(220, 38, 38, 0.92);
+        }
+        .batch-monitor-error-text {
+          font-size: 12px;
+          color: rgba(220, 38, 38, 0.9);
+        }
+        .batch-monitor-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+        }
+        .batch-monitor-toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #1d4ed8;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.22);
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+        }
+        .batch-monitor-toggle:hover {
+          background: rgba(59, 130, 246, 0.18);
+          color: #0f172a;
+        }
+        .batch-monitor-link {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1d4ed8;
+          text-decoration: none;
+        }
+        .batch-monitor-link:hover {
+          text-decoration: underline;
+        }
+        .batch-monitor-placeholder {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.45);
+        }
+        .batch-monitor-results {
+          border: 1px solid rgba(43, 108, 176, 0.12);
+          border-radius: 12px;
+          background: rgba(15, 23, 42, 0.04);
+          max-height: 420px;
+          overflow: hidden;
+        }
+        .batch-monitor-results .insights-questionnaire {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+          background: rgba(15, 23, 42, 0.78);
+          border: 1px solid rgba(59, 130, 246, 0.22);
+          border-radius: 12px;
+          padding: 18px;
+          color: #e2e8f0;
+          height: 100%;
+        }
+        .batch-options-bar {
+          display: flex;
+          gap: 14px;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          margin-top: 16px;
+        }
+        .batch-options-inline {
+          margin-top: 16px;
+        }
+        .batch-options-footer {
+          justify-content: flex-end;
+        }
+        .batch-options-button {
+          appearance: none;
+          border: 1px solid rgba(59, 130, 246, 0.35);
+          background: rgba(15, 23, 42, 0.85);
+          color: #f1f5ff;
+          border-radius: 999px;
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.22);
+        }
+        .batch-options-button:hover,
+        .batch-options-button:focus-visible {
+          background: rgba(59, 130, 246, 0.22);
+          border-color: rgba(59, 130, 246, 0.6);
+        }
+        .batch-options-button:active {
+          transform: translateY(1px);
+        }
+        .batch-options-button:focus-visible {
+          outline: 2px solid rgba(59, 130, 246, 0.7);
+          outline-offset: 2px;
+        }
+        .batch-options-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          pointer-events: none;
+          background: rgba(15, 23, 42, 0.5);
+          border-color: rgba(59, 130, 246, 0.25);
+          box-shadow: none;
+        }
+        .batch-monitor-results .insights-questionnaire__header {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .batch-monitor-results .insights-questionnaire__header h4 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 700;
+        }
+        .batch-monitor-results .insights-questionnaire__count {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(148, 163, 184, 0.9);
+          white-space: nowrap;
+        }
+        .batch-monitor-results .insights-questionnaire__scroll {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        .batch-monitor-results .insights-questionnaire__grid {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+          align-content: start;
+        }
+        .insights-questionnaire__item {
+          border: 1px solid rgba(59, 130, 246, 0.22);
+          border-radius: 10px;
+          padding: 14px;
+          background: rgba(30, 41, 59, 0.65);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          height: 100%;
+          box-shadow: 0 6px 18px rgba(2, 6, 23, 0.14);
+        }
+        .insights-questionnaire__question {
+          font-weight: 700;
+          font-size: 14px;
+          color: #bfdbfe;
+        }
+        .insights-questionnaire__answer {
+          display: flex;
+          gap: 6px;
+          font-size: 13px;
+          line-height: 1.4;
+          word-break: break-word;
+        }
+        .insights-questionnaire__label {
+          color: #94a3b8;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+        .insights-questionnaire__placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 140px;
+          font-size: 14px;
+          color: #cbd5f5;
+          border: 1px dashed rgba(59, 130, 246, 0.35);
+          border-radius: 10px;
+          background: rgba(15, 23, 42, 0.5);
+        }
+        .insights-questionnaire__raw {
+          margin: 0;
+          font-family: var(--font-mono, monospace);
+          font-size: 12px;
+          background: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(59, 130, 246, 0.28);
+          border-radius: 10px;
+          padding: 12px;
+          white-space: pre-wrap;
+          word-break: break-word;
+          color: #f8fafc;
+        }
         @media (max-width: 960px) {
           .stage-layout__content {
             padding: 64px 18px 96px;
@@ -939,6 +2213,16 @@ export default function BatchPage() {
           }
           .batch-upload-stage {
             grid-template-columns: 1fr;
+          }
+          .batch-monitor-item {
+            grid-template-columns: 1fr;
+            align-items: flex-start;
+          }
+          .batch-monitor-row {
+            grid-template-columns: 1fr;
+          }
+          .insights-questionnaire__grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (max-width: 680px) {
@@ -956,6 +2240,9 @@ export default function BatchPage() {
           }
           .stage-panel__titles h2 {
             font-size: 20px;
+          }
+          .insights-questionnaire__grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

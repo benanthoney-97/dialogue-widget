@@ -1112,7 +1112,7 @@ export default function UploadPage() {
                     variant="primary"
                     width="full"
                   >
-                    {finalizing ? 'Creating…' : 'Create Dialogue'}
+                    {finalizing ? 'Creating…' : 'Create Persona'}
                   </StageButton>
                 </div>
               </StagePanel>

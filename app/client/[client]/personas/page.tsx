@@ -23,6 +23,8 @@ type PersonaRow = {
   status: string | null;
   dialogue_created_date: string | null;
   key: string | null;
+  updated_at?: string | null;
+  research_type?: string | null;
   age?: string | number | null;
   gender?: string | null;
   location?: string | null;
@@ -36,6 +38,7 @@ type ProfileRow = {
   id: string;
   role: string | null;
   client_id: string | null;
+  display_name?: string | null;
 };
 
 type ClientRow = {
@@ -117,6 +120,11 @@ type PersonaTrait = {
 
 type PersonaScalarTraitKey = "age" | "gender" | "location" | "customer_status";
 
+type GridPosition = {
+  gridColumn: string;
+  gridRow: string;
+};
+
 const PERSONA_SCALAR_TRAITS: Array<{
   key: PersonaScalarTraitKey;
   label: string;
@@ -190,6 +198,39 @@ function buildPersonaTraits(persona: PersonaRow): PersonaTrait[] {
         : "Not set",
   });
   return traits;
+}
+
+function decodeStorageFileName(path: string | null): string | null {
+  if (!path) return null;
+  const segments = path.split("/");
+  let raw = segments[segments.length - 1] ?? "";
+  if (!raw) return null;
+  try {
+    raw = decodeURIComponent(raw);
+  } catch {
+    // keep raw as-is if it cannot be decoded
+  }
+  const hyphenIndex = raw.indexOf("-");
+  if (hyphenIndex > 0) {
+    const prefix = raw.slice(0, hyphenIndex);
+    if (/^\d+$/.test(prefix)) {
+      raw = raw.slice(hyphenIndex + 1) || raw;
+    }
+  }
+  return raw;
+}
+
+function inferMimeTypeFromFilename(fileName: string | null): string | null {
+  if (!fileName) return null;
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (lower.endsWith(".doc")) return "application/msword";
+  if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (lower.endsWith(".csv")) return "text/csv";
+  if (lower.endsWith(".txt")) return "text/plain";
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "text/html";
+  return null;
 }
 
 function buildUpdatedLabel(dateString: string | null): string {
@@ -322,14 +363,14 @@ export default function PersonasPage() {
   const router = useRouter();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
   const [personas, setPersonas] = useState<PersonaRow[]>([]);
+  const [columns, setColumns] = useState<number>(() =>
+    typeof window === "undefined" ? 4 : determineColumns(window.innerWidth)
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [columns, setColumns] = useState<number>(() =>
-    typeof window === "undefined" ? 4 : determineColumns(window.innerWidth)
-  );
-  const columnsRef = useRef(columns);
+  const [currentUserDisplayName, setCurrentUserDisplayName] = useState<string | null>(null);
   const [expandedPersonaId, setExpandedPersonaId] = useState<string | null>(null);
   const [activePersona, setActivePersona] = useState<PersonaRow | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -345,6 +386,7 @@ export default function PersonasPage() {
   const [quantFileType, setQuantFileType] = useState<string | null>(null);
   const [quantFile, setQuantFile] = useState<File | null>(null);
   const [isCreatingQuestionnaireJob, setIsCreatingQuestionnaireJob] = useState(false);
+  const [isHydratingQuestionnaireJob, setIsHydratingQuestionnaireJob] = useState(false);
   const [questionnaireJobError, setQuestionnaireJobError] = useState<string | null>(null);
   const [questionnaireJobId, setQuestionnaireJobId] = useState<string | null>(null);
   const [questionnaireJobStatus, setQuestionnaireJobStatus] = useState<string | null>(null);
@@ -399,6 +441,57 @@ export default function PersonasPage() {
   );
   const [isMounted, setIsMounted] = useState(false);
 
+  const personaGridPositions = useMemo(() => {
+    const total = personas.length;
+    if (total === 0) return [] as GridPosition[];
+    const safeColumns = Math.max(columns, 1);
+    const positions: GridPosition[] = new Array(total);
+    let currentRow = 1;
+    for (let rowStart = 0; rowStart < total; rowStart += safeColumns) {
+      const rowEnd = Math.min(rowStart + safeColumns, total);
+      const rowItems = personas.slice(rowStart, rowEnd);
+      const expandedIndexInRow =
+        expandedPersonaId && expandedPersonaId.length > 0
+          ? rowItems.findIndex((item) => item.agent_id === expandedPersonaId)
+          : -1;
+      if (expandedIndexInRow === -1) {
+        for (let i = 0; i < rowItems.length; i += 1) {
+          const globalIndex = rowStart + i;
+          positions[globalIndex] = {
+            gridColumn: `${i + 1}`,
+            gridRow: `${currentRow}`,
+          };
+        }
+        currentRow += 1;
+      } else {
+        const globalExpandedIndex = rowStart + expandedIndexInRow;
+        positions[globalExpandedIndex] = {
+          gridColumn: "1 / -1",
+          gridRow: `${currentRow}`,
+        };
+        currentRow += 1;
+        let colPointer = 1;
+        for (let i = 0; i < rowItems.length; i += 1) {
+          if (i === expandedIndexInRow) continue;
+          const globalIndex = rowStart + i;
+          positions[globalIndex] = {
+            gridColumn: `${colPointer}`,
+            gridRow: `${currentRow}`,
+          };
+          colPointer += 1;
+          if (colPointer > safeColumns) {
+            colPointer = 1;
+            currentRow += 1;
+          }
+        }
+        if (colPointer !== 1) {
+          currentRow += 1;
+        }
+      }
+    }
+    return positions;
+  }, [columns, personas, expandedPersonaId]);
+
   const stagedDocumentAddsRef = useRef<StagedDocumentAdd[]>([]);
   useEffect(() => {
     stagedDocumentAddsRef.current = stagedDocumentAdds;
@@ -434,6 +527,16 @@ export default function PersonasPage() {
     return () => setIsMounted(false);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleResize = () => {
+      setColumns(determineColumns(window.innerWidth));
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const baselinePersonaName = activePersona ? (activePersona.agent_name ?? "").trim() : "";
   const hasUnsavedName = Boolean(activePersona && editingName.trim() !== baselinePersonaName);
   const baselinePersonaDescription = activePersona ? activePersona.description ?? "" : "";
@@ -447,7 +550,7 @@ export default function PersonasPage() {
     return activePersona.key_traits
       .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
       .filter((trait) => trait.length > 0);
-  }, [activePersona]);
+  }, [activePersona, supabase]);
   const baselineKeyTraitsNormalized = baselineKeyTraitsList.length > 0
     ? normalizeTraitsInput(baselineKeyTraitsList.join(", "))
     : "";
@@ -575,13 +678,6 @@ export default function PersonasPage() {
   const isDataSourcesSelected = selectedMetaChip === "Data Sources";
   const isPainPointsSelected = selectedMetaChip === "Pain Points";
   const isIntentSignalsSelected = selectedMetaChip === "Intent Signals";
-
-
-
-  const fillerCount =
-    !loading && !error && personas.length > 0
-      ? (columns - (personas.length % columns || columns)) % columns
-      : 0;
 
   useEffect(() => {
     async function fetchPersonas() {
@@ -720,21 +816,23 @@ export default function PersonasPage() {
         setCurrentUserId(null);
         return;
       }
-  const user = userData?.user ?? null;
+      const user = userData?.user ?? null;
       if (!user) {
         setProfileRole(null);
         setCurrentUserId(null);
+        setCurrentUserDisplayName(null);
         return;
       }
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, role, client_id")
+        .select("id, role, client_id, display_name")
         .eq("id", user.id)
         .maybeSingle<ProfileRow>();
       if (!isMounted) return;
       if (error || !profile) {
         setProfileRole(null);
         setCurrentUserId(null);
+        setCurrentUserDisplayName(null);
         return;
       }
       const profileClientId = profile.client_id ?? null;
@@ -744,29 +842,18 @@ export default function PersonasPage() {
       if (!matchesResolvedClient && !matchesSlug) {
         setProfileRole(null);
         setCurrentUserId(null);
+        setCurrentUserDisplayName(null);
         return;
       }
       setCurrentUserId(user.id);
       setProfileRole(profile.role ?? null);
+      setCurrentUserDisplayName(profile.display_name ?? null);
     }
     fetchProfileRole();
     return () => {
       isMounted = false;
     };
   }, [clientSlug, resolvedClientId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    function handleResize() {
-      const nextColumns = determineColumns(window.innerWidth);
-      columnsRef.current = nextColumns;
-      setColumns(nextColumns);
-    }
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   useEffect(() => {
     if (
       !questionnaireJobId ||
@@ -946,6 +1033,33 @@ export default function PersonasPage() {
 
       setQuestionnaireJobId(job.id);
       setQuestionnaireJobStatus(job.status ?? "queued");
+
+      setQuantFile(null);
+
+      const derivedName = decodeStorageFileName(storagePath) ?? quantFile.name;
+      setQuantFileName(quantFile.name || derivedName);
+      setQuantFileType(quantFile.type || inferMimeTypeFromFilename(quantFile.name || derivedName));
+
+      try {
+        const { data: signedData } = await supabase.storage
+          .from(QUESTIONNAIRE_STORAGE_BUCKET)
+          .createSignedUrl(storagePath, 60 * 60);
+        let resolvedUrl = signedData?.signedUrl ?? null;
+        if (!resolvedUrl) {
+          const { data: publicData } = supabase.storage
+            .from(QUESTIONNAIRE_STORAGE_BUCKET)
+            .getPublicUrl(storagePath);
+          resolvedUrl =
+            (publicData as { publicUrl?: string; publicURL?: string } | null)?.publicUrl ??
+            (publicData as { publicUrl?: string; publicURL?: string } | null)?.publicURL ??
+            null;
+        }
+        if (resolvedUrl) {
+          setQuantFileURL(resolvedUrl);
+        }
+      } catch (storageError) {
+        console.error("[questionnaire] failed to resolve storage url", storageError);
+      }
     } catch (error) {
       console.error("[questionnaire] job creation failed", error);
       setQuestionnaireJobError("Unexpected error creating questionnaire job.");
@@ -959,7 +1073,7 @@ export default function PersonasPage() {
     if (!files || files.length === 0) return;
     const file = files[0];
     // Revoke previous object URL if present
-    if (quantFileURL) {
+    if (quantFileURL && quantFileURL.startsWith("blob:")) {
       try {
         URL.revokeObjectURL(quantFileURL);
       } catch (e) {
@@ -968,25 +1082,28 @@ export default function PersonasPage() {
     }
     const objectUrl = URL.createObjectURL(file);
     setQuantFileURL(objectUrl);
-    setQuantFileType(file.type || null);
+    setQuantFileType(file.type || inferMimeTypeFromFilename(file.name));
     setQuantFileName(file.name);
     setQuantFile(file);
     setQuestionnaireJobError(null);
     setQuestionnaireJobStatus(null);
     setQuestionnaireJobId(null);
+    setQuestionnaireExtractionResult(null);
     // Clear the input so the same file can be selected again if needed
     event.currentTarget.value = "";
   };
 
   // Revoke object URL on unmount or when quantFileURL changes (cleanup previous)
   React.useEffect(() => {
+    if (!quantFileURL || !quantFileURL.startsWith("blob:")) {
+      return undefined;
+    }
+    const urlToRevoke = quantFileURL;
     return () => {
-      if (quantFileURL) {
-        try {
-          URL.revokeObjectURL(quantFileURL);
-        } catch (e) {
-          // ignore
-        }
+      try {
+        URL.revokeObjectURL(urlToRevoke);
+      } catch (e) {
+        // ignore
       }
     };
   }, [quantFileURL]);
@@ -1008,14 +1125,6 @@ export default function PersonasPage() {
         : [];
       const normalizedInitialTraits = normalizeTraitsInput(initialTraitsList.join(", "));
       setEditingTraits(normalizedInitialTraits);
-      setQuantFileName(null);
-      setQuantFileURL(null);
-      setQuantFile(null);
-      setQuestionnaireJobError(null);
-      setQuestionnaireJobStatus(null);
-      setQuestionnaireJobId(null);
-      setQuestionnaireExtractionResult(null);
-      setIsCreatingQuestionnaireJob(false);
       setScalarTraitValues({
         age: readScalarTraitValue(activePersona, "age"),
         gender: readScalarTraitValue(activePersona, "gender"),
@@ -1049,14 +1158,6 @@ export default function PersonasPage() {
       setTraitsError(null);
       setIsSavingTraits(false);
       setEditingTraits("");
-      setQuantFileName(null);
-      setQuantFileURL(null);
-      setQuantFile(null);
-      setQuestionnaireJobError(null);
-      setQuestionnaireJobStatus(null);
-      setQuestionnaireJobId(null);
-      setQuestionnaireExtractionResult(null);
-      setIsCreatingQuestionnaireJob(false);
       setScalarTraitValues({ age: "", gender: "", location: "", customer_status: "" });
       setScalarTraitErrors({ age: null, gender: null, location: null, customer_status: null });
       setScalarTraitSaving({ age: false, gender: false, location: false, customer_status: false });
@@ -1072,6 +1173,118 @@ export default function PersonasPage() {
       resetStagedDocuments();
     }
   }, [activePersona, resetStagedDocuments]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resetQuestionnaireState = () => {
+      setQuantFile(null);
+      setQuantFileName(null);
+      setQuantFileType(null);
+      setQuantFileURL(null);
+      setQuestionnaireJobId(null);
+      setQuestionnaireJobStatus(null);
+      setQuestionnaireExtractionResult(null);
+      setQuestionnaireJobError(null);
+    };
+
+    if (!activePersona) {
+      resetQuestionnaireState();
+      setIsCreatingQuestionnaireJob(false);
+      setIsHydratingQuestionnaireJob(false);
+      return undefined;
+    }
+
+    resetQuestionnaireState();
+    setIsCreatingQuestionnaireJob(false);
+    setIsHydratingQuestionnaireJob(true);
+
+    const hydrate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("questionnaire_jobs")
+          .select("id, status, extraction_result, file_path, created_at")
+          .eq("agent_id", activePersona.agent_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error("[questionnaire] failed to load previous job", error);
+          setQuestionnaireJobError("Unable to load previous questionnaire run.");
+          return;
+        }
+
+        if (!data) {
+          return;
+        }
+
+        setQuestionnaireJobId(data.id ?? null);
+        setQuestionnaireJobStatus(data.status ?? null);
+
+        if (data.extraction_result !== undefined) {
+          const serialized =
+            data.extraction_result === null
+              ? null
+              : typeof data.extraction_result === "string"
+              ? data.extraction_result
+              : (() => {
+                  try {
+                    return JSON.stringify(data.extraction_result, null, 2);
+                  } catch {
+                    return null;
+                  }
+                })();
+          setQuestionnaireExtractionResult(serialized);
+        }
+
+        if (data.file_path) {
+          const decodedName = decodeStorageFileName(data.file_path);
+          setQuantFileName(decodedName);
+          setQuantFileType(inferMimeTypeFromFilename(decodedName));
+          try {
+            const { data: signedData } = await supabase.storage
+              .from(QUESTIONNAIRE_STORAGE_BUCKET)
+              .createSignedUrl(data.file_path, 60 * 60);
+            let resolvedUrl = signedData?.signedUrl ?? null;
+            if (!resolvedUrl) {
+              const { data: publicData } = supabase.storage
+                .from(QUESTIONNAIRE_STORAGE_BUCKET)
+                .getPublicUrl(data.file_path);
+              resolvedUrl =
+                (publicData as { publicUrl?: string; publicURL?: string } | null)?.publicUrl ??
+                (publicData as { publicUrl?: string; publicURL?: string } | null)?.publicURL ??
+                null;
+            }
+            if (!cancelled && resolvedUrl) {
+              setQuantFileURL(resolvedUrl);
+            }
+          } catch (storageError) {
+            if (!cancelled) {
+              console.error("[questionnaire] failed to resolve stored questionnaire", storageError);
+            }
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[questionnaire] unexpected hydration error", error);
+          setQuestionnaireJobError("Unable to load previous questionnaire run.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsHydratingQuestionnaireJob(false);
+        }
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePersona]);
 
   useEffect(() => {
     if (!nameWrapperRef.current || !nameMeasureRef.current) return;
@@ -1904,14 +2117,16 @@ export default function PersonasPage() {
             )}
             {!loading &&
               !error &&
-              personas.map((persona) => {
+              personas.map((persona, index) => {
                 const isExpanded = expandedPersonaId === persona.agent_id;
-                const buttonStyle = isExpanded
-                  ? {
-                      gridColumn: columnsRef.current > 1 ? "1 / -1" : undefined,
-                      gridRow: columnsRef.current > 1 ? "span 2" : undefined,
-                    }
-                  : undefined;
+                const gridPosition = personaGridPositions[index];
+                const cardButtonStyle: React.CSSProperties = {};
+                if (gridPosition?.gridColumn) {
+                  cardButtonStyle.gridColumn = gridPosition.gridColumn;
+                }
+                if (gridPosition?.gridRow) {
+                  cardButtonStyle.gridRow = gridPosition.gridRow;
+                }
                 const traitChips = buildPersonaTraits(persona);
                 const updatedLabel = buildUpdatedLabel(persona.dialogue_created_date);
                 const painPoints = Array.isArray(persona.key_pain_points)
@@ -1941,11 +2156,10 @@ export default function PersonasPage() {
                       handlePersonaCardKeyDown(event, persona);
                     }}
                     aria-expanded={isExpanded}
-                    style={buttonStyle}
+                    style={cardButtonStyle}
                   >
                     <article
                       className="persona-card"
-                      data-expanded={isExpanded ? "true" : "false"}
                       style={
                         isExpanded
                           ? {
@@ -2185,9 +2399,6 @@ export default function PersonasPage() {
                   </div>
                 );
               })}
-            {Array.from({ length: fillerCount }).map((_, idx) => (
-              <div key={`persona-filler-${idx}`} className="persona-filler" aria-hidden="true" />
-            ))}
           </div>
         </section>
         </StagePanel>
@@ -2724,6 +2935,7 @@ export default function PersonasPage() {
                                   quantFileType={quantFileType}
                                   hasQuantFile={Boolean(quantFile)}
                                   isCreatingJob={isCreatingQuestionnaireJob}
+                                  isHydratingJob={isHydratingQuestionnaireJob}
                                   jobError={questionnaireJobError}
                                   jobStatus={questionnaireJobStatus}
                                   jobId={questionnaireJobId}
@@ -2731,6 +2943,10 @@ export default function PersonasPage() {
                                   onUploadClickAction={handleQuantUploadClick}
                                   onUploadChangeAction={handleQuantUploadChange}
                                   onRunAction={handleRunQuestionnaire}
+                                  personaName={activePersona.agent_name}
+                                  personaUpdatedAt={activePersona.updated_at ?? undefined}
+                                  personaResearchType={activePersona.research_type ?? undefined}
+                                  personaOwnerName={currentUserDisplayName ?? undefined}
                                 />
                               </div>
                             )}
@@ -2998,15 +3214,35 @@ export default function PersonasPage() {
           }
           .personas-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 20px;
             padding-top: 12px;
+            align-items: stretch;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-auto-flow: row;
           }
           .persona-root[data-expanded="true"] .personas-section {
             overflow: visible;
             max-height: none;
             padding-right: 0;
             margin-right: 0;
+          }
+          .persona-card-button {
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: left;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+          }
+          .persona-card-button[aria-expanded="true"] {
+            grid-column: 1 / -1;
+          }
+          .persona-card-button:focus-visible {
+            outline: 2px solid rgba(43, 108, 176, 0.85);
+            outline-offset: 6px;
+            border-radius: 20px;
           }
           @media (max-width: 1280px) {
             .personas-grid {
@@ -3020,43 +3256,26 @@ export default function PersonasPage() {
           }
           @media (max-width: 680px) {
             .personas-grid {
-              grid-template-columns: minmax(0, 1fr);
+              grid-template-columns: 1fr;
             }
-          }
-          .persona-card-button {
-            background: none;
-            border: none;
-            padding: 0;
-            text-align: left;
-            display: block;
-            width: 100%;
-            color: inherit;
-          }
-          .persona-card-button:focus-visible {
-            outline: 2px solid rgba(43, 108, 176, 0.85);
-            outline-offset: 6px;
-            border-radius: 20px;
-          }
-          .persona-filler {
-            border-radius: 16px;
-            border: 1px solid transparent;
-            visibility: hidden;
           }
           .persona-card {
             position: relative;
             border-radius: 16px;
             border: 1px solid rgba(43, 108, 176, 0.18);
-            background: rgba(255, 255, 255, 0.96);
+            background-color: rgba(255, 255, 255, 0.96);
+            background-image: none;
             box-shadow: 0 18px 36px rgba(10, 22, 40, 0.12);
             padding: 24px;
             display: flex;
             flex-direction: column;
             gap: 0;
             min-height: 200px;
+            width: 100%;
             transition: transform 0.32s ease, box-shadow 0.32s ease, border-color 0.32s ease, background-color 0.32s ease;
             cursor: pointer;
           }
-          .persona-card[data-expanded="true"] {
+          .persona-card-button[aria-expanded="true"] .persona-card {
             background-color: rgba(255, 255, 255, 0.99);
           }
           .persona-card__expanded {
@@ -3387,7 +3606,7 @@ export default function PersonasPage() {
             gap: 12px;
             margin-top: 16px;
           }
-          .persona-card[data-expanded="false"] .persona-card__footer {
+          .persona-card-button[aria-expanded="false"] .persona-card__footer {
             margin-top: auto;
           }
           .persona-updated {

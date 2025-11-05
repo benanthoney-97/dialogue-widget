@@ -135,7 +135,7 @@ serve(async (req: Request) => {
 
   const { data: inviterProfile, error: inviterError } = await supabase
     .from("profiles")
-    .select("id, email, display_name, client_id")
+    .select("id, email, display_name, client_id, role")
     .eq("id", user.id)
     .single();
 
@@ -146,6 +146,12 @@ serve(async (req: Request) => {
 
   if (!inviterProfile.client_id) {
     return jsonResponse(req, 400, { error: "Inviter is not linked to a workspace" });
+  }
+
+  const inviterRole =
+    typeof inviterProfile.role === "string" ? inviterProfile.role.trim().toLowerCase() : "viewer";
+  if (inviterRole !== "admin") {
+    return jsonResponse(req, 403, { error: "Only admins can invite teammates" });
   }
 
   const clientId: number = inviterProfile.client_id;

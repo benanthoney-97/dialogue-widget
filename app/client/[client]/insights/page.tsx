@@ -1,51 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import QuestionnaireResults from "@/app/components/QuestionnaireResults";
 import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
-const COOPER_FONT_NAME = "CooperBT";
-const COOPER_FONT_FILE = "Cooper Light BT.ttf";
-const COOPER_FONT_PATH = "/fonts/CooperBT/Cooper Light BT.ttf";
-
-let cooperFontDataPromise: Promise<string> | null = null;
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-	const bytes = new Uint8Array(buffer);
-	let binary = "";
-	const chunkSize = 0x8000;
-	for (let i = 0; i < bytes.length; i += chunkSize) {
-		const chunk = bytes.subarray(i, i + chunkSize);
-		binary += String.fromCharCode(...chunk);
-	}
-	return btoa(binary);
-}
-
-async function loadCooperFontData(): Promise<string> {
-	if (!cooperFontDataPromise) {
-		cooperFontDataPromise = fetch(COOPER_FONT_PATH)
-			.then((res) => {
-				if (!res.ok) {
-					throw new Error(`Failed to fetch Cooper font: ${res.status}`);
-				}
-				return res.arrayBuffer();
-			})
-			.then(arrayBufferToBase64);
-	}
-	return cooperFontDataPromise;
-}
-
-async function ensureCooperFont(doc: jsPDF): Promise<boolean> {
-	try {
-		const fontData = await loadCooperFontData();
-		doc.addFileToVFS(COOPER_FONT_FILE, fontData);
-		doc.addFont(COOPER_FONT_FILE, COOPER_FONT_NAME, "normal");
-		return true;
-	} catch (fontError) {
-		console.warn("[Insights] Failed to load Cooper font for PDF export", fontError);
-		return false;
-	}
-}
+import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
 // Data from Supabase
 type DialogueRow = {
@@ -167,66 +127,6 @@ type TranscriptMessage = {
 	role: "agent" | "user";
 	content: string;
 };
-
-type QuestionnaireResultEntry = {
-	id?: string;
-	question?: string;
-	response?: string;
-	selectedOption?: string;
-	freeText?: string;
-	confidence?: number | string;
-};
-
-type ParsedQuestionnaireResult = {
-	questions: QuestionnaireResultEntry[];
-};
-
-function parseQuestionnaireResponses(input: unknown): ParsedQuestionnaireResult | null {
-	if (input === null || typeof input === "undefined") {
-		return null;
-	}
-
-	let data: unknown = input;
-	if (typeof input === "string") {
-		try {
-			data = JSON.parse(input);
-		} catch (error) {
-			console.warn("[Insights] Failed to parse questionnaire transcript string", error);
-			return null;
-		}
-	}
-
-	if (typeof data !== "object" || data === null) {
-		return null;
-	}
-
-	let rawQuestions: unknown[] = [];
-	if (Array.isArray((data as { questions?: unknown[] }).questions)) {
-		rawQuestions = (data as { questions?: unknown[] }).questions ?? [];
-	} else if (Array.isArray(data)) {
-		rawQuestions = data;
-	}
-
-	const questions = rawQuestions.map((entry): QuestionnaireResultEntry => {
-		if (typeof entry !== "object" || entry === null) {
-			return {};
-		}
-		const item = entry as Record<string, unknown>;
-		return {
-			id: typeof item.id === "string" ? item.id : undefined,
-			question: typeof item.question === "string" ? item.question : undefined,
-			response: typeof item.response === "string" ? item.response : undefined,
-			selectedOption: typeof item.selected_option === "string" ? item.selected_option : undefined,
-			freeText: typeof item.free_text === "string" ? item.free_text : undefined,
-			confidence:
-				typeof item.confidence === "number" || typeof item.confidence === "string"
-					? item.confidence
-					: undefined,
-		};
-	});
-
-	return { questions };
-}
 
 
 export default function InsightsTable() {
@@ -706,13 +606,26 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 														const titleFontSize = cooperLoaded ? 26 : 18;
 														const sectionTitleSize = cooperLoaded ? 15 : 13;
 														const bodyFontSize = cooperLoaded ? 12 : 11;
-														const drawPageFrame = (isFirstPage: boolean) => {
-															doc.setFillColor(30, 41, 59);
-															doc.rect(0, 0, doc.internal.pageSize.getWidth(), 60, 'F');
-															doc.setFont(textFont, "normal");
-															doc.setTextColor(246, 247, 249);
-															doc.setFontSize(titleFontSize);
-															doc.text(`Playback - ${row.sourceDocument || 'Untitled'}`, 40, 40);
+                                                        const maxTitleWidth = doc.internal.pageSize.getWidth() * 0.6;
+                                                        const ellipsizeTitle = (text: string) => {
+                                                            doc.setFont(textFont, "normal");
+                                                            doc.setFontSize(titleFontSize);
+                                                            if (doc.getTextWidth(text) <= maxTitleWidth) return text;
+                                                            let current = text.trim();
+                                                            const ellipsis = "…";
+                                                            while (current.length > 0 && doc.getTextWidth(`${current}${ellipsis}`) > maxTitleWidth) {
+                                                                current = current.slice(0, -1);
+                                                            }
+                                                            return `${current.trimEnd()}${ellipsis}`;
+                                                        };
+                                                        const baseTitle = `Playback - ${row.sourceDocument || 'Untitled'}`;
+                                                        const drawPageFrame = (isFirstPage: boolean) => {
+                                                            doc.setFillColor(30, 41, 59);
+                                                            doc.rect(0, 0, doc.internal.pageSize.getWidth(), 60, 'F');
+                                                            doc.setFont(textFont, "normal");
+                                                            doc.setTextColor(246, 247, 249);
+                                                            doc.setFontSize(titleFontSize);
+                                                            doc.text(ellipsizeTitle(baseTitle), 40, 40);
 															doc.setFontSize(12);
 															doc.text('powered by Dialogue', doc.internal.pageSize.getWidth() - 40, 40, { align: 'right' });
 															doc.setDrawColor(230, 235, 243);
@@ -930,17 +843,33 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 															addSummarySection(row.transcript_summary);
 															cursorY += 24;
 														}
-														if (row.transcript) {
-															const parsed = parseTranscript(row.transcript);
-															const rendered = renderTranscript(parsed);
-															if (!rendered) {
-																const transcriptText = typeof row.transcript === 'string'
-																	? row.transcript
-																	: JSON.stringify(row.transcript, null, 2);
-																addSection('Transcript', transcriptText, true);
+															if (row.transcript) {
+																const parsed = parseTranscript(row.transcript);
+																const rendered = renderTranscript(parsed);
+																if (!rendered) {
+																	const transcriptText = typeof row.transcript === 'string'
+																		? row.transcript
+																		: JSON.stringify(row.transcript, null, 2);
+																	addSection('Transcript', transcriptText, true);
+																}
 															}
-														}
-														doc.save(`${row.conversation_id || 'results'}.pdf`);
+															const formatDateForFile = (value?: string | null) => {
+																if (!value) return undefined;
+																const parsed = new Date(value);
+																if (Number.isNaN(parsed.getTime())) return value;
+																return parsed.toISOString().slice(0, 10);
+															};
+															const fileNameParts = [
+																row.status || 'Insights',
+																row.sourceDocument || 'Untitled',
+																formatDateForFile(row.date),
+															].filter(Boolean);
+															const safeName = fileNameParts
+																.join(' - ')
+																.replace(/[^a-z0-9]+/gi, '-')
+																.replace(/-+/g, '-')
+																.replace(/^-|-$/g, '');
+															doc.save(`${safeName || 'insights-results'}.pdf`);
 													} catch (e) {
 														console.error('Export failed', e);
 													}
@@ -963,69 +892,11 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 																	<div className="insights-results">
 																		{(() => {
 																			if (row.status === 'Questionnaire') {
-																				const parsed = parseQuestionnaireResponses(row.transcript);
-																				const questions = parsed?.questions ?? [];
-																				const hasQuestions = questions.length > 0;
-																				const rawContent =
-																					typeof row.transcript === 'string'
-																						? row.transcript
-																						: row.transcript
-																						? JSON.stringify(row.transcript, null, 2)
-																						: null;
-
 																				return (
-																					<div className="insights-questionnaire">
-																						<div className="insights-questionnaire__header">
-																							<h4>Questionnaire responses</h4>
-																							{parsed ? (
-																								<span className="insights-questionnaire__count">
-																									{questions.length} {questions.length === 1 ? 'response' : 'responses'}
-																								</span>
-																							) : null}
-																						</div>
-																						<div className="insights-questionnaire__scroll">
-																							{hasQuestions ? (
-																								<ul className="insights-questionnaire__grid">
-																									{questions.map((entry, idx) => (
-																										<li
-																											key={entry.id ?? `question-${idx}`}
-																											className="insights-questionnaire__item"
-																										>
-																											<span className="insights-questionnaire__question">
-																												{entry.question ?? 'Question'}
-																											</span>
-																											<div className="insights-questionnaire__answer">
-																												<span className="insights-questionnaire__label">Response:</span>
-																												<span>{entry.response ?? entry.selectedOption ?? '—'}</span>
-																											</div>
-																											{entry.freeText ? (
-																												<div className="insights-questionnaire__answer">
-																													<span className="insights-questionnaire__label">Free text:</span>
-																													<span>{entry.freeText}</span>
-																												</div>
-																											) : null}
-																											{entry.confidence !== undefined && entry.confidence !== null ? (
-																												<div className="insights-questionnaire__answer">
-																													<span className="insights-questionnaire__label">Confidence:</span>
-																													<span>
-																														{typeof entry.confidence === 'number'
-																															? entry.confidence.toFixed(2)
-																															: entry.confidence}
-																													</span>
-																												</div>
-																											) : null}
-																										</li>
-																									))}
-																								</ul>
-																							) : rawContent ? (
-																								<pre className="insights-questionnaire__raw">{rawContent}</pre>
-																							) : (
-																								<div className="insights-questionnaire__placeholder">
-																									No questionnaire responses captured yet.
-																								</div>
-																							)}
-																						</div>
-																					</div>
+																					<QuestionnaireResults
+																						raw={row.transcript}
+																						title="Questionnaire responses"
+																					/>
 																				);
 																			}
 

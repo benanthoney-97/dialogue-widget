@@ -11,6 +11,7 @@ type FullscreenModalProps = {
   onCloseAction: () => void;
   children?: React.ReactNode;
   anchorRef?: React.RefObject<HTMLElement | null>;
+  fillScreen?: boolean;
 };
 
 export default function FullscreenModal({
@@ -18,6 +19,7 @@ export default function FullscreenModal({
   onCloseAction,
   children,
   anchorRef,
+  fillScreen = false,
 }: FullscreenModalProps) {
   const innerRef = useRef<HTMLDivElement | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -68,18 +70,19 @@ export default function FullscreenModal({
 
   if (!open) return null;
 
-  const anchorStyles =
-    anchorRect !== null
-      ? {
-          top: 0,
-          left: Math.max(anchorRect.left, 0),
-          width:
-            typeof window !== "undefined"
-              ? Math.min(anchorRect.width, window.innerWidth)
-              : anchorRect.width,
-          height: "100vh" as const,
-        }
-      : { inset: 0 as const };
+  const anchorStyles = fillScreen
+    ? { inset: 0 as const }
+    : anchorRect !== null
+    ? {
+        top: 0,
+        left: Math.max(anchorRect.left, 0),
+        width:
+          typeof window !== "undefined"
+            ? Math.min(anchorRect.width, window.innerWidth)
+            : anchorRect.width,
+        height: anchorRect.height,
+      }
+    : { inset: 0 as const };
 
   return (
     <div
@@ -106,8 +109,8 @@ export default function FullscreenModal({
           onClick={(event) => event.stopPropagation()}
           style={{
             // Panel background and text color follow theme variables with sensible fallbacks.
-            background: "var(--panel, #0f172a)",
-            color: "var(--text, #F6F7F9fff)",
+            background: fillScreen ? "#f4f6fb" : "var(--panel, #0f172a)",
+            color: fillScreen ? "#0f172a" : "var(--text, #F6F7F9fff)",
             borderRadius: 0,
             border: "none",
             boxShadow: "none",
@@ -117,7 +120,7 @@ export default function FullscreenModal({
             flexDirection: "column",
             // allow child overlays (eg. PrepAgent's absolute uploaded-file card)
             // to be visible in the top-right of the expanded content
-            overflow: "visible",
+            overflow: "auto",
             position: "relative",
           }}
         >
