@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
 type AuthMode = "login" | "signup";
 
-export default function AuthPage() {
+function AuthPageContent() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -165,13 +165,6 @@ export default function AuthPage() {
             <h1 className="auth-card__title">{heading}</h1>
             <p className="auth-card__subtitle">{subheading}</p>
           </header>
-
-          {verificationContext ? (
-            <div className={`auth-verification auth-verification--${verificationContext.type}`} role="status">
-              <h2>{verificationContext.headline}</h2>
-              <p>{verificationContext.message}</p>
-            </div>
-          ) : null}
 
           {verificationContext ? (
             <div className={`auth-verification auth-verification--${verificationContext.type}`} role="status">
@@ -529,5 +522,13 @@ export default function AuthPage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="auth-page__loading">Loading…</div>}>
+      <AuthPageContent />
+    </Suspense>
   );
 }
