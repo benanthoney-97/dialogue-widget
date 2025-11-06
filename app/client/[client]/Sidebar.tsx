@@ -157,6 +157,18 @@ export default function Sidebar() {
       ),
     },
     {
+      label: "Research",
+      href: `/client/${clientId}/research`,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="9" r="4.2" fill="#22325a" stroke="#7ea0e6" strokeWidth="1.1" />
+          <path d="M13.8 12.8L16.7 15.7" stroke="#7ea0e6" strokeWidth="1.1" strokeLinecap="round" />
+          <path d="M8.5 9C8.5 7.6 9.6 6.5 11 6.5" stroke="#7ea0e6" strokeWidth="1.1" strokeLinecap="round" />
+          <path d="M5 17H12.5" stroke="#7ea0e6" strokeWidth="1.1" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
       label: "New Persona",
       href: `/client/${clientId}/upload`,
       icon: (
