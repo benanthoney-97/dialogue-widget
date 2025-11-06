@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
 type AuthMode = "login" | "signup";
@@ -14,6 +14,51 @@ export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const params = new URLSearchParams(searchParams.toString());
+    let mutated = false;
+    ["access_token", "expires_in", "refresh_token", "token_type", "type"].forEach((key) => {
+      if (params.has(key)) {
+        params.delete(key);
+        mutated = true;
+      }
+    });
+    if (mutated && typeof window !== "undefined") {
+      const next = params.toString();
+      router.replace(next ? `/auth?${next}` : "/auth");
+    }
+  }, [router, searchParams]);
+
+  const verificationContext = useMemo(() => {
+    const flag = searchParams?.get("verification"),
+      emailType = searchParams?.get("email") ?? undefined;
+    if (flag === "success") {
+      return {
+        type: "success" as const,
+        headline: "Email verified",
+        message:
+          emailType === "change"
+            ? "Thanks for confirming your new address. You can sign in with it now."
+            : "Thanks for confirming your address. You can sign in below.",
+      };
+    }
+    const supabaseError = searchParams?.get("error");
+    if (flag === "error" || supabaseError) {
+      const reason = searchParams?.get("reason") ?? supabaseError ?? "unknown";
+      return {
+        type: "error" as const,
+        headline: "Verification failed",
+        message:
+          reason === "expired"
+            ? "That verification link has expired. Please request a fresh one from the app."
+            : "We couldn’t verify that link. Request a new email and try again.",
+      };
+    }
+    return null;
+  }, [searchParams]);
 
   const heading = useMemo(
     () => (mode === "login" ? "Welcome back" : "Create your account"),
@@ -120,6 +165,20 @@ export default function AuthPage() {
             <h1 className="auth-card__title">{heading}</h1>
             <p className="auth-card__subtitle">{subheading}</p>
           </header>
+
+          {verificationContext ? (
+            <div className={`auth-verification auth-verification--${verificationContext.type}`} role="status">
+              <h2>{verificationContext.headline}</h2>
+              <p>{verificationContext.message}</p>
+            </div>
+          ) : null}
+
+          {verificationContext ? (
+            <div className={`auth-verification auth-verification--${verificationContext.type}`} role="status">
+              <h2>{verificationContext.headline}</h2>
+              <p>{verificationContext.message}</p>
+            </div>
+          ) : null}
 
           <form onSubmit={onSubmit} className="auth-form">
             <label className="auth-form__field">
@@ -276,6 +335,42 @@ export default function AuthPage() {
           line-height: 1.6;
           color: rgba(55, 82, 124, 0.82);
           max-width: 360px;
+        }
+
+        .auth-verification {
+          margin-bottom: 18px;
+          border-radius: 14px;
+          padding: 16px 18px;
+          background: rgba(79, 70, 229, 0.08);
+          border: 1px solid rgba(79, 70, 229, 0.18);
+          display: grid;
+          gap: 6px;
+        }
+
+        .auth-verification h2 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 700;
+          color: #312e81;
+        }
+
+        .auth-verification p {
+          margin: 0;
+          font-size: 14px;
+          color: #1e1b4b;
+        }
+
+        .auth-verification--error {
+          background: rgba(220, 38, 38, 0.08);
+          border-color: rgba(220, 38, 38, 0.25);
+        }
+
+        .auth-verification--error h2 {
+          color: #991b1b;
+        }
+
+        .auth-verification--error p {
+          color: #7f1d1d;
         }
 
         .auth-form {

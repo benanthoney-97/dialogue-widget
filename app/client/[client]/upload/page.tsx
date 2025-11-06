@@ -13,7 +13,7 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const TIMELINE_STEPS = ["Create", "Upload", "Briefing", "Confirm"];
+const TIMELINE_STEPS = ["Name", "Create", "Upload", "Briefing", "Confirm"];
 
 type StagedDoc = {
   temp_id: string;
@@ -204,19 +204,19 @@ function buildTimelineSteps({
     }
   });
 
-  const uploadStep = steps[1];
-  const briefingStep = steps[2];
+  const uploadStep = steps[2];
+  const briefingStep = steps[3];
 
   if (canSkipUpload) {
     uploadStep.optional = true;
-    if (currentStep > 1 && !hasDocs) {
+  if (currentStep > 2 && !hasDocs) {
       uploadStep.state = "skipped";
     }
   }
 
   if (canSkipBriefing) {
     briefingStep.optional = true;
-    if (currentStep > 2 && !hasBriefing) {
+  if (currentStep > 3 && !hasBriefing) {
       briefingStep.state = "skipped";
     }
   }
@@ -358,9 +358,9 @@ export default function UploadPage() {
             } satisfies StagedDoc;
           })
         );
-        setTempId(groupTempId);
-    setCreatedDocs(stagedDocs);
-        setCurrentStep(2);
+    setTempId(groupTempId);
+  setCreatedDocs(stagedDocs);
+    setCurrentStep(3);
       } else if (uploadMode === 'url' && fileUrl.trim()) {
         const groupTempId = uuidv4();
         const stagedDoc: StagedDoc = {
@@ -373,9 +373,9 @@ export default function UploadPage() {
           lastModified: Date.now(),
           groupTempId,
         };
-        setTempId(groupTempId);
+    setTempId(groupTempId);
   setCreatedDocs([stagedDoc]);
-        setCurrentStep(2);
+    setCurrentStep(3);
       } else {
         setNotification({ type: 'error', message: 'Please add at least one file or URL before continuing.' });
       }
@@ -387,7 +387,9 @@ export default function UploadPage() {
     }
   }
 
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Purpose, 1: Upload, 2: Briefing, 3: Confirm
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Name, 1: Purpose, 2: Upload, 3: Briefing, 4: Confirm
+  const [personaName, setPersonaName] = useState<string>("");
+  const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
@@ -415,6 +417,10 @@ export default function UploadPage() {
     hasDocs,
     hasBriefing,
   });
+  const personaNameTrimmed = personaName.trim();
+  const personaNameDisplay = personaNameTrimmed || "Untitled persona";
+  const personaNameHeadline = personaNameTrimmed || "your persona";
+  const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "your persona's";
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -430,7 +436,7 @@ export default function UploadPage() {
   }, []);
 
   useEffect(() => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       if (briefingConversationId && briefingEndedAt) {
         setBriefingComplete(true);
       } else {
@@ -440,8 +446,8 @@ export default function UploadPage() {
   }, [currentStep, briefingConversationId, briefingEndedAt]);
 
   useEffect(() => {
-    if (selectedGuidance === 'Describe persona' && currentStep === 1) {
-      setCurrentStep(2);
+    if (selectedGuidance === 'Describe persona' && currentStep === 2) {
+      setCurrentStep(3);
     }
   }, [selectedGuidance, currentStep]);
 
@@ -453,7 +459,7 @@ export default function UploadPage() {
     hasHydratedFromParams.current = true;
 
     if (stageParam === "upload") {
-      setCurrentStep(1);
+      setCurrentStep(2);
     }
 
     if (purposeParam) {
@@ -576,6 +582,7 @@ export default function UploadPage() {
           audienceType: audienceType || "Custom",
           briefingConversationId,
           briefingEndedAt,
+          personaName: personaNameDisplay,
         }),
       });
       if (!res.ok) {
@@ -611,8 +618,94 @@ export default function UploadPage() {
             <StagesTimeline steps={timelineStepsData} />
             {currentStep === 0 && (
               <StagePanel
+                heading="What's your persona's name?"
+              >
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const nextName = personaName.trim();
+                    if (!nextName) {
+                      setPersonaNameTouched(true);
+                      return;
+                    }
+                    setPersonaName(nextName);
+                    setPersonaNameTouched(false);
+                    setCurrentStep(1);
+                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                >
+                  <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}></span>
+                    <input
+                      type="text"
+                      value={personaName}
+                      onChange={(event) => {
+                        setPersonaName(event.target.value);
+                        if (!personaNameTouched) {
+                          setPersonaNameTouched(true);
+                        }
+                      }}
+                      onBlur={() => setPersonaNameTouched(true)}
+                      placeholder="e.g. Pathfinder Analyst"
+                      maxLength={120}
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        borderRadius: 12,
+                        border: personaNameTouched && !personaNameTrimmed
+                          ? "2px solid rgba(220, 38, 38, 0.65)"
+                          : "2px solid rgba(30, 41, 59, 0.18)",
+                        fontSize: 16,
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        background: "rgba(255,255,255,0.9)",
+                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                        transition: "border 0.18s ease, box-shadow 0.18s ease",
+                      }}
+                    />
+
+                  </label>
+                  {personaNameTouched && !personaNameTrimmed ? (
+                    <StageAlert type="error" message="Add a name or use the skip option below." />
+                  ) : null}
+                  <StageButton
+                    type="submit"
+                    variant="primary"
+                    width="full"
+                    disabled={!personaNameTrimmed}
+                  >
+                    Continue
+                  </StageButton>
+                  <StageButton
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setPersonaName("");
+                      setPersonaNameTouched(false);
+                      setCurrentStep(1);
+                    }}
+                  >
+                    Skip for now
+                  </StageButton>
+                </form>
+              </StagePanel>
+            )}
+            {currentStep === 1 && (
+              <StagePanel
                 heading="How are you creating your persona?"
-                subheading="Choose or describe what type of pitch you're preparing for."
+                leading={
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(0)}
+                    aria-label="Back"
+                    title="Back"
+                    className="stage-back"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </button>
+                }
               >
                 <PurposeCard
                   guidanceTexts={guidanceTexts}
@@ -625,7 +718,7 @@ export default function UploadPage() {
                     if (key === "Add my data") {
                       try {
                         const ok = await savePurpose();
-                        if (ok) setCurrentStep(1);
+                        if (ok) setCurrentStep(2);
                       } catch (e) {
                         // handled within savePurpose
                       }
@@ -633,7 +726,7 @@ export default function UploadPage() {
                     if (key === "Describe persona") {
                       try {
                         const ok = await savePurpose();
-                        if (ok) setCurrentStep(2);
+                        if (ok) setCurrentStep(3);
                       } catch (e) {
                         // handled within savePurpose
                       }
@@ -654,9 +747,9 @@ export default function UploadPage() {
                     const ok = await savePurpose();
                     if (!ok) return;
                     if (selectedGuidance === "Describe persona") {
-                      setCurrentStep(2);
+                      setCurrentStep(3);
                     } else {
-                      setCurrentStep(1);
+                      setCurrentStep(2);
                     }
                   }}
                   nextDisabled={purposeSaving || (!selectedGuidance && !purposeText.trim())}
@@ -666,13 +759,14 @@ export default function UploadPage() {
                 />
               </StagePanel>
             )}
-            {currentStep === 1 && (
+            {currentStep === 2 && (
               <StagePanel
-                heading="Build your persona's knowledge"
+                heading={`Build ${personaNamePossessive} knowledge`}
+                subheading="Upload supporting documents so the persona has source material to work from."
                 leading={
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(0)}
+                    onClick={() => setCurrentStep(1)}
                     disabled={purposeSaving}
                     aria-label="Back"
                     title="Back"
@@ -947,13 +1041,14 @@ export default function UploadPage() {
               </form>
               </StagePanel>
             )}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <StagePanel
-                heading="Let's define your persona"
+                heading={`Enhance ${personaNameHeadline}'s responses`}
+                subheading="Improve the quality of persona responses by briefing Dialogue's AI assistant."
                 leading={
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(selectedGuidance === 'Describe persona' ? 0 : 1)}
+                    onClick={() => setCurrentStep(selectedGuidance === 'Describe persona' ? 1 : 2)}
                     disabled={finalizing}
                     aria-label="Back"
                     title="Back"
@@ -991,7 +1086,7 @@ export default function UploadPage() {
 
                 <StageButton
                   type="button"
-                  onClick={() => setCurrentStep(3)}
+                  onClick={() => setCurrentStep(4)}
                   disabled={!canContinueFromBriefing}
                   variant="primary"
                   width="full"
@@ -1010,13 +1105,13 @@ export default function UploadPage() {
                 ) : null}
               </StagePanel>
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <StagePanel
-                heading="Confirm"
+                heading={`Confirm ${personaNameHeadline}`}
                 leading={
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(3)}
                     disabled={finalizing}
                     aria-label="Back"
                     title="Back"
@@ -1030,6 +1125,10 @@ export default function UploadPage() {
               >
                 <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'nowrap', justifyContent: 'center', overflowX: 'auto', paddingBottom: 6 }}>
                   {[
+                    {
+                      title: 'Persona name',
+                      value: personaNameDisplay,
+                    },
                     {
                       title: 'Pitch type',
                       value: selectedGuidance ?? (savedPurpose ? 'Custom brief' : 'Not set'),

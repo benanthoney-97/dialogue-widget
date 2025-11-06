@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
 
 type Props = {
@@ -54,6 +55,11 @@ const PDF_LINES_PER_PAGE = Math.floor(
   (PDF_PAGE_HEIGHT - PDF_MARGIN * 2) / PDF_LINE_HEIGHT
 );
 const textEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const makeMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -212,6 +218,7 @@ export default function DialogueText({
   const [isSending, setIsSending] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const autoStartRef = useRef(false);
+  const [knowledgeText, setKnowledgeText] = useState<string | null>(null);
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -405,6 +412,34 @@ export default function DialogueText({
     };
   }, []);
 
+  useEffect(() => {
+    async function fetchKnowledgeText() {
+      if (!agentId) {
+        setKnowledgeText(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("persona_external_knowledge")
+          .select("knowledge_text")
+          .eq("agent_id", agentId)
+          .maybeSingle<{ knowledge_text: string | null }>();
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error("[DialogueText] failed to load knowledge text", error);
+        }
+        setKnowledgeText(data?.knowledge_text ?? null);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[DialogueText] unexpected error fetching knowledge text", error);
+        setKnowledgeText(null);
+      }
+    }
+
+    void fetchKnowledgeText();
+  }, [agentId]);
+
   const dynamicVariables = useMemo(() => {
     const joinValues = (values?: string[] | null) => {
       if (!Array.isArray(values)) return "";
@@ -424,8 +459,13 @@ export default function DialogueText({
       key_pain_points: joinValues(personaKeyPainPoints),
     };
 
+    if (knowledgeText && knowledgeText.trim().length > 0) {
+      variables.knowledge_text = knowledgeText.trim();
+    }
+
     return variables;
   }, [
+    knowledgeText,
     personaCustomerStatus,
     personaIntentSignals,
     personaKeyPainPoints,

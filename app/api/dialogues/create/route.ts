@@ -25,6 +25,7 @@ type CreateDialoguePayload = {
   audienceType?: string;
   briefingConversationId?: string | null;
   briefingEndedAt?: number | null;
+  personaName?: string | null;
 };
 
 function decodeSlug(rawSlug: string): string {
@@ -58,7 +59,15 @@ export async function POST(req: Request) {
   let agentId: string | null = null;
   try {
     const body = (await req.json()) as CreateDialoguePayload;
-    const { clientSlug, docs, purpose, audienceType, briefingConversationId, briefingEndedAt } = body;
+    const {
+      clientSlug,
+      docs,
+      purpose,
+      audienceType,
+      briefingConversationId,
+      briefingEndedAt,
+      personaName,
+    } = body;
 
     if (!clientSlug) {
       return NextResponse.json({ error: 'Missing workspace identifier' }, { status: 400 });
@@ -127,14 +136,17 @@ export async function POST(req: Request) {
       hasPurpose: Boolean(purpose),
       hasBriefing: Boolean(briefingConversationId),
       hasBriefingEndedAt: Boolean(briefingEndedAt),
+      hasPersonaName: Boolean(personaName && personaName.trim()),
     });
 
     agentId = randomUUID();
     const primaryDoc = docsArray[0];
     const key = randomUUID().replace(/-/g, '').slice(0, 12);
     const nowIso = new Date().toISOString();
+    const trimmedPersonaName = typeof personaName === 'string' ? personaName.trim() : '';
     const derivedAgentName =
-      primaryDoc?.agent_name ??
+      trimmedPersonaName ||
+      primaryDoc?.agent_name ||
       (key ? `Persona ${key.slice(0, 6)}` : 'Persona');
 
     const insertPayload: Record<string, unknown> = {

@@ -72,9 +72,6 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
-  const [selectedSection, setSelectedSection] = useState<"personal" | "workspace" | "auth">(
-    "personal"
-  );
   const [editingDisplayName, setEditingDisplayName] = useState("");
   const [editingEmail, setEditingEmail] = useState("");
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
@@ -187,17 +184,6 @@ export default function SettingsPage() {
     ];
   }, [profile]);
 
-  const workspaceDetails = useMemo(() => {
-    if (!profile) return [];
-    return [
-      { label: "Workspace", value: clientSlug || "—" },
-      { label: "Workspace link", value: profile.client_id ?? "—" },
-      { label: "Default persona", value: profile.default_agent_id ?? "Not set" },
-      { label: "Profile created", value: formatDateTime(profile.created_at) },
-      { label: "Last updated", value: formatDateTime(profile.updated_at) },
-    ];
-  }, [profile, clientSlug]);
-
   const avatarInitial = useMemo(() => {
     const raw =
       (editingDisplayName || editingEmail || profile?.display_name || profile?.email || authEmail || "")
@@ -215,15 +201,6 @@ export default function SettingsPage() {
     Boolean(profile) &&
     (trimmedDisplayName !== baselineDisplayName || trimmedEmail !== baselineEmail);
 
-  const sectionConfig = useMemo(
-    () => [
-      { key: "personal" as const, label: "Personal" },
-      { key: "workspace" as const, label: "Workspace" },
-      { key: "auth" as const, label: "Authentication" },
-    ],
-    []
-  );
-
   const handleSavePersonal = async () => {
     if (!profile) return;
     if (!trimmedEmail) {
@@ -231,10 +208,56 @@ export default function SettingsPage() {
       return;
     }
     const nextDisplayName = trimmedDisplayName.length > 0 ? trimmedDisplayName : null;
+  const baselineEmailLower = baselineEmail.toLowerCase();
+  const trimmedEmailLower = trimmedEmail.toLowerCase();
+    const shouldUpdateEmail = trimmedEmailLower !== baselineEmailLower;
+    const shouldUpdateDisplayName = trimmedDisplayName !== baselineDisplayName;
+
+    if (!shouldUpdateEmail && !shouldUpdateDisplayName) {
+      return;
+    }
+
     setIsSavingPersonal(true);
     setPersonalSaveError(null);
     setPersonalSaveSuccess(null);
     try {
+      let pendingSuccessMessage: string | null = null;
+
+      if (shouldUpdateEmail) {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          throw new Error(sessionError.message ?? "Unable to verify session.");
+        }
+        const accessToken = sessionData?.session?.access_token ?? null;
+        const refreshToken = sessionData?.session?.refresh_token ?? null;
+        if (!accessToken || !refreshToken) {
+          throw new Error("Your session has expired. Please sign in again.");
+        }
+
+        const response = await fetch("/api/account/change-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ email: trimmedEmail, refreshToken }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          const message = payload?.error || `Email update failed (status ${response.status}).`;
+          throw new Error(message);
+        }
+
+        const payload = await response.json().catch(() => null);
+        const successMessage =
+          typeof payload?.message === "string" && payload.message.trim().length > 0
+            ? payload.message.trim()
+            : "Confirmation sent to the new email.";
+        pendingSuccessMessage = successMessage;
+      }
+
       const { data, error: updateError } = await supabase
         .from("profiles")
         .update({
@@ -261,11 +284,18 @@ export default function SettingsPage() {
       setAuthEmail((prev) => data.email ?? trimmedEmail ?? prev ?? null);
       setEditingDisplayName(data.display_name ?? "");
       setEditingEmail(data.email ?? trimmedEmail);
-      setPersonalSaveSuccess("Changes saved.");
+      if (shouldUpdateEmail && shouldUpdateDisplayName) {
+        pendingSuccessMessage = `${pendingSuccessMessage ?? "Confirmation sent to the new email."} Display name updated.`;
+      }
+      if (!shouldUpdateEmail) {
+        pendingSuccessMessage = "Changes saved.";
+      }
+      setPersonalSaveSuccess(pendingSuccessMessage ?? "Changes saved.");
     } catch (saveError) {
       const message =
         saveError instanceof Error ? saveError.message : "Unexpected error saving profile.";
       setPersonalSaveError(message);
+      setPersonalSaveSuccess(null);
     } finally {
       setIsSavingPersonal(false);
     }
@@ -317,27 +347,35 @@ export default function SettingsPage() {
               id="settings-email"
               type="email"
               value={editingEmail}
-              onChange={(event) => {
-                setEditingEmail(event.target.value);
-                setPersonalSaveError(null);
-                setPersonalSaveSuccess(null);
-              }}
+              readOnly
+              aria-readonly="true"
               placeholder="you@example.com"
               autoComplete="email"
             />
           </dd>
         </div>
-      </dl>
-      {readonlyPersonalDetails.length > 0 ? (
-        <dl className="settings-list settings-list--readonly">
-          {readonlyPersonalDetails.map((item) => (
+        {readonlyPersonalDetails.map((item) => {
+          const fieldId = `settings-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "field"}`;
+          const displayValue = typeof item.value === "string" ? item.value : item.value != null ? String(item.value) : "—";
+          return (
             <div key={item.label} className="settings-list__row">
-              <dt>{item.label}</dt>
-              <dd>{item.value || "—"}</dd>
+              <dt>
+                <label htmlFor={fieldId}>{item.label}</label>
+              </dt>
+              <dd>
+                <input
+                  id={fieldId}
+                  type="text"
+                  value={displayValue}
+                  readOnly
+                  aria-readonly="true"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </dd>
             </div>
-          ))}
-        </dl>
-      ) : null}
+          );
+        })}
+      </dl>
       {personalSaveError ? (
         <div className="settings-inline-message settings-inline-message--error" role="alert">
           {personalSaveError}
@@ -360,92 +398,18 @@ export default function SettingsPage() {
           </button>
         </div>
       ) : null}
-    </section>
-  );
-
-  const renderWorkspaceSection = () => (
-    <section
-      key="workspace"
-      id="settings-section-workspace"
-      className="settings-card"
-      role="tabpanel"
-      aria-labelledby="settings-tab-workspace"
-    >
-      <header className="settings-card__header">
-        <div className="settings-card__icon" aria-hidden="true">
-          <span role="img" aria-hidden="true">
-            🏢
-          </span>
-        </div>
-        <div>
-          <h3>Workspace</h3>
-          <p>Membership details for this client workspace.</p>
-        </div>
-      </header>
-      <dl className="settings-list">
-        {workspaceDetails.map((item) => (
-          <div key={item.label} className="settings-list__row">
-            <dt>{item.label}</dt>
-            <dd>{item.value || "—"}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-
-  const renderAuthSection = () => (
-    <section
-      key="auth"
-      id="settings-section-auth"
-      className="settings-card settings-card--metadata"
-      role="tabpanel"
-      aria-labelledby="settings-tab-auth"
-    >
-      <header className="settings-card__header">
-        <div className="settings-card__icon" aria-hidden="true">
-          <span role="img" aria-hidden="true">
-            🔐
-          </span>
-        </div>
-        <div>
-          <h3>Authentication metadata</h3>
-          <p>Snapshot from your identity provider.</p>
-        </div>
-      </header>
-      {parsedMetadata ? (
-        <ul className="settings-meta">
-          {Object.entries(parsedMetadata).map(([key, value]) => (
-            <li key={key}>
-              <span className="settings-meta__key">{key}</span>
-              <span className="settings-meta__value">
-                {typeof value === "boolean"
-                  ? value
-                    ? "true"
-                    : "false"
-                  : value === null
-                    ? "null"
-                    : typeof value === "object"
-                      ? JSON.stringify(value)
-                      : String(value)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="settings-meta--empty">No metadata available for this account.</div>
-      )}
+      <div
+        className="settings-inline-message settings-inline-message--info"
+        role="note"
+      >
+        Need to change your email? Contact <a href="mailto:support@dialogue-ai.co">support@dialogue-ai.co</a> and we’ll help you out.
+      </div>
     </section>
   );
 
   let sectionView: React.ReactNode = null;
   if (profile) {
-    if (selectedSection === "workspace") {
-      sectionView = renderWorkspaceSection();
-    } else if (selectedSection === "auth") {
-      sectionView = renderAuthSection();
-    } else {
-      sectionView = renderPersonalSection();
-    }
+    sectionView = renderPersonalSection();
   }
 
   return (
@@ -458,27 +422,6 @@ export default function SettingsPage() {
           <StagePanel
             heading="Settings"
             subheading="Your account details for this workspace."
-            trailing={
-              <div className="settings-chips" role="tablist" aria-label="Settings sections">
-                {sectionConfig.map((section) => {
-                  const isActive = selectedSection === section.key;
-                  return (
-                    <button
-                      key={section.key}
-                      id={`settings-tab-${section.key}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      aria-controls={`settings-section-${section.key}`}
-                      className={`settings-chip${isActive ? " settings-chip--active" : ""}`}
-                      onClick={() => setSelectedSection(section.key)}
-                    >
-                      {section.label}
-                    </button>
-                  );
-                })}
-              </div>
-            }
           >
             {loading ? (
               <div className="settings-feedback settings-feedback--info" role="status">
@@ -713,17 +656,16 @@ export default function SettingsPage() {
           background: #ffffff;
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
-        .settings-list--readonly {
-          margin-top: 8px;
-        }
-        .settings-list--readonly .settings-list__row {
-          background: rgba(241, 245, 249, 0.8);
-        }
         .settings-inline-message {
           padding: 14px 16px;
           border-radius: 12px;
           font-size: 13px;
           font-weight: 600;
+        }
+        .settings-inline-message--info {
+          background: rgba(59, 130, 246, 0.12);
+          border: 1px solid rgba(59, 130, 246, 0.28);
+          color: #1d4ed8;
         }
         .settings-inline-message--error {
           background: rgba(239, 68, 68, 0.12);
@@ -787,6 +729,14 @@ export default function SettingsPage() {
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: rgba(15, 23, 42, 0.58);
+        }
+        .settings-inline-message a {
+          color: inherit;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+        .settings-inline-message a:hover {
+          text-decoration: none;
         }
         .settings-meta__value {
           font-size: 13px;
