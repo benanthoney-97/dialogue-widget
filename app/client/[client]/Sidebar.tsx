@@ -157,7 +157,7 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Research",
+      label: "Web Research",
       href: `/client/${clientId}/research`,
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -339,76 +339,54 @@ export default function Sidebar() {
         );
       })}
       <div style={{ flex: 1 }} />
-      <Link
-        href={teamItem.href}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: collapsed ? "100%" : "calc(100% - 24px)",
-          padding: collapsed ? "0 8px" : "0 12px",
-          color: pathname?.startsWith(teamItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-          background: "none",
-          borderRadius: 12,
-          fontWeight: 600,
-          fontSize: 14,
-          textDecoration: "none",
-          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
-          justifyContent: collapsed ? "center" : "flex-start",
-          gap: collapsed ? 0 : 10,
-          marginBottom: 8,
-        }}
-        title={teamItem.label}
-        aria-label={teamItem.label}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            fontSize: 20,
-            display: "flex",
-            alignItems: "center",
-            color: pathname?.startsWith(teamItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-            transition: "color 0.18s ease",
-          }}
-        >
-          {teamItem.icon}
-        </span>
-        <span style={labelVisibilityStyle}>{teamItem.label}</span>
-      </Link>
-      <Link
-        href={settingsItem.href}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: collapsed ? "100%" : "calc(100% - 24px)",
-          padding: collapsed ? "0 8px" : "0 12px",
-          color: pathname?.startsWith(settingsItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-      background: "none",
-          borderRadius: 12,
-          fontWeight: 600,
-          fontSize: 14,
-          textDecoration: "none",
-          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
-          justifyContent: collapsed ? "center" : "flex-start",
-          gap: collapsed ? 0 : 10,
-          marginBottom: 8,
-        }}
-        title={settingsItem.label}
-        aria-label={settingsItem.label}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            fontSize: 20,
-            display: "flex",
-            alignItems: "center",
-            color: pathname?.startsWith(settingsItem.href) ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-            transition: "color 0.18s ease",
-          }}
-        >
-          {settingsItem.icon}
-        </span>
-        <span style={labelVisibilityStyle}>{settingsItem.label}</span>
-      </Link>
+      {[teamItem, { label: "Usage", href: `/client/${clientId}/usage`, icon: (
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 17H18" stroke="#7ea0e6" strokeWidth="1.2" strokeLinecap="round"/>
+          <rect x="6" y="9" width="3" height="6" rx="1" fill="#22325a" stroke="#7ea0e6" strokeWidth="1.1"/>
+          <rect x="10.5" y="6" width="3" height="9" rx="1" fill="#22325a" stroke="#7ea0e6" strokeWidth="1.1"/>
+          <rect x="15" y="4" width="3" height="11" rx="1" fill="#22325a" stroke="#7ea0e6" strokeWidth="1.1"/>
+        </svg>
+      )}, settingsItem].map((item) => {
+        const active = Boolean(pathname?.startsWith(item.href));
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: collapsed ? "100%" : "calc(100% - 24px)",
+              padding: collapsed ? "0 8px" : "0 12px",
+              color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+              background: "none",
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 14,
+              textDecoration: "none",
+              transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: collapsed ? 0 : 10,
+              marginBottom: 8,
+            }}
+            title={item.label}
+            aria-label={item.label}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                fontSize: 20,
+                display: "flex",
+                alignItems: "center",
+                color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+                transition: "color 0.18s ease",
+              }}
+            >
+              {item.icon}
+            </span>
+            <span style={labelVisibilityStyle}>{item.label}</span>
+          </Link>
+        );
+      })}
       <div
         style={{
           width: "100%",

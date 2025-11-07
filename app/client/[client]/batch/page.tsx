@@ -7,6 +7,7 @@ import QuestionnaireCompareModal from "@/app/components/QuestionnaireCompareModa
 import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
+import Topbar, { TOPBAR_HEIGHT } from "../../../components/Topbar";
 import { supabase } from "../../../lib/supabaseClient";
 import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
@@ -24,26 +25,27 @@ type PersonaRow = {
 };
 
 type StagePanelProps = {
-  heading: string;
+  heading?: string;
   subheading?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  panelRef?: React.Ref<HTMLElement>;
 };
 
-function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
+function StagePanel({ heading, subheading, leading, trailing, footer, children, panelRef }: StagePanelProps) {
   const hasHeader = Boolean(heading || subheading || leading || trailing);
   return (
-    <section className="stage-panel">
+    <section className="stage-panel" ref={panelRef}>
       {hasHeader && (
         <header className="stage-panel__header">
-          {leading ? <div className="stage-panel__leading">{leading}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
+          {leading ? <div className="stage-panel__leading">{leading}</div> : null}
           <div className="stage-panel__titles">
-            <h2>{heading}</h2>
+            {heading ? <h2>{heading}</h2> : null}
             {subheading ? <p>{subheading}</p> : null}
           </div>
-          {trailing ? <div className="stage-panel__trailing">{trailing}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
+          {trailing ? <div className="stage-panel__trailing">{trailing}</div> : null}
         </header>
       )}
       <div className="stage-panel__body">{children}</div>
@@ -103,6 +105,14 @@ type BatchPersonaStatus = {
 const TERMINAL_PERSONA_STATUSES = new Set(["parsed", "failed"]);
 const TERMINAL_BATCH_STATUSES = new Set(["complete", "failed"]);
 
+type BatchHistoryGroup = {
+  batch_job_id: string;
+  status: string | null;
+  created_at: string | null;
+  questionnaire_file_name: string | null;
+  personaIds: string[];
+};
+
 type BatchJobHydrationRow = {
   id: string;
   status: string | null;
@@ -151,9 +161,23 @@ export default function BatchPage() {
   const [isExportingBatch, setIsExportingBatch] = useState(false);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [compareInitialPersonaId, setCompareInitialPersonaId] = useState<string | null>(null);
-  const contentAnchorRef = useRef<HTMLDivElement | null>(null);
+  const stagePanelRef = useRef<HTMLElement | null>(null);
   const [isHydratingBatchJob, setIsHydratingBatchJob] = useState(false);
   const dismissedBatchJobIdRef = useRef<string | null>(null);
+  const [previousGroupsRaw, setPreviousGroupsRaw] = useState<BatchHistoryGroup[]>([]);
+  const [previousGroupsLoading, setPreviousGroupsLoading] = useState(false);
+  const [previousGroupsError, setPreviousGroupsError] = useState<string | null>(null);
+  const [isViewingHistory, setIsViewingHistory] = useState(false);
+  const userToggledHistoryRef = useRef(false);
+  const [hasHydratableBatchJob, setHasHydratableBatchJob] = useState(false);
+  const [isReusingSavedGroup, setIsReusingSavedGroup] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const stopBatchPolling = useCallback(() => {
     if (pollingRef.current !== null) {
@@ -192,14 +216,137 @@ export default function BatchPage() {
     if (!status) return "Pending";
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
+  const formatHistoryDate = (value: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  };
   const batchTotalCount = batchPersonasStatus.length;
   const completedCount = batchPersonasStatus.filter((persona) =>
     TERMINAL_PERSONA_STATUSES.has((persona.status ?? "").toLowerCase()),
   ).length;
   const inProgressCount = batchTotalCount - completedCount;
   const batchStatusLabel = formatStatus(batchJobMeta?.status);
+  const stepIndicator = (
+    <div className="batch-step-indicator">
+      <span>
+        Step {currentStep} of {totalSteps}
+      </span>
+    </div>
+  );
   const batchFinished =
     batchJobMeta?.status && TERMINAL_BATCH_STATUSES.has(batchJobMeta.status.toLowerCase());
+  const hydrateLatestBatchJob = useCallback(
+    async (options?: { force?: boolean; activateMonitor?: boolean }) => {
+      if (!clientSlug) {
+        setHasHydratableBatchJob(false);
+        return;
+      }
+      const shouldActivateMonitor = Boolean(options?.activateMonitor);
+      if (shouldActivateMonitor) {
+        setIsHydratingBatchJob(true);
+      }
+      try {
+        const { data, error } = await supabase
+          .from("batch_jobs")
+          .select(
+            [
+              "id",
+              "status",
+              "questionnaire_file_url",
+              "questionnaire_file_name",
+              "questionnaire_file_type",
+              "questionnaire_file_size",
+              "created_at",
+              "started_at",
+              "completed_at",
+            ].join(","),
+          )
+          .eq("client_id", clientSlug)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (error) {
+          console.error("[batch] failed to hydrate latest batch job", error);
+          setHasHydratableBatchJob(false);
+          return;
+        }
+
+        const batchRows = (data as unknown as BatchJobHydrationRow[] | null) ?? null;
+        const latestJob = batchRows && batchRows.length > 0 ? batchRows[0] : null;
+
+        if (!latestJob || typeof latestJob.id !== "string") {
+          setHasHydratableBatchJob(false);
+          return;
+        }
+
+        setHasHydratableBatchJob(true);
+
+        const latestJobId = latestJob.id;
+        const statusValue =
+          typeof latestJob.status === "string" ? latestJob.status.toLowerCase() : "pending";
+        const jobIsTerminal = TERMINAL_BATCH_STATUSES.has(statusValue);
+        if (!options?.force && jobIsTerminal && dismissedBatchJobIdRef.current === latestJobId) {
+          return;
+        }
+
+        dismissedBatchJobIdRef.current = null;
+
+        const rawSize = latestJob.questionnaire_file_size;
+        let normalizedSize: number | null = null;
+        if (typeof rawSize === "number") {
+          normalizedSize = Number.isFinite(rawSize) ? rawSize : null;
+        } else if (typeof rawSize === "string") {
+          const parsedSize = Number(rawSize);
+          normalizedSize = Number.isFinite(parsedSize) ? parsedSize : null;
+        }
+
+        updateBatchJobMeta({
+          id: latestJobId,
+          status: typeof latestJob.status === "string" ? latestJob.status : "pending",
+          questionnaire_file_url:
+            typeof latestJob.questionnaire_file_url === "string"
+              ? latestJob.questionnaire_file_url
+              : "",
+          questionnaire_file_name:
+            typeof latestJob.questionnaire_file_name === "string"
+              ? latestJob.questionnaire_file_name
+              : null,
+          questionnaire_file_type:
+            typeof latestJob.questionnaire_file_type === "string"
+              ? latestJob.questionnaire_file_type
+              : null,
+          questionnaire_file_size: normalizedSize,
+          created_at: typeof latestJob.created_at === "string" ? latestJob.created_at : null,
+          started_at: typeof latestJob.started_at === "string" ? latestJob.started_at : null,
+          completed_at: typeof latestJob.completed_at === "string" ? latestJob.completed_at : null,
+        });
+        if (shouldActivateMonitor) {
+          updateBatchPersonasStatus([]);
+          setBatchStatusError(null);
+          setSelectedPersonaIds(new Set<string>());
+          setStage("monitor");
+        }
+      } catch (error) {
+        if (isMountedRef.current) {
+          console.error("[batch] unexpected hydration error", error);
+          setHasHydratableBatchJob(false);
+        }
+      } finally {
+        if (isMountedRef.current && shouldActivateMonitor) {
+          setIsHydratingBatchJob(false);
+        }
+      }
+    },
+    [clientSlug, updateBatchJobMeta, updateBatchPersonasStatus],
+  );
   const exportablePersonas = useMemo(
     () =>
       batchPersonasStatus.filter(
@@ -704,6 +851,60 @@ export default function BatchPage() {
   }, [clientSlug]);
 
   useEffect(() => {
+    let isMounted = true;
+    async function fetchPreviousGroups() {
+      if (!clientSlug) {
+        setPreviousGroupsRaw([]);
+        return;
+      }
+      setPreviousGroupsLoading(true);
+      setPreviousGroupsError(null);
+      try {
+        const { data, error } = await supabase
+          .from("batch_job_personas")
+          .select(
+            "batch_job_id, agent_id, batch_jobs!inner(id,status,created_at,questionnaire_file_name,client_id)"
+          )
+          .eq("batch_jobs.client_id", clientSlug)
+          .eq("batch_jobs.status", "complete")
+          .order("created_at", { ascending: false, foreignTable: "batch_jobs" });
+        if (error) throw error;
+        const grouped = new Map<string, BatchHistoryGroup>();
+        (data ?? []).forEach((row: any) => {
+          const job = row.batch_jobs;
+          if (!job) return;
+          if (!grouped.has(row.batch_job_id)) {
+            grouped.set(row.batch_job_id, {
+              batch_job_id: row.batch_job_id,
+              status: job.status ?? null,
+              created_at: job.created_at ?? null,
+              questionnaire_file_name: job.questionnaire_file_name ?? null,
+              personaIds: [],
+            });
+          }
+          grouped.get(row.batch_job_id)!.personaIds.push(row.agent_id);
+        });
+        if (!isMounted) return;
+        setPreviousGroupsRaw(Array.from(grouped.values()));
+      } catch (fetchError) {
+        if (!isMounted) return;
+        setPreviousGroupsError(
+          fetchError instanceof Error ? fetchError.message : "Unable to load previous groups"
+        );
+        setPreviousGroupsRaw([]);
+      } finally {
+        if (isMounted) {
+          setPreviousGroupsLoading(false);
+        }
+      }
+    }
+    void fetchPreviousGroups();
+    return () => {
+      isMounted = false;
+    };
+  }, [clientSlug]);
+
+  useEffect(() => {
     return () => {
       if (uploadFileURL) {
         try {
@@ -716,115 +917,71 @@ export default function BatchPage() {
   }, [uploadFileURL]);
 
   useEffect(() => {
-    if (!clientSlug) {
-      return;
-    }
     if (stage !== "select") {
+      userToggledHistoryRef.current = false;
       return;
     }
+    if (previousGroupsRaw.length === 0) {
+      setIsViewingHistory(false);
+      return;
+    }
+    if (!userToggledHistoryRef.current) {
+      setIsViewingHistory(true);
+    }
+  }, [stage, previousGroupsRaw.length]);
 
+  useEffect(() => {
     let isCancelled = false;
-
-    const hydrateLatestBatchJob = async () => {
-      setIsHydratingBatchJob(true);
+    if (!clientSlug) {
+      setHasHydratableBatchJob(false);
+      return;
+    }
+    const checkLatestBatchJob = async () => {
       try {
         const { data, error } = await supabase
           .from("batch_jobs")
-          .select(
-            [
-              "id",
-              "status",
-              "questionnaire_file_url",
-              "questionnaire_file_name",
-              "questionnaire_file_type",
-              "questionnaire_file_size",
-              "created_at",
-              "started_at",
-              "completed_at",
-            ].join(","),
-          )
+          .select("id")
           .eq("client_id", clientSlug)
           .order("created_at", { ascending: false })
           .limit(1);
-
-        if (isCancelled) {
-          return;
-        }
-
+        if (isCancelled) return;
         if (error) {
-          console.error("[batch] failed to hydrate latest batch job", error);
+          console.error("[batch] failed to check latest batch job", error);
+          setHasHydratableBatchJob(false);
           return;
         }
-
         const batchRows = (data as unknown as BatchJobHydrationRow[] | null) ?? null;
         const latestJob = batchRows && batchRows.length > 0 ? batchRows[0] : null;
-        if (!latestJob || typeof latestJob.id !== "string") {
-          return;
-        }
-
-        const latestJobId = latestJob.id;
-        const statusValue =
-          typeof latestJob.status === "string" ? latestJob.status.toLowerCase() : "pending";
-        const jobIsTerminal = TERMINAL_BATCH_STATUSES.has(statusValue);
-        if (jobIsTerminal && dismissedBatchJobIdRef.current === latestJobId) {
-          return;
-        }
-
-        dismissedBatchJobIdRef.current = null;
-
-        const rawSize = latestJob.questionnaire_file_size;
-        let normalizedSize: number | null = null;
-        if (typeof rawSize === "number") {
-          normalizedSize = Number.isFinite(rawSize) ? rawSize : null;
-        } else if (typeof rawSize === "string") {
-          const parsedSize = Number(rawSize);
-          normalizedSize = Number.isFinite(parsedSize) ? parsedSize : null;
-        }
-
-        updateBatchJobMeta({
-          id: latestJobId,
-          status: typeof latestJob.status === "string" ? latestJob.status : "pending",
-          questionnaire_file_url:
-            typeof latestJob.questionnaire_file_url === "string"
-              ? latestJob.questionnaire_file_url
-              : "",
-          questionnaire_file_name:
-            typeof latestJob.questionnaire_file_name === "string"
-              ? latestJob.questionnaire_file_name
-              : null,
-          questionnaire_file_type:
-            typeof latestJob.questionnaire_file_type === "string"
-              ? latestJob.questionnaire_file_type
-              : null,
-          questionnaire_file_size: normalizedSize,
-          created_at: typeof latestJob.created_at === "string" ? latestJob.created_at : null,
-          started_at: typeof latestJob.started_at === "string" ? latestJob.started_at : null,
-          completed_at: typeof latestJob.completed_at === "string" ? latestJob.completed_at : null,
-        });
-        updateBatchPersonasStatus([]);
-        setBatchStatusError(null);
-        setSelectedPersonaIds(new Set<string>());
-        setStage("monitor");
+        setHasHydratableBatchJob(Boolean(latestJob));
       } catch (error) {
         if (!isCancelled) {
-          console.error("[batch] unexpected hydration error", error);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsHydratingBatchJob(false);
+          console.error("[batch] unexpected error while checking latest batch job", error);
+          setHasHydratableBatchJob(false);
         }
       }
     };
-
-    void hydrateLatestBatchJob();
-
+    void checkLatestBatchJob();
     return () => {
       isCancelled = true;
     };
-  }, [clientSlug, stage, updateBatchJobMeta, updateBatchPersonasStatus]);
+  }, [clientSlug, stage]);
 
   const canCreateGroups = profileReady && !profileLoadError && profileRole !== "viewer";
-
+  const panelTitle =
+    stage === "select"
+      ? profileReady && !canCreateGroups
+        ? "Persona groups"
+        : "Create your first group"
+      : stage === "upload"
+        ? "Upload questionnaire"
+        : stage === "monitor"
+          ? "Monitor batch"
+          : undefined;
+  const selectDescription = profileReady
+    ? canCreateGroups
+      ? "Pick the personas you want to include in this batch run. You can refine and save it once you choose the questionnaire file."
+      : "Browse the personas available in this workspace. Ask an admin if you need to launch a new group questionnaire."
+    : undefined;
   const handleTogglePersona = (personaId: string) => {
     if (!canCreateGroups) return;
     setSelectedPersonaIds((prev) => {
@@ -839,14 +996,207 @@ export default function BatchPage() {
   };
 
   const selectedCount = selectedPersonaIds.size;
+  const hasMinimumSelection = selectedCount >= 2;
   const selectedPersonas = useMemo(
     () => personas.filter((persona) => selectedPersonaIds.has(persona.agent_id)),
     [personas, selectedPersonaIds]
   );
+  const personasById = useMemo(() => {
+    const map = new Map<string, PersonaRow>();
+    personas.forEach((persona) => {
+      map.set(persona.agent_id, persona);
+    });
+    return map;
+  }, [personas]);
+
+  const previousGroups = useMemo(() => {
+    const seenSignatures = new Set<string>();
+    const deduped: Array<
+      BatchHistoryGroup & { personaNames: string[]; personaCount: number }
+    > = [];
+
+    previousGroupsRaw.forEach((group) => {
+      const signature = [...group.personaIds].sort().join("|");
+      if (seenSignatures.has(signature)) {
+        return;
+      }
+      seenSignatures.add(signature);
+      const personaNames = group.personaIds
+        .map((id) => personasById.get(id)?.agent_name ?? "Untitled persona")
+        .filter(Boolean);
+      deduped.push({
+        ...group,
+        personaNames,
+        personaCount: group.personaIds.length,
+      });
+    });
+
+    return deduped;
+  }, [previousGroupsRaw, personasById]);
+
+  const showHistoryView = stage === "select" && isViewingHistory && previousGroups.length > 0;
+  const selectPanelTitle =
+    stage === "select" && !showHistoryView
+      ? isReusingSavedGroup
+        ? "Selected persona group"
+        : previousGroups.length > 0
+          ? "Create new group"
+          : "Create your first group"
+      : panelTitle;
+  const panelHeading =
+    stage === "select"
+      ? showHistoryView
+        ? "Saved persona groups"
+        : selectPanelTitle
+      : panelTitle;
+  const panelSubheading = !profileReady
+    ? "Checking your permissions…"
+    : profileLoadError
+      ? profileLoadError
+      : !canCreateGroups
+        ? "You can browse persona groups, but only admins can create new ones."
+        : stage === "select"
+          ? isHydratingBatchJob
+            ? "Loading your latest batch questionnaire run…"
+            : showHistoryView
+              ? "Reuse a previously run persona group, or create a new one."
+              : isReusingSavedGroup
+                ? "You're reusing a saved persona group. Adjust the selection or continue."
+                : selectDescription
+          : stage === "upload"
+            ? "Upload a questionnaire to run across your selected personas."
+            : undefined;
+
+  const handleStartNewGroup = () => {
+    userToggledHistoryRef.current = true;
+    setIsViewingHistory(false);
+    setSelectedPersonaIds(new Set());
+    setIsReusingSavedGroup(false);
+  };
+
+  const handleShowHistoryView = () => {
+    if (!previousGroups.length) return;
+    userToggledHistoryRef.current = true;
+    setIsViewingHistory(true);
+    setSelectedPersonaIds(new Set());
+    setIsReusingSavedGroup(false);
+  };
+
+  const handleReuseGroup = (group: BatchHistoryGroup) => {
+    userToggledHistoryRef.current = true;
+    setIsViewingHistory(false);
+    setSelectedPersonaIds(new Set(group.personaIds));
+    setIsReusingSavedGroup(true);
+  };
+
+  const renderPanelActions = () => {
+    if (stage === "upload") {
+      return (
+        <>
+          <StageButton type="button" variant="ghost" onClick={handleBackToSelect} disabled={isLaunching}>
+            Back
+          </StageButton>
+          <StageButton
+            type="button"
+            variant="primary"
+            onClick={handleLaunchBatch}
+            disabled={!profileReady || !canCreateGroups || !uploadFileURL || !uploadFileDataUrl || isLaunching}
+          >
+            {!profileReady
+              ? "Checking access…"
+              : !canCreateGroups
+              ? "View only access"
+              : isLaunching
+                ? "Launching…"
+                : `Launch batch (${selectedCount})`}
+          </StageButton>
+        </>
+      );
+    }
+    if (stage === "monitor") {
+      if (!batchFinished) {
+        return null;
+      }
+      return (
+        <>
+          <StageButton
+            type="button"
+            variant="ghost"
+            onClick={() => handleOpenCompare()}
+            disabled={comparablePersonasForModal.length < 2}
+          >
+            Compare full screen
+          </StageButton>
+          <StageButton
+            type="button"
+            variant="primary"
+            onClick={handleExportBatch}
+            disabled={isExportingBatch || exportablePersonas.length === 0}
+          >
+            {isExportingBatch ? "Exporting…" : "Export all"}
+          </StageButton>
+        </>
+      );
+    }
+    if (showHistoryView) {
+      return (
+        <StageButton type="button" variant="primary" onClick={handleStartNewGroup}>
+          Create new group
+        </StageButton>
+      );
+    }
+    return (
+      <>
+        {stage === "select" && previousGroups.length > 0 ? (
+          <StageButton type="button" variant="ghost" onClick={handleShowHistoryView}>
+            View saved groups
+          </StageButton>
+        ) : null}
+        {stage === "select" ? (
+          <StageButton
+            type="button"
+            variant="primary"
+            disabled={!profileReady || !canCreateGroups || !hasMinimumSelection || isHydratingBatchJob}
+            onClick={handleContinueToUpload}
+          >
+            {!profileReady
+              ? "Checking access…"
+              : !canCreateGroups
+              ? "View only access"
+              : !hasMinimumSelection
+                ? "Select at least two"
+                : `Continue (${selectedCount})`}
+          </StageButton>
+        ) : null}
+      </>
+    );
+  };
+
+  const showLatestRunButton = hasHydratableBatchJob || stage === "monitor";
+  const latestRunButtonDisabled = stage !== "monitor" && isHydratingBatchJob;
+  const latestRunButtonLabel =
+    stage === "monitor" ? "Create batch run" : isHydratingBatchJob ? "Loading…" : "View latest run";
+  const handleToggleLatestRun = () => {
+    if (stage === "monitor") {
+      handleBackToSelect();
+      return;
+    }
+    void hydrateLatestBatchJob({ force: true, activateMonitor: true });
+  };
+  const topbarRightSlot = showLatestRunButton ? (
+    <button
+      type="button"
+      className="batch-topbar-action"
+      onClick={handleToggleLatestRun}
+      disabled={latestRunButtonDisabled}
+    >
+      {latestRunButtonLabel}
+    </button>
+  ) : null;
 
   const handleContinueToUpload = () => {
     if (!canCreateGroups) return;
-    if (selectedCount === 0) return;
+    if (!hasMinimumSelection) return;
     setUploadError(null);
     setStage("upload");
   };
@@ -859,6 +1209,7 @@ export default function BatchPage() {
     resetBatchState();
     clearUploadFile();
     setSelectedPersonaIds(new Set<string>());
+    setIsReusingSavedGroup(false);
     setStage("select");
   };
 
@@ -1098,90 +1449,28 @@ export default function BatchPage() {
   }, [batchJobMeta?.id, personas, stage, stopBatchPolling, updateBatchJobMeta, updateBatchPersonasStatus]);
 
   return (
-    <main className="stage-layout batch-root">
-      <aside className="stage-layout__sidebar">
-        <Sidebar />
-      </aside>
-      <div className="stage-layout__content" ref={contentAnchorRef}>
-        <div className="stage-shell">
-          <StagePanel
-            heading="Persona groups"
-            subheading={
-              !profileReady
-                ? "Checking your permissions…"
-                : profileLoadError
-                  ? profileLoadError
-                  : !canCreateGroups
-                    ? "You can browse persona groups, but only admins can create new ones."
-                    : stage === "select"
-                      ? isHydratingBatchJob
-                        ? "Loading your latest batch questionnaire run…"
-                        : "Group multiple personas and launch a shared questionnaire run."
-                      : stage === "upload"
-                        ? "Upload a questionnaire to run across your selected personas."
-                        : "Monitor the questionnaire run across your persona group."
-            }
-            leading={
-              <div className="batch-step-indicator">
-                <span>Step {currentStep} of {totalSteps}</span>
-              </div>
-            }
-            trailing={
-              <div className="batch-panel-actions">
-                {stage === "upload" ? (
-                  <>
-                    <StageButton
-                      type="button"
-                      variant="ghost"
-                      onClick={handleBackToSelect}
-                      disabled={isLaunching}
-                    >
-                      Back
-                    </StageButton>
-                    <StageButton
-                      type="button"
-                      variant="primary"
-                      onClick={handleLaunchBatch}
-                      disabled={!profileReady || !canCreateGroups || !uploadFileURL || !uploadFileDataUrl || isLaunching}
-                    >
-                      {!profileReady
-                        ? "Checking access…"
-                        : !canCreateGroups
-                        ? "View only access"
-                      : isLaunching
-                        ? "Launching…"
-                        : `Launch batch (${selectedCount})`}
-                    </StageButton>
-                  </>
-                ) : stage === "monitor" ? (
-                  <>
-                    <StageButton
-                      type="button"
-                      variant="ghost"
-                      onClick={handleBackToSelect}
-                      disabled={inProgressCount > 0 && !batchFinished}
-                    >
-                      Start new batch
-                    </StageButton>
-                  </>
-                ) : (
-                  <StageButton
-                    type="button"
-                    variant="primary"
-                    disabled={!profileReady || !canCreateGroups || selectedCount === 0 || isHydratingBatchJob}
-                    onClick={handleContinueToUpload}
-                  >
-                    {!profileReady
-                      ? "Checking access…"
-                      : !canCreateGroups
-                      ? "View only access"
-                      : selectedCount === 0
-                        ? "Select personas"
-                        : `Continue (${selectedCount})`}
-                  </StageButton>
-                )}
-              </div>
-            }
+    <div
+      className="batch-stage"
+      style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
+    >
+      <Topbar
+        title="Persona groups"
+        offsetLeft="var(--stage-topbar-offset, 0px)"
+        hideCadenceControls
+        centerSlot={stepIndicator}
+        rightSlot={topbarRightSlot}
+      />
+      <main className="stage-layout batch-root">
+        <aside className="stage-layout__sidebar">
+          <Sidebar />
+        </aside>
+        <div className="stage-layout__content">
+          <div className="stage-shell">
+            <StagePanel
+              panelRef={stagePanelRef}
+              heading={panelHeading}
+              subheading={panelSubheading}
+              trailing={<div className="batch-panel-actions">{renderPanelActions()}</div>}
           >
             {profileLoadError ? (
               <div className="batch-notice batch-notice--error" role="alert">
@@ -1194,55 +1483,109 @@ export default function BatchPage() {
               </div>
             ) : null}
             {stage === "select" ? (
-              <section className="batch-section">
-                <div className="batch-intro">
-                  <h3>{profileReady && !canCreateGroups ? "Persona groups" : "Create your first group"}</h3>
-                  <p>
-                    {profileReady && !canCreateGroups
-                      ? "Browse the personas available in this workspace. Ask an admin if you need to launch a new group questionnaire."
-                      : "Pick the personas you want to include in this batch run. You can refine and save it once you choose the questionnaire file."}
-                  </p>
-                </div>
-                <div className="batch-persona-grid" role="list">
-                  {loading && (
-                    <div className="batch-state" role="status">Loading personas…</div>
+              showHistoryView ? (
+                <section className="batch-history-stage">
+                  {previousGroupsLoading ? (
+                    <div className="batch-state" role="status">
+                      Loading saved groups…
+                    </div>
+                  ) : previousGroupsError ? (
+                    <div className="batch-state batch-state--error" role="alert">
+                      {previousGroupsError}
+                    </div>
+                  ) : previousGroups.length === 0 ? (
+                    <div className="batch-state" role="status">
+                      No saved persona groups yet. Create a group to reuse it later.
+                    </div>
+                  ) : (
+                    <div className="batch-history-grid" role="list">
+                      {previousGroups.map((group) => {
+                        const formattedDate = formatHistoryDate(group.created_at);
+                        const personaPreview = group.personaNames.slice(0, 3);
+                        const remainingCount = Math.max(group.personaCount - personaPreview.length, 0);
+                        const statusKey = (group.status ?? "pending").toLowerCase();
+                        return (
+                          <button
+                            key={group.batch_job_id}
+                            type="button"
+                            className="batch-history-card"
+                            role="listitem"
+                            onClick={() => handleReuseGroup(group)}
+                            disabled={!canCreateGroups}
+                          >
+                            <div className="batch-history-card__header">
+                              <div className="batch-history-card__title">
+                                <strong>Persona group</strong>
+                                <span>{formattedDate ? `Ran ${formattedDate}` : "Run date unavailable"}</span>
+                              </div>
+                              <span className={`batch-status-chip batch-status-chip--${statusKey}`}>
+                                {formatStatus(group.status)}
+                              </span>
+                            </div>
+                            <p className="batch-history-card__summary">
+                              {group.personaCount === 1
+                                ? "1 persona included"
+                                : `${group.personaCount} personas included`}
+                            </p>
+                            <ul className="batch-history-card__personas" role="list">
+                              {personaPreview.map((name, index) => (
+                                <li key={`${group.batch_job_id}-${index}`} className="batch-history-card__persona">
+                                  {name}
+                                </li>
+                              ))}
+                            </ul>
+                            {remainingCount > 0 ? (
+                              <span className="batch-history-card__more">+{remainingCount} more</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                  {!loading && error && <div className="batch-state batch-state--error">{error}</div>}
-                  {!loading && !error && personas.length === 0 && (
-                    <div className="batch-state">No personas available yet. Create a persona first.</div>
-                  )}
-                  {!loading && !error && personas.length > 0 &&
-                    personas.map((persona) => {
-                      const isSelected = selectedPersonaIds.has(persona.agent_id);
-                      return (
-                        <button
-                          key={persona.agent_id}
-                          type="button"
-                          className="batch-persona-card"
-                          onClick={() => handleTogglePersona(persona.agent_id)}
-                          disabled={!canCreateGroups}
-                          aria-pressed={isSelected}
-                        >
-                          <span className="batch-persona-card__select" aria-hidden="true">
-                            <span className="batch-persona-card__checkbox" data-selected={isSelected ? "true" : "false"}>
-                              {isSelected ? (
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <rect width="16" height="16" rx="4" fill="#1d4ed8" />
-                                  <path d="M4.5 8.2L7 10.7L11.5 5.8" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              ) : null}
+                </section>
+              ) : (
+                <section className="batch-section">
+                  <div className="batch-persona-grid" role="list">
+                    {loading && (
+                      <div className="batch-state" role="status">Loading personas…</div>
+                    )}
+                    {!loading && error && <div className="batch-state batch-state--error">{error}</div>}
+                    {!loading && !error && personas.length === 0 && (
+                      <div className="batch-state">No personas available yet. Create a persona first.</div>
+                    )}
+                    {!loading && !error && personas.length > 0 &&
+                      personas.map((persona) => {
+                        const isSelected = selectedPersonaIds.has(persona.agent_id);
+                        return (
+                          <button
+                            key={persona.agent_id}
+                            type="button"
+                            className="batch-persona-card"
+                            onClick={() => handleTogglePersona(persona.agent_id)}
+                            disabled={!canCreateGroups}
+                            aria-pressed={isSelected}
+                          >
+                            <span className="batch-persona-card__select" aria-hidden="true">
+                              <span className="batch-persona-card__checkbox" data-selected={isSelected ? "true" : "false"}>
+                                {isSelected ? (
+                                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="16" height="16" rx="4" fill="#1d4ed8" />
+                                    <path d="M4.5 8.2L7 10.7L11.5 5.8" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                ) : null}
+                              </span>
                             </span>
-                          </span>
-                          <span className="batch-persona-card__content">
-                            <strong>{persona.agent_name || "Untitled persona"}</strong>
-                            <span>{persona.content_type || "No format set"}</span>
-                            <span className="batch-persona-card__audience">Audience: {persona.audience_type || "Not specified"}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                </div>
-              </section>
+                            <span className="batch-persona-card__content">
+                              <strong>{persona.agent_name || "Untitled persona"}</strong>
+                              <span>{persona.content_type || "No format set"}</span>
+                              <span className="batch-persona-card__audience">Audience: {persona.audience_type || "Not specified"}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </section>
+              )
             ) : stage === "upload" ? (
               <section className="batch-upload-stage">
                 <div className="batch-selected-panel">
@@ -1254,14 +1597,9 @@ export default function BatchPage() {
                     {selectedPersonas.map((persona) => (
                       <div key={persona.agent_id} className="batch-selected-pill" role="listitem">
                         <strong>{persona.agent_name || "Untitled persona"}</strong>
-                        <span>{persona.content_type || "No format set"}</span>
-                        <span>{persona.audience_type ? `Audience: ${persona.audience_type}` : "Audience not set"}</span>
                       </div>
                     ))}
                   </div>
-                  <StageButton type="button" variant="ghost" onClick={handleBackToSelect} className="batch-adjust-selection">
-                    Adjust selection
-                  </StageButton>
                 </div>
                 <div className="batch-upload-card">
                   <h3>Upload questionnaire</h3>
@@ -1280,11 +1618,6 @@ export default function BatchPage() {
                           <StageButton type="button" variant="ghost" onClick={clearUploadFile}>
                             Remove
                           </StageButton>
-                          {uploadFileURL ? (
-                            <a className="batch-upload-preview" href={uploadFileURL} target="_blank" rel="noreferrer">
-                              Preview
-                            </a>
-                          ) : null}
                         </div>
                       </div>
                     ) : (
@@ -1348,7 +1681,6 @@ export default function BatchPage() {
                             <div className="batch-monitor-row">
                               <div className="batch-monitor-persona">
                                 <strong>{persona.agent_name || "Untitled persona"}</strong>
-                                <span>{persona.agent_id}</span>
                               </div>
                               <div className="batch-monitor-status">
                                 <span className={`batch-status-chip batch-status-chip--${(persona.status ?? "pending").toLowerCase()}`}>
@@ -1403,32 +1735,12 @@ export default function BatchPage() {
                     </ul>
                   )}
                 </div>
-                {batchFinished ? (
-                  <div className="batch-options-bar batch-options-footer" role="group" aria-label="Batch options">
-                    <button
-                      type="button"
-                      className="batch-options-button"
-                      onClick={() => handleOpenCompare()}
-                      disabled={comparablePersonasForModal.length < 2}
-                    >
-                      Compare full screen
-                    </button>
-                    <button
-                      type="button"
-                      className="batch-options-button"
-                      onClick={handleExportBatch}
-                      disabled={isExportingBatch || exportablePersonas.length === 0}
-                    >
-                      {isExportingBatch ? "Exporting…" : "Export all"}
-                    </button>
-                  </div>
-                ) : null}
               </section>
             )}
-          </StagePanel>
+            </StagePanel>
+          </div>
         </div>
-      </div>
-      <FullscreenModal open={isCompareOpen} onCloseAction={handleCloseCompare} anchorRef={contentAnchorRef}>
+      <FullscreenModal open={isCompareOpen} onCloseAction={handleCloseCompare} anchorRef={stagePanelRef}>
         <QuestionnaireCompareModal
           personas={comparablePersonasForModal}
           initialPersonaId={compareInitialPersonaId}
@@ -1436,13 +1748,18 @@ export default function BatchPage() {
         />
       </FullscreenModal>
       <style>{`
+        .batch-stage {
+          position: relative;
+          min-height: 100vh;
+        }
         .stage-layout {
-          height: 100dvh;
           background: var(--bg, #f4f8ff);
           padding: 0;
           font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
           display: flex;
           flex-direction: row;
+          height: 100%;
+          min-height: 0;
           overflow: hidden;
         }
         .stage-layout__sidebar {
@@ -1454,10 +1771,11 @@ export default function BatchPage() {
           display: flex;
           justify-content: center;
           align-items: stretch;
-          padding: 64px 24px 96px;
+          padding: 24px 24px 80px;
           height: 100%;
           min-height: 0;
           overflow: hidden;
+          box-sizing: border-box;
         }
         .stage-shell {
           width: min(1120px, 96%);
@@ -1467,6 +1785,66 @@ export default function BatchPage() {
           color: var(--text);
           height: 100%;
           min-height: 0;
+        }
+        .batch-root {
+          height: 100vh;
+          box-sizing: border-box;
+          padding-top: ${TOPBAR_HEIGHT}px;
+          overflow: hidden;
+        }
+        .batch-root .stage-layout__sidebar {
+          height: calc(100vh - ${TOPBAR_HEIGHT}px);
+          min-height: 0;
+          overflow-y: auto;
+          box-sizing: border-box;
+          padding: 12px 0 24px;
+        }
+        .batch-root .stage-layout__content {
+          height: calc(100vh - ${TOPBAR_HEIGHT}px);
+          padding: 24px 24px 80px;
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+        .batch-root .stage-shell {
+          flex: 1;
+          min-height: 0;
+        }
+        @media (max-width: 960px) {
+          .stage-layout__content {
+            padding: 20px 18px 64px;
+          }
+          .batch-root .stage-layout__content {
+            padding: 20px 18px 64px;
+          }
+        }
+        @media (max-width: 680px) {
+          .stage-layout {
+            flex-direction: column;
+          }
+          .stage-layout__sidebar {
+            width: 100%;
+            position: sticky;
+            top: ${TOPBAR_HEIGHT}px;
+            z-index: 20;
+          }
+          .stage-layout__content {
+            padding: 16px 16px 48px;
+          }
+          .batch-stage {
+            --stage-topbar-offset: 0px;
+          }
+          .batch-root {
+            overflow: auto;
+          }
+          .batch-root .stage-layout__sidebar {
+            height: auto;
+            overflow-y: visible;
+            padding: 12px 16px 0;
+          }
+          .batch-root .stage-layout__content {
+            height: auto;
+            padding: 16px 16px 56px;
+          }
         }
         .stage-panel {
           background: rgba(255, 255, 255, 0.94);
@@ -1489,20 +1867,16 @@ export default function BatchPage() {
           flex-wrap: wrap;
         }
         .stage-panel__leading,
-        .stage-panel__trailing,
-        .stage-panel__spacer {
+        .stage-panel__trailing {
           flex: 0 0 auto;
           min-width: 48px;
           display: flex;
           justify-content: center;
           align-items: center;
         }
-        .stage-panel__spacer {
-          visibility: hidden;
-        }
         .stage-panel__titles {
           flex: 1;
-          text-align: center;
+          text-align: left;
           display: flex;
           flex-direction: column;
           gap: 6px;
@@ -1576,6 +1950,29 @@ export default function BatchPage() {
         .stage-button--full {
           width: 100%;
         }
+        .batch-topbar-action {
+          border: 1px solid rgba(15, 23, 42, 0.5);
+          background: #0f1d35;
+          color: #f1f5ff;
+          border-radius: 12px;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 700;
+          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+        }
+        .batch-topbar-action:hover:not(:disabled),
+        .batch-topbar-action:focus-visible:not(:disabled) {
+          background: #172847;
+          border-color: rgba(241, 245, 255, 0.8);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .batch-topbar-action:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
         .batch-panel-actions {
           display: flex;
           align-items: center;
@@ -1584,13 +1981,16 @@ export default function BatchPage() {
           flex-wrap: wrap;
         }
         .batch-step-indicator {
-          padding: 8px 12px;
+          padding: 6px 14px;
           border-radius: 999px;
-          background: rgba(30, 64, 175, 0.1);
-          color: rgba(30, 58, 138, 0.9);
+          background: #0f1d35;
+          color: #f6f7f9;
           font-weight: 700;
           font-size: 13px;
           letter-spacing: 0.3px;
+          border: 1px solid rgba(15, 23, 42, 0.35);
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
         }
         .batch-section {
           display: flex;
@@ -1600,37 +2000,102 @@ export default function BatchPage() {
           min-height: 0;
           overflow: hidden;
         }
-        .batch-intro {
+        .batch-history-stage {
           display: flex;
           flex-direction: column;
-          gap: 8px;
-          max-width: 620px;
+          gap: 20px;
+          flex: 1;
+          min-height: 0;
         }
-        .batch-intro h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 700;
+        .batch-history-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 18px;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 6px 2px 6px 0;
+        }
+        .batch-history-card {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 22px;
+          border-radius: 18px;
+          border: 1px solid rgba(43, 108, 176, 0.18);
+          background: rgba(255, 255, 255, 0.95);
+          box-shadow: 0 12px 28px rgba(10, 22, 40, 0.12);
+          min-height: 0;
+          text-align: left;
+          cursor: pointer;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+        .batch-history-card:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+        .batch-history-card:not(:disabled):hover {
+          border-color: rgba(43, 108, 176, 0.4);
+          box-shadow: 0 16px 32px rgba(10, 22, 40, 0.16);
+          transform: translateY(-2px);
+        }
+        .batch-history-card__header {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .batch-history-card__title {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .batch-history-card__title strong {
+          font-size: 16px;
           color: #0f172a;
         }
-        .batch-intro p {
+        .batch-history-card__title span {
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .batch-history-card__summary {
           margin: 0;
-          font-size: 14px;
-          color: rgba(15, 23, 42, 0.7);
-          line-height: 1.6;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(15, 23, 42, 0.75);
+        }
+        .batch-history-card__personas {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .batch-history-card__persona {
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(233, 242, 255, 0.9);
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e3a8a;
+        }
+        .batch-history-card__more {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.55);
         }
         .batch-persona-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
           gap: 18px;
-          flex: 1;
           min-height: 0;
           overflow-y: auto;
+          padding-top: 10px
         }
         .batch-persona-card {
           display: flex;
-          align-items: flex-start;
+          flex-direction: column;
           gap: 14px;
-          padding: 18px;
+          padding: 8px;
           border-radius: 16px;
           border: 1px solid rgba(43, 108, 176, 0.18);
           background: rgba(255, 255, 255, 0.94);
@@ -1640,6 +2105,7 @@ export default function BatchPage() {
           transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
           position: relative;
           color: #1e293b;
+          height: 100%;
         }
         .batch-persona-card:hover,
         .batch-persona-card[aria-pressed="true"] {
@@ -1665,6 +2131,7 @@ export default function BatchPage() {
           align-items: center;
           justify-content: center;
           margin-top: 2px;
+          align-self: flex-start;
         }
         .batch-persona-card__checkbox {
           width: 20px;
@@ -1687,6 +2154,7 @@ export default function BatchPage() {
           gap: 6px;
           font-size: 13px;
           color: rgba(15, 23, 42, 0.82);
+          flex: 1;
         }
         .batch-persona-card__content strong {
           font-size: 15px;
@@ -1775,20 +2243,16 @@ export default function BatchPage() {
           overflow: auto;
         }
         .batch-selected-pill {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          padding: 12px 14px;
+          padding: 16px 18px;
           border-radius: 12px;
           background: rgba(30, 41, 59, 0.08);
           color: rgba(15, 23, 42, 0.82);
-          font-size: 12px;
-          box-shadow: inset 0 0 0 1px rgba(30, 41, 59, 0.06);
-        }
-        .batch-selected-pill strong {
           font-size: 13px;
           font-weight: 700;
-          color: #0f172a;
+          box-shadow: inset 0 0 0 1px rgba(30, 41, 59, 0.06);
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
         }
         .batch-adjust-selection {
           align-self: flex-start;
@@ -1871,15 +2335,6 @@ export default function BatchPage() {
           align-items: center;
           gap: 12px;
           flex-wrap: wrap;
-        }
-        .batch-upload-preview {
-          font-size: 13px;
-          font-weight: 600;
-          color: #1d4ed8;
-          text-decoration: none;
-        }
-        .batch-upload-preview:hover {
-          text-decoration: underline;
         }
         .batch-upload-error {
           margin: 0;
@@ -2090,18 +2545,18 @@ export default function BatchPage() {
           border: 1px solid rgba(59, 130, 246, 0.35);
           background: rgba(15, 23, 42, 0.85);
           color: #f1f5ff;
-          border-radius: 999px;
+          border-radius: 12px;
           padding: 10px 20px;
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
-          transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+          transition: border-color 0.2s ease, transform 0.2s ease;
           box-shadow: 0 6px 16px rgba(15, 23, 42, 0.22);
         }
         .batch-options-button:hover,
         .batch-options-button:focus-visible {
-          background: rgba(59, 130, 246, 0.22);
           border-color: rgba(59, 130, 246, 0.6);
+          transform: translateY(-1px);
         }
         .batch-options-button:active {
           transform: translateY(1px);
@@ -2202,14 +2657,14 @@ export default function BatchPage() {
           color: #f8fafc;
         }
         @media (max-width: 960px) {
-          .stage-layout__content {
-            padding: 64px 18px 96px;
-          }
           .stage-panel {
             padding: 24px;
           }
           .batch-persona-grid {
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          }
+          .batch-history-grid {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
           }
           .batch-upload-stage {
             grid-template-columns: 1fr;
@@ -2226,20 +2681,11 @@ export default function BatchPage() {
           }
         }
         @media (max-width: 680px) {
-          .stage-layout {
-            flex-direction: column;
-          }
-          .stage-layout__sidebar {
-            width: 100%;
-            position: sticky;
-            top: 0;
-            z-index: 50;
-          }
-          .stage-layout__content {
-            padding: 32px 16px 64px;
-          }
           .stage-panel__titles h2 {
             font-size: 20px;
+          }
+          .batch-history-grid {
+            grid-template-columns: 1fr;
           }
           .insights-questionnaire__grid {
             grid-template-columns: 1fr;
@@ -2247,5 +2693,6 @@ export default function BatchPage() {
         }
       `}</style>
     </main>
+  </div>
   );
 }

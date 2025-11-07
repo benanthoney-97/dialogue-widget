@@ -74,7 +74,7 @@ export default function FullscreenModal({
     ? { inset: 0 as const }
     : anchorRect !== null
     ? {
-        top: 0,
+        top: anchorRect.top,
         left: Math.max(anchorRect.left, 0),
         width:
           typeof window !== "undefined"

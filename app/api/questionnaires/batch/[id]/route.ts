@@ -12,7 +12,7 @@ const supabaseAdmin =
     : null;
 
 type RouteContext = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 function normalizeBatchId(raw: string | undefined): string | null {
@@ -28,7 +28,8 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    const batchId = normalizeBatchId(context.params?.id);
+    const params = await context.params;
+    const batchId = normalizeBatchId(params?.id);
     if (!batchId) {
       return NextResponse.json({ error: "Invalid batch identifier" }, { status: 400 });
     }

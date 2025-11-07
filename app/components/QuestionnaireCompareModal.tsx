@@ -339,92 +339,108 @@ export default function QuestionnaireCompareModal({
   }, [selectedPersonas]);
 
   return (
-    <div className="qc-modal">
-      <header className="qc-header">
-        <div className="qc-header-text">
-          <h2>Compare questionnaire results</h2>
-          <p>Select up to two personas with parsed questionnaires to review responses side-by-side.</p>
-        </div>
-        <div className="qc-header-actions">
+    <div className="qc-modal-shell">
+      <div className="qc-modal">
+        <header className="qc-header">
+          <div className="qc-header-text">
+            <h2>Compare questionnaire results</h2>
+            <p>Select up to two personas with parsed questionnaires to review responses side-by-side.</p>
+          </div>
+          <div className="qc-header-actions">
           <button
             type="button"
             className="qc-download"
             onClick={handleDownload}
             disabled={isDownloading || selectedPersonas.length === 0}
           >
-            {isDownloading ? "Downloading…" : "Download"}
+            {isDownloading ? "Exporting…" : "Export all"}
           </button>
-          <button type="button" className="qc-close" onClick={onClose} aria-label="Close comparison modal">
-            ×
-          </button>
-        </div>
-      </header>
-      {comparable.length === 0 ? (
-        <div className="qc-empty">
-          <p>No parsed questionnaire results available yet. Run a questionnaire to start comparing.</p>
-        </div>
-      ) : (
-        <>
-          <div className="qc-controls" role="group" aria-label="Persona selection">
-            <div className="qc-select-group">
-              <label htmlFor="qc-left-select">Persona A</label>
-              <select
-                id="qc-left-select"
-                value={leftId ?? ""}
-                onChange={(event) => setLeftId(event.target.value || null)}
-              >
-                {comparable.map((persona) => (
-                  <option key={persona.id} value={persona.id} disabled={persona.id === rightId}>
-                    {persona.name || "Untitled persona"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              className="qc-swap"
-              onClick={() => {
-                setLeftId(rightId ?? null);
-                setRightId(leftId ?? null);
-              }}
-              disabled={!leftId && !rightId}
-            >
-              Swap
+            <button type="button" className="qc-close" onClick={onClose} aria-label="Close comparison modal">
+              ×
             </button>
-            <div className="qc-select-group">
-              <label htmlFor="qc-right-select">Persona B</label>
-              <select
-                id="qc-right-select"
-                value={rightId ?? ""}
-                onChange={(event) => setRightId(event.target.value || null)}
+          </div>
+        </header>
+        {comparable.length === 0 ? (
+          <div className="qc-empty">
+            <p>No parsed questionnaire results available yet. Run a questionnaire to start comparing.</p>
+          </div>
+        ) : (
+          <>
+            <div className="qc-controls" role="group" aria-label="Persona selection">
+              <div className="qc-select-group">
+                <label htmlFor="qc-left-select">Persona A</label>
+                <select
+                  id="qc-left-select"
+                  value={leftId ?? ""}
+                  onChange={(event) => setLeftId(event.target.value || null)}
+                >
+                  {comparable.map((persona) => (
+                    <option key={persona.id} value={persona.id} disabled={persona.id === rightId}>
+                      {persona.name || "Untitled persona"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                className="qc-swap"
+                onClick={() => {
+                  setLeftId(rightId ?? null);
+                  setRightId(leftId ?? null);
+                }}
+                disabled={!leftId && !rightId}
               >
-                {comparable.map((persona) => (
-                  <option key={persona.id} value={persona.id} disabled={persona.id === leftId}>
-                    {persona.name || "Untitled persona"}
-                  </option>
-                ))}
-              </select>
+                Swap
+              </button>
+              <div className="qc-select-group">
+                <label htmlFor="qc-right-select">Persona B</label>
+                <select
+                  id="qc-right-select"
+                  value={rightId ?? ""}
+                  onChange={(event) => setRightId(event.target.value || null)}
+                >
+                  {comparable.map((persona) => (
+                    <option key={persona.id} value={persona.id} disabled={persona.id === leftId}>
+                      {persona.name || "Untitled persona"}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-          <div className="qc-columns">
-            {renderColumn(leftPersona ?? null)}
-            {renderColumn(rightPersona ?? null)}
-          </div>
-        </>
-      )}
-      <footer className="qc-footer">
-        <span>
-          Showing {leftPersona?.questions.length ?? 0} questions for Persona A
-          {rightPersona ? ` • ${rightPersona.questions.length} for Persona B` : ""}
-        </span>
-      </footer>
+            <div className="qc-columns">
+              {renderColumn(leftPersona ?? null)}
+              {renderColumn(rightPersona ?? null)}
+            </div>
+          </>
+        )}
+        <footer className="qc-footer">
+          <span>
+            Showing {leftPersona?.questions.length ?? 0} questions for Persona A
+            {rightPersona ? ` • ${rightPersona.questions.length} for Persona B` : ""}
+          </span>
+        </footer>
+      </div>
       <style jsx>{`
+        .qc-modal-shell {
+          width: 100%;
+          height: 100%;
+          padding: 0;
+          display: flex;
+          justify-content: center;
+          align-items: stretch;
+          overflow: hidden;
+        }
         .qc-modal {
           display: flex;
           flex-direction: column;
+          width: 100%;
           height: 100%;
-          background: #f4f6fb;
+          background: rgba(255, 255, 255, 0.94);
           color: #0f172a;
+          border-radius: 20px;
+          border: 1px solid rgba(30, 41, 59, 0.12);
+          box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+          overflow: hidden;
         }
         .qc-header {
           display: flex;
@@ -448,27 +464,37 @@ export default function QuestionnaireCompareModal({
           align-items: center;
           gap: 12px;
         }
-        .qc-download,
         .qc-close {
           background: rgba(15, 23, 42, 0.05);
           border: 1px solid rgba(15, 23, 42, 0.12);
           color: #0f172a;
           border-radius: 999px;
           cursor: pointer;
-        }
-        .qc-close {
           font-size: 28px;
           line-height: 1;
           width: 44px;
           height: 44px;
         }
         .qc-download {
-          padding: 10px 18px;
-          font-weight: 600;
+          border: 1px solid rgba(59, 130, 246, 0.35);
+          background: #1e293b;
+          color: #f1f5ff;
+          border-radius: 12px;
+          padding: 10px 22px;
+          font-weight: 700;
           font-size: 14px;
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+        }
+        .qc-download:hover:not(:disabled),
+        .qc-download:focus-visible:not(:disabled) {
+          background: rgba(59, 130, 246, 0.92);
+          border-color: rgba(59, 130, 246, 0.65);
+          transform: translateY(-1px);
+          outline: none;
         }
         .qc-download:disabled {
-          opacity: 0.6;
+          opacity: 0.65;
           cursor: not-allowed;
         }
         .qc-controls {

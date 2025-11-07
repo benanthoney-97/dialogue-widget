@@ -5,6 +5,7 @@ import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
+import Topbar, { TOPBAR_HEIGHT } from "../../../components/Topbar";
 import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
 // Data from Supabase
@@ -64,7 +65,7 @@ const statusOptions = (['All','Questionnaire','Interview','Chat'] as const);
 
 
 type StagePanelProps = {
-	heading: string;
+	heading?: string;
 	subheading?: string;
 	leading?: React.ReactNode;
 	trailing?: React.ReactNode;
@@ -80,7 +81,7 @@ function StagePanel({ heading, subheading, leading, trailing, footer, children }
 				<header className="stage-panel__header">
 					{leading ? <div className="stage-panel__leading">{leading}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
 					<div className="stage-panel__titles">
-						<h2>{heading}</h2>
+						{heading ? <h2>{heading}</h2> : null}
 						{subheading ? <p>{subheading}</p> : null}
 					</div>
 					{trailing ? <div className="stage-panel__trailing">{trailing}</div> : <div className="stage-panel__spacer" aria-hidden="true" />}
@@ -401,15 +402,18 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 			});
 
 	return (
-		<main className="stage-layout">
-			<aside className="stage-layout__sidebar">
-				<Sidebar />
-			</aside>
-			<div className="stage-layout__content">
+		<div
+			className="insights-stage"
+			style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
+		>
+			<Topbar title="Playbacks" offsetLeft="var(--stage-topbar-offset, 0px)" hideCadenceControls />
+			<main className="stage-layout insights-root">
+				<aside className="stage-layout__sidebar">
+					<Sidebar />
+				</aside>
+				<div className="stage-layout__content">
 				<div className="stage-shell">
-					<StagePanel
-						heading="Playbacks"
-					>
+					<StagePanel>
 					{loading && <StageAlert type="info" message="Loading insights…" />}
 					{!loading && error && <StageAlert type="error" message={error} />}
 					<div className="insights-table-section">
@@ -1055,16 +1059,20 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 							`}</style>
 					</StagePanel>
 				</div>
-			</div>
-			<style>{`
+				</div>
+				<style>{`
+				.insights-stage {
+					position: relative;
+					min-height: 100vh;
+				}
 				.stage-layout {
-					height: 100dvh;
-					min-height: 100dvh;
 					background: var(--bg, #f4f8ff);
 					padding: 0;
 					font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
 					display: flex;
 					flex-direction: row;
+					height: 100%;
+					min-height: 0;
 					overflow: hidden;
 				}
 				.stage-layout__sidebar {
@@ -1076,7 +1084,7 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 					display: flex;
 					justify-content: center;
 					align-items: stretch;
-					padding: 64px 24px 96px;
+					padding: 24px 24px 64px;
 					height: 100%;
 					min-height: 0;
 					overflow: hidden;
@@ -1089,6 +1097,66 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 					gap: 24px;
 					height: 100%;
 					min-height: 0;
+				}
+				.insights-root {
+					height: 100vh;
+					box-sizing: border-box;
+					padding-top: ${TOPBAR_HEIGHT}px;
+					overflow: hidden;
+				}
+				.insights-root .stage-layout__sidebar {
+					height: calc(100vh - ${TOPBAR_HEIGHT}px);
+					min-height: 0;
+					overflow-y: auto;
+					box-sizing: border-box;
+					padding: 12px 0 24px;
+				}
+				.insights-root .stage-layout__content {
+					height: calc(100vh - ${TOPBAR_HEIGHT}px);
+					padding: 24px 24px 64px;
+					box-sizing: border-box;
+					overflow: hidden;
+				}
+				.insights-root .stage-shell {
+					flex: 1;
+					min-height: 0;
+				}
+				@media (max-width: 960px) {
+					.stage-layout__content {
+						padding: 20px 18px 56px;
+					}
+					.insights-root .stage-layout__content {
+						padding: 20px 18px 56px;
+					}
+				}
+				@media (max-width: 680px) {
+					.stage-layout {
+						flex-direction: column;
+					}
+					.stage-layout__sidebar {
+						width: 100%;
+						position: sticky;
+						top: ${TOPBAR_HEIGHT}px;
+						z-index: 20;
+					}
+					.stage-layout__content {
+						padding: 16px 16px 48px;
+					}
+					.insights-stage {
+						--stage-topbar-offset: 0px;
+					}
+					.insights-root {
+						overflow: auto;
+					}
+					.insights-root .stage-layout__sidebar {
+						height: auto;
+						overflow-y: visible;
+						padding: 12px 16px 0;
+					}
+					.insights-root .stage-layout__content {
+						height: auto;
+						padding: 16px 16px 56px;
+					}
 				}
 				.stage-panel {
 					background: rgba(255, 255, 255, 0.94);
@@ -1695,7 +1763,8 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 					margin-right: 0;
 				}
 			}
-		`}</style>
-	</main>
+ 		`}</style>
+		</main>
+	</div>
 	);
 }
