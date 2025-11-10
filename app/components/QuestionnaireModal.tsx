@@ -27,6 +27,7 @@ type QuestionnaireModalProps = {
   personaUpdatedAt?: string | null;
   personaResearchType?: string | null;
   personaOwnerName?: string | null;
+  resultsPlacement?: "inline" | "external";
 };
 
 export default function QuestionnaireModal({
@@ -49,6 +50,7 @@ export default function QuestionnaireModal({
   personaUpdatedAt,
   personaResearchType,
   personaOwnerName,
+  resultsPlacement = "inline",
 }: QuestionnaireModalProps) {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -360,13 +362,25 @@ export default function QuestionnaireModal({
     );
   };
 
+  const showActionsColumn = resultsPlacement !== "external";
+  const gridClassNames = ["persona-quant-grid"];
+  if (!showResults) {
+    gridClassNames.push("persona-quant-grid--preview-only");
+  }
+  if (!showActionsColumn) {
+    gridClassNames.push("persona-quant-grid--single");
+  }
+
   return (
     <>
       <div ref={expandedCardRef} className="persona-modal-option-body-content persona-modal-option-body-content--quant">
       {quantFileURL ? (
-        <div className="persona-quant-grid">
-          <div className="persona-quant-preview">{renderPreview()}</div>
-          <div className="persona-quant-actions-col">
+          <div className={gridClassNames.join(" ")}>
+              <div className={`persona-quant-preview${!showResults ? " persona-quant-preview--wide" : ""}`}>
+                {renderPreview()}
+              </div>
+              {showActionsColumn ? (
+              <div className="persona-quant-actions-col">
             <input
               ref={quantUploadInputRef}
               type="file"
@@ -385,12 +399,7 @@ export default function QuestionnaireModal({
                 <span className="persona-quant-spinner" aria-hidden="true" />
                 <span>Loading questionnaire…</span>
               </div>
-            ) : isProcessing ? (
-              <div className="persona-quant-loading">
-                <span className="persona-quant-spinner" aria-hidden="true" />
-                <span>Processing questionnaire…</span>
-              </div>
-            ) : showResults ? (
+            ) : isProcessing ? null : showResults && resultsPlacement === "inline" ? (
               <div className="persona-quant-results">
                 <div className="persona-quant-results-header">
                   <h4>Questionnaire responses</h4>
@@ -447,15 +456,15 @@ export default function QuestionnaireModal({
                   </div>
                 )}
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", marginTop: 8 }}>
+            ) : !showResults ? (
+              <div className="persona-quant-actions-row">
                 <PillButton
                   type="button"
                   onClick={onUploadClickAction}
                   aria-label="Change document"
                   className="persona-quant-action-square"
                   disabled={actionsDisabled}
-                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8 }}
+                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
                 >
                   Change document
                 </PillButton>
@@ -465,12 +474,12 @@ export default function QuestionnaireModal({
                   aria-label="Run questionnaire"
                   className="persona-quant-action-square"
                   disabled={actionsDisabled || !hasQuantFile}
-                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8 }}
+                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
                 >
                   Run questionnaire
                 </PillButton>
               </div>
-            )}
+            ) : null}
             {jobError ? (
               <p className="persona-quant-status persona-quant-status--error">{jobError}</p>
             ) : null}
@@ -492,13 +501,9 @@ export default function QuestionnaireModal({
                   {isDownloading ? "Downloading…" : "Download"}
                 </button>
               </div>
-            ) : jobStatus && !jobError ? (
-              <p className="persona-quant-status persona-quant-status--success">
-                Questionnaire {jobStatus}
-                {jobId ? ` (job ID: ${jobId})` : ""}
-              </p>
             ) : null}
           </div>
+            ) : null}
         </div>
       ) : (
         <div className="persona-quant-actions">
@@ -513,6 +518,7 @@ export default function QuestionnaireModal({
               background: "transparent",
               boxShadow: "none",
               border: "none",
+              color: "#0f172a",
             }}
           >
             <div
@@ -526,6 +532,7 @@ export default function QuestionnaireModal({
                 justifyContent: "center",
                 boxSizing: "border-box",
                 borderRadius: 8,
+                color: "#0f172a",
               }}
             >
               <svg
@@ -544,9 +551,8 @@ export default function QuestionnaireModal({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                  disabled={actionsDisabled}
               </svg>
-              <span>Upload research questionnaire</span>
+              <span style={{ color: "#0f172a", fontWeight: 700 }}>Upload research questionnaire</span>
             </div>
           </PillButton>
           <input

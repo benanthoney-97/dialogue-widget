@@ -39,7 +39,7 @@ export default function ScreenshotPage() {
         // try lookup by key first
         const res = await supabase
           .from("agent_map")
-          .select("agent_id, background_image, screenshot_path, region, auth, talk_label, pdf_path, agent_name, url, author, work_label")
+          .select("agent_id, background_image, region, auth, talk_label, pdf_path, agent_name, url, author, work_label")
           .eq("key", slug)
           .maybeSingle();
   // agent_map.byKey response available
@@ -49,7 +49,7 @@ export default function ScreenshotPage() {
           // falling back to agent_id lookup for slug
           const alt = await supabase
             .from("agent_map")
-            .select("agent_id, background_image, screenshot_path")
+            .select("agent_id, background_image")
             .eq("agent_id", slug)
             .maybeSingle();
           // agent_map.byAgentId response available
@@ -60,10 +60,8 @@ export default function ScreenshotPage() {
         if (data) {
           // Use client_map row as the single source of truth
           setClientAgentId(data.agent_id ?? null);
-          setClientScreenshot(data.background_image ?? data.screenshot_path ?? null);
           setEntry({
             agentId: data.agent_id ?? undefined,
-            screenshotPath: data.screenshot_path ?? data.background_image ?? undefined,
             region: data.region ?? undefined,
             auth: data.auth ?? undefined,
             talkLabel: data.talk_label ?? undefined,

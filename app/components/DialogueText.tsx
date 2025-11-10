@@ -43,8 +43,8 @@ type ClientEvent =
   | { type: "user_transcript"; text: string }
   | { type: "agent_response"; text: string };
 
-const MIN_TEXTAREA_HEIGHT = 44;
-const MAX_TEXTAREA_HEIGHT = 220;
+const MIN_TEXTAREA_HEIGHT = 46;
+const MAX_TEXTAREA_HEIGHT = 200;
 const PDF_PAGE_WIDTH = 612; // 8.5in
 const PDF_PAGE_HEIGHT = 792; // 11in
 const PDF_MARGIN = 72; // 1in
@@ -691,7 +691,7 @@ export default function DialogueText({
           alignSelf: isUser ? "flex-end" : "flex-start",
           maxWidth: "85%",
           background: isUser ? buttonColor : "rgba(148, 163, 184, 0.16)",
-          color: isUser ? buttonTextColor : "#e2e8f0",
+          color: isUser ? buttonTextColor : "#0f172a",
           padding: "10px 14px",
           borderRadius: isUser ? "15px 15px 4px 15px" : "15px 15px 15px 4px",
           fontSize: 14,
@@ -706,6 +706,8 @@ export default function DialogueText({
   };
 
   const sendDisabled = isSending || phase === "connecting" || isEnding;
+  const trimmedDraft = draft.trim();
+  const showSendButton = trimmedDraft.length > 0;
 
   const handleDownloadTranscript = useCallback(() => {
     const source = endedTranscript.length ? endedTranscript : messages;
@@ -874,12 +876,12 @@ export default function DialogueText({
             }}
             style={{
               display: "flex",
-              alignItems: "flex-end",
+              alignItems: "center",
               gap: 12,
               background: "rgba(14, 21, 36, 0.9)",
               borderRadius: 16,
               border: "1px solid rgba(148, 163, 184, 0.25)",
-              padding: "10px 12px",
+              padding: "8px 12px",
               marginTop: "auto",
             }}
           >
@@ -893,8 +895,8 @@ export default function DialogueText({
                   void handleSend();
                 }
               }}
-              placeholder="Type your question…"
-              aria-label="Type your question"
+              placeholder="Type…"
+              aria-label="Type"
               rows={1}
               style={{
                 flex: 1,
@@ -907,6 +909,7 @@ export default function DialogueText({
                 color: "#e2e8f0",
                 background: "transparent",
                 overflow: "hidden",
+                padding: "12px 0",
               }}
             />
             <div
@@ -917,28 +920,46 @@ export default function DialogueText({
                 flexWrap: "nowrap",
               }}
             >
-              <button
-                type="submit"
-                disabled={sendDisabled || !draft.trim()}
-                style={{
-                  padding: "0 16px",
-                  height: 42,
-                  borderRadius: 12,
-                  border: "1px solid rgba(59, 130, 246, 0.45)",
-                  background: sendDisabled ? "rgba(148, 163, 184, 0.2)" : buttonColor,
-                  color: sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor,
-                  cursor: sendDisabled ? "not-allowed" : "pointer",
-                  fontWeight: 600,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: 110,
-                  transition:
-                    "background .18s ease, color .18s ease, opacity .18s ease",
-                }}
-              >
-                {sendDisabled ? "Sending…" : "Send"}
-              </button>
+              {showSendButton ? (
+                <button
+                  type="submit"
+                  disabled={sendDisabled}
+                  style={{
+                    padding: 0,
+                    height: 46,
+                    borderRadius: 999,
+                    border: "1px solid rgba(59, 130, 246, 0.45)",
+                    background: sendDisabled
+                      ? "rgba(148, 163, 184, 0.2)"
+                      : buttonColor,
+                    color: sendDisabled
+                      ? "rgba(226, 232, 240, 0.6)"
+                      : buttonTextColor,
+                    cursor: sendDisabled ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 46,
+                    transition:
+                      "background .18s ease, color .18s ease, opacity .18s ease",
+                  }}
+                  aria-label={sendDisabled ? "Sending" : "Send message"}
+                >
+                  <svg
+                    aria-hidden="true"
+                    width={24}
+                    height={24}
+                    viewBox="0 0 24 24"
+                    style={{ display: "block" }}
+                  >
+                    <path
+                      d="M12 5l6 6h-4v8h-4v-8H6l6-6z"
+                      fill={sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor}
+                    />
+                  </svg>
+                </button>
+              ) : null}
               {phase === "connected" ? (
                 <button
                   type="button"
@@ -947,8 +968,9 @@ export default function DialogueText({
                   }}
                   disabled={isEnding}
                   style={{
-                    padding: "0 14px",
-                    height: 42,
+                    padding: 0,
+                    height: 46,
+                    width: 46,
                     borderRadius: 12,
                     border: "1px solid rgba(148, 163, 184, 0.35)",
                     background: isEnding
@@ -960,12 +982,31 @@ export default function DialogueText({
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    minWidth: 110,
                     transition:
                       "background .18s ease, color .18s ease, opacity .18s ease",
                   }}
+                  aria-label={isEnding ? "Ending call" : "End call"}
                 >
-                  {isEnding ? "Ending…" : "End call"}
+                  {isEnding ? (
+                    <span style={{ fontSize: 12, letterSpacing: 1 }}>…</span>
+                  ) : (
+                    <svg
+                      aria-hidden="true"
+                      width={20}
+                      height={20}
+                      viewBox="0 0 24 24"
+                      style={{ display: "block" }}
+                    >
+                      <rect
+                        x={7}
+                        y={7}
+                        width={10}
+                        height={10}
+                        rx={2}
+                        fill={"currentColor"}
+                      />
+                    </svg>
+                  )}
                 </button>
               ) : null}
             </div>

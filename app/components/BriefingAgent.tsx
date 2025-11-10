@@ -88,7 +88,6 @@ export default function ExecutiveAgent({
     region?: string | null;
     auth?: string | null;
     talk_label?: string | null;
-    screenshot_path?: string | null;
     author?: string | null;
     work_label?: string | null;
     url?: string | null;
@@ -102,7 +101,7 @@ export default function ExecutiveAgent({
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, author, work_label, url, client_id, background_image"
           )
           .eq("agent_id", agentId)
           .maybeSingle();
@@ -435,7 +434,6 @@ export default function ExecutiveAgent({
         auth: agentMap.auth ?? undefined,
         talkLabel: agentMap.talk_label ?? undefined,
         url: agentMap.url ?? undefined,
-        screenshotPath: agentMap.screenshot_path ?? undefined,
         author: agentMap.author ?? undefined,
         workLabel: agentMap.work_label ?? undefined,
       }

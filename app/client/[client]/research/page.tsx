@@ -1,14 +1,48 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
-import Topbar, { TOPBAR_HEIGHT } from "../../../components/Topbar";
+import Topbar from "../../../components/Topbar";
+import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
 
 function getClientSlug(pathname: string | null): string {
   if (!pathname) return "";
   const match = pathname.match(/^\/client\/([^\/]+)/);
   return match ? match[1] : "";
+}
+
+type ExternalSource = {
+  id: string;
+  name: string;
+  accent: string;
+};
+
+function deriveInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2) || "WS";
+}
+
+function deriveAccent(name: string): string {
+  const palette = [
+    "#2563eb",
+    "#0ea5e9",
+    "#10b981",
+    "#f97316",
+    "#6366f1",
+    "#dc2626",
+    "#7c3aed",
+    "#14b8a6",
+    "#f59e0b",
+  ];
+  if (!name) return palette[0];
+  const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return palette[hash % palette.length];
 }
 
 export default function ResearchPage() {
@@ -21,20 +55,256 @@ export default function ResearchPage() {
   );
   const [selectedCadence, setSelectedCadence] = useState<string>("Weekly");
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [availableSources, setAvailableSources] = useState<ExternalSource[]>([]);
 
-  const targetSources = useMemo(
+  const goalOptions = useMemo(
     () => [
-      { name: "Financial Times", initials: "FT", accent: "#f97316" },
-      { name: "Bloomberg", initials: "BB", accent: "#6366f1" },
-      { name: "TechCrunch", initials: "TC", accent: "#10b981" },
-      { name: "Crunchbase", initials: "CB", accent: "#0ea5e9" },
-      { name: "Harvard Business Review", initials: "HBR", accent: "#dc2626" },
-      { name: "McKinsey Insights", initials: "MI", accent: "#2563eb" },
-      { name: "Gartner", initials: "G", accent: "#7c3aed" },
-      { name: "Forrester", initials: "F", accent: "#14b8a6" },
+      { label: "Develop new products", description: "Spot emerging needs and market gaps to guide R&D." },
+      { label: "Refine messaging", description: "Understand customer language to sharpen positioning." },
+      { label: "Content strategy", description: "Track narratives and trends to fuel editorial calendars." },
+      { label: "Sales enablement", description: "Give reps the freshest proof points and competitive intel." },
     ],
     []
   );
+
+  const priorityOptions = useMemo(
+    () => [
+      { label: "Industry trends", helper: "Spot macro shifts and market sentiment." },
+      { label: "Competitors", helper: "Track launches, pricing moves, and leadership news." },
+      { label: "Customer signals", helper: "Monitor reviews, forums, and feedback loops." },
+      { label: "Regulation", helper: "Stay ahead of policy updates and compliance risks." },
+      { label: "Investor chatter", helper: "Watch funding rounds and analyst notes." },
+      { label: "Emerging tech", helper: "Surface new tools and enablers for your space." },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!clientSlug) return;
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchResearchPriorities() {
+      try {
+        const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          console.error("[Research] Failed to load research priorities", response.status);
+          return;
+        }
+        const payload = (await response.json()) as {
+          priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
+        };
+        if (!isMounted) return;
+        const primaryGoal = payload.priority?.primary_goal;
+        setSelectedGoal(typeof primaryGoal === "string" && primaryGoal.length > 0 ? primaryGoal : null);
+        const priorities = payload.priority?.priorities;
+        if (Array.isArray(priorities)) {
+          setSelectedPriorities(priorities);
+        } else {
+          setSelectedPriorities([]);
+        }
+        const sources = payload.priority?.target_sources;
+        if (Array.isArray(sources)) {
+          setSelectedSources(sources);
+        } else {
+          setSelectedSources([]);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Research] Unexpected error loading priorities", error);
+      }
+    }
+
+    void fetchResearchPriorities();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [clientSlug]);
+
+  const handleGoalSelection = useCallback(async (goalLabel: string) => {
+    if (!clientSlug) return;
+
+    const previousGoal = selectedGoal;
+    const nextGoal = previousGoal === goalLabel ? null : goalLabel;
+
+    setSelectedGoal(nextGoal);
+
+    try {
+      const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ primary_goal: nextGoal }),
+      });
+
+      if (!response.ok) {
+        console.error("[Research] Failed to update primary goal", response.status);
+        setSelectedGoal((current) => (current === nextGoal ? previousGoal : current));
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
+      };
+      const updatedGoal = payload.priority?.primary_goal ?? null;
+      setSelectedGoal((current) => (current === nextGoal ? (typeof updatedGoal === "string" ? updatedGoal : null) : current));
+      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
+        setSelectedPriorities(payload.priority.priorities);
+      }
+      if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
+        setSelectedSources(payload.priority.target_sources);
+      }
+    } catch (error) {
+      console.error("[Research] Unexpected error updating primary goal", error);
+      setSelectedGoal((current) => (current === nextGoal ? previousGoal : current));
+    }
+  }, [clientSlug, selectedGoal]);
+
+  const handlePriorityToggle = useCallback(async (priorityLabel: string) => {
+    if (!clientSlug) return;
+
+    const previousPriorities = selectedPriorities;
+    const isActive = previousPriorities.includes(priorityLabel);
+    const nextPriorities = isActive
+      ? previousPriorities.filter((label) => label !== priorityLabel)
+      : [...previousPriorities, priorityLabel];
+
+    setSelectedPriorities(nextPriorities);
+
+    try {
+      const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ priorities: nextPriorities }),
+      });
+
+      if (!response.ok) {
+        console.error("[Research] Failed to update priorities", response.status);
+        setSelectedPriorities(previousPriorities);
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
+      };
+
+      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
+        setSelectedPriorities(payload.priority.priorities);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload.priority ?? {}, "primary_goal")) {
+        const nextGoal = payload.priority?.primary_goal ?? null;
+        setSelectedGoal(typeof nextGoal === "string" ? nextGoal : null);
+      }
+    } catch (error) {
+      console.error("[Research] Unexpected error updating priorities", error);
+      setSelectedPriorities(previousPriorities);
+    }
+  }, [clientSlug, selectedPriorities]);
+
+  const handleSourceToggle = useCallback(async (sourceName: string) => {
+    if (!clientSlug) return;
+
+    const previousSources = selectedSources;
+    const isActive = previousSources.includes(sourceName);
+    const nextSources = isActive
+      ? previousSources.filter((name) => name !== sourceName)
+      : [...previousSources, sourceName];
+
+    setSelectedSources(nextSources);
+
+    try {
+      const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ target_sources: nextSources }),
+      });
+
+      if (!response.ok) {
+        console.error("[Research] Failed to update target sources", response.status);
+        setSelectedSources(previousSources);
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
+      };
+
+      if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
+        setSelectedSources(payload.priority.target_sources);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload.priority ?? {}, "primary_goal")) {
+        const nextGoal = payload.priority?.primary_goal ?? null;
+        setSelectedGoal(typeof nextGoal === "string" ? nextGoal : null);
+      }
+
+      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
+        setSelectedPriorities(payload.priority.priorities);
+      }
+    } catch (error) {
+      console.error("[Research] Unexpected error updating target sources", error);
+      setSelectedSources(previousSources);
+    }
+  }, [clientSlug, selectedSources]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchExternalSources() {
+      try {
+        const response = await fetch("/api/external-sources", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          console.error("[Research] Failed to load external sources", response.status);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          sources?: Array<{ id: string; name: string }>;
+        };
+
+        if (!isMounted) return;
+
+        const normalized = (payload.sources ?? []).map((source) => {
+          const name = source.name?.trim() ?? "";
+          const safeName = name.length > 0 ? name : "Unknown Source";
+          return {
+            id: source.id,
+            name: safeName,
+            accent: deriveAccent(safeName),
+          } satisfies ExternalSource;
+        });
+
+        setAvailableSources(normalized);
+        setAvailableSources(normalized);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Research] Unexpected error loading external sources", error);
+      }
+    }
+
+    void fetchExternalSources();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
+
+  const targetSources = useMemo(() => availableSources, [availableSources]);
 
   return (
     <div
@@ -46,6 +316,7 @@ export default function ResearchPage() {
         cadence={selectedCadence}
         onCadenceChange={(value) => setSelectedCadence(value)}
         offsetLeft="var(--stage-topbar-offset, 0px)"
+        cadenceLabel="Refresh cadence:"
       />
       <main className="stage-layout research-root">
         <aside className="stage-layout__sidebar">
@@ -80,17 +351,12 @@ export default function ResearchPage() {
                     <p className="research-section-helper">Choose the primary goal for your personas.</p>
                   </header>
                   <div className="research-goals">
-                    {[
-                      { label: "Develop new products", description: "Spot emerging needs and market gaps to guide R&D." },
-                      { label: "Refine messaging", description: "Understand customer language to sharpen positioning." },
-                      { label: "Content strategy", description: "Track narratives and trends to fuel editorial calendars." },
-                      { label: "Sales enablement", description: "Give reps the freshest proof points and competitive intel." },
-                    ].map((goal) => (
+                    {goalOptions.map((goal) => (
                       <button
                         type="button"
                         key={goal.label}
                         className={`research-goal-tile${selectedGoal === goal.label ? " research-goal-tile--active" : ""}`}
-                        onClick={() => setSelectedGoal((prev) => (prev === goal.label ? null : goal.label))}
+                        onClick={() => handleGoalSelection(goal.label)}
                         aria-pressed={selectedGoal === goal.label}
                       >
                         <span className="research-goal-title">{goal.label}</span>
@@ -105,27 +371,14 @@ export default function ResearchPage() {
                         <p className="research-section-helper">Choose the types of research you want to focus on.</p>
                       </header>
                       <div className="research-priorities-grid">
-                        {[
-                          { label: "Industry trends", helper: "Spot macro shifts and market sentiment." },
-                          { label: "Competitors", helper: "Track launches, pricing moves, and leadership news." },
-                          { label: "Customer signals", helper: "Monitor reviews, forums, and feedback loops." },
-                          { label: "Regulation", helper: "Stay ahead of policy updates and compliance risks." },
-                          { label: "Investor chatter", helper: "Watch funding rounds and analyst notes." },
-                          { label: "Emerging tech", helper: "Surface new tools and enablers for your space." },
-                        ].map((priority) => {
+                        {priorityOptions.map((priority) => {
                           const active = selectedPriorities.includes(priority.label);
                           return (
                             <button
                               type="button"
                               key={priority.label}
                               className={`research-priority-chip${active ? " research-priority-chip--active" : ""}`}
-                              onClick={() =>
-                                setSelectedPriorities((prev) =>
-                                  prev.includes(priority.label)
-                                    ? prev.filter((label) => label !== priority.label)
-                                    : [...prev, priority.label]
-                                )
-                              }
+                              onClick={() => handlePriorityToggle(priority.label)}
                               aria-pressed={active}
                             >
                               <span className="research-priority-label">{priority.label}</span>
@@ -151,15 +404,9 @@ export default function ResearchPage() {
                       return (
                         <button
                           type="button"
-                          key={source.name}
+                          key={source.id}
                           className={`research-source-card${active ? " research-source-card--active" : ""}`}
-                          onClick={() =>
-                            setSelectedSources((prev) =>
-                              prev.includes(source.name)
-                                ? prev.filter((name) => name !== source.name)
-                                : [...prev, source.name]
-                            )
-                          }
+                          onClick={() => handleSourceToggle(source.name)}
                           aria-pressed={active}
                         >
                         <div
@@ -169,7 +416,7 @@ export default function ResearchPage() {
                           }}
                           aria-hidden="true"
                         >
-                          {source.initials}
+                          {deriveInitials(source.name)}
                         </div>
                         <span className="research-source-name">{source.name}</span>
                         </button>
@@ -188,7 +435,7 @@ export default function ResearchPage() {
           min-height: 100vh;
         }
         .stage-layout {
-          background: #f4f8ff;
+          background: var(--bg, #f4f8ff);
           font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
           display: flex;
           height: 100%;
@@ -220,16 +467,17 @@ export default function ResearchPage() {
         .research-tabs {
           display: flex;
           gap: 6px;
-          background: rgba(15, 23, 42, 0.12);
+          background: #fffffff2;
           padding: 6px;
           border-radius: 12px;
           width: 100%;
           justify-content: space-between;
+          border: 1px solid rgba(15, 23, 42, 0.12);
         }
         .research-tab {
           border: none;
           background: transparent;
-          color: rgba(15, 23, 42, 0.6);
+          color: #1e293b;
           padding: 8px 18px;
           border-radius: 12px;
           font-size: 13px;
@@ -238,7 +486,6 @@ export default function ResearchPage() {
           transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
           flex: 1 1 0;
         }
-        .research-tab:hover,
         .research-tab:focus-visible {
           outline: none;
           background: rgba(59, 130, 246, 0.12);

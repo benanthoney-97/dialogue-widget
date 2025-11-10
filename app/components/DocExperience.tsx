@@ -68,7 +68,7 @@ export default function DocExperience({ slug }: DocExperienceProps) {
         const { data } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, screenshot_path, url, author, work_label, background_image"
+            "key, pdf_path, document_url, agent_id, agent_name, region, auth, talk_label, url, author, work_label, background_image"
           )
           .eq("key", slug)
           .maybeSingle();
@@ -83,7 +83,6 @@ export default function DocExperience({ slug }: DocExperienceProps) {
             region: data.region ?? prev?.region ?? "us",
             auth: data.auth ?? prev?.auth ?? "signed",
             talkLabel: data.talk_label ?? prev?.talkLabel,
-            screenshotPath: data.screenshot_path ?? prev?.screenshotPath,
             url: data.url ?? prev?.url,
             author: data.author ?? prev?.author,
             workLabel: data.work_label ?? prev?.workLabel,

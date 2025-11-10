@@ -422,6 +422,25 @@ export default function SettingsPage() {
           <StagePanel
             heading="Settings"
             subheading="Your account details for this workspace."
+            trailing={
+              profile?.role === "admin"
+                ? (
+                    <button
+                      type="button"
+                      className="settings-manage-billing"
+                      onClick={() => {
+                        window.open(
+                          "https://billing.stripe.com/p/login/test_eVq6oJ79o6os0nOgLC9Zm00",
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
+                      }}
+                    >
+                      Manage billing
+                    </button>
+                  )
+                : undefined
+            }
           >
             {loading ? (
               <div className="settings-feedback settings-feedback--info" role="status">
@@ -508,6 +527,27 @@ export default function SettingsPage() {
           margin: 0;
           font-size: 14px;
           color: rgba(15, 23, 42, 0.7);
+        }
+        .settings-manage-billing {
+          border: 1px solid rgba(30, 41, 59, 0.16);
+          background: rgba(30, 41, 59, 0.04);
+          color: #1e293b;
+          padding: 10px 18px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+        .settings-manage-billing:hover {
+          background: rgba(30, 41, 59, 0.12);
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+          transform: translateY(-1px);
+        }
+        .settings-manage-billing:focus-visible {
+          outline: 3px solid rgba(59, 130, 246, 0.35);
+          outline-offset: 2px;
         }
         .stage-panel__body {
           display: flex;

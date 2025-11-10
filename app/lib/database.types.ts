@@ -26,7 +26,6 @@ export type Database = {
           key: string
           pdf_path: string | null
           region: string | null
-          screenshot_path: string | null
           talk_label: string | null
           url: string | null
           work_label: string | null
@@ -42,7 +41,6 @@ export type Database = {
           key: string
           pdf_path?: string | null
           region?: string | null
-          screenshot_path?: string | null
           talk_label?: string | null
           url?: string | null
           work_label?: string | null
@@ -58,7 +56,6 @@ export type Database = {
           key?: string
           pdf_path?: string | null
           region?: string | null
-          screenshot_path?: string | null
           talk_label?: string | null
           url?: string | null
           work_label?: string | null

@@ -3,8 +3,11 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { v4 as uuidv4 } from "uuid";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { slugify } from "@/app/lib/jump";
 import Sidebar from "../Sidebar";
+import Topbar from "../../../components/Topbar";
 import { supabase } from "../../../lib/supabaseClient";
 import FullscreenModal from "../../../components/FullscreenModal";
 import PrepAgent from "../../../components/PrepAgent";
@@ -325,7 +328,7 @@ const EDIT_OPTION = {
 };
 
 type StagePanelProps = {
-  heading: string;
+  heading?: string;
   subheading?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
@@ -334,16 +337,19 @@ type StagePanelProps = {
 };
 
 function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
-  const hasHeader = Boolean(heading || subheading || leading || trailing);
+  const showTitles = Boolean(heading || subheading);
+  const hasHeader = Boolean(showTitles || leading || trailing);
   return (
     <section className="stage-panel">
       {hasHeader && (
         <header className="stage-panel__header">
           {leading ? <div className="stage-panel__leading">{leading}</div> : null}
-          <div className="stage-panel__titles">
-            <h2>{heading}</h2>
-            {subheading ? <p>{subheading}</p> : null}
-          </div>
+          {showTitles ? (
+            <div className="stage-panel__titles">
+              {heading ? <h2>{heading}</h2> : null}
+              {subheading ? <p>{subheading}</p> : null}
+            </div>
+          ) : null}
           {trailing ? <div className="stage-panel__trailing">{trailing}</div> : null}
         </header>
       )}
@@ -391,6 +397,7 @@ export default function PersonasPage() {
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+  const [resolvedClientSlug, setResolvedClientSlug] = useState<string | null>(null);
   const [personaExternalArticles, setPersonaExternalArticles] = useState<Record<string, ExternalArticle[]>>({});
   const [personaExternalUpdatedAt, setPersonaExternalUpdatedAt] = useState<Record<string, string | null>>({});
   const [personaExternalKnowledgeText, setPersonaExternalKnowledgeText] = useState<Record<string, string | null>>({});
@@ -785,6 +792,7 @@ export default function PersonasPage() {
         setPersonas([]);
         setProfileRole(null);
         setResolvedClientId(null);
+        setResolvedClientSlug(null);
         return;
       }
       setLoading(true);
@@ -833,6 +841,7 @@ export default function PersonasPage() {
           setPersonas([]);
           setProfileRole(null);
           setResolvedClientId(null);
+          setResolvedClientSlug(null);
           if (clientQueryError) {
             // eslint-disable-next-line no-console
             console.error("[personas] Failed to resolve client", clientQueryError);
@@ -841,6 +850,15 @@ export default function PersonasPage() {
         }
 
         setResolvedClientId(client.id);
+        const canonicalSlug = (() => {
+          if (client.name) {
+            const slug = slugify(client.name);
+            if (slug) return slug;
+          }
+          if (clientSlug) return clientSlug;
+          return null;
+        })();
+        setResolvedClientSlug(canonicalSlug);
 
         const { data, error: personaError } = await supabase
           .from("agent_map")
@@ -2280,34 +2298,93 @@ export default function PersonasPage() {
 
   return (
     <>
-      <main
-      className="stage-layout persona-root"
-      data-expanded={expandedPersonaId ? "true" : "false"}
-    >
-      <aside className="stage-layout__sidebar">
-        <Sidebar />
-      </aside>
-      <div ref={contentContainerRef} className="stage-layout__content">
-        <div className="stage-shell">
-        <StagePanel
-          heading="Personas"
-          trailing={
+      <div
+        className="personas-stage"
+        style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
+      >
+        <Topbar
+          title="Personas"
+          offsetLeft="var(--stage-topbar-offset, 0px)"
+          hideCadenceControls
+          hideProfileAvatar
+          centerSlot={
+            <Link
+              href={resolvedClientSlug ? `/app/${resolvedClientSlug}/explore` : clientSlug ? `/app/${clientSlug}/explore` : "/app/explore"}
+              prefetch={false}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "8px 18px",
+                borderRadius: 999,
+                border: "1px solid rgba(15, 23, 42, 0.16)",
+                background: "rgba(248, 250, 252, 0.92)",
+                color: "#0f172a",
+                fontSize: 13,
+                fontWeight: 700,
+                fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                textDecoration: "none",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.3)";
+                event.currentTarget.style.background = "rgba(248, 250, 252, 0.98)";
+                event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.16)";
+                event.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.16)";
+                event.currentTarget.style.background = "rgba(248, 250, 252, 0.92)";
+                event.currentTarget.style.boxShadow = "none";
+                event.currentTarget.style.transform = "none";
+              }}
+              onFocus={(event) => {
+                event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.3)";
+                event.currentTarget.style.background = "rgba(248, 250, 252, 0.98)";
+                event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.16)";
+                event.currentTarget.style.transform = "translateY(-1px)";
+                event.currentTarget.style.outline = "none";
+              }}
+              onBlur={(event) => {
+                event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.16)";
+                event.currentTarget.style.background = "rgba(248, 250, 252, 0.92)";
+                event.currentTarget.style.boxShadow = "none";
+                event.currentTarget.style.transform = "none";
+              }}
+            >
+              View Explore
+            </Link>
+          }
+          rightSlot={
             clientSlug && canEdit ? (
               <StageButton
                 type="button"
-                variant="secondary"
+                variant="primary"
                 onClick={() => router.push(`/client/${clientSlug}/upload`)}
                 className="personas-new-button"
+                style={{ fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif" }}
               >
-                <span className="stage-button__icon" aria-hidden="true">+</span>
+                <span className="stage-button__icon" aria-hidden="true">
+                  +
+                </span>
                 <span>New persona</span>
               </StageButton>
             ) : undefined
           }
+        />
+        <main
+          className="stage-layout persona-root"
+          data-expanded={expandedPersonaId ? "true" : "false"}
         >
-        <section className="personas-section">
-          <div ref={personasGridScrollRef} className="personas-grid-scroll">
-          <div className="personas-grid">
+          <aside className="stage-layout__sidebar">
+            <Sidebar />
+          </aside>
+          <div ref={contentContainerRef} className="stage-layout__content">
+            <div className="stage-shell">
+              <StagePanel>
+                <section className="personas-section">
+                  <div ref={personasGridScrollRef} className="personas-grid-scroll">
+                    <div className="personas-grid">
             {loading && (
               <div
                 style={{
@@ -2642,7 +2719,7 @@ export default function PersonasPage() {
                             </div>
                             <div className="persona-expanded-block">
                               <div className="persona-expanded-block__header">
-                                <h4>External data sources</h4>
+                                <h4>Agent's Web Research</h4>
                                 {externalUpdatedAt ? (
                                   <span className="persona-updated-chip">
                                     Updated {formatDate(externalUpdatedAt)}
@@ -2792,10 +2869,10 @@ export default function PersonasPage() {
                   </div>
                 );
               })}
-          </div>
-          </div>
-        </section>
-        </StagePanel>
+                    </div>
+                  </div>
+                </section>
+              </StagePanel>
 
         <FullscreenModal
           open={!!activePersona}
@@ -3479,6 +3556,11 @@ export default function PersonasPage() {
             font-style: normal;
             font-display: swap;
           }
+          .personas-stage {
+            position: relative;
+            min-height: 100dvh;
+            background: var(--bg, #f4f8ff);
+          }
           .stage-layout {
             min-height: 100dvh;
             background: var(--bg, #f4f8ff);
@@ -3496,7 +3578,7 @@ export default function PersonasPage() {
             display: flex;
             justify-content: center;
             align-items: stretch;
-            padding: 64px 64px 32px;
+            padding: 64px 24px 32px;
             min-height: 100dvh;
             height: 100dvh;
             overflow: hidden;
@@ -3682,15 +3764,26 @@ export default function PersonasPage() {
             height: 18px;
             border-radius: 999px;
             background: var(--accent, #2b6cb0);
-            color: #f6f7f9;
+            color: #073a70;
             font-weight: 800;
             font-size: 16px;
           }
           .personas-new-button {
-            padding: 10px 18px;
+            padding: 8px 16px;
+            font-size: 13px;
+            height: 40px;
+          }
+          .personas-new-button.stage-button--primary {
+            box-shadow: none;
+          }
+          .personas-new-button.stage-button--primary:not(:disabled):hover {
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
           }
           .personas-new-button .stage-button__icon {
-            margin-right: 6px;
+            margin-right: 0px;
+            width: 16px;
+            height: 16px;
+            font-size: 14px;
           }
           .personas-section {
             display: flex;
@@ -6347,11 +6440,11 @@ export default function PersonasPage() {
           --muted-2: #6b7280; /* secondary muted */
           --danger: #ef4444;
         }
-
         `}</style>
-        </div>
+            </div>
+          </div>
+        </main>
       </div>
-    </main>
       {isMounted && unsavedChangesBanner
         ? createPortal(unsavedChangesBanner, document.body)
         : null}

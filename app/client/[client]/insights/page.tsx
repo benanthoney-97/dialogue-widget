@@ -5,56 +5,36 @@ import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
-import Topbar, { TOPBAR_HEIGHT } from "../../../components/Topbar";
+import Topbar from "../../../components/Topbar";
+import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
 import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
-// Data from Supabase
-type DialogueRow = {
-	id: number;
-	agent_id: string | null;
-	call_duration_secs: number | null;
-	received_at: string | null;
-	transcript?: any; // jsonb, can be array or object
-	transcript_summary?: string;
-	main_language?: string | null;
-	research_type?: string | null;
-	conversation_id?: string | null;
-	user_id?: string | null;
-};
-type AgentMapRow = {
-	agent_id: string;
-	agent_name: string;
-	owner?: string | null;
-};
-
-type ProfileRow = {
+// API response types
+type PersonaOption = {
 	id: string;
-	display_name: string | null;
-};
-
-type ClientRow = {
-	id: string;
-	display_name: string | null;
-	default_agent_id: string | null;
+	name: string;
 };
 
 type InsightsRow = {
-    sourceDocument: string;
-    lead: { value: string; source: string };
-    engagementTime: string;
-	status: 'Questionnaire' | 'Interview' | 'Chat';
-    date: string;
-    briefReport: string;
-    conversation_id: string;
-    transcript?: any; // transcript jsonb
-    transcript_summary?: string;
-    main_language?: string;
+	personaId: string;
+	sourceDocument: string;
+	lead: { value: string; source: string };
+	engagementTime: string;
+	status: "Questionnaire" | "Interview" | "Chat";
+	date: string;
+	briefReport: string;
+	conversation_id: string;
+	transcript?: unknown;
+	transcript_summary?: string | null;
+	main_language?: string;
 	ownerDisplayName?: string | null;
 };
-// Helper to get unique values for dropdowns
-function getUniqueValues<T>(arr: T[], key: keyof T) {
-	return Array.from(new Set(arr.map((row) => row[key])));
-}
+
+type InsightsApiResponse = {
+	rows: InsightsRow[];
+	totalCount: number;
+	personas: PersonaOption[];
+};
 
 const reportDropdownOptions = [
 	"Transcript",
@@ -131,65 +111,89 @@ type TranscriptMessage = {
 
 
 export default function InsightsTable() {
+	const PAGE_SIZE = 25;
 	const [openDropdown, setOpenDropdown] = useState<number | null>(null);
 	const [selectedChip, setSelectedChip] = useState<{ [rowIdx: number]: string }>({});
-const [filters, setFilters] = useState({
-	sourceDocument: '',
-	search: '',
-});
-// Multi-select status chips: when `allStatuses` is true we show everything.
-const [allStatuses, setAllStatuses] = useState<boolean>(true);
-const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' | 'Interview' | 'Chat', boolean>>({ Questionnaire: false, Interview: false, Chat: false });
-	const [activeFilter, setActiveFilter] = useState<string | null>(null);
+	const [filters, setFilters] = useState<{ personaId: string; search: string }>({
+		personaId: "",
+		search: "",
+	});
+	// Multi-select status chips: when `allStatuses` is true we show everything.
+	const [allStatuses, setAllStatuses] = useState<boolean>(true);
+	const [selectedStatuses, setSelectedStatuses] = useState<Record<"Questionnaire" | "Interview" | "Chat", boolean>>({
+		Questionnaire: false,
+		Interview: false,
+		Chat: false,
+	});
 	const filterBarRef = useRef<HTMLDivElement>(null);
+	const filterToggleWrapperRef = useRef<HTMLDivElement>(null);
 	// Move filtersOpen state to top level so it persists across renders
 	const [filtersOpen, setFiltersOpen] = useState(false);
+	const filtersPanelId = React.useId();
+	const [rows, setRows] = useState<InsightsRow[]>([]);
+	const [personaOptions, setPersonaOptions] = useState<PersonaOption[]>([]);
+	const [totalCount, setTotalCount] = useState(0);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [page, setPage] = useState(1);
+	const pathname = usePathname();
 
-	// Hide filter input when clicking outside filter bar
-	useEffect(() => {
-		if (!activeFilter) return;
-		function handleClick(e: MouseEvent) {
-			if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
-				setActiveFilter(null);
-			}
-		}
-		document.addEventListener('mousedown', handleClick);
-		return () => document.removeEventListener('mousedown', handleClick);
-	}, [activeFilter]);
+	const selectedStatusKeys = React.useMemo(() => {
+		if (allStatuses) return [];
+		return (Object.entries(selectedStatuses) as Array<["Questionnaire" | "Interview" | "Chat", boolean]>)
+			.filter(([, value]) => value)
+			.map(([key]) => key.toLowerCase());
+	}, [allStatuses, selectedStatuses]);
 
 	// Close the Filters popup when clicking or touching outside the filterBar
 	useEffect(() => {
 		if (!filtersOpen) return;
 		function handleDocClick(e: MouseEvent | TouchEvent) {
-			if (filterBarRef.current && filterBarRef.current.contains(e.target as Node)) return;
+			const target = e.target as Node;
+			if (filterBarRef.current && filterBarRef.current.contains(target)) return;
+			if (filterToggleWrapperRef.current && filterToggleWrapperRef.current.contains(target)) return;
 			setFiltersOpen(false);
 		}
-		document.addEventListener('mousedown', handleDocClick);
-		document.addEventListener('touchstart', handleDocClick);
+		function handleKeyDown(event: KeyboardEvent) {
+			if (event.key === "Escape") {
+				setFiltersOpen(false);
+			}
+		}
+		document.addEventListener("mousedown", handleDocClick);
+		document.addEventListener("touchstart", handleDocClick);
+		document.addEventListener("keydown", handleKeyDown);
 		return () => {
-			document.removeEventListener('mousedown', handleDocClick);
-			document.removeEventListener('touchstart', handleDocClick);
+			document.removeEventListener("mousedown", handleDocClick);
+			document.removeEventListener("touchstart", handleDocClick);
+			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [filtersOpen]);
-	const [clientDisplayName, setClientDisplayName] = useState<string | null>(null);
-	const [insightsRows, setInsightsRows] = useState<InsightsRow[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const pathname = usePathname();
-			// leads filter is now a toggle, not a value
-	// Get client slug from URL
-	function getClientSlug(pathname: string | null): string {
+
+	const clientSlug = React.useMemo(() => {
 		if (!pathname) return "";
 		const match = pathname.match(/^\/client\/([^\/]+)/);
 		return match ? match[1] : "";
-	}
-	const clientSlug = getClientSlug(pathname);
+	}, [pathname]);
+
+	useEffect(() => {
+		setPage(1);
+		setFilters({ personaId: "", search: "" });
+		setAllStatuses(true);
+		setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
+		setFiltersOpen(false);
+		setOpenDropdown(null);
+		setSelectedChip({});
+		setRows([]);
+		setTotalCount(0);
+		setPersonaOptions([]);
+		setError(null);
+	}, [clientSlug]);
 
 	useEffect(() => {
 		const previousBodyOverflow = document.body.style.overflow;
 		const previousHtmlOverflow = document.documentElement.style.overflow;
-		document.body.style.overflow = 'hidden';
-		document.documentElement.style.overflow = 'hidden';
+		document.body.style.overflow = "hidden";
+		document.documentElement.style.overflow = "hidden";
 		return () => {
 			document.body.style.overflow = previousBodyOverflow;
 			document.documentElement.style.overflow = previousHtmlOverflow;
@@ -197,334 +201,285 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 	}, []);
 
 	useEffect(() => {
+		if (!clientSlug) {
+			setError("Workspace not found");
+			setRows([]);
+			setPersonaOptions([]);
+			setTotalCount(0);
+			setLoading(false);
+			return;
+		}
+
 		let isMounted = true;
-		async function fetchClientAndRows() {
-			if (!clientSlug) {
-				if (isMounted) {
-					setError('Workspace not found');
-					setClientDisplayName(null);
-					setInsightsRows([]);
-				}
-				return;
-			}
-			if (!isMounted) return;
+		const controller = new AbortController();
+		async function fetchInsights() {
 			setLoading(true);
 			setError(null);
 			try {
-				const { data: clientData, error: clientError } = await supabase
-					.from('clients')
-					.select('id, display_name, default_agent_id')
-					.eq('id', clientSlug)
-					.maybeSingle<ClientRow>();
-				if (!isMounted) return;
-				if (clientError || !clientData) {
-					setError('Workspace not found');
-					setClientDisplayName(null);
-					setInsightsRows([]);
-					return;
+				const params = new URLSearchParams();
+				params.set("page", page.toString());
+				params.set("pageSize", PAGE_SIZE.toString());
+				if (filters.search.trim()) {
+					params.set("search", filters.search.trim());
 				}
-				setClientDisplayName(clientData.display_name ?? null);
-
-				const { data: dialogueRows, error: dialogueError } = await supabase
-					.from('dialogues')
-					.select('id, conversation_id, agent_id, user_id, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type')
-					.eq('client_id', clientData.id);
-				if (!isMounted) return;
-				if (dialogueError) {
-					setError('Failed to fetch dialogues');
-					setInsightsRows([]);
-					return;
+				if (filters.personaId) {
+					params.set("personaId", filters.personaId);
+				}
+				if (selectedStatusKeys.length > 0) {
+					params.set("statuses", selectedStatusKeys.join(","));
 				}
 
-				const agentIds = Array.from(
-					new Set((dialogueRows || []).map((d) => d.agent_id).filter((id): id is string => Boolean(id)))
+				const response = await fetch(
+					`/api/clients/${encodeURIComponent(clientSlug)}/insights?${params.toString()}`,
+					{ signal: controller.signal }
 				);
-				let agentMapRows: AgentMapRow[] = [];
-				if (agentIds.length > 0) {
-					const { data: agentMapData, error: agentMapError } = await supabase
-						.from('agent_map')
-						.select('agent_id, agent_name')
-						.in('agent_id', agentIds)
-						.eq('client_id', clientData.id);
-					if (!isMounted) return;
-					if (agentMapError) {
-						setError('Failed to fetch agent_map');
-						setInsightsRows([]);
-						return;
+
+				if (!response.ok) {
+					let message = "Failed to load insights";
+					try {
+						const payload = (await response.json()) as { error?: string };
+						if (payload?.error) message = payload.error;
+					} catch {
+						// ignore JSON parse failure
 					}
-					agentMapRows = agentMapData || [];
-				}
-				const agentMapByAgentId: { [agent_id: string]: AgentMapRow } = {};
-				for (const agent of agentMapRows) {
-					agentMapByAgentId[agent.agent_id] = agent;
+					throw new Error(message);
 				}
 
-				const userIds = Array.from(
-					new Set((dialogueRows || []).map((d) => d.user_id).filter((id): id is string => Boolean(id)))
-				);
-				let profileByUserId: Record<string, ProfileRow> = {};
-				if (userIds.length > 0) {
-					const { data: userProfiles, error: userProfilesError } = await supabase
-						.from('profiles')
-						.select('id, display_name')
-						.in('id', userIds);
-					if (!isMounted) return;
-					if (userProfilesError) {
-						setError('Failed to fetch participant profiles');
-						setInsightsRows([]);
-						return;
-					}
-					profileByUserId = (userProfiles || []).reduce((acc, profile) => {
-						acc[profile.id] = profile;
-						return acc;
-					}, {} as Record<string, ProfileRow>);
-				}
-
-				const conversationIds = (dialogueRows || [])
-					.map((d) => d.conversation_id)
-					.filter((id): id is string => Boolean(id));
-				let contactRequests: any[] = [];
-				let summaryRequests: any[] = [];
-				if (conversationIds.length > 0) {
-					const { data: contactData } = await supabase
-						.from('contact_requests')
-						.select('conversation_id, user_email')
-						.in('conversation_id', conversationIds);
-					if (!isMounted) return;
-					contactRequests = contactData || [];
-					const { data: summaryData } = await supabase
-						.from('summary_requests')
-						.select('conversation_id, user_email')
-						.in('conversation_id', conversationIds);
-					if (!isMounted) return;
-					summaryRequests = summaryData || [];
-				}
-				const contactByConvId: { [id: string]: string } = {};
-				contactRequests.forEach((request) => {
-					if (request.conversation_id) contactByConvId[request.conversation_id] = request.user_email;
-				});
-				const summaryByConvId: { [id: string]: string } = {};
-				summaryRequests.forEach((request) => {
-					if (request.conversation_id) summaryByConvId[request.conversation_id] = request.user_email;
-				});
-
-			    const rows: InsightsRow[] = (dialogueRows || []).map((dialogue) => {
-							const agent = dialogue.agent_id ? agentMapByAgentId[dialogue.agent_id] : undefined;
-					const leadFromContact = dialogue.conversation_id ? contactByConvId[dialogue.conversation_id] : undefined;
-					const leadFromSummary = dialogue.conversation_id ? summaryByConvId[dialogue.conversation_id] : undefined;
-					const lead = leadFromContact ?? leadFromSummary ?? '';
-					const leadSource = leadFromContact
-						? 'contact_requests'
-						: leadFromSummary
-						  ? 'summary_requests'
-						  : 'none';
-					const normalizedResearchType = typeof dialogue.research_type === 'string'
-						? dialogue.research_type.trim().toLowerCase()
-						: null;
-					let status: InsightsRow['status'];
-					switch (normalizedResearchType) {
-						case 'interview':
-							status = 'Interview';
-							break;
-						case 'chat':
-							status = 'Chat';
-							break;
-						case 'questionnaire':
-							status = 'Questionnaire';
-							break;
-						default:
-							status = 'Questionnaire';
-					}
-					const ownerDisplayName = dialogue.user_id
-						? profileByUserId[dialogue.user_id]?.display_name ?? null
-						: null;
-					return {
-						sourceDocument: agent ? agent.agent_name : '',
-						lead: { value: lead, source: leadSource },
-						engagementTime:
-							dialogue.call_duration_secs != null
-								? new Date(dialogue.call_duration_secs * 1000).toISOString().substr(11, 8)
-								: '',
-						status,
-						date: dialogue.received_at || '',
-						briefReport: '',
-						conversation_id: dialogue.conversation_id ?? '',
-						transcript: dialogue.transcript,
-						transcript_summary: dialogue.transcript_summary,
-						main_language: dialogue.main_language,
-						ownerDisplayName,
-					};
-				});
-				setInsightsRows(rows);
-			} catch (loadError) {
+				const data = (await response.json()) as InsightsApiResponse;
 				if (!isMounted) return;
-				setError('Failed to load insights');
-				console.error('[Insights] Failed to load client insights', loadError);
+				setRows(data.rows ?? []);
+				setPersonaOptions(data.personas ?? []);
+				setTotalCount(data.totalCount ?? 0);
+				setOpenDropdown(null);
+				setSelectedChip({});
+			} catch (fetchError) {
+				if (controller.signal.aborted) return;
+				console.error("[Insights] Failed to load insights", fetchError);
+				if (isMounted) {
+					setRows([]);
+					setPersonaOptions([]);
+					setTotalCount(0);
+					setError(fetchError instanceof Error ? fetchError.message : "Failed to load insights");
+				}
 			} finally {
-				if (isMounted) setLoading(false);
+				if (isMounted) {
+					setLoading(false);
+				}
 			}
 		}
-		fetchClientAndRows();
+
+		void fetchInsights();
 		return () => {
 			isMounted = false;
+			controller.abort();
 		};
-	}, [clientSlug]);
+	}, [clientSlug, page, filters.personaId, filters.search, selectedStatusKeys]);
 
-		// Filtering logic (unchanged, but now uses insightsRows)
-			// Sort by date descending (most recent first)
-       const sortedRows = [...insightsRows].sort((a, b) => {
-            if (!a.date && !b.date) return 0;
-            if (!a.date) return 1;
-            if (!b.date) return -1;
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-        });
-	   const filteredRows = sortedRows.filter((row) => { 
-		   // Status filtering: if `allStatuses` is true we include all rows.
-		   if (!allStatuses) {
-		   	// Only include row if its status (Questionnaire|Interview) is selected.
-		   	const statusKey = row.status;
-		   	if (!(selectedStatuses[statusKey])) return false;
-		   }
-		   if (filters.sourceDocument && row.sourceDocument !== filters.sourceDocument) return false;
-           // (Date-after filter removed)
-				if (filters.search) {
-					const search = filters.search.toLowerCase();
-					const rowString = Object.values(row).join(' ').toLowerCase();
-					const dropdownStrings = reportDropdownOptions.map(opt => {
-						switch (opt) {
-							case "Transcript": return "This is a dummy transcript summary.";
-							default: return "Sample content.";
-						}
-					}).join(' ').toLowerCase();
-					if (!rowString.includes(search) && !dropdownStrings.includes(search)) return false;
-				}
-				return true;
-			});
+	const personaSelectOptions = React.useMemo(() => {
+		return [...personaOptions].sort((a, b) => {
+			const nameA = a.name || "Untitled persona";
+			const nameB = b.name || "Untitled persona";
+			return nameA.localeCompare(nameB);
+		});
+	}, [personaOptions]);
+
+	const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
+	const pageRangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+	const pageRangeEnd = totalCount === 0 ? 0 : Math.min(totalCount, page * PAGE_SIZE);
+	const canGoPrev = page > 1;
+	const canGoNext = totalPages > 0 && page < totalPages;
+
+	const pagination = (
+		<div className="insights-pagination" aria-live="polite">
+			<span className="insights-pagination__summary">
+				{totalCount === 0 ? "No results to display" : `Showing ${pageRangeStart}–${pageRangeEnd} of ${totalCount}`}
+			</span>
+			<div className="insights-pagination__controls">
+				<StageButton
+					type="button"
+					variant="ghost"
+					onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+					disabled={!canGoPrev || loading}
+				>
+					Previous
+				</StageButton>
+				<StageButton
+					type="button"
+					variant="ghost"
+					onClick={() => setPage((prev) => prev + 1)}
+					disabled={!canGoNext || loading}
+				>
+					Next
+				</StageButton>
+			</div>
+		</div>
+	);
+
+	useEffect(() => {
+		if (!filters.personaId) return;
+		const exists = personaOptions.some((option) => option.id === filters.personaId);
+		if (!exists) {
+			setFilters((prev) => ({ ...prev, personaId: "" }));
+		}
+	}, [personaOptions, filters.personaId]);
+
+	useEffect(() => {
+		if (totalPages === 0) {
+			if (page !== 1) {
+				setPage(1);
+			}
+			return;
+		}
+		if (page > totalPages) {
+			setPage(totalPages);
+		}
+	}, [page, totalPages]);
+
+	const topbarRightSlot = (
+		<>
+			<div className="insights-topbar-controls">
+				<input
+					type="text"
+					value={filters.search}
+					onChange={(event) => {
+						const value = event.target.value;
+						setFilters((prev) => ({ ...prev, search: value }));
+						setPage(1);
+					}}
+					placeholder="Search all fields..."
+					className="insights-input insights-topbar-controls__search"
+				/>
+				<div ref={filterToggleWrapperRef}>
+					<StageButton
+						type="button"
+						variant="secondary"
+						className="insights-topbar-controls__filter-button"
+						aria-haspopup="dialog"
+						aria-expanded={filtersOpen}
+						aria-controls={filtersPanelId}
+						onClick={() => setFiltersOpen((open) => !open)}
+					>
+						{filtersOpen ? 'Hide filters' : 'Filters'}
+					</StageButton>
+				</div>
+			</div>
+			{filtersOpen ? <div className="insights-filters__overlay" aria-hidden="true" /> : null}
+			<div
+				id={filtersPanelId}
+				ref={filterBarRef}
+				role="dialog"
+				aria-modal="false"
+				aria-label="Playback filters"
+				aria-hidden={!filtersOpen}
+				className={`insights-filters__panel${filtersOpen ? ' insights-filters__panel--open' : ''}`}
+				data-open={filtersOpen}
+			>
+				<div className="insights-filters__header">
+					<span className="insights-filters__title">Playback filters</span>
+					<StageButton
+						type="button"
+						variant="ghost"
+						className="insights-filters__close"
+						onClick={() => setFiltersOpen(false)}
+					>
+						Close
+					</StageButton>
+				</div>
+				<div className="insights-filters__section">
+					<span className="insights-filters__label">Persona</span>
+					<select
+						value={filters.personaId}
+						onChange={(event) => {
+							const value = event.target.value;
+							setFilters((prev) => ({ ...prev, personaId: value }));
+							setPage(1);
+						}}
+						className="insights-select"
+					>
+						<option value="">All</option>
+						{personaSelectOptions.map((option) => (
+							<option key={option.id} value={option.id}>
+								{option.name || "Untitled persona"}
+							</option>
+						))}
+					</select>
+				</div>
+				<div className="insights-filters__section">
+					<span className="insights-filters__label">Research type</span>
+					<div className="insights-filters__section-row">
+						<div className="insights-status-group" role="tablist" aria-label="Research type">
+							{statusOptions.map((opt, idx) => {
+								const isAll = opt === 'All';
+								const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
+								const chipClasses = [
+									'insights-status-chip',
+									isActive ? 'insights-status-chip--active' : '',
+									idx === 0 ? 'insights-status-chip--start' : '',
+									idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
+								].filter(Boolean).join(' ');
+								return (
+									<StageButton
+										key={opt}
+										type="button"
+										role="tab"
+										variant="ghost"
+										className={chipClasses}
+										aria-selected={isActive}
+										onClick={(event) => {
+											event.stopPropagation();
+											setPage(1);
+											if (isAll) {
+												setAllStatuses(true);
+												setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
+											} else {
+												setAllStatuses(false);
+												setSelectedStatuses((prev) => {
+													const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
+													if (!next.Questionnaire && !next.Interview && !next.Chat) {
+														setAllStatuses(true);
+														return { Questionnaire: false, Interview: false, Chat: false };
+													}
+													return next;
+												});
+											}
+										}}
+										title={isActive ? (opt === 'Chat' ? `Chat selected` : (isAll ? `All statuses` : `Selected ${opt}`)) : (opt === 'Chat' ? `Toggle Chat` : (isAll ? `Show all statuses` : `Toggle ${opt}`)) }
+									>
+										{opt}
+									</StageButton>
+								);
+							})}
+						</div>
+					</div>
+				</div>
+			</div>
+		</>
+	);
 
 	return (
 		<div
 			className="insights-stage"
-			style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
+			style={{
+				"--stage-topbar-offset": "var(--sidebar-width)",
+				"--insights-topbar-height": `${TOPBAR_HEIGHT}px`,
+			} as React.CSSProperties}
 		>
-			<Topbar title="Playbacks" offsetLeft="var(--stage-topbar-offset, 0px)" hideCadenceControls />
+			<Topbar
+				title="Playbacks"
+				offsetLeft="var(--stage-topbar-offset, 0px)"
+				hideCadenceControls
+				rightSlot={topbarRightSlot}
+			/>
 			<main className="stage-layout insights-root">
 				<aside className="stage-layout__sidebar">
 					<Sidebar />
 				</aside>
 				<div className="stage-layout__content">
 				<div className="stage-shell">
-					<StagePanel>
+					<StagePanel footer={pagination}>
 					{loading && <StageAlert type="info" message="Loading insights…" />}
 					{!loading && error && <StageAlert type="error" message={error} />}
 					<div className="insights-table-section">
-					{/* FILTERS DROPDOWN BUTTON AND DROPDOWN */}
-					{(() => {
-							 // Click-away handler for the inline filter row
-							 React.useEffect(() => {
-								 if (!filtersOpen) return;
-								 function handleClick(e: MouseEvent) {
-									 if (!filterBarRef.current || filterBarRef.current.contains(e.target as Node)) return;
-									 setFiltersOpen(false);
-								 }
-								 document.addEventListener('mousedown', handleClick);
-								 return () => document.removeEventListener('mousedown', handleClick);
-							 }, [filtersOpen]);
-
-							 // Render a single-row inline filter area: when open it grows to fill the row before the controls
-							 return (
-				 <div ref={filterBarRef} className="insights-filters" data-open={filtersOpen}>
-				 	 {/* Inline filter panel - grows when open */}
-				 	 <div className={`insights-filters__panel${filtersOpen ? ' insights-filters__panel--open' : ''}`}>
-				 	 <div className="insights-filters__row">
-				 	 	 {/* Row 1: Source Document */}
-				 	 	 <div className="insights-filters__field insights-filters__field--pull">
-				 	 	 	 <span className="insights-filters__label">Persona:</span>
-				 	 	 	 <select
-				 	 	 	 	 value={filters.sourceDocument}
-				 	 	 	 	 onChange={e => setFilters(f => ({ ...f, sourceDocument: e.target.value }))}
-				 	 	 	 	 className="insights-select"
-				 	 	 	 >
-				 			  <option value=''>All</option>
-				 			  {getUniqueValues(insightsRows, 'sourceDocument').map(doc => (
-				 			 	  <option key={doc as string} value={doc as string}>{doc}</option>
-				 			  ))}
-				 			  </select>
-				 		  </div>
-				 	 	 {/* Move status chips into the inline panel next to Dialogue */}
-				 	 	 <div className="insights-filters__field">
-				 	 	 	 <div className="insights-status-group" role="tablist" aria-label="Research type">
-				 		  {statusOptions.map((opt, idx) => {
-				 		  	 const isAll = opt === 'All';
-				 		  const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
-				 		  const chipClasses = [
-				 		  	 'insights-status-chip',
-				 		  	 isActive ? 'insights-status-chip--active' : '',
-				 		  	 idx === 0 ? 'insights-status-chip--start' : '',
-				 		  	 idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
-				 		  ].filter(Boolean).join(' ');
-				 		  return (
-				 			  <StageButton
-							  key={opt}
-							  type="button"
-							  role="tab"
-							  variant="ghost"
-							  className={chipClasses}
-							  aria-selected={isActive}
-							  onClick={(e) => {
-									 e.stopPropagation();
-									 if (isAll) {
-									 	 setAllStatuses(true);
-									 	 setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
-									 } else {
-									 	 setAllStatuses(false);
-									 	 setSelectedStatuses(prev => {
-							  const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
-									 		 if (!next.Questionnaire && !next.Interview && !next.Chat) {
-									 		 	 setAllStatuses(true);
-									 		 	 return { Questionnaire: false, Interview: false, Chat: false };
-									 		 }
-									 		 return next;
-									 	 });
-									 }
-							  }}
-							  title={isActive ? (opt === 'Chat' ? `Chat selected` : (isAll ? `All statuses` : `Selected ${opt}`)) : (opt === 'Chat' ? `Toggle Chat` : (isAll ? `Show all statuses` : `Toggle ${opt}`)) }
-						  >
-							  {opt}
-						  </StageButton>
-							  );
-							  })}
-							  </div>
-							  </div>
-							 </div>
-
-							 {/* Reset button removed — filters reset is no longer shown here */}
-							 </div>
-
-							 {/* Controls group (search, filters button, status pill) */}
-				  <div className="insights-filters__controls">
-				  	 <StageButton
-				  	 	 type="button"
-				  	 	 variant="secondary"
-				  	 	 className="insights-action-button"
-				  	 	 onClick={() => setFiltersOpen((open) => !open)}
-				  	 >
-				  	 	 {filtersOpen ? 'Hide filters' : 'Filters'}
-				  	 </StageButton>
-
-						  {/* Status chips have been moved into the inline panel */}
-
-				  <input
-				  	 type='text'
-				  	 value={filters.search}
-				  	 onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-				  	 placeholder='Search all fields...'
-				  	 className="insights-input"
-				  />
-						  </div>
-						 </div>
-						 	   );
-						   })()}
-
 					<div className="insights-table-wrap">
 					<table className="insights-table">
 									<thead>
@@ -538,10 +493,10 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 										</tr>
 									</thead>
 						<tbody>
-						{filteredRows.map((row, i) => (
-							<React.Fragment key={i}>
+						{rows.map((row, i) => (
+							<React.Fragment key={row.conversation_id || `${row.personaId}-${i}`}>
 								<tr className="insights-table__row">
-									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument}</td>
+									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument || "Untitled persona"}</td>
 									<td className="insights-table__cell">
 										{(() => {
 											const statusClass = row.status === 'Questionnaire'
@@ -939,15 +894,7 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 																						{hasOptions && activeOption === "Transcript"
 																							? (() => {
 																									// Render transcript as chat interface
-																									let transcript = filteredRows[i]?.transcript;
-																									if (!transcript) {
-																										const orig = insightsRows.find(
-																											(r) =>
-																												r.date === filteredRows[i]?.date &&
-																												r.sourceDocument === filteredRows[i]?.sourceDocument,
-																										);
-																										transcript = orig?.transcript;
-																									}
+																									const transcript = row.transcript;
 																									console.log("[DEBUG] Rendering transcript for row", i, transcript);
 																									let chatMessages: { role: "agent" | "user"; content: string }[] = [];
 																									if (typeof transcript === "string") {
@@ -1042,7 +989,10 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 							))}
 						</tbody>
 							</table>
-						</div>
+						{!loading && !error && rows.length === 0 ? (
+							<div className="insights-empty">No playbacks found matching your filters.</div>
+						) : null}
+					</div>
 				</div>
 							<style>{`
 								@font-face {
@@ -1159,14 +1109,12 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 					}
 				}
 				.stage-panel {
-					background: rgba(255, 255, 255, 0.94);
-					border: 1px solid rgba(30, 41, 59, 0.12);
+					background: var(--bg, #f4f8ff);;
 					border-radius: 20px;
-					padding: 32px;
-					box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+					padding: 0px;
 					display: flex;
 					flex-direction: column;
-					gap: 24px;
+					gap: 4px;
 					color: #1e293b;
 					flex: 1;
 					min-height: 0;
@@ -1214,9 +1162,11 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 				gap: 24px;
 				flex: 1;
 				min-height: 0;
+									box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+				border-radius: 20px;
 			}
 			.stage-panel__footer {
-				margin-top: 12px;
+				margin-top: 0;
 			}
 			.stage-button {
 				display: inline-flex;
@@ -1307,6 +1257,43 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 			.insights-action-button--icon .insights-action-button__content {
 				gap: 6px;
 			}
+			.insights-empty {
+				padding: 32px 16px;
+				text-align: center;
+				color: rgba(30, 41, 59, 0.55);
+				font-size: 15px;
+				font-weight: 600;
+			}
+			.insights-pagination {
+				margin-top: 18px;
+				display: grid;
+				grid-template-columns: 1fr auto 1fr;
+				align-items: center;
+				gap: 16px;
+				font-size: 14px;
+				width: 100%;
+			}
+			.insights-pagination::after {
+				content: "";
+			}
+			.insights-pagination__summary {
+				color: rgba(30, 41, 59, 0.78);
+				justify-self: start;
+				text-align: left;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.insights-pagination__controls {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				justify-self: center;
+			}
+			.insights-pagination__controls .stage-button {
+				padding: 8px 14px;
+				font-size: 13px;
+			}
 			.insights-status-group {
 				display: inline-flex;
 				gap: 4px;
@@ -1357,43 +1344,104 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 				background: rgba(196, 181, 253, 0.24);
 				color: #5b21b6;
 			}
-			.insights-filters {
-				display: flex;
-				align-items: flex-start;
-				gap: 12px;
-				margin-bottom: 0;
-			}
-			.insights-filters__panel {
-				flex: 0 0 auto;
-				max-width: 0;
-				opacity: 0;
-				overflow: hidden;
-				display: flex;
-				flex-direction: column;
-				gap: 12px;
-				padding: 0;
-				transition: max-width 260ms ease, padding 200ms ease, opacity 160ms ease;
-			}
-			.insights-filters__panel--open {
-				flex: 1 1 0%;
-				max-width: 100%;
-				opacity: 1;
-				padding: 0 18px;
-			}
-			.insights-filters__row {
-				display: flex;
-				flex-wrap: nowrap;
-				gap: 18px;
-				margin-bottom: 8px;
-			}
-			.insights-filters__field {
+			.insights-topbar-controls {
+				position: relative;
 				display: flex;
 				align-items: center;
-				gap: 8px;
+				gap: 12px;
+				font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
 			}
-			.insights-filters__field--pull {
-				margin-left: 0;
-				margin-right: 0;
+			.insights-topbar-controls__search {
+				min-width: 220px;
+				background: rgba(246, 247, 249, 0.96);
+				border: 1px solid #052033;
+				color: #052033;
+				font-family: inherit;
+			}
+			.insights-topbar-controls__search::placeholder {
+				color: rgba(5, 32, 51, 0.52);
+			}
+			.insights-topbar-controls__search:focus {
+				border-color: rgba(5, 32, 51, 0.8);
+				box-shadow: 0 0 0 2px rgba(5, 32, 51, 0.22);
+			}
+			.insights-topbar-controls__filter-button {
+				background: #1e293b;
+				color: #f6f7f9;
+				border: 1px solid #052033;
+				font-size: 13px;
+				font-family: inherit;
+				padding: 8px 16px;
+				height: 40px;
+				transition: transform 0.18s 
+ease, box-shadow 0.18s 
+ease, background 0.18s 
+ease, color 0.18s 
+ease;
+			}
+			.insights-topbar-controls__filter-button:not(:disabled):hover {
+				background: rgba(246, 247, 249, 0.98);
+			}
+			.insights-filters__overlay {
+				position: fixed;
+				top: var(--insights-topbar-height, 56px);
+				left: var(--stage-topbar-offset, 0px);
+				right: 0;
+				bottom: 0;
+				background: rgba(15, 23, 42, 0.32);
+				backdrop-filter: blur(2px);
+				z-index: 220;
+			}
+			.insights-filters__panel {
+				position: fixed;
+				top: calc(var(--insights-topbar-height, 56px) + 12px);
+				right: 32px;
+				width: min(420px, calc(100vw - var(--stage-topbar-offset, 0px) - 64px));
+				max-height: calc(100vh - var(--insights-topbar-height, 56px) - 48px);
+				overflow-y: auto;
+				background: var(--panel, #F6F7F9fff);
+				border-radius: 16px;
+				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.16);
+				box-shadow: 0 28px 60px rgba(15, 23, 42, 0.28);
+				padding: 24px;
+				display: flex;
+				flex-direction: column;
+				gap: 20px;
+				font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+				transform: translateX(32px);
+				opacity: 0;
+				pointer-events: none;
+				transition: transform 240ms ease, opacity 180ms ease;
+				z-index: 240;
+			}
+			.insights-filters__panel--open {
+				transform: translateX(0);
+				opacity: 1;
+				pointer-events: auto;
+			}
+			.insights-filters__header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.insights-filters__title {
+				font-size: 16px;
+				font-weight: 700;
+				color: #052033;
+			}
+			.insights-filters__close {
+				color: rgba(30, 41, 59, 0.64);
+			}
+			.insights-filters__section {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.insights-filters__section-row {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 12px;
 			}
 			.insights-filters__label {
 				color: var(--accent-2, #7fb3ff);
@@ -1404,10 +1452,10 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 			.insights-input {
 				background: var(--panel, #F6F7F9fff);
 				color: var(--text, #052033);
-				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+				border: 1px solid #052033;
 				border-radius: 10px;
 				padding: 8px 14px;
-				font-size: 14px;
+				font-size: 13px;
 				transition: border 0.2s ease, box-shadow 0.2s ease;
 			}
 			.insights-select {
@@ -1422,12 +1470,6 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 			}
 			.insights-input {
 				min-width: 200px;
-			}
-			.insights-filters__controls {
-				display: flex;
-				align-items: center;
-				gap: 12px;
-				margin-left: auto;
 			}
 			.insights-table-section {
 				display: flex;
@@ -1756,11 +1798,21 @@ const [selectedStatuses, setSelectedStatuses] = useState<Record<'Questionnaire' 
 				margin-left: 32px;
 			}
 			@media (max-width: 1024px) {
-				.insights-filters__row {
-					flex-wrap: wrap;
+				.insights-topbar-controls__search {
+					min-width: 180px;
 				}
-				.insights-filters__field--pull {
-					margin-right: 0;
+			}
+			@media (max-width: 720px) {
+				.insights-topbar-controls__search {
+					display: none;
+				}
+				.insights-filters__panel {
+					right: 16px;
+					left: 16px;
+					width: auto;
+				}
+				.insights-filters__overlay {
+					left: 0;
 				}
 			}
  		`}</style>

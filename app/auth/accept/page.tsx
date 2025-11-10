@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/app/lib/supabaseClient";
+import { resolveDestinationForUser } from "@/app/lib/authRedirect";
 
 type AuthMode = "login" | "signup";
 
@@ -48,6 +49,7 @@ function AcceptInvitePage() {
   const [inviteLoading, setInviteLoading] = useState(true);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [invite, setInvite] = useState<InviteDetails | null>(null);
+  const acceptTriggeredRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -129,12 +131,6 @@ function AcceptInvitePage() {
     return invite.email.toLowerCase() !== session.user.email.toLowerCase();
   }, [invite?.email, session?.user?.email]);
 
-  const canAccept = useMemo(() => {
-    if (!invite || invite.status !== "pending") return false;
-    if (!session || sessionEmailMismatch) return false;
-    return true;
-  }, [invite, session, sessionEmailMismatch]);
-
   useEffect(() => {
     if (!invite?.email) return;
     setEmail(invite.email);
@@ -176,12 +172,25 @@ function AcceptInvitePage() {
     setAuthFeedback(null);
     setAuthSubmitting(true);
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      setAuthFeedback({
-        type: "success",
-        message: "Check your inbox to confirm your email, then return here to accept the invite.",
+      const response = await fetch("/api/invitations/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const serverMessage =
+          typeof payload?.error === "string" ? payload.error : "Unable to create account. Please try again.";
+        if (response.status === 409) {
+          setMode("login");
+        }
+        throw new Error(serverMessage);
+      }
+
+      setAuthFeedback({ type: "success", message: "Account created. Signing you in…" });
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to create account. Please try again.";
@@ -191,36 +200,56 @@ function AcceptInvitePage() {
     }
   };
 
-  const handleAccept = async () => {
-    if (!canAccept || acceptSubmitting || !session?.access_token) return;
-    setAcceptFeedback(null);
-    setAcceptSubmitting(true);
-    try {
-      const response = await fetch("/api/invitations/accept", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ token }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Unable to accept invitation");
+  const acceptInvite = useCallback(
+    async (activeSession: Session) => {
+      if (acceptSubmitting) return;
+      setAcceptFeedback(null);
+      setAcceptSubmitting(true);
+      try {
+        const response = await fetch("/api/invitations/accept", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${activeSession.access_token}`,
+          },
+          body: JSON.stringify({ token }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Unable to accept invitation");
+        }
+        setInvite((previous) => (previous ? { ...previous, status: "accepted" } : previous));
+        setAcceptFeedback({ type: "success", message: "Invitation accepted. Redirecting…" });
+
+        const destination = await resolveDestinationForUser(supabase, activeSession.user.id);
+
+        setTimeout(() => {
+          router.replace(destination);
+        }, 600);
+      } catch (error) {
+        acceptTriggeredRef.current = false;
+        const message =
+          error instanceof Error ? error.message : "Unable to accept invitation. Please try again.";
+        setAcceptFeedback({ type: "error", message });
+      } finally {
+        setAcceptSubmitting(false);
       }
-      setAcceptFeedback({ type: "success", message: "Invitation accepted. Redirecting…" });
-      setInvite((previous) => (previous ? { ...previous, status: "accepted" } : previous));
-      setTimeout(() => {
-        router.replace(`/client/${session.user.id}/personas`);
-      }, 1500);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to accept invitation. Please try again.";
-      setAcceptFeedback({ type: "error", message });
-    } finally {
-      setAcceptSubmitting(false);
-    }
-  };
+    },
+    [acceptSubmitting, resolveDestinationForUser, router, token]
+  );
+
+  useEffect(() => {
+    if (!invite || invite.status !== "pending") return;
+    if (!session || !session.access_token || !session.user) return;
+    if (sessionEmailMismatch) return;
+    if (acceptFeedback && acceptFeedback.type === "error") return;
+    if (acceptTriggeredRef.current) return;
+
+    acceptTriggeredRef.current = true;
+    acceptInvite(session).catch(() => {
+      acceptTriggeredRef.current = false;
+    });
+  }, [acceptFeedback, acceptInvite, invite, session, sessionEmailMismatch]);
 
   const handleToggleMode = () => {
     userSelectedModeRef.current = true;
@@ -235,6 +264,9 @@ function AcceptInvitePage() {
     setPassword("");
     setConfirmPassword("");
     setAuthFeedback(null);
+    setAcceptFeedback(null);
+    setAcceptSubmitting(false);
+    acceptTriggeredRef.current = false;
     userSelectedModeRef.current = false;
   };
 
@@ -358,19 +390,27 @@ function AcceptInvitePage() {
                 <div className="auth-copy auth-copy--muted">
                   Signed in as <strong>{session.user.email}</strong>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAccept}
-                  disabled={!canAccept || acceptSubmitting}
-                  className="auth-button auth-button--primary"
-                >
-                  {acceptSubmitting ? "Accepting…" : "Accept invitation"}
-                </button>
                 {acceptFeedback ? (
                   <div role="status" className={`auth-feedback auth-feedback--${acceptFeedback.type}`}>
                     {acceptFeedback.message}
+                    {acceptFeedback.type === "error" ? (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          className="auth-button auth-button--secondary"
+                          onClick={() => {
+                            setAcceptFeedback(null);
+                            acceptTriggeredRef.current = false;
+                          }}
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                ) : (
+                  <div className="auth-copy">{acceptSubmitting ? "Finishing setup…" : "Preparing your workspace access…"}</div>
+                )}
               </div>
             ) : null}
           </section>

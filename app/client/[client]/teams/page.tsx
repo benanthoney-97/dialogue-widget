@@ -49,6 +49,7 @@ export default function TeamsPage() {
   const [inviteFeedback, setInviteFeedback] = useState<
     { type: "success" | "error"; message: string }
   >();
+	const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<
     Array<{
       id: string;
@@ -133,14 +134,17 @@ export default function TeamsPage() {
         if (userError) {
           setProfileRole(null);
           setProfileLoadError(userError.message ?? "Unable to load session");
+          setCurrentUserId(null);
           return;
         }
         const user = userData?.user;
         if (!user) {
           setProfileRole(null);
           setProfileLoadError("You must be signed in");
+          setCurrentUserId(null);
           return;
         }
+        setCurrentUserId(user.id);
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -151,11 +155,13 @@ export default function TeamsPage() {
         if (profileError || !profile) {
           setProfileRole(null);
           setProfileLoadError(profileError?.message ?? "Profile not found");
+          setCurrentUserId(user.id ?? null);
           return;
         }
         if (profile.client_id !== clientSlug) {
           setProfileRole(null);
           setProfileLoadError("This workspace is unavailable");
+          setCurrentUserId(user.id ?? null);
           return;
         }
         setProfileLoadError(null);
@@ -315,10 +321,18 @@ export default function TeamsPage() {
   const handleRequestRemoveMember = useCallback(
     (member: { id: string; name: string; email: string }) => {
       if (!canManageTeam) return;
+      const isOnlyMember = members.length <= 1 && currentUserId && member.id === currentUserId;
+      if (isOnlyMember) {
+        setMemberActionError(
+          "You are the only member of this workspace. Delete your account to close the workspace instead."
+        );
+        setMemberPendingRemoval(null);
+        return;
+      }
       setMemberActionError(null);
       setMemberPendingRemoval(member);
     },
-    [canManageTeam],
+    [canManageTeam, members.length, currentUserId],
   );
 
   const handleCancelRemoveMember = useCallback(() => {
@@ -334,6 +348,13 @@ export default function TeamsPage() {
     setIsRemovingMember(true);
     setMemberActionError(null);
     try {
+      if (members.length <= 1 && (!currentUserId || memberPendingRemoval.id === currentUserId)) {
+        setMemberActionError(
+          "You are the only member of this workspace. Delete your account to close the workspace instead."
+        );
+        setIsRemovingMember(false);
+        return;
+      }
       const adminMembers = members.filter((member) => member.role === "admin");
       const isRemovingOnlyAdmin =
         adminMembers.length === 1 && adminMembers[0]?.id === memberPendingRemoval.id;
@@ -724,11 +745,50 @@ export default function TeamsPage() {
                             <button
                               type="button"
                               className="teams-action"
-                              aria-label={`Manage ${member.name}`}
+                              aria-label={`Remove ${member.name}`}
                               onClick={() => handleRequestRemoveMember(member)}
                               disabled={isRemovingMember && memberPendingRemoval?.id === member.id}
                             >
-                              •••
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M2.5 4.5h11"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M6 2.5h4"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M12.5 4.5 11.9 13a1.2 1.2 0 0 1-1.2 1.1H5.3A1.2 1.2 0 0 1 4.1 13L3.5 4.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M6.75 7v4.2"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M9.25 7v4.2"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
                             </button>
                           </div>
                         ) : (

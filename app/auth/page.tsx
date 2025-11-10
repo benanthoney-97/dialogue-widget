@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
+import { resolveDestinationForUser } from "../lib/authRedirect";
 
 type AuthMode = "login" | "signup";
 
@@ -31,6 +32,39 @@ function AuthPageContent() {
       router.replace(next ? `/auth?${next}` : "/auth");
     }
   }, [router, searchParams]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const redirectIfAuthenticated = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!isActive || error) {
+          return;
+        }
+
+        const user = data?.session?.user ?? null;
+        if (!user) {
+          return;
+        }
+
+        const destination = await resolveDestinationForUser(supabase, user.id);
+        if (!isActive) {
+          return;
+        }
+
+        router.replace(destination);
+      } catch (sessionError) {
+        console.error("[auth] session redirect failed", sessionError);
+      }
+    };
+
+    redirectIfAuthenticated();
+
+    return () => {
+      isActive = false;
+    };
+  }, [resolveDestinationForUser, router]);
 
   const verificationContext = useMemo(() => {
     const flag = searchParams?.get("verification"),
@@ -110,35 +144,7 @@ function AuthPageContent() {
           router.replace("/");
           return;
         }
-        let destination = `/client/${userId}/personas`;
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("client_id, default_agent_id")
-            .eq("id", userId)
-            .maybeSingle();
-          const clientIdValue =
-            profile?.client_id !== null && profile?.client_id !== undefined
-              ? String(profile.client_id)
-              : null;
-          const defaultAgentId = profile?.default_agent_id as string | null | undefined;
-          if (clientIdValue) {
-            destination = `/client/${clientIdValue}/personas`;
-          }
-          if (clientIdValue && defaultAgentId) {
-            const { data: agentRow } = await supabase
-              .from("agent_map")
-              .select("key")
-              .eq("agent_id", defaultAgentId)
-              .eq("client_id", clientIdValue)
-              .maybeSingle();
-            if (agentRow?.key) {
-              destination = `/client/${clientIdValue}/documents/${agentRow.key}`;
-            }
-          }
-        } catch {
-          // ignore errors during destination resolution
-        }
+  const destination = await resolveDestinationForUser(supabase, userId);
         router.replace(destination);
         setFeedback({ type: "success", message: "Signed in successfully." });
       }

@@ -7,7 +7,8 @@ import QuestionnaireCompareModal from "@/app/components/QuestionnaireCompareModa
 import { jsPDF } from "jspdf";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
-import Topbar, { TOPBAR_HEIGHT } from "../../../components/Topbar";
+import Topbar from "../../../components/Topbar";
+import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
 import { supabase } from "../../../lib/supabaseClient";
 import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
@@ -239,6 +240,12 @@ export default function BatchPage() {
   );
   const batchFinished =
     batchJobMeta?.status && TERMINAL_BATCH_STATUSES.has(batchJobMeta.status.toLowerCase());
+  const completionPercent =
+    batchTotalCount > 0 ? Math.min(100, (completedCount / batchTotalCount) * 100) : 0;
+  const batchProgressStyle = useMemo(
+    () => ({ "--chip-progress": `${completionPercent}%` } as React.CSSProperties),
+    [completionPercent],
+  );
   const hydrateLatestBatchJob = useCallback(
     async (options?: { force?: boolean; activateMonitor?: boolean }) => {
       if (!clientSlug) {
@@ -1122,6 +1129,7 @@ export default function BatchPage() {
           <StageButton
             type="button"
             variant="ghost"
+            className="batch-compare-button"
             onClick={() => handleOpenCompare()}
             disabled={comparablePersonasForModal.length < 2}
           >
@@ -1644,21 +1652,29 @@ export default function BatchPage() {
             ) : (
               <section className="batch-monitor-stage">
                 <div className="batch-monitor-summary">
-                  <div className="batch-monitor-summary__details">
-                    <h3>Batch progress</h3>
-                    <span className={`batch-status-chip batch-status-chip--${(batchJobMeta?.status ?? "pending").toLowerCase()}`}>
-                      {batchStatusLabel}
-                    </span>
-                  </div>
-                  <div className="batch-monitor-summary__counts">
-                    <span>{completedCount}/{batchTotalCount} completed</span>
-                    {inProgressCount > 0 ? <span>{inProgressCount} in progress</span> : null}
-                  </div>
-                  {batchJobMeta?.questionnaire_file_name ? (
-                    <div className="batch-monitor-summary__file">
-                      <span>Questionnaire: {batchJobMeta.questionnaire_file_name}</span>
+                  <div className="batch-progress-row">
+                    <div className="batch-progress-title">
+                      <h3>Batch progress</h3>
+                      <span
+                        className={`batch-status-chip batch-status-chip--progress batch-status-chip--${(batchJobMeta?.status ?? "pending").toLowerCase()}`}
+                        style={batchProgressStyle}
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={Math.max(batchTotalCount, 1)}
+                        aria-valuenow={completedCount}
+                        aria-label={`Batch progress: ${completedCount} of ${batchTotalCount} ${batchStatusLabel}.`}
+                      >
+                        <span className="batch-status-chip__text">
+                          {completedCount}/{batchTotalCount} {batchStatusLabel}
+                        </span>
+                      </span>
                     </div>
-                  ) : null}
+                    {batchJobMeta?.questionnaire_file_name ? (
+                      <div className="batch-monitor-summary__file">
+                        <span>Questionnaire: {batchJobMeta.questionnaire_file_name}</span>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 {batchStatusError ? (
                   <p className="batch-monitor-error" role="alert">{batchStatusError}</p>
@@ -1712,7 +1728,7 @@ export default function BatchPage() {
                                 <div className="batch-options-bar batch-options-inline" role="group" aria-label="Questionnaire options">
                                   <button
                                     type="button"
-                                    className="batch-options-button"
+                                    className="batch-options-button batch-compare-button"
                                     onClick={() => handleOpenCompare(persona.id)}
                                     disabled={!personaCanCompare}
                                   >
@@ -1983,13 +1999,13 @@ export default function BatchPage() {
         .batch-step-indicator {
           padding: 6px 14px;
           border-radius: 999px;
-          background: #0f1d35;
-          color: #f6f7f9;
+          background: transparent;
+          color: #1e293b;
           font-weight: 700;
           font-size: 13px;
           letter-spacing: 0.3px;
-          border: 1px solid rgba(15, 23, 42, 0.35);
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+          border: 1px solid rgba(241, 245, 255, 0.32);
+          box-shadow: none;
           font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
         }
         .batch-section {
@@ -2368,12 +2384,18 @@ export default function BatchPage() {
           font-size: 18px;
           font-weight: 700;
         }
-        .batch-monitor-summary__counts {
+        .batch-progress-row {
+          width: 100%;
           display: flex;
-          flex-direction: column;
-          gap: 4px;
-          font-weight: 600;
-          color: rgba(15, 23, 42, 0.65);
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .batch-progress-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
         .batch-monitor-summary__file {
           display: flex;
@@ -2451,21 +2473,46 @@ export default function BatchPage() {
           font-size: 12px;
           font-weight: 700;
           text-transform: capitalize;
-          background: rgba(59, 130, 246, 0.12);
-          color: rgba(30, 64, 175, 0.95);
+          --chip-track: rgba(59, 130, 246, 0.12);
+          --chip-fill: rgba(59, 130, 246, 0.25);
+          --chip-text: rgba(30, 64, 175, 0.95);
+          background: var(--chip-track);
+          color: var(--chip-text);
+        }
+        .batch-status-chip__text {
+          position: relative;
+          z-index: 1;
+        }
+        .batch-status-chip--progress {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .batch-status-chip--progress::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          width: var(--chip-progress, 0%);
+          background: var(--chip-fill);
+          border-radius: inherit;
+          z-index: 0;
+          transition: width 200ms ease;
         }
         .batch-status-chip--running {
-          background: rgba(59, 130, 246, 0.18);
-          color: rgba(30, 64, 175, 0.98);
+          --chip-track: rgba(59, 130, 246, 0.18);
+          --chip-fill: rgba(59, 130, 246, 0.32);
+          --chip-text: rgba(30, 64, 175, 0.98);
         }
         .batch-status-chip--parsed,
         .batch-status-chip--complete {
-          background: rgba(34, 197, 94, 0.18);
-          color: rgba(22, 163, 74, 0.95);
+          --chip-track: rgba(34, 197, 94, 0.18);
+          --chip-fill: rgba(34, 197, 94, 0.32);
+          --chip-text: rgba(22, 163, 74, 0.95);
         }
         .batch-status-chip--failed {
-          background: rgba(248, 113, 113, 0.2);
-          color: rgba(220, 38, 38, 0.92);
+          --chip-track: rgba(248, 113, 113, 0.2);
+          --chip-fill: rgba(248, 113, 113, 0.4);
+          --chip-text: rgba(220, 38, 38, 0.92);
         }
         .batch-monitor-error-text {
           font-size: 12px;
@@ -2659,6 +2706,10 @@ export default function BatchPage() {
         @media (max-width: 960px) {
           .stage-panel {
             padding: 24px;
+          }
+          .batch-progress-row {
+            flex-direction: column;
+            align-items: flex-start;
           }
           .batch-persona-grid {
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

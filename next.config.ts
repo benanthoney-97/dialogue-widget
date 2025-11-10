@@ -4,11 +4,10 @@ import type { Configuration } from "webpack";
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: true, // ← enables prod sourcemaps
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        canvas: "./stubs/canvas.js",
-      },
+  turbopack: {
+    root: __dirname,
+    resolveAlias: {
+      canvas: "./stubs/canvas.js",
     },
   },
   webpack: (config: Configuration) => {

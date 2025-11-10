@@ -7,7 +7,6 @@ export type DocEntry = {
   auth?: "signed" | "public";
   url?: string;           // optional external URL to load in widget view
   talkLabel?: string;     // optional label for the talk button
-  screenshotPath?: string; // optional static image backdrop under /public
   author?: string;        // optional author name used in contact form copy
   workLabel?: string;     // optional noun used in contact form copy
 };
@@ -28,7 +27,6 @@ export const docMap: Record<string, DocEntry> = {
     region: "eu-residency",
     auth: "signed",
     talkLabel: "Start Dialogue",
-    screenshotPath: "/screenshots/default.png",
     author: "Dr. Marios Kremantzis",
   },
   "intro-linear-optimisation": {
@@ -87,7 +85,6 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     url: "https://srm360.org/",
     talkLabel: "SRM360 Learn",
-    screenshotPath: "/screenshots/default.png",
   },
     "srm-september-update": {
     pdfPath: "/papers/srm-field-experiments.pdf",
@@ -120,7 +117,6 @@ export const docMap: Record<string, DocEntry> = {
     auth: "signed",
     url: "https://www.mishcon.com/guides/a-guide-to-probate-for-executors",
     talkLabel: "Prepare for call",
-    screenshotPath: "/screenshots/Screenshot 2025-10-17 at 12.55.19.png",
   },
   "uk-vein-clinic-knowledge-centre-agent": {
     pdfPath: "",
@@ -142,7 +138,6 @@ export const docMap: Record<string, DocEntry> = {
  region: "eu-residency",
  auth: "signed",
 talkLabel: "Try Dialogue",
-screenshotPath: "/screenshots/default.png",
 },
   "manual-agent": {
     pdfPath: "",
@@ -157,7 +152,6 @@ screenshotPath: "/screenshots/default.png",
    region: "eu-residency",
     auth: "signed",
   talkLabel: "Talk to Time Out",
-  screenshotPath: "/screenshots/timeout.jpg",
  },
      "savills-prime-central-london ": {
    pdfPath: "/papers/Week 2 (2).pdf",
@@ -167,6 +161,5 @@ screenshotPath: "/screenshots/default.png",
     auth: "signed",
   talkLabel: "Summary",
     url: "https://pdf.euro.savills.co.uk/european/european-commercial-markets/european-logistics-census-2025.pdf",
-  screenshotPath: "/screenshots/timeout.jpg",
  },
 };
