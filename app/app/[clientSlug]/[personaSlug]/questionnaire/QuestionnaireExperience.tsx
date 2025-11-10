@@ -1,7 +1,8 @@
 "use client";
 
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
-import QuestionnaireModal from "@/app/components/QuestionnaireModal";
+import PillButton from "@/app/components/PillButton";
+import QuestionnaireUploadCard from "@/app/components/QuestionnaireUploadCard";
 import { supabase } from "@/app/lib/supabaseClient";
 import QuestionnairePanel from "./QuestionnairePanel";
 
@@ -99,13 +100,12 @@ export default function QuestionnaireExperience({
         setLastRunAt(null);
         return;
       }
-
       setIsHydratingQuestionnaireJob(true);
       setQuestionnaireJobId(jobSnapshot.jobId ?? null);
-  setQuestionnaireJobStatus(jobSnapshot.status ?? null);
-  setQuestionnaireExtractionResult(jobSnapshot.extractionResult ?? null);
-  setLastRunAt(jobSnapshot.createdAt ?? null);
-  setQuestionnaireJobError(null);
+      setQuestionnaireJobStatus(jobSnapshot.status ?? null);
+      setQuestionnaireExtractionResult(jobSnapshot.extractionResult ?? null);
+      setLastRunAt(jobSnapshot.createdAt ?? null);
+      setQuestionnaireJobError(null);
 
       if (!jobSnapshot.filePath) {
         setQuantFileName(null);
@@ -261,6 +261,15 @@ export default function QuestionnaireExperience({
     const files = event.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+    const fileNameLower = (file.name || "").toLowerCase();
+    const fileTypeLower = (file.type || "").toLowerCase();
+    const isPdf = fileNameLower.endsWith(".pdf") || fileTypeLower.includes("pdf");
+    const isCsv = fileNameLower.endsWith(".csv") || fileTypeLower.includes("csv");
+    if (!isPdf && !isCsv) {
+      setQuestionnaireJobError("Only PDF or CSV files are supported.");
+      event.currentTarget.value = "";
+      return;
+    }
     if (quantFileURL && quantFileURL.startsWith("blob:")) {
       try {
         URL.revokeObjectURL(quantFileURL);
@@ -353,9 +362,9 @@ export default function QuestionnaireExperience({
         return;
       }
 
-  setQuestionnaireJobId(job.id);
-  setQuestionnaireJobStatus(job.status ?? "queued");
-  setLastRunAt(new Date().toISOString());
+      setQuestionnaireJobId(job.id);
+      setQuestionnaireJobStatus(job.status ?? "queued");
+      setLastRunAt(new Date().toISOString());
 
       setQuantFile(null);
       setQuantFileName(quantFile.name || fileName);
@@ -406,16 +415,24 @@ export default function QuestionnaireExperience({
   const isJobInFlight =
     questionnaireJobStatus !== null && questionnaireJobStatus !== "parsed" && questionnaireJobStatus !== "failed";
   const isProcessingQuestionnaire = isCreatingQuestionnaireJob || isJobInFlight;
-  const showResultsPanel = Boolean(
-    questionnaireJobId || questionnaireJobStatus || questionnaireExtractionResult
+  const hasResultsContext = Boolean(questionnaireJobId || questionnaireJobStatus || questionnaireExtractionResult);
+  const hasUploadedContext = Boolean(
+    quantFile ||
+      quantFileName ||
+      quantFileURL ||
+      questionnaireJobId ||
+      questionnaireJobStatus ||
+      questionnaireExtractionResult ||
+      isHydratingQuestionnaireJob
   );
+  const shouldShowCard = !hasResultsContext;
 
   return (
-  <div className="persona-questionnaire-experience">
-      {showResultsPanel ? (
-        <div className="persona-questionnaire-experience__grid">
-          <div className="persona-questionnaire-experience__preview">
-            <QuestionnaireModal
+    <div className="persona-questionnaire-experience">
+      {shouldShowCard ? (
+        <div className="persona-questionnaire-experience__card">
+          {hasUploadedContext ? (
+            <QuestionnaireUploadCard
               expandedCardRef={expandedCardRef}
               quantUploadInputRef={quantUploadInputRef}
               quantFileURL={quantFileURL}
@@ -435,47 +452,76 @@ export default function QuestionnaireExperience({
               personaUpdatedAt={personaUpdatedAt ?? undefined}
               personaResearchType={personaResearchType ?? undefined}
               personaOwnerName={personaOwnerName ?? undefined}
-              resultsPlacement="external"
+              resultsPlacement="inline"
             />
-          </div>
-          <div className="persona-questionnaire-experience__results">
-            <QuestionnairePanel
-              personaName={personaName}
-              questionnaireStatus={questionnaireJobStatus}
-              lastRunAt={lastRunAt}
-              extractionResult={questionnaireExtractionResult}
-              onStartNewQuestionnaire={handleStartNewQuestionnaire}
-              isProcessing={isProcessingQuestionnaire}
-              jobError={questionnaireJobError}
-            />
-          </div>
+          ) : (
+            <div className="persona-questionnaire-experience__prompt">
+              <PillButton
+                type="button"
+                onClick={handleQuantUploadClick}
+                disabled={isProcessingQuestionnaire}
+                style={{
+                  padding: "12px 26px",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  background: "transparent",
+                  boxShadow: "none",
+                  border: "none",
+                  color: "#0f172a",
+                  cursor: isProcessingQuestionnaire ? "not-allowed" : "pointer",
+                }}
+              >
+                <div className="persona-questionnaire-experience__prompt-tile">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 5V19M5 12H19"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="persona-questionnaire-experience__prompt-title">Upload research questionnaire</span>
+                  <span className="persona-questionnaire-experience__prompt-subtitle">PDF or CSV format</span>
+                </div>
+              </PillButton>
+              <input
+                ref={quantUploadInputRef}
+                type="file"
+                accept=".pdf,.csv"
+                style={{ display: "none" }}
+                onChange={handleQuantUploadChange}
+              />
+              {questionnaireJobError ? (
+                <p className="persona-questionnaire-experience__prompt-error">{questionnaireJobError}</p>
+              ) : null}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="persona-questionnaire-experience__single">
-          <QuestionnaireModal
-            expandedCardRef={expandedCardRef}
-            quantUploadInputRef={quantUploadInputRef}
-            quantFileURL={quantFileURL}
-            quantFileName={quantFileName}
-            quantFileType={quantFileType}
-            hasQuantFile={Boolean(quantFile)}
-            isCreatingJob={isCreatingQuestionnaireJob}
-            isHydratingJob={isHydratingQuestionnaireJob}
-            jobError={questionnaireJobError}
-            jobStatus={questionnaireJobStatus}
-            jobId={questionnaireJobId}
-            extractionResult={questionnaireExtractionResult}
-            onUploadClickAction={handleQuantUploadClick}
-            onUploadChangeAction={handleQuantUploadChange}
-            onRunAction={handleRunQuestionnaire}
+      ) : null}
+      {hasResultsContext ? (
+        <div
+          className="persona-questionnaire-experience__panel"
+          style={!shouldShowCard ? { marginTop: 0 } : undefined}
+        >
+          <QuestionnairePanel
             personaName={personaName}
-            personaUpdatedAt={personaUpdatedAt ?? undefined}
-            personaResearchType={personaResearchType ?? undefined}
-            personaOwnerName={personaOwnerName ?? undefined}
-            resultsPlacement="inline"
+            questionnaireStatus={questionnaireJobStatus}
+            lastRunAt={lastRunAt}
+            extractionResult={questionnaireExtractionResult}
+            onStartNewQuestionnaire={handleStartNewQuestionnaire}
+            isProcessing={isProcessingQuestionnaire}
+            jobError={questionnaireJobError}
           />
         </div>
-      )}
+      ) : null}
       <style jsx>{`
         .persona-questionnaire-experience {
           width: 100%;
@@ -487,328 +533,50 @@ export default function QuestionnaireExperience({
           padding-bottom: 32px;
           box-sizing: border-box;
         }
-        .persona-questionnaire-experience__grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 32px;
-          align-items: stretch;
+        .persona-questionnaire-experience__card {
+          width: 100%;
+          padding: 24px 0;
+          box-sizing: border-box;
+        }
+        .persona-questionnaire-experience__panel {
+          width: 100%;
+          margin-top: 24px;
+        }
+        .persona-questionnaire-experience__prompt {
           flex: 1 1 auto;
           min-height: 0;
-          height: 100%;
-          padding: 0 0 32px;
-          box-sizing: border-box;
-      overflow: hidden;
-        }
-        .persona-questionnaire-experience__preview,
-        .persona-questionnaire-experience__results {
-          min-width: 0;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
-        .persona-questionnaire-experience__single {
-          width: 100%;
-          padding-top: 24px;
-          box-sizing: border-box;
-          flex: 1 1 auto;
-          min-height: 0;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-        @media (max-width: 1120px) {
-          .persona-questionnaire-experience__grid {
-            grid-template-columns: 1fr;
-            flex: none;
-          }
-          .persona-questionnaire-experience__results {
-            margin-top: 12px;
-          }
-          .persona-questionnaire-experience__single {
-            width: 100%;
-            padding-top: 40px;
-            flex: none;
-            height: auto;
-            display: block;
-          }
-        }
-        :global(.persona-modal-option-body-content.persona-modal-option-body-content--quant) {
-          display: flex;
-          flex-direction: column;
-          width: 100%;
-          box-sizing: border-box;
-          flex: 1 1 auto;
-          min-height: 0;
-          height: 100%;
-        }
-        :global(.persona-quant-grid) {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 24px;
-          width: 100%;
-          align-items: stretch;
-          height: 100%;
-          min-height: 0;
-        }
-        :global(.persona-quant-grid--preview-only) {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 32px;
-        }
-        :global(.persona-quant-grid--single) {
-          grid-template-columns: minmax(0, 1fr);
-        }
-        :global(.persona-quant-preview--wide) {
-          grid-column: 1 / span 1;
-        }
-        :global(.persona-quant-preview) {
-          position: relative;
-          border-radius: 24px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          background: #ffffff;
-          min-height: 0;
-          overflow: hidden;
-          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-          height: 100%;
-          box-sizing: border-box;
-        }
-        :global(.persona-quant-preview iframe) {
-          border-radius: 24px;
-        }
-        :global(.persona-quant-preview iframe) {
-          width: 100%;
-          height: 100%;
-          border: none;
-        }
-        :global(.persona-quant-actions-col) {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          align-self: stretch;
-          height: 100%;
-          justify-content: center;
-          align-items: center;
-        }
-        :global(.persona-quant-actions-row) {
-          display: flex;
-          flex-direction: row;
-          gap: 12px;
-          width: 100%;
-          justify-content: center;
-          align-items: center;
-          max-width: 340px;
-        }
-        :global(.persona-quant-status) {
-          font-size: 13px;
-          font-weight: 600;
-        }
-        :global(.persona-quant-status--error) {
-          color: #b91c1c;
-        }
-        :global(.persona-quant-status--success) {
-          color: #166534;
-        }
-        :global(.persona-quant-loading) {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          border-radius: 24px;
-          border: 1px dashed rgba(15, 23, 42, 0.16);
-          background: rgba(248, 250, 252, 0.92);
-          padding: 24px;
-          min-height: 180px;
-          font-weight: 600;
-          color: rgba(15, 23, 42, 0.7);
+          gap: 16px;
+          padding: 40px 20px;
+          text-align: center;
         }
-        :global(.persona-quant-spinner) {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: 3px solid rgba(15, 23, 42, 0.18);
-          border-top-color: rgba(15, 23, 42, 0.64);
-          animation: personaQuantSpin 1s linear infinite;
-        }
-        :global(@keyframes personaQuantSpin) {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        :global(.persona-quant-results) {
+        .persona-questionnaire-experience__prompt-tile {
           display: flex;
           flex-direction: column;
-          border-radius: 16px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          background: #ffffff;
-          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-          padding: 20px;
-          flex: 1 1 auto;
-          min-height: 0;
-        }
-        :global(.persona-quant-results-header) {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 12px;
-        }
-        :global(.persona-quant-results-header h4) {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 700;
-          color: #052033;
-        }
-        :global(.persona-quant-results-count) {
-          font-size: 13px;
-          font-weight: 600;
-          color: rgba(15, 23, 42, 0.54);
-        }
-        :global(.persona-quant-results-scroll) {
-          flex: 1 1 auto;
-          min-height: 0;
-          overflow-y: auto;
-        }
-        :global(.persona-quant-results-list) {
-          margin: 0;
-          padding: 0;
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        :global(.persona-quant-results-item) {
-          border-radius: 12px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          background: rgba(248, 250, 252, 0.9);
-          padding: 14px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        :global(.persona-quant-results-question) {
-          font-weight: 700;
-          font-size: 14px;
-          color: #052033;
-        }
-        :global(.persona-quant-results-answer) {
-          display: flex;
-          gap: 6px;
-          font-size: 13px;
-          line-height: 1.5;
-          color: rgba(15, 23, 42, 0.78);
-          word-break: break-word;
-        }
-        :global(.persona-quant-results-label) {
-          font-weight: 600;
-          color: rgba(15, 23, 42, 0.54);
-          flex-shrink: 0;
-        }
-        :global(.persona-quant-results-raw) {
-          margin: 0;
-          font-family: var(--font-mono, monospace);
-          font-size: 12px;
-          background: rgba(15, 23, 42, 0.08);
-          border: 1px solid rgba(15, 23, 42, 0.16);
-          border-radius: 12px;
-          padding: 12px;
-          white-space: pre-wrap;
-          word-break: break-word;
-        }
-        :global(.persona-quant-results-placeholder) {
-          display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 12px;
-          border: 1px dashed rgba(15, 23, 42, 0.16);
-          background: rgba(248, 250, 252, 0.78);
-          padding: 24px;
-          font-weight: 600;
-          color: rgba(15, 23, 42, 0.6);
-        }
-        :global(.persona-quant-options-bar) {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        :global(.persona-quant-option-button) {
-          border: none;
-          background: rgba(15, 23, 42, 0.08);
-          color: #052033;
-          font-weight: 600;
-          font-size: 13px;
-          padding: 8px 16px;
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-        }
-        :global(.persona-quant-option-button:hover),
-        :global(.persona-quant-option-button:focus-visible) {
-          background: rgba(15, 23, 42, 0.14);
-          outline: none;
-        }
-        :global(.persona-quant-option-button:active) {
-          background: rgba(15, 23, 42, 0.2);
-        }
-        :global(.persona-quant-file-card) {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          border-radius: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          background: rgba(248, 250, 252, 0.9);
-          padding: 18px;
-        }
-        :global(.persona-quant-file-name) {
-          font-weight: 700;
-          font-size: 14px;
-          color: #052033;
-          word-break: break-word;
-        }
-        :global(.persona-quant-download) {
-          color: #1d4ed8;
-          font-weight: 600;
-          font-size: 13px;
-          text-decoration: none;
-        }
-        :global(.persona-quant-action-square) {
+          gap: 8px;
           width: 160px;
           height: 160px;
           border-radius: 12px;
-          border: 1px dashed rgba(15, 23, 42, 0.18);
-          background: rgba(248, 250, 252, 0.85);
-          color: #052033;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.18s ease, border-color 0.18s ease;
+          color: #0f172a;
         }
-        :global(.persona-quant-action-square:hover),
-        :global(.persona-quant-action-square:focus-visible) {
-          border-color: rgba(15, 23, 42, 0.3);
-          background: rgba(248, 250, 252, 0.95);
-          outline: none;
+        .persona-questionnaire-experience__prompt-title {
+          color: #0f172a;
+          font-weight: 700;
+          font-size: 15px;
         }
-        :global(.persona-quant-actions) {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          padding: 32px;
+        .persona-questionnaire-experience__prompt-subtitle {
+          color: #475569;
+          font-size: 12px;
         }
-        :global(.persona-quant-file) {
+        .persona-questionnaire-experience__prompt-error {
+          color: #b91c1c;
           font-weight: 600;
           font-size: 13px;
-          color: rgba(15, 23, 42, 0.72);
-        }
-        @media (max-width: 980px) {
-          :global(.persona-quant-grid) {
-            grid-template-columns: 1fr;
-          }
         }
       `}</style>
     </div>

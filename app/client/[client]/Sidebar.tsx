@@ -146,15 +146,6 @@ icon: (
 ),
     },
     {
-      label: "Groups",
-      href: `/client/${clientId}/batch`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
-    <path d="M2.5 3.5a.5.5 0 0 1 0-1h11a.5.5 0 0 1 0 1zm2-2a.5.5 0 0 1 0-1h7a.5.5 0 0 1 0 1zM0 13a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 16 13V6a1.5 1.5 0 0 0-1.5-1.5h-13A1.5 1.5 0 0 0 0 6zm1.5.5A.5.5 0 0 1 1 13V6a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5z" />
-  </svg>
-),
-    },
-    {
       label: "Web Research",
       href: `/client/${clientId}/research`,
 icon: (
@@ -174,19 +165,7 @@ icon: (
     {
       label: "Feedback",
       href: `/client/${clientId}/feedback`,
-icon: (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="#22325a"
-    stroke="#22325a"
-    strokeWidth="0.4"
-  >
-    <path d="M8 1a7 7 0 0 0-4.746 12.169L2 15l1.831-1.17A7 7 0 1 0 8 1m0 1a6 6 0 1 1-3.774 10.626l-.217-.18-.257.164.743-1.18-.42-.33A6 6 0 0 1 8 2m-1 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2m3 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2M5.5 9a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5z" />
-  </svg>
-),
+icon: (<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z" fill="#22325a" stroke="#22325a" strokeWidth="1.1"/><path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0M7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0" fill="#22325a" stroke="#22325a" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>),
     },
     {
       label: "New Persona",

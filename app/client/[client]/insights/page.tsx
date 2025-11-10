@@ -468,6 +468,7 @@ export default function InsightsTable() {
 				title="Playbacks"
 				offsetLeft="var(--stage-topbar-offset, 0px)"
 				hideCadenceControls
+				hideProfileAvatar
 				rightSlot={topbarRightSlot}
 			/>
 			<main className="stage-layout insights-root">

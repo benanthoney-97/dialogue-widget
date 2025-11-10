@@ -32,20 +32,25 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
   const questionnaireHref = `${personaBasePath}/questionnaire`;
 
   const topbarNavLinks = useMemo(() => {
-    if (!isExploreRoute) {
-      return undefined;
-    }
-    if (!clientSlug) {
+  const baseHistoryLink = clientSlug ? `/app/${clientSlug}/history` : "/app/history";
+    if (isExploreRoute) {
+      if (!clientSlug) {
+        return [
+          { label: "Explore", href: "/app/explore" },
+          { label: "My history", href: baseHistoryLink },
+          { label: "FAQs", href: "/app/explore#faqs" },
+          { label: "Speak to the team", href: "/app/explore#contact" },
+        ];
+      }
       return [
-        { label: "Explore", href: "/app/explore" },
-        { label: "FAQs", href: "/app/explore#faqs" },
-        { label: "Speak to the team", href: "/app/explore#contact" },
+        { label: "Explore", href: `/app/${clientSlug}/explore` },
+  { label: "My history", href: baseHistoryLink },
+        { label: "FAQs", href: `/app/${clientSlug}/faqs` },
+        { label: "Speak to the team", href: `/app/${clientSlug}/contact` },
       ];
     }
     return [
-      { label: "Explore", href: `/app/${clientSlug}/explore` },
-      { label: "FAQs", href: `/app/${clientSlug}/faqs` },
-      { label: "Speak to the team", href: `/app/${clientSlug}/contact` },
+  { label: "My history", href: baseHistoryLink },
     ];
   }, [clientSlug, isExploreRoute]);
 
@@ -56,7 +61,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     gap: 6,
     padding: "6px 12px",
     borderRadius: 999,
-    background: "rgba(15, 23, 42, 0.08)",
+    background: "transparent",
     color: "#0f172a",
     fontSize: 12,
     fontWeight: 600,

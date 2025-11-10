@@ -317,6 +317,8 @@ export default function ResearchPage() {
         onCadenceChange={(value) => setSelectedCadence(value)}
         offsetLeft="var(--stage-topbar-offset, 0px)"
         cadenceLabel="Refresh cadence:"
+        hideProfileAvatar
+        rightSlot={<></>}
       />
       <main className="stage-layout research-root">
         <aside className="stage-layout__sidebar">
@@ -609,7 +611,7 @@ export default function ResearchPage() {
           outline: none;
         }
         .research-goal-tile--active {
-          border-color: rgba(59, 130, 246, 0.55);
+          border-color: #1e293b;
           box-shadow: 0 26px 52px rgba(59, 130, 246, 0.22);
           transform: translateY(-2px);
           background: linear-gradient(155deg, rgba(59,130,246,0.18) 0%, rgba(255,255,255,0.95) 70%);

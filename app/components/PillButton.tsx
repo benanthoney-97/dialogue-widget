@@ -8,6 +8,7 @@ type PillButtonProps = {
   variant?: PillButtonVariant;
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
+  unstyled?: boolean;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 const BASE_STYLE: React.CSSProperties = {
@@ -40,14 +41,16 @@ const VARIANT_STYLE: Record<PillButtonVariant, React.CSSProperties> = {
 };
 
 const PillButton = React.forwardRef<HTMLButtonElement, PillButtonProps>(function PillButton(
-  { variant = "default", leadingIcon, trailingIcon, style, children, type = "button", ...rest },
+  { variant = "default", leadingIcon, trailingIcon, style, children, type = "button", unstyled = false, ...rest },
   ref
 ) {
-  const mergedStyle: React.CSSProperties = {
-    ...BASE_STYLE,
-    ...VARIANT_STYLE[variant],
-    ...style,
-  };
+  const mergedStyle: React.CSSProperties = unstyled
+    ? { ...style }
+    : {
+        ...BASE_STYLE,
+        ...VARIANT_STYLE[variant],
+        ...style,
+      };
 
   return (
     <button ref={ref} type={type} style={mergedStyle} {...rest}>

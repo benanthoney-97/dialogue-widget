@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import DialogueText from "@/app/components/DialogueText";
+import { supabase } from "@/app/lib/supabaseClient";
 
 type ChatPanelProps = {
   agentId: string;
@@ -23,6 +24,39 @@ export default function ChatPanel({
   userId,
 }: ChatPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId ?? null);
+
+  useEffect(() => {
+    if (userId) {
+      setResolvedUserId(userId);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function fetchUserId() {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        if (error || !data?.user?.id) {
+          setResolvedUserId(null);
+          return;
+        }
+        setResolvedUserId(data.user.id);
+      } catch (error) {
+        if (!isMounted) return;
+        // eslint-disable-next-line no-console
+        console.error("[ChatPanel] Failed to resolve user id", error);
+        setResolvedUserId(null);
+      }
+    }
+
+    void fetchUserId();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   return (
     <div
@@ -45,7 +79,7 @@ export default function ChatPanel({
         personaIntentSignals={personaIntentSignals}
         personaCustomerStatus={personaCustomerStatus}
         personaKeyPainPoints={personaKeyPainPoints}
-        userId={userId}
+        userId={resolvedUserId ?? undefined}
       />
     </div>
   );

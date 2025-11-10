@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import PrepAgentDebug from "@/app/components/PrepAgentDebug";
+import { supabase } from "@/app/lib/supabaseClient";
 
 type InterviewPanelProps = {
   agentId: string;
@@ -21,6 +22,7 @@ export default function InterviewPanel({
   userId,
 }: InterviewPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId ?? null);
 
   console.log("[InterviewPanel] render start", {
     agentId,
@@ -61,6 +63,38 @@ export default function InterviewPanel({
     console.log("[InterviewPanel] panelRef after paint", panelRef.current);
   });
 
+  useEffect(() => {
+    if (userId) {
+      setResolvedUserId(userId);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function fetchUserId() {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        if (error || !data?.user?.id) {
+          setResolvedUserId(null);
+          return;
+        }
+        setResolvedUserId(data.user.id);
+      } catch (error) {
+        if (!isMounted) return;
+        // eslint-disable-next-line no-console
+        console.error("[InterviewPanel] Failed to resolve user id", error);
+        setResolvedUserId(null);
+      }
+    }
+
+    void fetchUserId();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
   return (
     <div
       ref={panelRef}
@@ -81,7 +115,7 @@ export default function InterviewPanel({
         profileImage={profileImage ?? undefined}
         panelExpanded
         panelRootRef={panelRef}
-        userId={userId}
+        userId={resolvedUserId ?? undefined}
         showVoiceControls={false}
       />
     </div>

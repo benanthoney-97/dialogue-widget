@@ -132,10 +132,7 @@ export default function QuestionnairePanel({
             </div>
           ) : null}
           <strong>No questionnaire responses yet.</strong>
-          <p>
-            Launch a questionnaire run from the Dialogue console to surface structured answers here.
-            Completed runs will appear automatically.
-          </p>
+          <p>Completed runs will appear automatically.</p>
         </div>
       )}
       <style jsx>{`

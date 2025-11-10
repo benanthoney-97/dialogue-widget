@@ -35,6 +35,7 @@ type PersonaRow = {
   key_pain_points?: string[] | null;
   intent_signals?: string[] | null;
   key_traits?: string[] | null;
+  profile_image?: string | null;
 };
 
 type ProfileRow = {
@@ -54,6 +55,7 @@ type AgentDocumentRow = {
   agent_id: string;
   file_name: string;
   storage_path?: string | null;
+  profile_image?: string | null;
   public_url?: string | null;
   document_url?: string | null;
   document_id?: string | null;
@@ -214,6 +216,12 @@ function buildPersonaTraits(persona: PersonaRow): PersonaTrait[] {
         : "Not set",
   });
   return traits;
+}
+
+function buildPersonaSlug(persona: PersonaRow): string | null {
+  const name = persona.agent_name?.trim();
+  if (!name) return null;
+  return slugify(name);
 }
 
 function decodeStorageFileName(path: string | null): string | null {
@@ -425,9 +433,25 @@ export default function PersonasPage() {
   const [editingDescription, setEditingDescription] = useState<string>("");
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [descriptionEditingPersonaId, setDescriptionEditingPersonaId] = useState<string | null>(null);
+  const [descriptionDraft, setDescriptionDraft] = useState<string>("");
+  const [isSavingDescriptionInline, setIsSavingDescriptionInline] = useState(false);
+  const [descriptionInlineError, setDescriptionInlineError] = useState<string | null>(null);
+  const [painPointsEditingPersonaId, setPainPointsEditingPersonaId] = useState<string | null>(null);
+  const [painPointsDraft, setPainPointsDraft] = useState<string[]>([]);
+  const [isSavingPainPointsInline, setIsSavingPainPointsInline] = useState(false);
+  const [painPointsInlineError, setPainPointsInlineError] = useState<string | null>(null);
+  const [intentSignalsEditingPersonaId, setIntentSignalsEditingPersonaId] = useState<string | null>(null);
+  const [intentSignalsDraft, setIntentSignalsDraft] = useState<string[]>([]);
+  const [isSavingIntentSignalsInline, setIsSavingIntentSignalsInline] = useState(false);
+  const [intentSignalsInlineError, setIntentSignalsInlineError] = useState<string | null>(null);
   const nameWrapperRef = useRef<HTMLDivElement | null>(null);
   const nameMeasureRef = useRef<HTMLSpanElement | null>(null);
   const [nameFieldWidth, setNameFieldWidth] = useState<number | null>(null);
+  const [nameEditingPersonaId, setNameEditingPersonaId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState<string>("");
+  const [isSavingNameInline, setIsSavingNameInline] = useState(false);
+  const [nameInlineError, setNameInlineError] = useState<string | null>(null);
   const [editingTraits, setEditingTraits] = useState<string>("");
   const [isSavingTraits, setIsSavingTraits] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
@@ -645,9 +669,27 @@ export default function PersonasPage() {
 
   const baselinePersonaName = activePersona ? (activePersona.agent_name ?? "").trim() : "";
   const hasUnsavedName = Boolean(activePersona && editingName.trim() !== baselinePersonaName);
+  const inlineNamePersona = useMemo(() => {
+    if (!nameEditingPersonaId) return null;
+    return personas.find((row) => row.agent_id === nameEditingPersonaId) ?? null;
+  }, [nameEditingPersonaId, personas]);
+  const baselineInlineName = inlineNamePersona ? (inlineNamePersona.agent_name ?? "") : "";
+  const hasUnsavedNameInline = Boolean(
+    inlineNamePersona && nameDraft.trim() !== baselineInlineName.trim()
+  );
   const baselinePersonaDescription = activePersona ? activePersona.description ?? "" : "";
   const hasUnsavedDescription = Boolean(
     activePersona && editingDescription !== baselinePersonaDescription
+  );
+  const inlineDescriptionPersona = useMemo(() => {
+    if (!descriptionEditingPersonaId) return null;
+    return personas.find((row) => row.agent_id === descriptionEditingPersonaId) ?? null;
+  }, [descriptionEditingPersonaId, personas]);
+  const baselineInlineDescription = inlineDescriptionPersona
+    ? inlineDescriptionPersona.description ?? ""
+    : "";
+  const hasUnsavedDescriptionInline = Boolean(
+    inlineDescriptionPersona && descriptionDraft !== baselineInlineDescription
   );
   const baselineKeyTraitsList = useMemo(() => {
     if (!activePersona || !Array.isArray(activePersona.key_traits)) {
@@ -686,6 +728,34 @@ export default function PersonasPage() {
       (value, index) => value !== baselinePainPointsList[index]
     );
   }, [activePersona, normalizedPainPointValues, baselinePainPointsList]);
+  const inlinePainPointsPersona = useMemo(() => {
+    if (!painPointsEditingPersonaId) return null;
+    return personas.find((row) => row.agent_id === painPointsEditingPersonaId) ?? null;
+  }, [painPointsEditingPersonaId, personas]);
+  const baselineInlinePainPointsList = useMemo(() => {
+    if (!inlinePainPointsPersona || !Array.isArray(inlinePainPointsPersona.key_pain_points)) {
+      return [] as string[];
+    }
+    return inlinePainPointsPersona.key_pain_points
+      .map((point) => (typeof point === "string" ? point.trim() : ""))
+      .filter((point): point is string => point.length > 0);
+  }, [inlinePainPointsPersona]);
+  const normalizedPainPointsDraft = useMemo(
+    () =>
+      painPointsDraft
+        .map((point) => point.trim())
+        .filter((point) => point.length > 0),
+    [painPointsDraft]
+  );
+  const hasUnsavedPainPointsInline = useMemo(() => {
+    if (!inlinePainPointsPersona) return false;
+    if (normalizedPainPointsDraft.length !== baselineInlinePainPointsList.length) {
+      return true;
+    }
+    return normalizedPainPointsDraft.some(
+      (value, index) => value !== baselineInlinePainPointsList[index]
+    );
+  }, [inlinePainPointsPersona, normalizedPainPointsDraft, baselineInlinePainPointsList]);
   const baselineIntentSignalsList = useMemo(() => {
     if (!activePersona || !Array.isArray(activePersona.intent_signals)) {
       return [] as string[];
@@ -708,6 +778,34 @@ export default function PersonasPage() {
       (value, index) => value !== baselineIntentSignalsList[index]
     );
   }, [activePersona, normalizedIntentSignalValues, baselineIntentSignalsList]);
+  const inlineIntentSignalsPersona = useMemo(() => {
+    if (!intentSignalsEditingPersonaId) return null;
+    return personas.find((row) => row.agent_id === intentSignalsEditingPersonaId) ?? null;
+  }, [intentSignalsEditingPersonaId, personas]);
+  const baselineInlineIntentSignalsList = useMemo(() => {
+    if (!inlineIntentSignalsPersona || !Array.isArray(inlineIntentSignalsPersona.intent_signals)) {
+      return [] as string[];
+    }
+    return inlineIntentSignalsPersona.intent_signals
+      .map((signal) => (typeof signal === "string" ? signal.trim() : ""))
+      .filter((signal): signal is string => signal.length > 0);
+  }, [inlineIntentSignalsPersona]);
+  const normalizedIntentSignalsDraft = useMemo(
+    () =>
+      intentSignalsDraft
+        .map((signal) => signal.trim())
+        .filter((signal) => signal.length > 0),
+    [intentSignalsDraft]
+  );
+  const hasUnsavedIntentSignalsInline = useMemo(() => {
+    if (!inlineIntentSignalsPersona) return false;
+    if (normalizedIntentSignalsDraft.length !== baselineInlineIntentSignalsList.length) {
+      return true;
+    }
+    return normalizedIntentSignalsDraft.some(
+      (value, index) => value !== baselineInlineIntentSignalsList[index]
+    );
+  }, [inlineIntentSignalsPersona, normalizedIntentSignalsDraft, baselineInlineIntentSignalsList]);
   const activeIntentSignals = normalizedIntentSignalValues;
   const hasUnsavedDocuments =
     stagedDocumentAdds.length > 0 || stagedDocumentRemovals.length > 0;
@@ -745,6 +843,25 @@ export default function PersonasPage() {
   const isViewer = profileRole === "viewer";
   const canEdit = profileRole !== null && !isViewer;
 
+  useEffect(() => {
+    if (canEdit) return;
+    setNameEditingPersonaId(null);
+    setNameDraft("");
+    setNameInlineError(null);
+    setIsSavingNameInline(false);
+  }, [canEdit]);
+
+  const personaSlugLookup = useMemo(() => {
+    const slugMap = new Map<string, string>();
+    personas.forEach((row) => {
+      const slug = buildPersonaSlug(row);
+      if (slug) {
+        slugMap.set(row.agent_id, slug);
+      }
+    });
+    return slugMap;
+  }, [personas]);
+
   const miniOptions = useMemo(() => {
     if (!selectedOption) {
       return [];
@@ -767,7 +884,7 @@ export default function PersonasPage() {
       return EDIT_OPTION;
     }
     return MODAL_OPTIONS.find((option) => option.key === selectedOption) ?? null;
-  }, [canEdit, isViewer, selectedOption]);
+  }, [isViewer, selectedOption]);
 
   const personaEditMetaChips = useMemo<PersonaMetaChipLabel[]>(() => {
     if (selectedOption !== "edit") return [];
@@ -863,7 +980,7 @@ export default function PersonasPage() {
         const { data, error: personaError } = await supabase
           .from("agent_map")
           .select(
-            "agent_id, agent_name, audience_type, content_type, description, status, dialogue_created_date, key, age, gender, location, customer_status, key_pain_points, intent_signals, key_traits"
+            "agent_id, agent_name, audience_type, content_type, description, status, dialogue_created_date, key, age, gender, location, customer_status, key_pain_points, intent_signals, key_traits, profile_image"
           )
           .eq("client_id", client.id)
           .order("created_at", { ascending: false });
@@ -1100,9 +1217,82 @@ export default function PersonasPage() {
     };
   }, [questionnaireJobId, questionnaireJobStatus]);
 
-  const handleTogglePersonaCard = useCallback((persona: PersonaRow) => {
-    setExpandedPersonaId((prev) => (prev === persona.agent_id ? null : persona.agent_id));
-  }, []);
+  const handleTogglePersonaCard = useCallback(
+    (persona: PersonaRow) => {
+      setExpandedPersonaId((previous) => {
+        const isClosing = previous === persona.agent_id;
+        const nextId = isClosing ? null : persona.agent_id;
+        if (!canEdit) {
+          return nextId;
+        }
+        if (isClosing) {
+          setNameEditingPersonaId(null);
+          setNameDraft("");
+          setNameInlineError(null);
+          setIsSavingNameInline(false);
+          setDescriptionEditingPersonaId(null);
+          setDescriptionDraft("");
+          setDescriptionInlineError(null);
+          setIsSavingDescriptionInline(false);
+          setPainPointsEditingPersonaId(null);
+          setPainPointsDraft([]);
+          setPainPointsInlineError(null);
+          setIsSavingPainPointsInline(false);
+          setIntentSignalsEditingPersonaId(null);
+          setIntentSignalsDraft([]);
+          setIntentSignalsInlineError(null);
+          setIsSavingIntentSignalsInline(false);
+        } else {
+          setNameEditingPersonaId(null);
+          setNameDraft("");
+          setNameInlineError(null);
+          setIsSavingNameInline(false);
+          setDescriptionEditingPersonaId(persona.agent_id);
+          setDescriptionDraft(persona.description ?? "");
+          setDescriptionInlineError(null);
+          setIsSavingDescriptionInline(false);
+          const personaPainPoints = Array.isArray(persona.key_pain_points)
+            ? persona.key_pain_points
+                .map((point) => (typeof point === "string" ? point.trim() : ""))
+                .filter((point): point is string => point.length > 0)
+            : [];
+          setPainPointsEditingPersonaId(persona.agent_id);
+          setPainPointsDraft(personaPainPoints);
+          setPainPointsInlineError(null);
+          setIsSavingPainPointsInline(false);
+          const personaIntentSignals = Array.isArray(persona.intent_signals)
+            ? persona.intent_signals
+                .map((signal) => (typeof signal === "string" ? signal.trim() : ""))
+                .filter((signal): signal is string => signal.length > 0)
+            : [];
+          setIntentSignalsEditingPersonaId(persona.agent_id);
+          setIntentSignalsDraft(personaIntentSignals);
+          setIntentSignalsInlineError(null);
+          setIsSavingIntentSignalsInline(false);
+        }
+        return nextId;
+      });
+    },
+    [
+      canEdit,
+      setNameEditingPersonaId,
+      setNameDraft,
+      setNameInlineError,
+      setIsSavingNameInline,
+      setDescriptionEditingPersonaId,
+      setDescriptionDraft,
+      setDescriptionInlineError,
+      setIsSavingDescriptionInline,
+      setPainPointsEditingPersonaId,
+      setPainPointsDraft,
+      setPainPointsInlineError,
+      setIsSavingPainPointsInline,
+      setIntentSignalsEditingPersonaId,
+      setIntentSignalsDraft,
+      setIntentSignalsInlineError,
+      setIsSavingIntentSignalsInline,
+    ]
+  );
 
   useEffect(() => {
     const container = contentContainerRef.current;
@@ -1116,6 +1306,90 @@ export default function PersonasPage() {
       container.removeAttribute("data-modal-open");
     };
   }, [activePersona]);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setDescriptionEditingPersonaId(null);
+      setDescriptionDraft("");
+      setDescriptionInlineError(null);
+      setIsSavingDescriptionInline(false);
+      return;
+    }
+    if (!expandedPersonaId) {
+      setDescriptionEditingPersonaId(null);
+      setDescriptionDraft("");
+      setDescriptionInlineError(null);
+      setIsSavingDescriptionInline(false);
+      return;
+    }
+    if (descriptionEditingPersonaId !== expandedPersonaId) {
+      const persona = personas.find((item) => item.agent_id === expandedPersonaId);
+      setDescriptionEditingPersonaId(expandedPersonaId);
+      setDescriptionDraft(persona?.description ?? "");
+      setDescriptionInlineError(null);
+      setIsSavingDescriptionInline(false);
+    }
+  }, [canEdit, expandedPersonaId, descriptionEditingPersonaId, personas]);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setPainPointsEditingPersonaId(null);
+      setPainPointsDraft([]);
+      setPainPointsInlineError(null);
+      setIsSavingPainPointsInline(false);
+      return;
+    }
+    if (!expandedPersonaId) {
+      setPainPointsEditingPersonaId(null);
+      setPainPointsDraft([]);
+      setPainPointsInlineError(null);
+      setIsSavingPainPointsInline(false);
+      return;
+    }
+    if (painPointsEditingPersonaId !== expandedPersonaId) {
+      const persona = personas.find((item) => item.agent_id === expandedPersonaId);
+      const personaPainPoints = persona?.key_pain_points;
+      const initialPainPoints = Array.isArray(personaPainPoints)
+        ? personaPainPoints
+            .map((point) => (typeof point === "string" ? point.trim() : ""))
+            .filter((point): point is string => point.length > 0)
+        : [];
+      setPainPointsEditingPersonaId(expandedPersonaId);
+      setPainPointsDraft(initialPainPoints);
+      setPainPointsInlineError(null);
+      setIsSavingPainPointsInline(false);
+    }
+  }, [canEdit, expandedPersonaId, painPointsEditingPersonaId, personas]);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setIntentSignalsEditingPersonaId(null);
+      setIntentSignalsDraft([]);
+      setIntentSignalsInlineError(null);
+      setIsSavingIntentSignalsInline(false);
+      return;
+    }
+    if (!expandedPersonaId) {
+      setIntentSignalsEditingPersonaId(null);
+      setIntentSignalsDraft([]);
+      setIntentSignalsInlineError(null);
+      setIsSavingIntentSignalsInline(false);
+      return;
+    }
+    if (intentSignalsEditingPersonaId !== expandedPersonaId) {
+      const persona = personas.find((item) => item.agent_id === expandedPersonaId);
+      const personaIntentSignals = persona?.intent_signals;
+      const initialIntentSignals = Array.isArray(personaIntentSignals)
+        ? personaIntentSignals
+            .map((signal) => (typeof signal === "string" ? signal.trim() : ""))
+            .filter((signal): signal is string => signal.length > 0)
+        : [];
+      setIntentSignalsEditingPersonaId(expandedPersonaId);
+      setIntentSignalsDraft(initialIntentSignals);
+      setIntentSignalsInlineError(null);
+      setIsSavingIntentSignalsInline(false);
+    }
+  }, [canEdit, expandedPersonaId, intentSignalsEditingPersonaId, personas]);
 
   const handlePersonaCardKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>, persona: PersonaRow) => {
@@ -1133,6 +1407,137 @@ export default function PersonasPage() {
     setShowDeletePersonaConfirm(false);
     setDeletePersonaError(null);
   };
+
+  const handleStartNameInlineEdit = useCallback(
+    (persona: PersonaRow) => {
+      if (!canEdit) return;
+      setNameEditingPersonaId(persona.agent_id);
+      setNameDraft(persona.agent_name ?? "");
+      setNameInlineError(null);
+    },
+    [canEdit]
+  );
+
+  const handleSaveNameInline = useCallback(
+    async (persona: PersonaRow) => {
+      if (!canEdit || !nameEditingPersonaId || nameEditingPersonaId !== persona.agent_id) {
+        return;
+      }
+      if (isSavingNameInline) return;
+
+      const trimmed = nameDraft.trim();
+      const previous = persona.agent_name ? persona.agent_name.trim() : "";
+      if (!trimmed) {
+        setNameInlineError("Name cannot be empty.");
+        return;
+      }
+      if (trimmed === previous) {
+        setNameInlineError(null);
+        setNameEditingPersonaId(null);
+        setNameDraft(persona.agent_name ?? "");
+        return;
+      }
+
+      setIsSavingNameInline(true);
+      setNameInlineError(null);
+
+      const { error } = await supabase
+        .from("agent_map")
+        .update({ agent_name: trimmed })
+        .eq("agent_id", persona.agent_id);
+
+      if (error) {
+        setNameInlineError("Unable to update name. Please try again.");
+        setIsSavingNameInline(false);
+        return;
+      }
+
+      setPersonas((prev) =>
+        prev.map((item) =>
+          item.agent_id === persona.agent_id ? { ...item, agent_name: trimmed } : item
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === persona.agent_id ? { ...prev, agent_name: trimmed } : prev
+      );
+
+      setIsSavingNameInline(false);
+      setNameEditingPersonaId(null);
+      setNameDraft(trimmed);
+      setNameInlineError(null);
+    },
+    [
+      canEdit,
+      nameEditingPersonaId,
+      isSavingNameInline,
+      nameDraft,
+      supabase,
+      setPersonas,
+      setActivePersona,
+      setNameInlineError,
+      setIsSavingNameInline,
+      setNameEditingPersonaId,
+      setNameDraft,
+    ]
+  );
+
+  const handleNameInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>, persona: PersonaRow) => {
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void handleSaveNameInline(persona);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setNameDraft(persona.agent_name ?? "");
+        setNameInlineError(null);
+        setNameEditingPersonaId(null);
+      }
+    },
+    [handleSaveNameInline, setNameDraft, setNameInlineError, setNameEditingPersonaId]
+  );
+
+  const handleSaveDescriptionEdit = useCallback(
+    async (persona: PersonaRow) => {
+      if (!canEdit || !descriptionEditingPersonaId || descriptionEditingPersonaId !== persona.agent_id) {
+        return;
+      }
+      if (isSavingDescriptionInline) return;
+
+      const previous = persona.description ?? "";
+      if (descriptionDraft === previous) {
+        setDescriptionInlineError(null);
+        return;
+      }
+
+      setIsSavingDescriptionInline(true);
+      setDescriptionInlineError(null);
+
+      const { error } = await supabase
+        .from("agent_map")
+        .update({ description: descriptionDraft })
+        .eq("agent_id", persona.agent_id);
+
+      if (error) {
+        setDescriptionInlineError("Unable to update description. Please try again.");
+        setIsSavingDescriptionInline(false);
+        return;
+      }
+
+      setPersonas((prev) =>
+        prev.map((item) =>
+          item.agent_id === persona.agent_id ? { ...item, description: descriptionDraft } : item
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === persona.agent_id ? { ...prev, description: descriptionDraft } : prev
+      );
+
+      setIsSavingDescriptionInline(false);
+      setDescriptionInlineError(null);
+    },
+    [canEdit, descriptionDraft, descriptionEditingPersonaId, isSavingDescriptionInline, supabase]
+  );
 
   const handleConfirmDeletePersona = useCallback(async () => {
     if (!activePersona || !canEdit) return;
@@ -1780,6 +2185,206 @@ export default function PersonasPage() {
     }
   }, [activePersona, baselineScalarTraits, scalarTraitValues, commitScalarTrait]);
 
+  const handlePainPointDraftChange = useCallback(
+    (index: number, value: string) => {
+      setPainPointsDraft((prev) => {
+        const next = prev.slice();
+        next[index] = value;
+        return next;
+      });
+      setPainPointsInlineError(null);
+    },
+    [setPainPointsDraft, setPainPointsInlineError]
+  );
+
+  const handleAddPainPointInline = useCallback(() => {
+    if (!canEdit || !painPointsEditingPersonaId || isSavingPainPointsInline) return;
+    setPainPointsDraft((prev) => [...prev, ""]);
+    setPainPointsInlineError(null);
+  }, [
+    canEdit,
+    painPointsEditingPersonaId,
+    isSavingPainPointsInline,
+    setPainPointsDraft,
+    setPainPointsInlineError,
+  ]);
+
+  const handleRemovePainPointInline = useCallback(
+    (index: number) => {
+      if (!canEdit || isSavingPainPointsInline) return;
+      setPainPointsDraft((prev) => prev.filter((_, idx) => idx !== index));
+      setPainPointsInlineError(null);
+    },
+    [canEdit, isSavingPainPointsInline, setPainPointsDraft, setPainPointsInlineError]
+  );
+
+  const handleSavePainPointsInline = useCallback(
+    async (persona: PersonaRow) => {
+      if (
+        !canEdit ||
+        !painPointsEditingPersonaId ||
+        painPointsEditingPersonaId !== persona.agent_id
+      ) {
+        return;
+      }
+      if (isSavingPainPointsInline) return;
+
+      const previousPainPoints = Array.isArray(persona.key_pain_points)
+        ? persona.key_pain_points
+            .map((point) => (typeof point === "string" ? point.trim() : ""))
+            .filter((point) => point.length > 0)
+        : [];
+      const nextPainPoints = painPointsDraft
+        .map((point) => point.trim())
+        .filter((point) => point.length > 0);
+
+      if (JSON.stringify(previousPainPoints) === JSON.stringify(nextPainPoints)) {
+        setPainPointsInlineError(null);
+        setPainPointsDraft(previousPainPoints);
+        return;
+      }
+
+      setIsSavingPainPointsInline(true);
+      setPainPointsInlineError(null);
+
+      const { error } = await supabase
+        .from("agent_map")
+        .update({ key_pain_points: nextPainPoints })
+        .eq("agent_id", persona.agent_id);
+
+      if (error) {
+        setPainPointsInlineError("Unable to update pain points. Please try again.");
+        setPainPointsDraft(previousPainPoints);
+        setIsSavingPainPointsInline(false);
+        return;
+      }
+
+      setPainPointsDraft(nextPainPoints);
+      setPersonas((prev) =>
+        prev.map((item) =>
+          item.agent_id === persona.agent_id ? { ...item, key_pain_points: nextPainPoints } : item
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === persona.agent_id ? { ...prev, key_pain_points: nextPainPoints } : prev
+      );
+      setPainPointsInlineError(null);
+      setIsSavingPainPointsInline(false);
+    },
+    [
+      canEdit,
+      painPointsEditingPersonaId,
+      isSavingPainPointsInline,
+      painPointsDraft,
+      supabase,
+      setPersonas,
+      setActivePersona,
+      setPainPointsInlineError,
+      setIsSavingPainPointsInline,
+      setPainPointsDraft,
+    ]
+  );
+
+  const handleIntentSignalDraftChange = useCallback(
+    (index: number, value: string) => {
+      setIntentSignalsDraft((prev) => {
+        const next = prev.slice();
+        next[index] = value;
+        return next;
+      });
+      setIntentSignalsInlineError(null);
+    },
+    [setIntentSignalsDraft, setIntentSignalsInlineError]
+  );
+
+  const handleAddIntentSignalInline = useCallback(() => {
+    if (!canEdit || !intentSignalsEditingPersonaId || isSavingIntentSignalsInline) return;
+    setIntentSignalsDraft((prev) => [...prev, ""]);
+    setIntentSignalsInlineError(null);
+  }, [
+    canEdit,
+    intentSignalsEditingPersonaId,
+    isSavingIntentSignalsInline,
+    setIntentSignalsDraft,
+    setIntentSignalsInlineError,
+  ]);
+
+  const handleRemoveIntentSignalInline = useCallback(
+    (index: number) => {
+      if (!canEdit || isSavingIntentSignalsInline) return;
+      setIntentSignalsDraft((prev) => prev.filter((_, idx) => idx !== index));
+      setIntentSignalsInlineError(null);
+    },
+    [canEdit, isSavingIntentSignalsInline, setIntentSignalsDraft, setIntentSignalsInlineError]
+  );
+
+  const handleSaveIntentSignalsInline = useCallback(
+    async (persona: PersonaRow) => {
+      if (
+        !canEdit ||
+        !intentSignalsEditingPersonaId ||
+        intentSignalsEditingPersonaId !== persona.agent_id
+      ) {
+        return;
+      }
+      if (isSavingIntentSignalsInline) return;
+
+      const previousIntentSignals = Array.isArray(persona.intent_signals)
+        ? persona.intent_signals
+            .map((signal) => (typeof signal === "string" ? signal.trim() : ""))
+            .filter((signal) => signal.length > 0)
+        : [];
+      const nextIntentSignals = intentSignalsDraft
+        .map((signal) => signal.trim())
+        .filter((signal) => signal.length > 0);
+
+      if (JSON.stringify(previousIntentSignals) === JSON.stringify(nextIntentSignals)) {
+        setIntentSignalsInlineError(null);
+        setIntentSignalsDraft(previousIntentSignals);
+        return;
+      }
+
+      setIsSavingIntentSignalsInline(true);
+      setIntentSignalsInlineError(null);
+
+      const { error } = await supabase
+        .from("agent_map")
+        .update({ intent_signals: nextIntentSignals })
+        .eq("agent_id", persona.agent_id);
+
+      if (error) {
+        setIntentSignalsInlineError("Unable to update intent signals. Please try again.");
+        setIntentSignalsDraft(previousIntentSignals);
+        setIsSavingIntentSignalsInline(false);
+        return;
+      }
+
+      setIntentSignalsDraft(nextIntentSignals);
+      setPersonas((prev) =>
+        prev.map((item) =>
+          item.agent_id === persona.agent_id ? { ...item, intent_signals: nextIntentSignals } : item
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === persona.agent_id ? { ...prev, intent_signals: nextIntentSignals } : prev
+      );
+      setIntentSignalsInlineError(null);
+      setIsSavingIntentSignalsInline(false);
+    },
+    [
+      canEdit,
+      intentSignalsEditingPersonaId,
+      isSavingIntentSignalsInline,
+      intentSignalsDraft,
+      supabase,
+      setPersonas,
+      setActivePersona,
+      setIntentSignalsInlineError,
+      setIsSavingIntentSignalsInline,
+      setIntentSignalsDraft,
+    ]
+  );
+
   const handlePainPointChange = useCallback((index: number, value: string) => {
     setPainPointValues((prev) => {
       const next = prev.slice();
@@ -2151,19 +2756,43 @@ export default function PersonasPage() {
 
   const hasAnyUnsavedChanges =
     hasUnsavedName ||
+    hasUnsavedNameInline ||
     hasUnsavedDescription ||
+    hasUnsavedDescriptionInline ||
     hasUnsavedKeyTraits ||
     hasUnsavedScalarTraits ||
     hasUnsavedPainPoints ||
+    hasUnsavedPainPointsInline ||
     hasUnsavedIntentSignals ||
+  hasUnsavedIntentSignalsInline ||
     hasUnsavedDocuments;
-  const showUnsavedChangesBanner = selectedOption === "edit" && canEdit && hasAnyUnsavedChanges;
+  const showUnsavedChangesBanner = canEdit && hasAnyUnsavedChanges;
   const handleClearUnsavedChanges = useCallback(() => {
     if (hasUnsavedName) {
       handleClearPersonaName();
     }
+    if (hasUnsavedNameInline) {
+      if (nameEditingPersonaId) {
+        const persona = personas.find((item) => item.agent_id === nameEditingPersonaId);
+        const baseline = persona?.agent_name ?? "";
+        setNameDraft(baseline);
+      } else {
+        setNameDraft("");
+      }
+      setNameInlineError(null);
+    }
     if (hasUnsavedDescription) {
       handleClearPersonaDescription();
+    }
+    if (hasUnsavedDescriptionInline) {
+      if (descriptionEditingPersonaId) {
+        const persona = personas.find((item) => item.agent_id === descriptionEditingPersonaId);
+        const baseline = persona?.description ?? "";
+        setDescriptionDraft(baseline);
+      } else {
+        setDescriptionDraft("");
+      }
+      setDescriptionInlineError(null);
     }
     if (hasUnsavedKeyTraits) {
       handleClearKeyTraits();
@@ -2183,8 +2812,18 @@ export default function PersonasPage() {
         customer_status: null,
       });
     }
+    if (hasUnsavedPainPointsInline) {
+      setPainPointsDraft([...baselineInlinePainPointsList]);
+      setPainPointsInlineError(null);
+      setIsSavingPainPointsInline(false);
+    }
     if (hasUnsavedPainPoints) {
       handleClearPainPoints();
+    }
+    if (hasUnsavedIntentSignalsInline) {
+      setIntentSignalsDraft([...baselineInlineIntentSignalsList]);
+      setIntentSignalsInlineError(null);
+      setIsSavingIntentSignalsInline(false);
     }
     if (hasUnsavedIntentSignals) {
       handleClearIntentSignals();
@@ -2196,14 +2835,31 @@ export default function PersonasPage() {
   }, [
     hasUnsavedName,
     handleClearPersonaName,
+    hasUnsavedNameInline,
+    nameEditingPersonaId,
+    personas,
+    setNameDraft,
+    setNameInlineError,
     hasUnsavedDescription,
     handleClearPersonaDescription,
+    hasUnsavedDescriptionInline,
+    descriptionEditingPersonaId,
     hasUnsavedKeyTraits,
     handleClearKeyTraits,
     hasUnsavedScalarTraits,
     baselineScalarTraits,
+  hasUnsavedPainPointsInline,
+  baselineInlinePainPointsList,
+  setPainPointsDraft,
+  setPainPointsInlineError,
+  setIsSavingPainPointsInline,
     hasUnsavedPainPoints,
     handleClearPainPoints,
+  hasUnsavedIntentSignalsInline,
+  baselineInlineIntentSignalsList,
+  setIntentSignalsDraft,
+  setIntentSignalsInlineError,
+  setIsSavingIntentSignalsInline,
     hasUnsavedIntentSignals,
     handleClearIntentSignals,
     hasUnsavedDocuments,
@@ -2215,8 +2871,20 @@ export default function PersonasPage() {
     if (hasUnsavedName) {
       await commitPersonaName();
     }
+    if (hasUnsavedNameInline && nameEditingPersonaId) {
+      const persona = personas.find((item) => item.agent_id === nameEditingPersonaId);
+      if (persona) {
+        await handleSaveNameInline(persona);
+      }
+    }
     if (hasUnsavedDescription) {
       await commitPersonaDescription();
+    }
+    if (hasUnsavedDescriptionInline && descriptionEditingPersonaId) {
+      const persona = personas.find((item) => item.agent_id === descriptionEditingPersonaId);
+      if (persona) {
+        await handleSaveDescriptionEdit(persona);
+      }
     }
     if (hasUnsavedKeyTraits) {
       await commitPersonaTraits();
@@ -2224,8 +2892,20 @@ export default function PersonasPage() {
     if (hasUnsavedScalarTraits) {
       await commitUnsavedScalarTraits();
     }
+    if (hasUnsavedPainPointsInline && painPointsEditingPersonaId) {
+      const persona = personas.find((item) => item.agent_id === painPointsEditingPersonaId);
+      if (persona) {
+        await handleSavePainPointsInline(persona);
+      }
+    }
     if (hasUnsavedPainPoints) {
       await handleSavePainPoints();
+    }
+    if (hasUnsavedIntentSignalsInline && intentSignalsEditingPersonaId) {
+      const persona = personas.find((item) => item.agent_id === intentSignalsEditingPersonaId);
+      if (persona) {
+        await handleSaveIntentSignalsInline(persona);
+      }
     }
     if (hasUnsavedIntentSignals) {
       await handleSaveIntentSignals();
@@ -2237,18 +2917,31 @@ export default function PersonasPage() {
     hasAnyUnsavedChanges,
     hasUnsavedName,
     commitPersonaName,
+    hasUnsavedNameInline,
+    nameEditingPersonaId,
+    personas,
+    handleSaveNameInline,
     hasUnsavedDescription,
     commitPersonaDescription,
+    hasUnsavedDescriptionInline,
+    descriptionEditingPersonaId,
+    handleSaveDescriptionEdit,
     hasUnsavedKeyTraits,
     commitPersonaTraits,
     hasUnsavedScalarTraits,
     commitUnsavedScalarTraits,
+    hasUnsavedPainPointsInline,
+    painPointsEditingPersonaId,
     hasUnsavedPainPoints,
     handleSavePainPoints,
+    hasUnsavedIntentSignalsInline,
+    intentSignalsEditingPersonaId,
     hasUnsavedIntentSignals,
     handleSaveIntentSignals,
     hasUnsavedDocuments,
     commitStagedDocuments,
+    handleSavePainPointsInline,
+    handleSaveIntentSignalsInline,
   ]);
   const isSavingScalarTraits = useMemo(
     () => Object.values(scalarTraitSaving).some(Boolean),
@@ -2256,19 +2949,23 @@ export default function PersonasPage() {
   );
   const isSavingAny =
     isSavingName ||
+    isSavingNameInline ||
     isSavingDescription ||
+    isSavingDescriptionInline ||
     isSavingTraits ||
     isSavingScalarTraits ||
+  isSavingPainPointsInline ||
     isSavingPainPoints ||
+  isSavingIntentSignalsInline ||
     isSavingIntentSignals ||
     isSavingDocuments;
 
-  const unsavedChangesBanner = (
+  const unsavedChangesBanner = showUnsavedChangesBanner ? (
     <div
-      className={`persona-unsaved-banner${showUnsavedChangesBanner ? " persona-unsaved-banner--visible" : ""}`}
+      className="persona-unsaved-banner persona-unsaved-banner--visible"
       role="alert"
       aria-live="polite"
-      aria-hidden={showUnsavedChangesBanner ? "false" : "true"}
+      aria-hidden="false"
     >
       <span className="persona-unsaved-message" style={{ fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif" }}>
         You have unsaved changes
@@ -2294,7 +2991,7 @@ export default function PersonasPage() {
         </button>
       </div>
     </div>
-  );
+  ) : null;
 
   return (
     <>
@@ -2352,7 +3049,7 @@ export default function PersonasPage() {
                 event.currentTarget.style.transform = "none";
               }}
             >
-              View Personas
+              Personas View
             </Link>
           }
           rightSlot={
@@ -2369,7 +3066,9 @@ export default function PersonasPage() {
                 </span>
                 <span>New persona</span>
               </StageButton>
-            ) : undefined
+            ) : (
+              <></>
+            )
           }
         />
         <main
@@ -2463,6 +3162,11 @@ export default function PersonasPage() {
                       .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
                       .filter((trait): trait is string => trait.length > 0)
                   : [];
+                const profileImageUrl =
+                  typeof persona.profile_image === "string" && persona.profile_image.trim().length > 0
+                    ? persona.profile_image.trim()
+                    : null;
+                const profileImageAlt = `${persona.agent_name ?? "Persona"} profile image`;
                 const contentType =
                   typeof persona.content_type === "string" && persona.content_type.trim().length > 0
                     ? persona.content_type.trim()
@@ -2489,6 +3193,12 @@ export default function PersonasPage() {
                 const descriptionText = hasDescription
                   ? persona.description
                   : "No description has been added yet.";
+                const isDescriptionEditing = descriptionEditingPersonaId === persona.agent_id;
+                const isNameEditing = nameEditingPersonaId === persona.agent_id;
+                const personaTitleClasses = ["persona-card__title"];
+                if (canEdit && isExpanded && !isNameEditing) {
+                  personaTitleClasses.push("persona-card__title--editable");
+                }
                 const hasScalarTraits = traitChips.every(
                   (trait) =>
                     typeof trait.value === "string" &&
@@ -2500,7 +3210,9 @@ export default function PersonasPage() {
                 const hasExternalSources =
                   externalArticles.length > 0 || (externalKnowledgeText && externalKnowledgeText.length > 0);
                 const hasPainPoints = painPoints.length > 0;
+                const isPainPointsEditing = canEdit && painPointsEditingPersonaId === persona.agent_id;
                 const hasIntentSignalsFilled = intentSignals.length > 0;
+                const isIntentSignalsEditing = canEdit && intentSignalsEditingPersonaId === persona.agent_id;
                 const completedSlots = [
                   hasScalarTraits,
                   hasDescription,
@@ -2515,6 +3227,8 @@ export default function PersonasPage() {
                 );
                 const completionVariant =
                   completionPercent >= 90 ? "complete" : completionPercent >= 50 ? "warning" : "danger";
+                const personaSlug = personaSlugLookup.get(persona.agent_id) ?? null;
+                const targetClientSlug = resolvedClientSlug ?? clientSlug ?? "";
                 return (
                   <div
                     key={persona.agent_id}
@@ -2545,12 +3259,69 @@ export default function PersonasPage() {
                           : undefined
                       }
                     >
-                    <div className="persona-card__body">
+                      {profileImageUrl && !isExpanded ? (
+                        <div className="persona-card__avatar-floating">
+                          <img
+                            src={profileImageUrl}
+                            alt={profileImageAlt}
+                            className="persona-card__avatar"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="persona-card__body">
                       <div className="persona-card__title-row">
-                        <div className="persona-card__title-left">
+                        <div
+                          className={`persona-card__title-left${isExpanded ? " persona-card__title-left--expanded" : ""}`}
+                        >
                           <div className="persona-card__title-main">
                             <div className="persona-card__title-top">
-                              <h3 className="persona-card__title">{persona.agent_name ?? "Untitled persona"}</h3>
+                              {isExpanded && profileImageUrl ? (
+                                <div className="persona-card__avatar-inline">
+                                  <img
+                                    src={profileImageUrl}
+                                    alt={profileImageAlt}
+                                    className="persona-card__avatar"
+                                  />
+                                </div>
+                              ) : null}
+                              {isExpanded && canEdit && isNameEditing ? (
+                                <div className="persona-card__name-editor">
+                                  <input
+                                    className="persona-card__name-input"
+                                    value={nameDraft}
+                                    onChange={(event) => setNameDraft(event.target.value)}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onFocus={(event) => event.stopPropagation()}
+                                    onKeyDown={(event) => handleNameInputKeyDown(event, persona)}
+                                    disabled={isSavingNameInline}
+                                    autoFocus
+                                  />
+                                  {isNameEditing && nameInlineError ? (
+                                    <p className="persona-inline-error">{nameInlineError}</p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <h3
+                                  className={personaTitleClasses.join(" ")}
+                                  title={canEdit && isExpanded ? "Click to edit name" : undefined}
+                                  tabIndex={canEdit && isExpanded ? 0 : -1}
+                                  onClick={(event) => {
+                                    if (!canEdit || !isExpanded) return;
+                                    event.stopPropagation();
+                                    handleStartNameInlineEdit(persona);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (!canEdit || !isExpanded) return;
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      handleStartNameInlineEdit(persona);
+                                    }
+                                  }}
+                                >
+                                  {persona.agent_name ?? "Untitled persona"}
+                                </h3>
+                              )}
                               {isExpanded ? (
                                 <div className="persona-completion persona-completion--inline">
                                   <span className="persona-completion__label">Completion</span>
@@ -2594,6 +3365,12 @@ export default function PersonasPage() {
                                         className={classes.join(" ")}
                                         onClick={(event) => {
                                           event.stopPropagation();
+                                          if (personaSlug && targetClientSlug) {
+                                            const clientSegment = encodeURIComponent(targetClientSlug);
+                                            const personaSegment = encodeURIComponent(personaSlug);
+                                            router.push(`/app/${clientSegment}/${personaSegment}/${action.key}`);
+                                            return;
+                                          }
                                           setActivePersona(persona);
                                           setSelectedOption(action.key);
                                         }}
@@ -2608,19 +3385,6 @@ export default function PersonasPage() {
                                   );
                                 })}
                               </div>
-                              {canEdit ? (
-                                <button
-                                  type="button"
-                                  className="persona-title-cta persona-title-cta--ghost"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setActivePersona(persona);
-                                    setSelectedOption("edit");
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
                             </div>
                           ) : null}
                           {!isReady ? (
@@ -2641,11 +3405,40 @@ export default function PersonasPage() {
                         >
                           <div className="persona-expanded-track">
                             <div className="persona-expanded-block persona-expanded-block--description">
-                              <h4>Description</h4>
+                              <div className="persona-expanded-block__header persona-expanded-block__header--description">
+                                <h4>Description</h4>
+                              </div>
                               <div
-                                className={`persona-description${hasDescription ? "" : " persona-description--empty"}`}
+                                className={`persona-description${
+                                  isDescriptionEditing
+                                    ? " persona-description--editing"
+                                    : hasDescription
+                                      ? ""
+                                      : " persona-description--empty"
+                                }`}
+                                style={isDescriptionEditing && canEdit ? { height: "100%" } : undefined}
                               >
-                                <p>{descriptionText}</p>
+                                {isDescriptionEditing && canEdit ? (
+                                  <>
+                                    <textarea
+                                      className="persona-description__input"
+                                      value={descriptionDraft}
+                                      onChange={(event) => setDescriptionDraft(event.target.value)}
+                                      onClick={(event) => event.stopPropagation()}
+                                      onFocus={(event) => event.stopPropagation()}
+                                      onKeyDown={(event) => event.stopPropagation()}
+                                      onKeyUp={(event) => event.stopPropagation()}
+                                      disabled={isSavingDescriptionInline}
+                                      rows={hasDescription ? 5 : 6}
+                                      placeholder="Add a description for this persona"
+                                    />
+                                    {descriptionInlineError ? (
+                                      <p className="persona-inline-error">{descriptionInlineError}</p>
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  <p>{descriptionText}</p>
+                                )}
                               </div>
                             </div>
                             <div className="persona-expanded-block">
@@ -2771,65 +3564,205 @@ export default function PersonasPage() {
                                 )}
                               </ul>
                             </div>
-                            <div className="persona-expanded-block">
-                              <h4>Key pain points</h4>
-                              <ul className="persona-expanded-list">
-                                {painPoints.length > 0 ? (
-                                  painPoints.map((point, index) => (
-                                    <li key={`pain-point-${persona.agent_id}-${index}`}>
-                                      <div className="persona-expanded-list-item">{point}</div>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li>
-                                    <div className="persona-expanded-list-item">No pain points captured yet.</div>
-                                  </li>
-                                )}
-                              </ul>
-                              {canEdit && painPoints.length === 0 ? (
-                                <button
-                                  type="button"
-                                  className="persona-expanded-add"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setActivePersona(persona);
-                                    setSelectedOption("edit");
-                                    setExpandedPersonaId(persona.agent_id);
-                                  }}
-                                >
-                                  Add pain points in editor
-                                </button>
+                            <div
+                              className={`persona-expanded-block${
+                                isPainPointsEditing ? " persona-expanded-block--pain-points" : ""
+                              }`}
+                            >
+                              <div className="persona-expanded-block__header">
+                                <h4>Key pain points</h4>
+                              </div>
+                              {isPainPointsEditing && painPointsInlineError ? (
+                                <p className="persona-inline-error">{painPointsInlineError}</p>
                               ) : null}
+                              {isPainPointsEditing ? (
+                                <>
+                                  {painPointsDraft.length === 0 ? (
+                                    <div className="persona-edit-pain-points-empty">No key pain points added yet.</div>
+                                  ) : (
+                                    <ul className="persona-edit-pain-points-list" role="list">
+                                      {painPointsDraft.map((value, index) => (
+                                        <li
+                                          key={`persona-inline-pain-point-${persona.agent_id}-${index}`}
+                                          className="persona-edit-pain-point-row"
+                                        >
+                                          <input
+                                            type="text"
+                                            value={value}
+                                            onChange={(event) => {
+                                              event.stopPropagation();
+                                              handlePainPointDraftChange(index, event.target.value);
+                                            }}
+                                            onClick={(event) => event.stopPropagation()}
+                                            onFocus={(event) => event.stopPropagation()}
+                                            onKeyDown={(event) => event.stopPropagation()}
+                                            placeholder="Enter pain point"
+                                            className="persona-edit-pain-point-input"
+                                            disabled={isSavingPainPointsInline}
+                                          />
+                                          <button
+                                            type="button"
+                                            className="persona-edit-pain-point-remove"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              handleRemovePainPointInline(index);
+                                            }}
+                                            aria-label={`Remove pain point ${index + 1}`}
+                                            disabled={isSavingPainPointsInline}
+                                          >
+                                            ×
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {isSavingPainPointsInline ? (
+                                    <span className="persona-edit-status">Saving…</span>
+                                  ) : null}
+                                  <PillButton
+                                    type="button"
+                                    variant="subtle"
+                                    className="persona-expanded-add persona-expanded-add--floating"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAddPainPointInline();
+                                    }}
+                                    disabled={isSavingPainPointsInline}
+                                  >
+                                    Add pain point
+                                  </PillButton>
+                                </>
+                              ) : (
+                                <>
+                                  <ul className="persona-expanded-list">
+                                    {painPoints.length > 0 ? (
+                                      painPoints.map((point, index) => (
+                                        <li key={`pain-point-${persona.agent_id}-${index}`}>
+                                          <div className="persona-expanded-list-item">{point}</div>
+                                        </li>
+                                      ))
+                                    ) : (
+                                      <li>
+                                        <div className="persona-expanded-list-item">No pain points captured yet.</div>
+                                      </li>
+                                    )}
+                                  </ul>
+                                  {canEdit && painPoints.length === 0 ? (
+                                    <button
+                                      type="button"
+                                      className="persona-expanded-add"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setActivePersona(persona);
+                                        setSelectedOption("edit");
+                                        setExpandedPersonaId(persona.agent_id);
+                                      }}
+                                    >
+                                      Add pain points in editor
+                                    </button>
+                                  ) : null}
+                                </>
+                              )}
                             </div>
-                            <div className="persona-expanded-block">
-                              <h4>Intent signals</h4>
-                              <ul className="persona-expanded-list">
-                                {intentSignals.length > 0 ? (
-                                  intentSignals.map((signal, index) => (
-                                    <li key={`intent-signal-${persona.agent_id}-${index}`}>
-                                      <div className="persona-expanded-list-item">{signal}</div>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li>
-                                    <div className="persona-expanded-list-item">No intent signals captured yet.</div>
-                                  </li>
-                                )}
-                              </ul>
-                              {canEdit && intentSignals.length === 0 ? (
-                                <button
-                                  type="button"
-                                  className="persona-expanded-add"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setActivePersona(persona);
-                                    setSelectedOption("edit");
-                                    setExpandedPersonaId(persona.agent_id);
-                                  }}
-                                >
-                                  Add intent signals in editor
-                                </button>
+                            <div
+                              className={`persona-expanded-block${
+                                isIntentSignalsEditing ? " persona-expanded-block--intent-signals" : ""
+                              }`}
+                            >
+                              <div className="persona-expanded-block__header">
+                                <h4>Intent signals</h4>
+                              </div>
+                              {isIntentSignalsEditing && intentSignalsInlineError ? (
+                                <p className="persona-inline-error">{intentSignalsInlineError}</p>
                               ) : null}
+                              {isIntentSignalsEditing ? (
+                                <>
+                                  {intentSignalsDraft.length === 0 ? (
+                                    <div className="persona-edit-intent-empty">No intent signals captured yet.</div>
+                                  ) : (
+                                    <ul className="persona-edit-intent-list" role="list">
+                                      {intentSignalsDraft.map((value, index) => (
+                                        <li
+                                          key={`persona-inline-intent-${persona.agent_id}-${index}`}
+                                          className="persona-edit-intent-row"
+                                        >
+                                          <input
+                                            type="text"
+                                            value={value}
+                                            onChange={(event) => {
+                                              event.stopPropagation();
+                                              handleIntentSignalDraftChange(index, event.target.value);
+                                            }}
+                                            onClick={(event) => event.stopPropagation()}
+                                            onFocus={(event) => event.stopPropagation()}
+                                            onKeyDown={(event) => event.stopPropagation()}
+                                            placeholder="Enter intent signal"
+                                            className="persona-edit-intent-input"
+                                            disabled={isSavingIntentSignalsInline}
+                                          />
+                                          <button
+                                            type="button"
+                                            className="persona-edit-intent-remove"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              handleRemoveIntentSignalInline(index);
+                                            }}
+                                            aria-label={`Remove intent signal ${index + 1}`}
+                                            disabled={isSavingIntentSignalsInline}
+                                          >
+                                            ×
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {isSavingIntentSignalsInline ? (
+                                    <span className="persona-edit-status">Saving…</span>
+                                  ) : null}
+                                  <PillButton
+                                    type="button"
+                                    variant="subtle"
+                                    className="persona-expanded-add persona-expanded-add--floating"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAddIntentSignalInline();
+                                    }}
+                                    disabled={isSavingIntentSignalsInline}
+                                  >
+                                    Add intent signal
+                                  </PillButton>
+                                </>
+                              ) : (
+                                <>
+                                  <ul className="persona-expanded-list">
+                                    {intentSignals.length > 0 ? (
+                                      intentSignals.map((signal, index) => (
+                                        <li key={`intent-signal-${persona.agent_id}-${index}`}>
+                                          <div className="persona-expanded-list-item">{signal}</div>
+                                        </li>
+                                      ))
+                                    ) : (
+                                      <li>
+                                        <div className="persona-expanded-list-item">No intent signals captured yet.</div>
+                                      </li>
+                                    )}
+                                  </ul>
+                                  {canEdit && intentSignals.length === 0 ? (
+                                    <button
+                                      type="button"
+                                      className="persona-expanded-add"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setActivePersona(persona);
+                                        setSelectedOption("edit");
+                                        setExpandedPersonaId(persona.agent_id);
+                                      }}
+                                    >
+                                      Add intent signals in editor
+                                    </button>
+                                  ) : null}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3276,33 +4209,27 @@ export default function PersonasPage() {
                                   <ul className="persona-edit-pain-points-list" role="list">
                                     {painPointValues.map((value, index) => (
                                       <li key={`persona-pain-point-${index}`} className="persona-edit-pain-point-row">
-                                        {canEdit ? (
-                                          <>
-                                            <input
-                                              type="text"
-                                              value={value}
-                                              onChange={(event) => {
-                                                handlePainPointChange(index, event.target.value);
-                                              }}
-                                              placeholder="Enter pain point"
-                                              className="persona-edit-pain-point-input"
-                                              disabled={isSavingPainPoints}
-                                            />
-                                            <button
-                                              type="button"
-                                              className="persona-edit-pain-point-remove"
-                                              onClick={() => {
-                                                handleRemovePainPoint(index);
-                                              }}
-                                              aria-label={`Remove pain point ${index + 1}`}
-                                              disabled={isSavingPainPoints}
-                                            >
-                                              ×
-                                            </button>
-                                          </>
-                                        ) : (
-                                          <span className="persona-edit-pain-point-label">{value}</span>
-                                        )}
+                                        <input
+                                          type="text"
+                                          value={value}
+                                          onChange={(event) => {
+                                            handlePainPointChange(index, event.target.value);
+                                          }}
+                                          placeholder="Enter pain point"
+                                          className="persona-edit-pain-point-input"
+                                          disabled={!canEdit || isSavingPainPoints}
+                                        />
+                                        <button
+                                          type="button"
+                                          className="persona-edit-pain-point-remove"
+                                          onClick={() => {
+                                            handleRemovePainPoint(index);
+                                          }}
+                                          aria-label={`Remove pain point ${index + 1}`}
+                                          disabled={!canEdit || isSavingPainPoints}
+                                        >
+                                          ×
+                                        </button>
                                       </li>
                                     ))}
                                   </ul>
@@ -3603,7 +4530,6 @@ export default function PersonasPage() {
           }
           .persona-unsaved-save {
             display: inline-flex;
-            align-items: center;
             justify-content: center;
             border-radius: 12px;
             border: 1px solid rgba(148, 195, 255, 0.45);
@@ -3910,7 +4836,7 @@ export default function PersonasPage() {
           }
           .persona-card__title-top {
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             gap: 12px;
             flex-wrap: wrap;
           }
@@ -4104,9 +5030,108 @@ export default function PersonasPage() {
             line-height: 1.6;
             margin: 0;
           }
+          .persona-description--empty {
+            color: rgba(30, 41, 59, 0.48);
+            font-style: italic;
+          }
+          .persona-description--editing {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch;
+            height: 100%;
+          }
           .persona-description p {
             margin: 0;
             word-break: break-word;
+          }
+          .persona-description__input {
+            width: 100%;
+            min-height: 100%;
+            height: 100%;
+            resize: vertical;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 41, 59, 0.2);
+            padding: 12px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            color: rgba(15, 23, 42, 0.92);
+            background: rgba(248, 250, 252, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          }
+          .persona-description__input:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.65);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+            background: #fff;
+          }
+          .persona-description__input:disabled {
+            opacity: 0.6;
+            cursor: progress;
+          }
+          .persona-expanded-block__header--description {
+            align-items: center;
+          }
+          .persona-inline-edit-button {
+            border: none;
+            background: rgba(248, 250, 252, 0.9);
+            color: rgba(37, 99, 235, 0.85);
+            border-radius: 999px;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+          }
+          .persona-inline-edit-button:hover {
+            background: rgba(37, 99, 235, 0.1);
+            color: rgba(37, 99, 235, 1);
+            transform: translateY(-1px);
+          }
+          .persona-inline-edit-button:focus-visible {
+            outline: 2px solid rgba(37, 99, 235, 0.6);
+            outline-offset: 2px;
+          }
+          .persona-inline-edit-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .persona-inline-edit-action {
+            border: none;
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            background: rgba(37, 99, 235, 0.92);
+            transition: background 0.2s ease, transform 0.2s ease;
+          }
+          .persona-inline-edit-action:hover {
+            background: rgba(30, 64, 175, 0.92);
+            transform: translateY(-1px);
+          }
+          .persona-inline-edit-action:disabled {
+            opacity: 0.6;
+            cursor: progress;
+            transform: none;
+          }
+          .persona-inline-edit-action--secondary {
+            background: rgba(148, 163, 184, 0.28);
+            color: rgba(15, 23, 42, 0.76);
+          }
+          .persona-inline-edit-action--secondary:hover {
+            background: rgba(148, 163, 184, 0.45);
+            color: rgba(15, 23, 42, 0.88);
+          }
+          .persona-inline-error {
+            margin: 0;
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 600;
           }
           .persona-expanded-block ul {
             margin: 0;
@@ -4176,6 +5201,30 @@ export default function PersonasPage() {
             cursor: pointer;
             transition: background 0.2s ease, transform 0.2s ease;
           }
+          .persona-expanded-block--pain-points {
+            position: relative;
+            padding-bottom: 76px;
+          }
+          .persona-expanded-block--pain-points .persona-edit-pain-points-list,
+          .persona-expanded-block--pain-points .persona-edit-pain-points-empty,
+          .persona-expanded-block--pain-points .persona-expanded-list {
+            margin-bottom: 0;
+          }
+          .persona-expanded-block--intent-signals {
+            position: relative;
+            padding-bottom: 76px;
+          }
+          .persona-expanded-block--intent-signals .persona-edit-intent-list,
+          .persona-expanded-block--intent-signals .persona-edit-intent-empty,
+          .persona-expanded-block--intent-signals .persona-expanded-list {
+            margin-bottom: 0;
+          }
+          .persona-expanded-add--floating {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            margin-top: 0;
+          }
           .persona-expanded-add:hover {
             background: rgba(59, 130, 246, 0.18);
             transform: translateY(-1px);
@@ -4235,6 +5284,10 @@ export default function PersonasPage() {
             flex-direction: column;
             gap: 6px;
             min-width: 0;
+            padding-right: 72px;
+          }
+          .persona-card__title-left--expanded {
+            padding-right: 0;
           }
           .persona-card__title-right {
             display: flex;
@@ -4242,6 +5295,37 @@ export default function PersonasPage() {
             align-items: flex-end;
             gap: 10px;
             flex: 0 0 auto;
+          }
+          .persona-card__avatar-floating {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: rgba(248, 250, 252, 0.92);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .persona-card__avatar-inline {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: rgba(248, 250, 252, 0.92);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .persona-card__avatar {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
           }
           .persona-card__title-main {
             display: flex;
@@ -4255,6 +5339,43 @@ export default function PersonasPage() {
             font-weight: 700;
             font-size: 18px;
             color: var(--text);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 4px 8px;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+          }
+          .persona-card__title--editable:hover {
+            border-color: rgba(15, 23, 42, 0.16);
+            background-color: rgba(248, 250, 252, 0.65);
+            cursor: text;
+          }
+          .persona-card__name-editor {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .persona-card__name-input {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid rgba(30, 41, 59, 0.2);
+            padding: 4px 8px;
+            font-size: 18px;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--text);
+            background: rgba(248, 250, 252, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          }
+          .persona-card__name-input:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.65);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+            background: #fff;
+          }
+          .persona-card__name-input:disabled {
+            opacity: 0.6;
+            cursor: progress;
           }
           .persona-card__scalar-traits {
             margin-top: 8px;
@@ -5203,15 +6324,15 @@ export default function PersonasPage() {
           }
           .persona-edit-pain-point-row {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 10px;
           }
           .persona-edit-pain-point-input {
             flex: 1;
             border-radius: 12px;
             border: 1px solid rgba(43, 108, 176, 0.35);
-            background: rgba(15, 23, 42, 0.7);
-            color: #e6eaff;
+            background: rgba(30, 41, 59, 0.06);
+            color: #1e293b;
             padding: 12px 14px;
             font-size: 13px;
             line-height: 1.6;
@@ -5236,20 +6357,19 @@ export default function PersonasPage() {
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background 0.18s ease, border-color 0.18s ease;
+            transition: border-color 0.18s ease;
           }
-          .persona-edit-pain-point-remove:hover,
           .persona-edit-pain-point-remove:focus-visible {
-            background: rgba(31, 46, 74, 0.85);
             border-color: rgba(43, 108, 176, 0.6);
-            outline: none;
+            outline: 2px solid rgba(43, 108, 176, 0.45);
+            outline-offset: 2px;
           }
           .persona-edit-pain-point-label {
             flex: 1;
             border-radius: 12px;
             border: 1px solid rgba(59, 130, 246, 0.18);
-            background: rgba(15, 23, 42, 0.7);
-            color: rgba(226, 232, 240, 0.85);
+            background: rgba(30, 41, 59, 0.06);
+            color: #1e293b;
             padding: 12px 14px;
             font-size: 13px;
             line-height: 1.6;
@@ -5292,15 +6412,15 @@ export default function PersonasPage() {
           }
           .persona-edit-intent-row {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 10px;
           }
           .persona-edit-intent-label {
             flex: 1;
             border-radius: 12px;
             border: 1px solid rgba(59, 130, 246, 0.18);
-            background: rgba(15, 23, 42, 0.7);
-            color: rgba(226, 232, 240, 0.85);
+            background: rgba(30, 41, 59, 0.06);
+            color: #1e293b;
             padding: 12px 14px;
             font-size: 13px;
             line-height: 1.6;
@@ -5309,8 +6429,8 @@ export default function PersonasPage() {
             flex: 1;
             border-radius: 12px;
             border: 1px solid rgba(59, 130, 246, 0.35);
-            background: rgba(15, 23, 42, 0.7);
-            color: #e6eaff;
+            background: rgba(30, 41, 59, 0.06);
+            color: #1e293b;
             padding: 12px 14px;
             font-size: 13px;
             line-height: 1.6;
@@ -5337,7 +6457,7 @@ export default function PersonasPage() {
             cursor: pointer;
             transition: background 0.18s ease, border-color 0.18s ease;
           }
-          .persona-edit-intent-remove:hover,
+          .persona-edit-intent-remove {
           .persona-edit-intent-remove:focus-visible {
             background: rgba(31, 46, 74, 0.85);
             border-color: rgba(59, 130, 246, 0.6);
@@ -5350,13 +6470,12 @@ export default function PersonasPage() {
             gap: 12px;
           }
           .persona-edit-pain-points-footer {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 12px;
+            transition: border-color 0.18s ease;
           }
-          .persona-edit-error--pain-points {
-            font-size: 12px;
+          .persona-edit-intent-remove:focus-visible {
+            border-color: rgba(59, 130, 246, 0.6);
+            outline: 2px solid rgba(59, 130, 246, 0.45);
+            outline-offset: 2px;
           }
           .persona-edit-error--intent-signals {
             font-size: 12px;

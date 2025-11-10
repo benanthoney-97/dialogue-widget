@@ -1,11 +1,110 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import PillButton from "./PillButton";
 import FullscreenModal from "./FullscreenModal";
 import QuestionnaireSingleModal from "./QuestionnaireSingleModal";
 import { jsPDF } from "jspdf";
 import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
+
+const MAX_CSV_PREVIEW_ROWS = 200;
+const MAX_CSV_PREVIEW_COLUMNS = 26;
+
+type CsvPreviewResult = {
+  rows: string[][];
+  truncatedRows: boolean;
+  truncatedColumns: boolean;
+};
+
+function parseCsvPreview(content: string, maxRows: number, maxColumns: number): CsvPreviewResult {
+  const rows: string[][] = [];
+  let truncatedRows = false;
+  let truncatedColumns = false;
+  let currentRow: string[] = [];
+  let currentValue = "";
+  let inQuotes = false;
+
+  const pushRow = () => {
+    const rowCopy = currentRow.slice();
+    if (rowCopy.length > maxColumns) {
+      truncatedColumns = true;
+    }
+    const trimmed = rowCopy.slice(0, maxColumns);
+    rows.push(trimmed);
+  };
+
+  for (let index = 0; index <= content.length; index += 1) {
+    const char = content[index];
+    const isEnd = index === content.length;
+
+    if (inQuotes) {
+      if (!isEnd && char === '"') {
+        if (content[index + 1] === '"') {
+          currentValue += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else if (!isEnd) {
+        currentValue += char ?? "";
+      }
+
+      if (isEnd) {
+        currentRow.push(currentValue);
+        currentValue = "";
+        if (rows.length < maxRows) {
+          pushRow();
+        } else {
+          truncatedRows = true;
+        }
+      }
+      continue;
+    }
+
+    if (!isEnd && char === "\r") {
+      continue;
+    }
+
+    if (!isEnd && char === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (!isEnd && char === ",") {
+      currentRow.push(currentValue);
+      currentValue = "";
+      continue;
+    }
+
+    if (isEnd || char === "\n") {
+      currentRow.push(currentValue);
+      currentValue = "";
+      if (currentRow.length === 1 && currentRow[0] === "" && rows.length === 0 && isEnd) {
+        // empty file - skip adding blank row
+      } else if (rows.length < maxRows) {
+        pushRow();
+      } else {
+        truncatedRows = true;
+      }
+      currentRow = [];
+      if (rows.length >= maxRows && !isEnd) {
+        truncatedRows = true;
+        break;
+      }
+      continue;
+    }
+
+    if (!isEnd && char !== undefined) {
+      currentValue += char;
+    }
+  }
+
+  while (rows.length && rows[rows.length - 1].every((cell) => cell.trim() === "")) {
+    rows.pop();
+  }
+
+  return { rows, truncatedRows, truncatedColumns };
+}
 
 type QuestionnaireModalProps = {
   expandedCardRef: React.RefObject<HTMLDivElement | null>;
@@ -54,6 +153,76 @@ export default function QuestionnaireModal({
 }: QuestionnaireModalProps) {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCsvLoading, setIsCsvLoading] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
+  const [csvMeta, setCsvMeta] = useState<{ truncatedRows: boolean; truncatedColumns: boolean } | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
+  const fileNameLower = (quantFileName ?? "").toLowerCase();
+  const fileTypeLower = (quantFileType ?? "").toLowerCase();
+  const looksLikePdf = fileTypeLower.includes("pdf") || fileNameLower.endsWith(".pdf");
+  const looksLikeCsv = fileTypeLower.includes("csv") || fileNameLower.endsWith(".csv");
+
+  useEffect(() => {
+    if (!quantFileURL || !looksLikeCsv) {
+      setCsvPreview(null);
+      setCsvMeta(null);
+      setCsvError(null);
+      setIsCsvLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadCsv = async () => {
+      setIsCsvLoading(true);
+      setCsvError(null);
+      setCsvPreview(null);
+      setCsvMeta(null);
+      try {
+        const response = await fetch(quantFileURL, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch CSV preview: ${response.status}`);
+        }
+        const text = await response.text();
+        if (cancelled) return;
+        const { rows, truncatedRows, truncatedColumns } = parseCsvPreview(
+          text,
+          MAX_CSV_PREVIEW_ROWS,
+          MAX_CSV_PREVIEW_COLUMNS,
+        );
+        if (rows.length === 0) {
+          setCsvPreview([]);
+          setCsvMeta({ truncatedRows, truncatedColumns });
+          setCsvError("CSV file is empty.");
+        } else {
+          setCsvPreview(rows);
+          setCsvMeta({ truncatedRows, truncatedColumns });
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if ((error as DOMException | Error).name === "AbortError") {
+          return;
+        }
+        console.error("[questionnaire] failed to load CSV preview", error);
+        setCsvError("Unable to preview CSV. Download the file to view it.");
+        setCsvPreview(null);
+        setCsvMeta(null);
+      } finally {
+        if (!cancelled) {
+          setIsCsvLoading(false);
+        }
+      }
+    };
+
+    loadCsv();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [quantFileURL, looksLikeCsv]);
 
   const isHydrating = Boolean(isHydratingJob);
   const jobInFlight = jobStatus !== null && jobStatus !== "parsed" && jobStatus !== "failed";
@@ -332,10 +501,6 @@ export default function QuestionnaireModal({
       return null;
     }
 
-    const looksLikePdf =
-      (quantFileType && quantFileType.includes("pdf")) ||
-      (quantFileName && quantFileName.toLowerCase().endsWith(".pdf"));
-
     if (looksLikePdf) {
       return (
         <iframe
@@ -343,6 +508,178 @@ export default function QuestionnaireModal({
           title={quantFileName ?? "preview"}
           style={{ width: "100%", height: "100%", border: "none", borderRadius: 12 }}
         />
+      );
+    }
+
+    if (looksLikeCsv) {
+      if (isCsvLoading) {
+        return (
+          <div className="persona-quant-loading" style={{ minHeight: 180 }}>
+            <span className="persona-quant-spinner" aria-hidden="true" />
+            <span>Loading preview…</span>
+          </div>
+        );
+      }
+
+      if (csvError) {
+        return (
+          <div
+            className="persona-quant-csv-fallback"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              padding: 24,
+              textAlign: "center",
+              color: "#1e293b",
+              background: "#f8fafc",
+              borderRadius: 16,
+              border: "1px solid rgba(15, 23, 42, 0.08)",
+              height: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{csvError}</span>
+            <a
+              href={quantFileURL}
+              download={quantFileName ?? undefined}
+              style={{ color: "#2563eb", fontWeight: 600 }}
+            >
+              Download CSV
+            </a>
+          </div>
+        );
+      }
+
+      if (!csvPreview || csvPreview.length === 0) {
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              color: "#475569",
+              background: "#f8fafc",
+              borderRadius: 16,
+              border: "1px solid rgba(15, 23, 42, 0.08)",
+              height: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            No data available in CSV.
+          </div>
+        );
+      }
+
+  const displayColumnCount = csvPreview.reduce((max, row) => Math.max(max, row.length), 0);
+  const estimatedWidth = displayColumnCount * 140;
+  const maxPreviewWidth = 720;
+  const clampedTableWidth = Math.max(420, Math.min(estimatedWidth, maxPreviewWidth));
+      const hasHeader = csvPreview.length > 1;
+      const headerRow = hasHeader ? csvPreview[0] : null;
+      const dataRows = hasHeader ? csvPreview.slice(1) : csvPreview;
+      const truncationNotes: string[] = [];
+      if (csvMeta?.truncatedRows) {
+        truncationNotes.push(`Showing first ${MAX_CSV_PREVIEW_ROWS} rows`);
+      }
+      if (csvMeta?.truncatedColumns) {
+        truncationNotes.push(`Showing first ${MAX_CSV_PREVIEW_COLUMNS} columns`);
+      }
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div
+            style={{
+              flex: "1 1 auto",
+              borderRadius: 16,
+              border: "1px solid rgba(15, 23, 42, 0.12)",
+              background: "#ffffff",
+              boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                flex: "1 1 auto",
+                overflowX: "auto",
+                overflowY: "auto",
+                maxWidth: "100%",
+                width: "100%",
+                minWidth: 0,
+                display: "flex",
+              }}
+            >
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  fontSize: 13,
+                  color: "#0f172a",
+                  lineHeight: 1.4,
+                  width: clampedTableWidth,
+                  minWidth: "100%",
+                }}
+              >
+              {headerRow ? (
+                <thead style={{ position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>
+                  <tr>
+                    {Array.from({ length: displayColumnCount }).map((_, columnIndex) => (
+                      <th
+                        key={`header-${columnIndex}`}
+                        style={{
+                          textAlign: "left",
+                          padding: "12px 16px",
+                          fontWeight: 600,
+                          borderBottom: "1px solid rgba(15, 23, 42, 0.12)",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={headerRow[columnIndex] ?? undefined}
+                      >
+                        {headerRow[columnIndex] ?? ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              ) : null}
+              <tbody>
+                {dataRows.map((row, rowIndex) => (
+                  <tr
+                    key={`row-${rowIndex}`}
+                    style={{ background: rowIndex % 2 === 0 ? "transparent" : "#f8fafc" }}
+                  >
+                    {Array.from({ length: displayColumnCount }).map((_, columnIndex) => (
+                      <td
+                        key={`row-${rowIndex}-col-${columnIndex}`}
+                        style={{
+                          padding: "10px 16px",
+                          borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                          verticalAlign: "top",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          maxWidth: 280,
+                        }}
+                        title={row[columnIndex] ?? undefined}
+                      >
+                        {row[columnIndex] ?? ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+              </table>
+            </div>
+          </div>
+          {truncationNotes.length ? (
+            <div style={{ marginTop: 12, fontSize: 12, color: "#475569" }}>
+              {`${truncationNotes.join(". ")}.`}
+            </div>
+          ) : null}
+        </div>
       );
     }
 
@@ -363,146 +700,139 @@ export default function QuestionnaireModal({
   };
 
   const showActionsColumn = resultsPlacement !== "external";
-  const gridClassNames = ["persona-quant-grid"];
-  if (!showResults) {
-    gridClassNames.push("persona-quant-grid--preview-only");
-  }
-  if (!showActionsColumn) {
-    gridClassNames.push("persona-quant-grid--single");
-  }
 
   return (
     <>
       <div ref={expandedCardRef} className="persona-modal-option-body-content persona-modal-option-body-content--quant">
-      {quantFileURL ? (
-          <div className={gridClassNames.join(" ")}>
-              <div className={`persona-quant-preview${!showResults ? " persona-quant-preview--wide" : ""}`}>
-                {renderPreview()}
-              </div>
-              {showActionsColumn ? (
+        {quantFileURL ? (
+          <div className="persona-quant-stack">
+            <div className="persona-quant-preview">
+              <div className="persona-quant-preview-inner">{renderPreview()}</div>
+            </div>
+            {showActionsColumn ? (
               <div className="persona-quant-actions-col">
-            <input
-              ref={quantUploadInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.xlsx,.csv,.txt"
-              style={{ display: "none" }}
-              onChange={onUploadChangeAction}
-            />
-            {quantFileName && !quantFileURL ? (
-              <div className="persona-quant-file" title={quantFileName ?? undefined}>
-                {quantFileName}
-              </div>
-            ) : null}
+                <input
+                  ref={quantUploadInputRef}
+                  type="file"
+                  accept=".pdf,.csv"
+                  style={{ display: "none" }}
+                  onChange={onUploadChangeAction}
+                />
+                {quantFileName && !quantFileURL ? (
+                  <div className="persona-quant-file" title={quantFileName ?? undefined}>
+                    {quantFileName}
+                  </div>
+                ) : null}
 
-            {isHydrating ? (
-              <div className="persona-quant-loading">
-                <span className="persona-quant-spinner" aria-hidden="true" />
-                <span>Loading questionnaire…</span>
-              </div>
-            ) : isProcessing ? null : showResults && resultsPlacement === "inline" ? (
-              <div className="persona-quant-results">
-                <div className="persona-quant-results-header">
-                  <h4>Questionnaire responses</h4>
-                  {parsedResults?.questions ? (
-                    <span className="persona-quant-results-count">
-                      {parsedResults.questions.length}{" "}
-                      {parsedResults.questions.length === 1 ? "response" : "responses"}
-                    </span>
-                  ) : null}
-                </div>
-                {parsedResults?.questions && parsedResults.questions.length > 0 ? (
-                  <div className="persona-quant-results-scroll">
-                    <ul className="persona-quant-results-list">
-                      {parsedResults.questions.map((entry, index) => (
-                        <li key={entry.id ?? `question-${index}`} className="persona-quant-results-item">
-                          <span className="persona-quant-results-question">
-                            {entry.question ?? "Question"}
-                          </span>
-                          <div className="persona-quant-results-answer">
-                            <span className="persona-quant-results-label">Response:</span>
-                            <span>
-                              {entry.response ?? entry.selectedOption ?? "—"}
-                            </span>
-                          </div>
-                          {entry.freeText ? (
-                            <div className="persona-quant-results-answer">
-                              <span className="persona-quant-results-label">Free text:</span>
-                              <span>{entry.freeText}</span>
-                            </div>
-                          ) : null}
-                          {entry.confidence !== undefined && entry.confidence !== null ? (
-                            <div className="persona-quant-results-answer">
-                              <span className="persona-quant-results-label">Confidence:</span>
-                              <span>
-                                {typeof entry.confidence === "number"
-                                  ? entry.confidence.toFixed(2)
-                                  : entry.confidence}
-                              </span>
-                            </div>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
+                {isHydrating ? (
+                  <div className="persona-quant-loading">
+                    <span className="persona-quant-spinner" aria-hidden="true" />
+                    <span>Loading questionnaire…</span>
                   </div>
-                ) : extractionResult ? (
-                  <div className="persona-quant-results-scroll">
-                    <pre className="persona-quant-results-raw">{extractionResult}</pre>
-                  </div>
-                ) : (
-                  <div className="persona-quant-results-scroll">
-                    <div className="persona-quant-results-placeholder">
-                      No questionnaire responses captured yet.
+                ) : isProcessing ? null : showResults && resultsPlacement === "inline" ? (
+                  <div className="persona-quant-results">
+                    <div className="persona-quant-results-header">
+                      <h4>Questionnaire responses</h4>
+                      {parsedResults?.questions ? (
+                        <span className="persona-quant-results-count">
+                          {parsedResults.questions.length}{" "}
+                          {parsedResults.questions.length === 1 ? "response" : "responses"}
+                        </span>
+                      ) : null}
                     </div>
+                    {parsedResults?.questions && parsedResults.questions.length > 0 ? (
+                      <div className="persona-quant-results-scroll">
+                        <ul className="persona-quant-results-list">
+                          {parsedResults.questions.map((entry, index) => (
+                            <li key={entry.id ?? `question-${index}`} className="persona-quant-results-item">
+                              <span className="persona-quant-results-question">
+                                {entry.question ?? "Question"}
+                              </span>
+                              <div className="persona-quant-results-answer">
+                                <span className="persona-quant-results-label">Response:</span>
+                                <span>
+                                  {entry.response ?? entry.selectedOption ?? "—"}
+                                </span>
+                              </div>
+                              {entry.freeText ? (
+                                <div className="persona-quant-results-answer">
+                                  <span className="persona-quant-results-label">Free text:</span>
+                                  <span>{entry.freeText}</span>
+                                </div>
+                              ) : null}
+                              {entry.confidence !== undefined && entry.confidence !== null ? (
+                                <div className="persona-quant-results-answer">
+                                  <span className="persona-quant-results-label">Confidence:</span>
+                                  <span>
+                                    {typeof entry.confidence === "number"
+                                      ? entry.confidence.toFixed(2)
+                                      : entry.confidence}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : extractionResult ? (
+                      <div className="persona-quant-results-scroll">
+                        <pre className="persona-quant-results-raw">{extractionResult}</pre>
+                      </div>
+                    ) : (
+                      <div className="persona-quant-results-scroll">
+                        <div className="persona-quant-results-placeholder">
+                          No questionnaire responses captured yet.
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : !showResults ? (
+                  <div className="persona-quant-actions-row">
+                    <PillButton
+                      type="button"
+                      onClick={onUploadClickAction}
+                      aria-label="Change document"
+                      className="persona-quant-action-square"
+                      disabled={actionsDisabled}
+                      style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
+                    >
+                      Change document
+                    </PillButton>
+                    <PillButton
+                      type="button"
+                      onClick={onRunAction}
+                      aria-label="Run questionnaire"
+                      className="persona-quant-action-square"
+                      disabled={actionsDisabled || !hasQuantFile}
+                      style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
+                    >
+                      Run questionnaire
+                    </PillButton>
+                  </div>
+                ) : null}
+                {jobError ? (
+                  <p className="persona-quant-status persona-quant-status--error">{jobError}</p>
+                ) : null}
+                {showResults ? (
+                  <div className="persona-quant-options-bar" role="group" aria-label="Questionnaire options">
+                    <button
+                      type="button"
+                      className="persona-quant-option-button"
+                      onClick={() => setIsFullscreenOpen(true)}
+                    >
+                      View Full Screen
+                    </button>
+                    <button
+                      type="button"
+                      className="persona-quant-option-button"
+                      onClick={handleDownload}
+                      disabled={isDownloading || !parsedResults?.questions?.length}
+                    >
+                      {isDownloading ? "Downloading…" : "Download"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            ) : !showResults ? (
-              <div className="persona-quant-actions-row">
-                <PillButton
-                  type="button"
-                  onClick={onUploadClickAction}
-                  aria-label="Change document"
-                  className="persona-quant-action-square"
-                  disabled={actionsDisabled}
-                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
-                >
-                  Change document
-                </PillButton>
-                <PillButton
-                  type="button"
-                  onClick={onRunAction}
-                  aria-label="Run questionnaire"
-                  className="persona-quant-action-square"
-                  disabled={actionsDisabled || !hasQuantFile}
-                  style={{ padding: "12px 0", fontWeight: 700, height: 56, borderRadius: 8, minWidth: 0, flex: "1 1 0" }}
-                >
-                  Run questionnaire
-                </PillButton>
-              </div>
-            ) : null}
-            {jobError ? (
-              <p className="persona-quant-status persona-quant-status--error">{jobError}</p>
-            ) : null}
-            {showResults ? (
-              <div className="persona-quant-options-bar" role="group" aria-label="Questionnaire options">
-                <button
-                  type="button"
-                  className="persona-quant-option-button"
-                  onClick={() => setIsFullscreenOpen(true)}
-                >
-                  View Full Screen
-                </button>
-                <button
-                  type="button"
-                  className="persona-quant-option-button"
-                  onClick={handleDownload}
-                  disabled={isDownloading || !parsedResults?.questions?.length}
-                >
-                  {isDownloading ? "Downloading…" : "Download"}
-                </button>
-              </div>
-            ) : null}
-          </div>
             ) : null}
         </div>
       ) : (
@@ -553,12 +883,13 @@ export default function QuestionnaireModal({
                 />
               </svg>
               <span style={{ color: "#0f172a", fontWeight: 700 }}>Upload research questionnaire</span>
+              <span style={{ color: "#475569", fontSize: 12 }}>PDF or CSV format</span>
             </div>
           </PillButton>
           <input
             ref={quantUploadInputRef}
             type="file"
-            accept=".pdf,.doc,.docx,.xlsx,.csv,.txt"
+            accept=".pdf,.csv"
             style={{ display: "none" }}
             onChange={onUploadChangeAction}
           />

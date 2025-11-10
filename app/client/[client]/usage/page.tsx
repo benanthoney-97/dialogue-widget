@@ -307,6 +307,8 @@ export default function UsagePage() {
         title="Usage"
         offsetLeft="var(--stage-topbar-offset, 0px)"
         hideCadenceControls
+        hideProfileAvatar
+        rightSlot={<></>}
       />
       <main className="stage-layout usage-root">
         <aside className="stage-layout__sidebar">
