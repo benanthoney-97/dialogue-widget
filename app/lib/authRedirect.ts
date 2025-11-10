@@ -9,7 +9,6 @@ type ClientRecord = {
 
 type ProfileRecord = {
   client_id: string | number | null;
-  default_agent_id: string | null;
   role: string | null;
 };
 
@@ -52,7 +51,7 @@ export async function resolveDestinationForUser(
   try {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("client_id, default_agent_id, role")
+  .select("client_id, role")
       .eq("id", userId)
       .maybeSingle<ProfileRecord>();
 
@@ -64,8 +63,6 @@ export async function resolveDestinationForUser(
     const clientIdString =
       clientIdRaw === null || clientIdRaw === undefined ? null : String(clientIdRaw);
     const roleValue = typeof profile.role === "string" ? profile.role : null;
-    const defaultAgentId =
-      typeof profile.default_agent_id === "string" ? profile.default_agent_id : null;
 
     if (roleValue === "viewer" && clientIdRaw !== null && clientIdRaw !== undefined) {
       const viewerDestination = await resolveViewerDestination(supabase, clientIdRaw);
@@ -75,22 +72,7 @@ export async function resolveDestinationForUser(
     }
 
     if (clientIdString) {
-      let destination = `/client/${clientIdString}/personas`;
-
-      if (defaultAgentId) {
-        const { data: agentRow } = await supabase
-          .from("agent_map")
-          .select("key")
-          .eq("agent_id", defaultAgentId)
-          .eq("client_id", clientIdRaw)
-          .maybeSingle<{ key: string | null }>();
-
-        if (agentRow?.key) {
-          destination = `/client/${clientIdString}/documents/${agentRow.key}`;
-        }
-      }
-
-      return destination;
+      return `/client/${clientIdString}/personas`;
     }
 
     return fallback;
