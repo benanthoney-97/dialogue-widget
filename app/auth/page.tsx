@@ -127,7 +127,16 @@ function AuthPageContent() {
     setSubmitting(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: origin
+            ? {
+                emailRedirectTo: `${origin}/auth`,
+              }
+            : undefined,
+        });
         if (error) throw error;
         setFeedback({
           type: "success",

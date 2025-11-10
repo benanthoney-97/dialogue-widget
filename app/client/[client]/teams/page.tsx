@@ -84,6 +84,9 @@ export default function TeamsPage() {
   } | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
+  const [invitePendingRevocation, setInvitePendingRevocation] = useState<{ id: string; email: string } | null>(null);
+  const [isRevokingInvite, setIsRevokingInvite] = useState(false);
+  const [inviteActionError, setInviteActionError] = useState<string | null>(null);
   const [roleEditTarget, setRoleEditTarget] = useState<{ id: string; role: string } | null>(null);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const roleSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -377,6 +380,45 @@ export default function TeamsPage() {
     }
   }, [memberPendingRemoval, members]);
 
+  const handleRequestRevokeInvite = useCallback(
+    (invite: { id: string; email: string }) => {
+      if (!canManageTeam) return;
+      setInviteActionError(null);
+      setInvitePendingRevocation({ id: invite.id, email: invite.email });
+    },
+    [canManageTeam],
+  );
+
+  const handleCancelRevokeInvite = useCallback(() => {
+    if (isRevokingInvite) return;
+    setInvitePendingRevocation(null);
+    setInviteActionError(null);
+  }, [isRevokingInvite]);
+
+  const handleConfirmRevokeInvite = useCallback(async () => {
+    if (!invitePendingRevocation) return;
+    setIsRevokingInvite(true);
+    setInviteActionError(null);
+    try {
+      const { error } = await supabase
+        .from("team_invites")
+        .delete()
+        .eq("id", invitePendingRevocation.id);
+      if (error) throw error;
+      setPendingInvites((existing) =>
+        existing.filter((invite) => invite.id !== invitePendingRevocation.id),
+      );
+      setInvitePendingRevocation(null);
+      setRefreshToken((token) => token + 1);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to revoke invite. Please try again.";
+      setInviteActionError(message);
+    } finally {
+      setIsRevokingInvite(false);
+    }
+  }, [invitePendingRevocation]);
+
   const handleStartEditRole = useCallback(
     (member: { id: string; role: string }) => {
       if (!canManageTeam || isUpdatingRole) return;
@@ -475,6 +517,18 @@ export default function TeamsPage() {
     document.addEventListener("keydown", handleKeydown);
     return () => document.removeEventListener("keydown", handleKeydown);
   }, [memberPendingRemoval, handleCancelRemoveMember]);
+
+  useEffect(() => {
+    if (!invitePendingRevocation) return;
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCancelRevokeInvite();
+      }
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, [invitePendingRevocation, handleCancelRevokeInvite]);
 
   const handleInviteSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -647,6 +701,11 @@ export default function TeamsPage() {
                   {memberActionError && !memberPendingRemoval ? (
                     <div className="teams-feedback teams-feedback--error" role="alert">
                       {memberActionError}
+                    </div>
+                  ) : null}
+                  {inviteActionError && !invitePendingRevocation ? (
+                    <div className="teams-feedback teams-feedback--error" role="alert">
+                      {inviteActionError}
                     </div>
                   ) : null}
                   <div
@@ -826,7 +885,14 @@ export default function TeamsPage() {
                             <div role="cell" data-label="Expiry">{invite.expiresAt}</div>
                             <div role="cell" data-label="Actions" className="teams-invite-actions">
                               <button type="button" className="teams-action teams-action--secondary">Resend</button>
-                              <button type="button" className="teams-action teams-action--danger">Revoke</button>
+                              <button
+                                type="button"
+                                className="teams-action teams-action--danger"
+                                onClick={() => handleRequestRevokeInvite(invite)}
+                                disabled={isRevokingInvite && invitePendingRevocation?.id === invite.id}
+                              >
+                                Revoke
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -874,6 +940,48 @@ export default function TeamsPage() {
                           disabled={isRemovingMember}
                         >
                           {isRemovingMember ? "Removing…" : "Remove member"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {canManageTeam && invitePendingRevocation ? (
+                  <div
+                    className="teams-dialog-backdrop"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="teams-revoke-dialog-title"
+                    onClick={handleCancelRevokeInvite}
+                  >
+                    <div
+                      className="teams-dialog"
+                      role="document"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <h4 id="teams-revoke-dialog-title">Revoke invitation?</h4>
+                      <p>
+                        Are you sure you want to revoke the invite for <strong>{invitePendingRevocation.email}</strong>?<br />
+                        They will no longer be able to join using this link.
+                      </p>
+                      {inviteActionError ? (
+                        <div className="teams-dialog__feedback">{inviteActionError}</div>
+                      ) : null}
+                      <div className="teams-dialog__actions">
+                        <button
+                          type="button"
+                          className="teams-dialog__button teams-dialog__button--secondary"
+                          onClick={handleCancelRevokeInvite}
+                          disabled={isRevokingInvite}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="teams-dialog__button teams-dialog__button--danger"
+                          onClick={handleConfirmRevokeInvite}
+                          disabled={isRevokingInvite}
+                        >
+                          {isRevokingInvite ? "Revoking…" : "Revoke invite"}
                         </button>
                       </div>
                     </div>
