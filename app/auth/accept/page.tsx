@@ -371,17 +371,24 @@ function AcceptInvitePage() {
                   <div role="status" className={`auth-feedback auth-feedback--${acceptFeedback.type}`}>
                     {acceptFeedback.message}
                     {acceptFeedback.type === "error" ? (
-                      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                      <div className="auth-feedback__actions">
                         <button
                           type="button"
                           className="auth-button auth-button--secondary"
                           onClick={() => {
                             setAcceptFeedback(null);
                             acceptTriggeredRef.current = false;
+                            router.replace("/auth");
                           }}
                         >
-                          Try again
+                          Log in
                         </button>
+                        <a
+                          className="auth-button auth-button--link"
+                          href="mailto:support@dialogue-ai.co?subject=Email%20help"
+                        >
+                          Contact support
+                        </a>
                       </div>
                     ) : null}
                   </div>
@@ -678,6 +685,14 @@ function AcceptInvitePage() {
           border: 1px solid transparent;
           background: rgba(255, 255, 255, 0.92);
           box-shadow: 0 18px 42px rgba(76, 124, 210, 0.14);
+        }
+
+        .auth-feedback__actions {
+          margin-top: 12px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: flex-end;
         }
 
         .auth-feedback--success {

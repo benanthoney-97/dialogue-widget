@@ -2352,7 +2352,7 @@ export default function PersonasPage() {
                 event.currentTarget.style.transform = "none";
               }}
             >
-              View Explore
+              View Personas
             </Link>
           }
           rightSlot={
@@ -4133,6 +4133,8 @@ export default function PersonasPage() {
             background: rgba(30, 41, 59, 0.06);
             border-radius: 10px;
             padding: 10px 12px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
           }
           .persona-expanded-list-item--document {
             display: flex;
@@ -4143,6 +4145,13 @@ export default function PersonasPage() {
             font-weight: 700;
             font-size: 13px;
             color: #1e293b;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .persona-doc-meta {
             font-size: 12px;
