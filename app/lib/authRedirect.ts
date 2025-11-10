@@ -46,7 +46,7 @@ export async function resolveDestinationForUser(
   supabase: SupabaseClient<any, "public", any>,
   userId: string
 ): Promise<string> {
-  const fallback = `/client/${userId}/personas`;
+  const fallback = "/auth";
 
   try {
     const { data: profile, error: profileError } = await supabase

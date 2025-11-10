@@ -384,7 +384,7 @@ function AcceptInvitePage() {
                           Log in
                         </button>
                         <a
-                          className="auth-button auth-button--link"
+                          className="auth-button auth-button--secondary"
                           href="mailto:support@dialogue-ai.co?subject=Email%20help"
                         >
                           Contact support
@@ -623,6 +623,10 @@ function AcceptInvitePage() {
           font-size: 15px;
           font-weight: 700;
           cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, color 0.18s ease;
         }
 
