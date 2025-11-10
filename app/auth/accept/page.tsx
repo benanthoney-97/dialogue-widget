@@ -21,16 +21,6 @@ type InviteDetails = {
 
 type Feedback = { type: "success" | "error"; message: string } | null;
 
-function formatDate(value: string | null) {
-  if (!value) return null;
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) return value;
-  return new Date(timestamp).toLocaleString("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
 function AcceptInvitePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -123,8 +113,6 @@ function AcceptInvitePage() {
     if (invite.status === "pending") return null;
     return `This invitation is ${invite.status}.`;
   }, [invite]);
-
-  const inviteExpiryText = useMemo(() => formatDate(invite?.expiresAt ?? null), [invite?.expiresAt]);
 
   const sessionEmailMismatch = useMemo(() => {
     if (!invite?.email || !session?.user?.email) return false;
@@ -294,17 +282,6 @@ function AcceptInvitePage() {
           <p className="auth-copy auth-copy--error">Invitation not found.</p>
         ) : (
           <section className="auth-stack">
-            <div className="auth-info">
-              <div className="auth-info__label">Invitation for</div>
-              <div className="auth-info__value">{invite.email}</div>
-              <div className="auth-info__meta">
-                Role: {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
-              </div>
-              {inviteExpiryText ? (
-                <div className="auth-info__meta auth-info__meta--muted">Expires {inviteExpiryText}</div>
-              ) : null}
-            </div>
-
             {inviteStatusText ? <div className="auth-warning">{inviteStatusText}</div> : null}
 
             {sessionEmailMismatch ? (
@@ -418,7 +395,8 @@ function AcceptInvitePage() {
       </div>
       <style jsx>{`
         .auth-page {
-          min-height: 100vh;
+          min-height: 100dvh;
+          box-sizing: border-box;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -459,6 +437,7 @@ function AcceptInvitePage() {
 
         .auth-card {
           width: min(560px, 100%);
+          max-height: min(92dvh, 680px);
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.9) 100%);
           border-radius: 30px;
           padding: clamp(32px, 5vw, 46px);
@@ -466,9 +445,11 @@ function AcceptInvitePage() {
           box-shadow: 0 32px 82px rgba(59, 118, 216, 0.18);
           border: 1px solid rgba(205, 220, 255, 0.85);
           position: relative;
-          overflow: hidden;
+          overflow: auto;
           isolation: isolate;
           backdrop-filter: blur(18px);
+          display: flex;
+          flex-direction: column;
         }
 
         .auth-card::before {
@@ -529,39 +510,6 @@ function AcceptInvitePage() {
         .auth-copy--muted {
           font-size: 13px;
           color: rgba(55, 82, 124, 0.7);
-        }
-
-        .auth-info {
-          padding: 18px 20px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, rgba(244, 249, 255, 0.95) 0%, rgba(228, 239, 255, 0.88) 100%);
-          border: 1px solid rgba(193, 210, 255, 0.78);
-          box-shadow: 0 18px 48px rgba(73, 126, 210, 0.12);
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .auth-info__label {
-          font-size: 12px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(63, 96, 150, 0.7);
-        }
-
-        .auth-info__value {
-          font-size: 20px;
-          font-weight: 700;
-          color: #052033;
-        }
-
-        .auth-info__meta {
-          font-size: 13px;
-          color: rgba(43, 108, 176, 0.9);
-        }
-
-        .auth-info__meta--muted {
-          color: rgba(63, 96, 150, 0.72);
         }
 
         .auth-warning {
