@@ -24,6 +24,7 @@ type PersonaRow = {
   location: string | null;
   customer_status: string | null;
   profile_image: string | null;
+  active_status: boolean | null;
 };
 
 type Supabase = SupabaseClient<any, "public", any>;
@@ -60,12 +61,17 @@ function buildAttributes(row: PersonaRow): Array<{ label: string; value: string 
 
 function buildPersonaSlug(row: PersonaRow): string {
   const nameSlug = row.agent_name ? slugify(row.agent_name) : "";
-  const idSuffixRaw = row.agent_id.split("_").pop() ?? row.agent_id;
-  const idSuffix = idSuffixRaw.replace(/[^a-z0-9]/gi, "").slice(-6);
-  if (nameSlug) {
-    return idSuffix ? `${nameSlug}-${idSuffix}` : nameSlug;
+  if (nameSlug.length > 0) {
+    return nameSlug;
   }
-  return idSuffix ? `persona-${idSuffix}` : row.agent_id;
+
+  const idSlug = slugify(row.agent_id);
+  if (idSlug.length > 0) {
+    return idSlug;
+  }
+
+  const rawFallback = row.agent_id.replace(/[^a-z0-9]/gi, "");
+  return rawFallback.length > 0 ? rawFallback : "persona";
 }
 
 async function resolveClient(supabase: Supabase, clientSlug: string): Promise<ClientRow | null> {
@@ -165,12 +171,16 @@ export default async function ExplorePage({
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image"
+      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, active_status"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
 
-  const readyPersonas = (personaRows ?? []).filter((row) => (row.status ?? "").toLowerCase() === "ready");
+  const readyPersonas = (personaRows ?? []).filter((row) => {
+    const statusReady = (row.status ?? "").toLowerCase() === "ready";
+    const isActive = row.active_status === true;
+    return statusReady && isActive;
+  });
   const summaries = mapPersonasToSummaries(readyPersonas);
 
   const scrollAnchorOffset = 96;

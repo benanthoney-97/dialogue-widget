@@ -165,7 +165,18 @@ icon: (
     {
       label: "Feedback",
       href: `/client/${clientId}/feedback`,
-icon: (<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z" fill="#22325a" stroke="#22325a" strokeWidth="1.1"/><path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0M7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0" fill="#22325a" stroke="#22325a" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+icon: (<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 16 16"
+  width="16"
+  height="16"
+  fill="#1a2a44"
+  aria-hidden="true"
+>
+  <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5zM3 3H2v1h1z"/>
+  <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5M5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1z"/>
+  <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5zM2 7h1v1H2zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm1 .5H2v1h1z"/>
+</svg>),
     },
     {
       label: "New Persona",
@@ -230,7 +241,7 @@ icon: (
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: collapsed ? "24px 0 12px 0" : "32px 0 12px 0",
+        padding: collapsed ? "12px 0 12px 0" : "12px 0 12px 0",
         gap: collapsed ? 4 : 8,
         transition: "width 0.24s ease",
       }}
@@ -241,7 +252,7 @@ icon: (
           alignItems: "center",
           justifyContent: collapsed ? "center" : "space-between",
           width: "100%",
-          padding: collapsed ? "0 12px 20px" : "0 20px 28px",
+          padding: collapsed ? "0 12px 20px" : "0 20px 24px",
           gap: 12,
         }}
       >
@@ -339,6 +350,24 @@ icon: (
 <div style={{ flex: 1 }} />
 {[
   teamItem,
+  {
+    label: "Live Chat",
+    href: `/client/${clientId}/live-chat`,
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="#22325a"
+        stroke="#22325a"
+        strokeWidth="0.4"
+      >
+        <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h7A2.5 2.5 0 0 1 14 3.5v4A2.5 2.5 0 0 1 11.5 10H9l-2.8 2.1A.8.8 0 0 1 5 11.5V10H4.5A2.5 2.5 0 0 1 2 7.5z" />
+        <path d="M5.5 12.5v1.7a.8.8 0 0 0 1.27.63L10 13h2.5A2.5 2.5 0 0 0 15 10.5v-4a.5.5 0 0 0-1 0v4A1.5 1.5 0 0 1 12.5 12H10a.5.5 0 0 0-.3.1z" />
+      </svg>
+    ),
+  },
   {
     label: "Usage",
     href: `/client/${clientId}/usage`,
@@ -474,30 +503,6 @@ icon: (
             }}
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                router.push(`/client/${clientId}/support`);
-              }}
-              style={{
-                padding: "0 12px",
-                borderRadius: 10,
-                border: `1px solid rgba(var(--accent-rgb, 43,108,176),0.35)`,
-                background: `rgba(var(--accent-rgb, 43,108,176),0.08)`,
-                color: "var(--accent-2, #7fb3ff)",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                textAlign: "center",
-                height: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              Support
-            </button>
             <button
               type="button"
               onClick={handleLogout}

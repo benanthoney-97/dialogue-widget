@@ -6,5 +6,8 @@
   "markdown-pdf.margin.top": "20mm",
   "markdown-pdf.margin.bottom": "15mm",
   "markdown-pdf.margin.left": "15mm",
-  "markdown-pdf.margin.right": "15mm"
+  "markdown-pdf.margin.right": "15mm",
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore"
 }

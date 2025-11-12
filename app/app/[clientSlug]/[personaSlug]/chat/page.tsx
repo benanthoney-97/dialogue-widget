@@ -32,6 +32,7 @@ type AgentRow = {
 
 type PersonaDetails = {
   agentId: string;
+  slug: string;
   name: string;
   description: string | null;
   contentType: string | null;
@@ -41,6 +42,14 @@ type PersonaDetails = {
   intentSignals: string[];
   customerStatus: string | null;
   profileImage: string | null;
+};
+
+type PersonaPreview = {
+  id: string;
+  slug: string;
+  name: string;
+  profileImage: string | null;
+  href?: string;
 };
 
 type ClientRow = {
@@ -56,10 +65,20 @@ type ClientLookup = {
 
 export default async function ChatPage({
   params,
+  searchParams,
 }: {
   params: Promise<PageParams>;
+  searchParams?:
+    | Promise<Record<string, string | string[] | undefined>>
+    | Record<string, string | string[] | undefined>;
 }) {
   const { clientSlug, personaSlug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const initialPromptRaw = resolvedSearchParams?.prompt;
+  const initialPrompt = Array.isArray(initialPromptRaw)
+    ? initialPromptRaw[0] ?? ""
+    : initialPromptRaw ?? "";
+  const initialMessage = initialPrompt.trim().length > 0 ? initialPrompt.trim() : null;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -92,15 +111,25 @@ export default async function ChatPage({
     notFound();
   }
 
+  const otherPersonasRaw = await fetchOtherPersonaSummaries(
+    supabase,
+    clientInfo.clientId,
+    persona.agentId
+  );
+  const otherPersonas = otherPersonasRaw.map((otherPersona) => ({
+    ...otherPersona,
+    href: `/app/${clientSlug}/${otherPersona.slug}`,
+  }));
+
   return (
     <div
       style={{
-        minHeight: "100vh",
         fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
         color: "#0f172a",
-        paddingBottom: 48,
         display: "flex",
         flexDirection: "column",
+        flex: "1 1 auto",
+        minHeight: 0,
       }}
     >
       <div
@@ -114,7 +143,12 @@ export default async function ChatPage({
           width: "100%",
         }}
       >
-        <PersonaTopbarSlot personaName={persona.name} profileImage={persona.profileImage} />
+        <PersonaTopbarSlot
+          personaName={persona.name}
+          profileImage={persona.profileImage}
+          personaHref={`/app/${clientSlug}/${persona.slug}`}
+          otherPersonas={otherPersonas}
+        />
         <main
           style={{
             display: "flex",
@@ -140,6 +174,7 @@ export default async function ChatPage({
               personaIntentSignals={persona.intentSignals}
               personaCustomerStatus={persona.customerStatus}
               personaKeyPainPoints={persona.painPoints}
+              initialMessage={initialMessage ?? undefined}
             />
           </section>
         </main>
@@ -210,8 +245,10 @@ async function fetchPersonaBySlug(
 }
 
 function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
+  const slug = buildPersonaSlug(row);
   return {
     agentId: row.agent_id,
+    slug,
     name: row.agent_name?.trim() || "Untitled persona",
     description: row.description,
     contentType: row.content_type?.trim() || null,
@@ -227,6 +264,42 @@ function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
         ? row.profile_image.trim()
         : null,
   };
+}
+
+function buildPersonaSlug(row: { agent_id: string; agent_name: string | null }): string {
+  const name = row.agent_name?.trim();
+  if (name && name.length > 0) {
+    return slugify(name);
+  }
+  return slugify(row.agent_id);
+}
+
+async function fetchOtherPersonaSummaries(
+  supabase: Supabase,
+  clientId: number,
+  excludeAgentId: string
+): Promise<PersonaPreview[]> {
+  const { data, error } = await supabase
+    .from("agent_map")
+    .select("agent_id, agent_name, profile_image, status")
+    .eq("client_id", clientId);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? [])
+    .filter((row) => (row.status ?? "").toLowerCase() === "ready")
+    .filter((row) => row.agent_id !== excludeAgentId)
+    .map((row) => ({
+      id: row.agent_id,
+      slug: buildPersonaSlug(row),
+      name: row.agent_name?.trim() || "Untitled persona",
+      profileImage:
+        typeof row.profile_image === "string" && row.profile_image.trim().length > 0
+          ? row.profile_image.trim()
+          : null,
+    }));
 }
 
 function normalizeList(source: unknown): string[] {

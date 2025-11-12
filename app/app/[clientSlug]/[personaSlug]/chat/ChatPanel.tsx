@@ -12,6 +12,7 @@ type ChatPanelProps = {
   personaCustomerStatus?: string | null;
   personaKeyPainPoints?: string[];
   userId?: string;
+  initialMessage?: string;
 };
 
 export default function ChatPanel({
@@ -22,6 +23,7 @@ export default function ChatPanel({
   personaCustomerStatus,
   personaKeyPainPoints,
   userId,
+  initialMessage,
 }: ChatPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId ?? null);
@@ -66,7 +68,7 @@ export default function ChatPanel({
         display: "flex",
         flexDirection: "column",
         borderRadius: 24,
-  padding: "0 24px 64px",
+  padding: "0 24px",
         flex: "1 1 auto",
         minHeight: 0,
         boxSizing: "border-box",
@@ -80,6 +82,8 @@ export default function ChatPanel({
         personaCustomerStatus={personaCustomerStatus}
         personaKeyPainPoints={personaKeyPainPoints}
         userId={resolvedUserId ?? undefined}
+        autoStart
+        autoStartUserMessage={initialMessage}
       />
     </div>
   );

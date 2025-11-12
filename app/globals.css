@@ -12,7 +12,7 @@
 
 :root {
   /* Light app theme variables (shared across Personas / Insights / Upload) */
-  --bg: #f6fbff; /* page background (very light bluish) */
+  --bg: #ffffff; /* page background (very light bluish) */
   --panel: #F6F7F9; /* panel/card background */
   --panel-2: #F6F7F9fff; /* slightly bluish panel */
   --accent: oklch(0.97 0.001 106.424); /* primary accent (more vibrant) */

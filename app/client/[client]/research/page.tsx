@@ -16,6 +16,15 @@ type ExternalSource = {
   id: string;
   name: string;
   accent: string;
+  logoUrl: string | null;
+};
+
+type AgentResearchRecord = {
+  agentId: string;
+  personaName: string;
+  sourcedArticles: Array<{ title: string | null; url: string | null }>;
+  knowledgeText: string | null;
+  updatedAt: string | null;
 };
 
 function deriveInitials(name: string): string {
@@ -48,36 +57,22 @@ function deriveAccent(name: string): string {
 export default function ResearchPage() {
   const pathname = usePathname();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
-  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
-  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<"Goals & Priorities" | "Target Sources">(
-    "Goals & Priorities"
-  );
-  const [selectedCadence, setSelectedCadence] = useState<string>("Weekly");
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [availableSources, setAvailableSources] = useState<ExternalSource[]>([]);
+  const [activeView, setActiveView] = useState<"agent" | "sources">("agent");
+  const [agentResearch, setAgentResearch] = useState<AgentResearchRecord[]>([]);
+  const [agentResearchLoading, setAgentResearchLoading] = useState(false);
+  const [agentResearchError, setAgentResearchError] = useState<string | null>(null);
+  const [expandedAgents, setExpandedAgents] = useState<string[]>([]);
 
-  const goalOptions = useMemo(
-    () => [
-      { label: "Develop new products", description: "Spot emerging needs and market gaps to guide R&D." },
-      { label: "Refine messaging", description: "Understand customer language to sharpen positioning." },
-      { label: "Content strategy", description: "Track narratives and trends to fuel editorial calendars." },
-      { label: "Sales enablement", description: "Give reps the freshest proof points and competitive intel." },
-    ],
-    []
-  );
-
-  const priorityOptions = useMemo(
-    () => [
-      { label: "Industry trends", helper: "Spot macro shifts and market sentiment." },
-      { label: "Competitors", helper: "Track launches, pricing moves, and leadership news." },
-      { label: "Customer signals", helper: "Monitor reviews, forums, and feedback loops." },
-      { label: "Regulation", helper: "Stay ahead of policy updates and compliance risks." },
-      { label: "Investor chatter", helper: "Watch funding rounds and analyst notes." },
-      { label: "Emerging tech", helper: "Surface new tools and enablers for your space." },
-    ],
-    []
-  );
+  const toggleAgentExpansion = useCallback((agentId: string) => {
+    setExpandedAgents((prev) => {
+      if (prev.includes(agentId)) {
+        return prev.filter((id) => id !== agentId);
+      }
+      return [...prev, agentId];
+    });
+  }, []);
 
   useEffect(() => {
     if (!clientSlug) return;
@@ -97,14 +92,6 @@ export default function ResearchPage() {
           priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
         };
         if (!isMounted) return;
-        const primaryGoal = payload.priority?.primary_goal;
-        setSelectedGoal(typeof primaryGoal === "string" && primaryGoal.length > 0 ? primaryGoal : null);
-        const priorities = payload.priority?.priorities;
-        if (Array.isArray(priorities)) {
-          setSelectedPriorities(priorities);
-        } else {
-          setSelectedPriorities([]);
-        }
         const sources = payload.priority?.target_sources;
         if (Array.isArray(sources)) {
           setSelectedSources(sources);
@@ -124,90 +111,6 @@ export default function ResearchPage() {
       controller.abort();
     };
   }, [clientSlug]);
-
-  const handleGoalSelection = useCallback(async (goalLabel: string) => {
-    if (!clientSlug) return;
-
-    const previousGoal = selectedGoal;
-    const nextGoal = previousGoal === goalLabel ? null : goalLabel;
-
-    setSelectedGoal(nextGoal);
-
-    try {
-      const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ primary_goal: nextGoal }),
-      });
-
-      if (!response.ok) {
-        console.error("[Research] Failed to update primary goal", response.status);
-        setSelectedGoal((current) => (current === nextGoal ? previousGoal : current));
-        return;
-      }
-
-      const payload = (await response.json()) as {
-        priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
-      };
-      const updatedGoal = payload.priority?.primary_goal ?? null;
-      setSelectedGoal((current) => (current === nextGoal ? (typeof updatedGoal === "string" ? updatedGoal : null) : current));
-      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
-        setSelectedPriorities(payload.priority.priorities);
-      }
-      if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
-        setSelectedSources(payload.priority.target_sources);
-      }
-    } catch (error) {
-      console.error("[Research] Unexpected error updating primary goal", error);
-      setSelectedGoal((current) => (current === nextGoal ? previousGoal : current));
-    }
-  }, [clientSlug, selectedGoal]);
-
-  const handlePriorityToggle = useCallback(async (priorityLabel: string) => {
-    if (!clientSlug) return;
-
-    const previousPriorities = selectedPriorities;
-    const isActive = previousPriorities.includes(priorityLabel);
-    const nextPriorities = isActive
-      ? previousPriorities.filter((label) => label !== priorityLabel)
-      : [...previousPriorities, priorityLabel];
-
-    setSelectedPriorities(nextPriorities);
-
-    try {
-      const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ priorities: nextPriorities }),
-      });
-
-      if (!response.ok) {
-        console.error("[Research] Failed to update priorities", response.status);
-        setSelectedPriorities(previousPriorities);
-        return;
-      }
-
-      const payload = (await response.json()) as {
-        priority?: { primary_goal?: string | null; priorities?: string[] | null; target_sources?: string[] | null } | null;
-      };
-
-      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
-        setSelectedPriorities(payload.priority.priorities);
-      }
-
-      if (Object.prototype.hasOwnProperty.call(payload.priority ?? {}, "primary_goal")) {
-        const nextGoal = payload.priority?.primary_goal ?? null;
-        setSelectedGoal(typeof nextGoal === "string" ? nextGoal : null);
-      }
-    } catch (error) {
-      console.error("[Research] Unexpected error updating priorities", error);
-      setSelectedPriorities(previousPriorities);
-    }
-  }, [clientSlug, selectedPriorities]);
 
   const handleSourceToggle = useCallback(async (sourceName: string) => {
     if (!clientSlug) return;
@@ -242,15 +145,6 @@ export default function ResearchPage() {
       if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
         setSelectedSources(payload.priority.target_sources);
       }
-
-      if (Object.prototype.hasOwnProperty.call(payload.priority ?? {}, "primary_goal")) {
-        const nextGoal = payload.priority?.primary_goal ?? null;
-        setSelectedGoal(typeof nextGoal === "string" ? nextGoal : null);
-      }
-
-      if (payload.priority?.priorities && Array.isArray(payload.priority.priorities)) {
-        setSelectedPriorities(payload.priority.priorities);
-      }
     } catch (error) {
       console.error("[Research] Unexpected error updating target sources", error);
       setSelectedSources(previousSources);
@@ -273,7 +167,7 @@ export default function ResearchPage() {
         }
 
         const payload = (await response.json()) as {
-          sources?: Array<{ id: string; name: string }>;
+          sources?: Array<{ id: string; name: string; logo?: string | null }>;
         };
 
         if (!isMounted) return;
@@ -281,15 +175,16 @@ export default function ResearchPage() {
         const normalized = (payload.sources ?? []).map((source) => {
           const name = source.name?.trim() ?? "";
           const safeName = name.length > 0 ? name : "Unknown Source";
+          const rawLogo = typeof source.logo === "string" ? source.logo.trim() : "";
           return {
             id: source.id,
             name: safeName,
             accent: deriveAccent(safeName),
+            logoUrl: rawLogo.length > 0 ? rawLogo : null,
           } satisfies ExternalSource;
         });
 
-        setAvailableSources(normalized);
-        setAvailableSources(normalized);
+  setAvailableSources(normalized);
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error("[Research] Unexpected error loading external sources", error);
@@ -305,6 +200,129 @@ export default function ResearchPage() {
   }, []);
 
   const targetSources = useMemo(() => availableSources, [availableSources]);
+  const formatUpdatedAt = useCallback((value: string | null) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!clientSlug) {
+      setAgentResearch([]);
+      setAgentResearchError(null);
+      setAgentResearchLoading(false);
+      setExpandedAgents([]);
+      return;
+    }
+
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchAgentResearch() {
+      setAgentResearchLoading(true);
+      setAgentResearchError(null);
+      try {
+        const response = await fetch(`/api/clients/${clientSlug}/agent-research`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const message = `Request failed with status ${response.status}`;
+          console.error("[Research] Failed to load agent research", message);
+          if (isMounted) {
+            setAgentResearchError("Unable to load agent research data");
+            setAgentResearch([]);
+          }
+          return;
+        }
+        const payload = (await response.json()) as {
+          records?: Array<{
+            agent_id?: string | null;
+            persona_name?: string | null;
+            knowledge_text?: string | null;
+            updated_at?: string | null;
+            sourced_articles?: Array<{ title?: string | null; url?: string | null }>;
+          }>;
+        };
+        if (!isMounted) return;
+
+        const records = Array.isArray(payload.records) ? payload.records : [];
+        const normalized: AgentResearchRecord[] = records
+          .map((record) => {
+            const agentId = typeof record.agent_id === "string" ? record.agent_id.trim() : "";
+            if (!agentId) return null;
+            const personaName =
+              typeof record.persona_name === "string" && record.persona_name.trim().length > 0
+                ? record.persona_name.trim()
+                : "Unnamed agent";
+            const knowledgeText =
+              typeof record.knowledge_text === "string" && record.knowledge_text.trim().length > 0
+                ? record.knowledge_text.trim()
+                : null;
+            const updatedAt =
+              typeof record.updated_at === "string" && record.updated_at.trim().length > 0
+                ? record.updated_at
+                : null;
+            const sourcedArticles = Array.isArray(record.sourced_articles)
+              ? record.sourced_articles
+                  .map((article) => {
+                    if (!article || typeof article !== "object") return null;
+                    const title =
+                      typeof article.title === "string" && article.title.trim().length > 0
+                        ? article.title.trim()
+                        : null;
+                    const url =
+                      typeof article.url === "string" && article.url.trim().length > 0
+                        ? article.url.trim()
+                        : null;
+                    if (!title && !url) return null;
+                    return { title, url };
+                  })
+                  .filter((article): article is { title: string | null; url: string | null } => article !== null)
+              : [];
+
+            return {
+              agentId,
+              personaName,
+              knowledgeText,
+              updatedAt,
+              sourcedArticles,
+            } satisfies AgentResearchRecord;
+          })
+          .filter((item): item is AgentResearchRecord => item !== null)
+          .sort((a, b) => {
+            const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+            const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+            return dateB - dateA;
+          });
+
+        setAgentResearch(normalized);
+  setExpandedAgents((prev) => prev.filter((id) => normalized.some((item) => item.agentId === id)));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Research] Unexpected error loading agent research", error);
+        if (isMounted) {
+          setAgentResearchError("Unexpected error loading agent research");
+          setAgentResearch([]);
+        }
+      } finally {
+        if (isMounted) {
+          setAgentResearchLoading(false);
+        }
+      }
+    }
+
+    void fetchAgentResearch();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [clientSlug]);
 
   return (
     <div
@@ -313,11 +331,9 @@ export default function ResearchPage() {
     >
       <Topbar
         title="Web research"
-        cadence={selectedCadence}
-        onCadenceChange={(value) => setSelectedCadence(value)}
         offsetLeft="var(--stage-topbar-offset, 0px)"
-        cadenceLabel="Refresh cadence:"
         hideProfileAvatar
+        hideCadenceControls
         rightSlot={<></>}
       />
       <main className="stage-layout research-root">
@@ -326,110 +342,166 @@ export default function ResearchPage() {
         </aside>
         <div className="stage-layout__content">
           <div className="stage-shell">
-            <div className="research-tabs">
-              {(["Goals & Priorities", "Target Sources"] as const).map((label) => {
-                const isActive = activeTab === label;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    className={`research-tab${isActive ? " research-tab--active" : ""}`}
-                    onClick={() => setActiveTab(label)}
-                    aria-pressed={isActive}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          <section className="research-card research-card--placeholder">
-            <header>
-            </header>
-            <div className="research-card__body">
-              {activeTab === "Goals & Priorities" ? (
-                <>
-                  <header className="research-section-header">
-                    <h2>Core Goal</h2>
-                    <p className="research-section-helper">Choose the primary goal for your personas.</p>
-                  </header>
-                  <div className="research-goals">
-                    {goalOptions.map((goal) => (
-                      <button
-                        type="button"
-                        key={goal.label}
-                        className={`research-goal-tile${selectedGoal === goal.label ? " research-goal-tile--active" : ""}`}
-                        onClick={() => handleGoalSelection(goal.label)}
-                        aria-pressed={selectedGoal === goal.label}
-                      >
-                        <span className="research-goal-title">{goal.label}</span>
-                        <span className="research-goal-copy">{goal.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="research-placeholder-grid">
-                    <div className="research-priorities">
-                      <header className="research-section-header">
-                        <h2>Priorities</h2>
-                        <p className="research-section-helper">Choose the types of research you want to focus on.</p>
-                      </header>
-                      <div className="research-priorities-grid">
-                        {priorityOptions.map((priority) => {
-                          const active = selectedPriorities.includes(priority.label);
-                          return (
-                            <button
-                              type="button"
-                              key={priority.label}
-                              className={`research-priority-chip${active ? " research-priority-chip--active" : ""}`}
-                              onClick={() => handlePriorityToggle(priority.label)}
-                              aria-pressed={active}
-                            >
-                              <span className="research-priority-label">{priority.label}</span>
-                              <span className="research-priority-helper">{priority.helper}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
+            <section className="research-card research-card--placeholder">
+              <header />
+              <div className="research-card__body">
                 <div className="research-sources">
+                  <div className="research-chip-row" role="list">
+                    <button
+                      type="button"
+                      className={`research-chip${activeView === "agent" ? " research-chip--active" : ""}`}
+                      role="listitem"
+                      aria-pressed={activeView === "agent"}
+                      onClick={() => setActiveView("agent")}
+                    >
+                      Agent Research
+                    </button>
+                    <button
+                      type="button"
+                      className={`research-chip${activeView === "sources" ? " research-chip--active" : ""}`}
+                      role="listitem"
+                      aria-pressed={activeView === "sources"}
+                      onClick={() => setActiveView("sources")}
+                    >
+                      Target Sources
+                    </button>
+                  </div>
                   <header className="research-section-header">
-                    <h2>Target sources</h2>
                     <p className="research-section-helper">
-                      Pin the news sources most relevant to your customer personas.
+                      {activeView === "agent"
+                        ? "Review the research your agents run on a recurring basis."
+                        : "Pin the news sources most relevant to your customer personas."}
                     </p>
                   </header>
-                  <div className="research-sources-grid">
-                    {targetSources.map((source) => {
-                      const active = selectedSources.includes(source.name);
-                      return (
-                        <button
-                          type="button"
-                          key={source.id}
-                          className={`research-source-card${active ? " research-source-card--active" : ""}`}
-                          onClick={() => handleSourceToggle(source.name)}
-                          aria-pressed={active}
-                        >
-                        <div
-                          className="research-source-logo"
-                          style={{
-                            background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.85) 100%)`,
-                          }}
-                          aria-hidden="true"
-                        >
-                          {deriveInitials(source.name)}
+                  {activeView === "agent" ? (
+                    <div className="research-agent-table" role="region" aria-label="Agent research queue">
+                      {agentResearchLoading ? (
+                        <div className="research-agent-state">Loading agent research…</div>
+                      ) : agentResearchError ? (
+                        <div className="research-agent-state research-agent-state--error">
+                          {agentResearchError}
                         </div>
-                        <span className="research-source-name">{source.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                      ) : agentResearch.length === 0 ? (
+                        <div className="research-agent-state">No agent research runs yet.</div>
+                      ) : (
+                        <table>
+                          <thead>
+                            <tr>
+                              <th scope="col">Persona</th>
+                              <th scope="col">Sources</th>
+                              <th scope="col">Knowledge</th>
+                              <th scope="col">Last updated</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {agentResearch.map((item) => {
+                              const isExpanded = expandedAgents.includes(item.agentId);
+                              const isExpandable =
+                                item.sourcedArticles.length > 3 || Boolean(item.knowledgeText && item.knowledgeText.length > 240);
+
+                              const rowClassName = [
+                                "agent-row",
+                                isExpanded ? "agent-row--expanded" : "",
+                                isExpandable ? "agent-row--expandable" : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ");
+
+                              const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+                                if (!isExpandable) return;
+                                const target = event.target as HTMLElement;
+                                if (target.closest("a, button")) return;
+                                toggleAgentExpansion(item.agentId);
+                              };
+
+                              const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                                if (!isExpandable) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                  const target = event.target as HTMLElement;
+                                  if (target.closest("a, button")) return;
+                                  event.preventDefault();
+                                  toggleAgentExpansion(item.agentId);
+                                }
+                              };
+                              return (
+                                <tr
+                                  key={item.agentId}
+                                  className={rowClassName}
+                                  onClick={handleRowClick}
+                                  onKeyDown={handleRowKeyDown}
+                                  role={isExpandable ? "button" : undefined}
+                                  tabIndex={isExpandable ? 0 : undefined}
+                                  aria-expanded={isExpandable ? isExpanded : undefined}
+                                >
+                                  <td>{item.personaName}</td>
+                                  <td className="agent-sources-cell">
+                                    <div className={isExpanded ? "agent-cell agent-cell--expanded" : "agent-cell"}>
+                                      {item.sourcedArticles.length > 0 ? (
+                                        <ul className="agent-articles-list">
+                                          {item.sourcedArticles.map((article, index) => (
+                                            <li key={`${item.agentId}-article-${index}`}>
+                                              {article.url ? (
+                                                <a href={article.url} target="_blank" rel="noreferrer noopener">
+                                                  {article.title ?? article.url}
+                                                </a>
+                                              ) : (
+                                                article.title ?? "Untitled source"
+                                              )}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <span className="agent-articles-empty">No sources linked</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className={isExpanded ? "agent-knowledge-cell agent-knowledge-cell--expanded" : "agent-knowledge-cell"}>
+                                    <div className={isExpanded ? "agent-cell agent-cell--expanded" : "agent-cell"}>
+                                      <div className="agent-knowledge-text">{item.knowledgeText ?? "—"}</div>
+                                    </div>
+                                  </td>
+                                  <td>{formatUpdatedAt(item.updatedAt)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="research-sources-grid">
+                      {targetSources.map((source) => {
+                        const active = selectedSources.includes(source.name);
+                        const logoStyle = source.logoUrl
+                          ? undefined
+                          : {
+                              background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.85) 100%)`,
+                            };
+                        return (
+                          <button
+                            type="button"
+                            key={source.id}
+                            className={`research-source-card${active ? " research-source-card--active" : ""}`}
+                            onClick={() => handleSourceToggle(source.name)}
+                            aria-pressed={active}
+                          >
+                            <div className="research-source-logo" style={logoStyle}>
+                              {source.logoUrl ? (
+                                <img src={source.logoUrl} alt="" loading="lazy" />
+                              ) : (
+                                <span aria-hidden="true">{deriveInitials(source.name)}</span>
+                              )}
+                            </div>
+                            <span className="research-source-name">{source.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
-        </div>
+              </div>
+            </section>
+          </div>
       </div>
       <style>{`
         .research-stage {
@@ -466,47 +538,15 @@ export default function ResearchPage() {
           height: 100%;
           min-height: 0;
         }
-        .research-tabs {
-          display: flex;
-          gap: 6px;
-          background: #fffffff2;
-          padding: 6px;
-          border-radius: 12px;
-          width: 100%;
-          justify-content: space-between;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-        }
-        .research-tab {
-          border: none;
-          background: transparent;
-          color: #1e293b;
-          padding: 8px 18px;
-          border-radius: 12px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-          flex: 1 1 0;
-        }
-        .research-tab:focus-visible {
-          outline: none;
-          background: rgba(59, 130, 246, 0.12);
-          color: #0f172a;
-        }
-        .research-tab--active {
-          background: #1e293b;
-          color: #f6f7f9;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
-        }
         .research-card {
-          background: rgba(255, 255, 255, 0.95);
-          border-radius: 22px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-          padding: 22px 32px 32px;
+          background: none;
+          border-radius: 0px;
+          border: none;
+          box-shadow: none;
+          padding: 22px 0px px;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 0px;
         }
         .research-card header h2 {
           margin: 0;
@@ -525,6 +565,35 @@ export default function ResearchPage() {
           flex-direction: column;
           gap: 20px;
         }
+        .research-chip-row {
+          display: inline-flex;
+          gap: 10px;
+          margin: 4px 0 12px;
+          flex-wrap: wrap;
+        }
+        .research-chip {
+          border: 1px solid rgba(15, 23, 42, 0.14);
+          background: rgba(248, 250, 255, 0.85);
+          color: #052033;
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 999px;
+          padding: 6px 12px;
+          cursor: pointer;
+          transition: background 0.18s ease, border 0.18s ease, transform 0.18s ease;
+        }
+        .research-chip--active {
+          background: rgba(59, 130, 246, 0.18);
+          border-color: rgba(59, 130, 246, 0.55);
+          color: #052033;
+        }
+        .research-chip:hover,
+        .research-chip:focus-visible {
+          outline: none;
+          background: rgba(59, 130, 246, 0.12);
+          border-color: rgba(59, 130, 246, 0.4);
+          transform: translateY(-1px);
+        }
         .research-root {
           height: 100vh;
           box-sizing: border-box;
@@ -540,7 +609,7 @@ export default function ResearchPage() {
         }
         .research-root .stage-layout__content {
           height: calc(100vh - ${TOPBAR_HEIGHT}px);
-          padding: 18px 24px 48px;
+          padding: 24px 64px 12px;
         }
         .research-root .stage-shell {
           flex: 1;
@@ -555,7 +624,7 @@ export default function ResearchPage() {
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding-right: 6px;
+          padding-right: 0px;
         }
         .research-section-header {
           display: flex;
@@ -581,127 +650,6 @@ export default function ResearchPage() {
           font-size: 14px;
           color: rgba(15, 23, 42, 0.68);
           line-height: 1.55;
-        }
-        .research-goals {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
-          padding-top: 4px;
-        }
-        .research-goal-tile {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 10px;
-          padding: 20px 22px;
-          border-radius: 18px;
-          border: 1px solid rgba(30, 64, 175, 0.18);
-          background: rgba(255, 255, 255, 0.95);
-          box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
-          text-align: left;
-          color: #0f172a;
-          cursor: pointer;
-          transition: border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-        }
-        .research-goal-tile:hover,
-        .research-goal-tile:focus-visible {
-          border-color: rgba(59, 130, 246, 0.45);
-          box-shadow: 0 22px 48px rgba(59, 130, 246, 0.18);
-          transform: translateY(-2px);
-          outline: none;
-        }
-        .research-goal-tile--active {
-          border-color: #1e293b;
-          box-shadow: 0 26px 52px rgba(59, 130, 246, 0.22);
-          transform: translateY(-2px);
-          background: linear-gradient(155deg, rgba(59,130,246,0.18) 0%, rgba(255,255,255,0.95) 70%);
-        }
-        .research-goal-title {
-          font-size: 16px;
-          font-weight: 700;
-        }
-        .research-goal-copy {
-          font-size: 13px;
-          color: rgba(15, 23, 42, 0.65);
-          line-height: 1.55;
-        }
-        .research-placeholder-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 18px;
-        }
-        .research-placeholder-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 18px;
-        }
-        .research-placeholder-tile {
-          border-radius: 18px;
-          border: 1px dashed rgba(148, 163, 184, 0.5);
-          background: rgba(241, 245, 249, 0.65);
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .research-placeholder-tile h3 {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 700;
-          color: #1e3a8a;
-        }
-        .research-placeholder-tile p {
-          margin: 0;
-          font-size: 14px;
-          color: rgba(15, 23, 42, 0.7);
-          line-height: 1.55;
-        }
-        .research-priorities {
-          border-radius: 18px;
-          padding: 0px;
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-        .research-priorities-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 12px;
-        }
-        .research-priority-chip {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          padding: 14px 16px;
-          border-radius: 16px;
-          background: rgba(248, 250, 255, 0.9);
-          border: 1px solid rgba(148, 163, 184, 0.38);
-          text-align: left;
-          color: #0f172a;
-          font-size: 13px;
-          cursor: pointer;
-          transition: border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
-        }
-        .research-priority-chip:hover,
-        .research-priority-chip:focus-visible {
-          outline: none;
-          border-color: rgba(59, 130, 246, 0.45);
-          box-shadow: 0 14px 32px rgba(59, 130, 246, 0.16);
-          transform: translateY(-1px);
-        }
-        .research-priority-chip--active {
-          border-color: rgba(59, 130, 246, 0.55);
-          background: linear-gradient(150deg, rgba(59,130,246,0.15) 0%, rgba(248, 250, 255, 0.95) 70%);
-          box-shadow: 0 18px 40px rgba(59, 130, 246, 0.2);
-        }
-        .research-priority-label {
-          font-weight: 700;
-          font-size: 14px;
-        }
-        .research-priority-helper {
-          color: rgba(15, 23, 42, 0.6);
-          font-size: 12px;
-          line-height: 1.5;
         }
         .research-sources-grid {
           margin-top: 20px;
@@ -734,6 +682,130 @@ export default function ResearchPage() {
           box-shadow: 0 18px 40px rgba(59, 130, 246, 0.18);
           background: rgba(59, 130, 246, 0.12);
         }
+        .research-agent-table {
+          margin-top: 20px;
+          border: none;
+          border-radius: 0px;
+          overflow: hidden;
+          background: none;
+          box-shadow: none;
+        }
+        .research-agent-table table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+        .research-agent-table th,
+        .research-agent-table td {
+          padding: 14px 18px;
+          text-align: left;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+          vertical-align: top;
+        }
+        .research-agent-table th {
+    text-align: left;
+    padding: 10px 8px;
+    color: rgba(15, 23, 42, 0.65);
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: none;
+}
+        .research-agent-table th:nth-child(2),
+        .research-agent-table td:nth-child(2) {
+          width: 24%;
+        }
+        .research-agent-table th:nth-child(3),
+        .research-agent-table td:nth-child(3) {
+          width: 36%;
+        }
+        .research-agent-table tbody tr:last-of-type td {
+          border-bottom: none;
+        }
+        .research-agent-state {
+          padding: 28px;
+          text-align: center;
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.7);
+        }
+        .research-agent-state--error {
+          color: #b91c1c;
+        }
+        .agent-articles-list {
+          margin: 0;
+          padding-left: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .agent-articles-list li {
+          margin: 0;
+        }
+        .agent-articles-list a {
+          color: #2563eb;
+          text-decoration: none;
+        }
+        .agent-articles-list a:hover,
+        .agent-articles-list a:focus-visible {
+          text-decoration: underline;
+          outline: none;
+        }
+        .agent-articles-empty {
+          color: rgba(15, 23, 42, 0.48);
+          font-style: italic;
+        }
+        .agent-row {
+          transition: background 0.18s ease;
+        }
+        .agent-row--expanded {
+          background: rgba(37, 99, 235, 0.04);
+        }
+        .agent-row--expandable {
+          cursor: pointer;
+        }
+        .agent-sources-cell {
+          min-width: 180px;
+          position: relative;
+        }
+        .agent-knowledge-cell {
+          min-width: 240px;
+          position: relative;
+          max-width: 420px;
+        }
+        .agent-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-height: 110px;
+          overflow: hidden;
+          position: relative;
+        }
+        .agent-cell--expanded,
+        .agent-row--expanded .agent-cell {
+          max-height: none;
+        }
+        .agent-row--expandable:not(.agent-row--expanded) .agent-cell::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 32px;
+          pointer-events: none;
+          background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.92));
+        }
+        .agent-knowledge-text {
+          min-height: 64px;
+          white-space: pre-wrap;
+          line-height: 1.5;
+          overflow: hidden;
+        }
+        .agent-knowledge-cell--expanded .agent-knowledge-text {
+          min-height: 0;
+        }
         .research-source-logo {
           width: 64px;
           height: 64px;
@@ -741,12 +813,26 @@ export default function ResearchPage() {
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 14px 32px rgba(59, 130, 246, 0.24);
+          overflow: hidden;
+        }
+        .research-source-logo span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
           font-size: 18px;
           font-weight: 800;
           color: rgba(255, 255, 255, 0.92);
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          box-shadow: 0 14px 32px rgba(59, 130, 246, 0.24);
+        }
+        .research-source-logo img {
+          width: 70%;
+          height: 70%;
+          object-fit: contain;
+          border-radius: 12px;
         }
         .research-source-name {
           font-size: 14px;
@@ -764,11 +850,9 @@ export default function ResearchPage() {
           .research-card {
             padding: 28px;
           }
-          .research-goals {
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          }
-          .research-priorities-grid {
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          .agent-sources-cell,
+          .agent-knowledge-cell {
+            min-width: 0;
           }
         }
         @media (max-width: 680px) {
@@ -803,11 +887,9 @@ export default function ResearchPage() {
           .research-sources-grid {
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           }
-          .research-goals {
-            grid-template-columns: 1fr;
-          }
-          .research-priorities-grid {
-            grid-template-columns: 1fr;
+          .agent-sources-cell,
+          .agent-knowledge-cell {
+            min-width: 0;
           }
         }
       `}</style>

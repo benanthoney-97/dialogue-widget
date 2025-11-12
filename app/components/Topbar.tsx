@@ -6,6 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import { TOPBAR_HEIGHT } from "./topbarHeight";
 
+type NavLink = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+};
+
 type TopbarProps = {
   title?: string;
   titleHref?: string;
@@ -17,7 +23,7 @@ type TopbarProps = {
   hideCadenceControls?: boolean;
   centerSlot?: React.ReactNode;
   cadenceLabel?: string;
-  navLinks?: Array<{ label: string; href: string }>;
+  navLinks?: NavLink[];
   profileInitial?: string;
   onProfileClick?: () => void;
   leadingSlot?: React.ReactNode;
@@ -67,7 +73,6 @@ export default function Topbar({
   const pathname = usePathname();
   const resolvedOffset = offsetLeft ?? 0;
   const portalNavLinks = navLinks ?? [];
-  const showPortalNav = portalNavLinks.length > 0;
   const [profileDetails, setProfileDetails] = useState<ProfileDetails>({ ...DEFAULT_PROFILE_STATE });
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -260,44 +265,7 @@ export default function Topbar({
     transition: "background 0.18s ease, color 0.18s ease",
   };
 
-  const defaultRightSlot = (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          padding: "6px 12px",
-          borderRadius: 999,
-          background: "transparent",
-          color: "#0f172a",
-          fontSize: 12,
-          fontWeight: 600,
-          fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
-        }}
-      >
-        Interview
-      </span>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          padding: "6px 12px",
-          borderRadius: 999,
-          background: "transparent",
-          color: "#0f172a",
-          fontSize: 12,
-          fontWeight: 600,
-          fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
-        }}
-      >
-        Questionnaire
-      </span>
-    </div>
-  );
+  const defaultRightSlot = null;
 
   return (
     <header
@@ -407,83 +375,90 @@ export default function Topbar({
               </>
             )}
           </div>
-          {canShowAdminView ? (
-            <button
-              type="button"
-              onClick={() => handleNavigate(adminHref)}
-              style={{
-                border: "1px solid rgba(15, 23, 42, 0.14)",
-                background: "transparent",
-                color: "#0f172a",
-                padding: "8px 16px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 700,
-                fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
-                cursor: "pointer",
-                transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease",
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = "rgba(15, 23, 42, 0.08)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = "transparent";
-              }}
-              onFocus={(event) => {
-                event.currentTarget.style.background = "rgba(15, 23, 42, 0.12)";
-              }}
-              onBlur={(event) => {
-                event.currentTarget.style.background = "transparent";
-              }}
-            >
-              Admin view
-            </button>
-          ) : null}
+          {/* Admin view button moved to right-hand controls */}
         </div>
         <div style={{ flex: 1 }} />
-        {showPortalNav ? (
-          <nav
-            aria-label="Portal navigation"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#0f172a",
-              fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
-              flexShrink: 0,
-            }}
-          >
-            {portalNavLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                style={{
-                  color: "inherit",
-                  textDecoration: "none",
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  transition: "background 0.18s ease, color 0.18s ease",
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.background = "rgba(15, 23, 42, 0.08)";
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.background = "transparent";
-                }}
-                onFocus={(event) => {
-                  event.currentTarget.style.background = "rgba(15, 23, 42, 0.12)";
-                }}
-                onBlur={(event) => {
-                  event.currentTarget.style.background = "transparent";
-                }}
+        <nav
+          aria-label="Portal navigation"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#0f172a",
+            fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+            flexShrink: 0,
+          }}
+        >
+          {portalNavLinks.map((link, index) => {
+            const key = link.href ?? `${link.label}-${index}`;
+            const baseStyle: React.CSSProperties = {
+              color: "inherit",
+              textDecoration: "none",
+              padding: "6px 10px",
+              borderRadius: 999,
+              transition: "background 0.18s ease, color 0.18s ease",
+              background: "transparent",
+              font: "inherit",
+              cursor: "pointer",
+              border: "none",
+            };
+
+            const handleMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
+              event.currentTarget.style.background = "rgba(15, 23, 42, 0.08)";
+            };
+
+            const handleMouseLeave = (event: React.MouseEvent<HTMLElement>) => {
+              event.currentTarget.style.background = "transparent";
+            };
+
+            const handleFocus = (event: React.FocusEvent<HTMLElement>) => {
+              event.currentTarget.style.background = "rgba(15, 23, 42, 0.12)";
+            };
+
+            const handleBlur = (event: React.FocusEvent<HTMLElement>) => {
+              event.currentTarget.style.background = "transparent";
+            };
+
+            if (link.href) {
+              return (
+                <a
+                  key={key}
+                  href={link.href}
+                  style={baseStyle}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onClick={(event) => {
+                    if (link.onClick) {
+                      event.preventDefault();
+                      link.onClick();
+                    }
+                  }}
+                >
+                  {link.label}
+                </a>
+              );
+            }
+
+            return (
+              <button
+                key={key}
+                type="button"
+                style={baseStyle}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onClick={link.onClick}
               >
                 {link.label}
-              </a>
-            ))}
-          </nav>
-        ) : null}
+              </button>
+            );
+          })}
+        </nav>
         <div
           style={{
             display: "flex",
@@ -530,6 +505,38 @@ export default function Topbar({
           )}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {rightSlot ?? defaultRightSlot}
+            {canShowAdminView ? (
+              <button
+                type="button"
+                onClick={() => handleNavigate(adminHref)}
+                style={{
+                  border: "1px solid rgba(15, 23, 42, 0.14)",
+                  background: "transparent",
+                  color: "#0f172a",
+                  padding: "8px 16px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                  cursor: "pointer",
+                  transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.background = "rgba(15, 23, 42, 0.08)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.background = "transparent";
+                }}
+                onFocus={(event) => {
+                  event.currentTarget.style.background = "rgba(15, 23, 42, 0.12)";
+                }}
+                onBlur={(event) => {
+                  event.currentTarget.style.background = "transparent";
+                }}
+              >
+                Admin view
+              </button>
+            ) : null}
           </div>
           {hideProfileAvatar ? null : (
             <div

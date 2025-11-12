@@ -20,6 +20,24 @@ type StagePanelProps = {
   children: React.ReactNode;
 };
 
+const EDITABLE_ROLE_OPTIONS = ["admin", "owner"] as const;
+type EditableRole = (typeof EDITABLE_ROLE_OPTIONS)[number];
+type RoleSelectOption = {
+  value: string;
+  hidden?: boolean;
+  disabled?: boolean;
+};
+
+function getRoleSelectOptions(currentRole: string): RoleSelectOption[] {
+  if (EDITABLE_ROLE_OPTIONS.includes(currentRole as EditableRole)) {
+    return EDITABLE_ROLE_OPTIONS.map((value) => ({ value }));
+  }
+  return [
+    { value: currentRole, hidden: true, disabled: true },
+    ...EDITABLE_ROLE_OPTIONS.map((value) => ({ value })),
+  ];
+}
+
 function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
   const hasHeader = Boolean(heading || subheading || leading || trailing);
   return (
@@ -94,7 +112,6 @@ export default function TeamsPage() {
   const totalPending = pendingInvites.filter((invite) => invite.status === "pending").length;
   const totalAdmins = members.filter((member) => member.role === "admin").length;
   const showRoleSelect = inviteEmail.trim().length > 0;
-  const roleOptions = ["admin", "owner", "viewer"] as const;
 
   const formatDate = useCallback((value: string | null | undefined) => {
     if (!value) return "";
@@ -742,35 +759,56 @@ export default function TeamsPage() {
                             const isSoleAdminRow = totalAdmins === 1 && member.role === "admin";
                             const isEditingRole = canManageTeam && roleEditTarget?.id === member.id;
                             if (isEditingRole) {
+                              const selectDisabled = isUpdatingRole;
+                              const selectId = `teams-role-select-${member.id}`;
                               return (
-                                <select
-                                  className="teams-role-select"
-                                  value={roleEditTarget.role}
-                                  onChange={(event) => handleRoleSelectChange(member.id, event.target.value)}
-                                  onBlur={() => {
-                                    if (!isUpdatingRole) {
-                                      setRoleEditTarget(null);
-                                      roleSelectRef.current = null;
-                                    }
-                                  }}
-                                  disabled={isUpdatingRole}
-                                  ref={roleSelectRef}
+                                <label
+                                  htmlFor={selectId}
+                                  className={`teams-role-select-wrapper teams-role-chip teams-role-chip--editable teams-badge teams-badge--${roleEditTarget.role}${
+                                    selectDisabled ? " teams-role-select-wrapper--disabled" : ""
+                                  }`}
                                 >
-                                  {roleOptions.map((option) => {
-                                    const disableNonAdminPromotion =
-                                      profileRole !== "admin" &&
-                                      option === "admin" &&
-                                      roleEditTarget?.role !== "admin";
-                                    const disableSoleAdminDemotion =
-                                      isSoleAdminRow && option !== "admin";
-                                    const disableOption = disableNonAdminPromotion || disableSoleAdminDemotion;
-                                    return (
-                                      <option key={option} value={option} disabled={disableOption}>
-                                        {option.charAt(0).toUpperCase() + option.slice(1)}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
+                                  <select
+                                    id={selectId}
+                                    className="teams-role-select"
+                                    value={roleEditTarget.role}
+                                    onChange={(event) => handleRoleSelectChange(member.id, event.target.value)}
+                                    onBlur={() => {
+                                      if (!isUpdatingRole) {
+                                        setRoleEditTarget(null);
+                                        roleSelectRef.current = null;
+                                      }
+                                    }}
+                                    disabled={selectDisabled}
+                                    ref={roleSelectRef}
+                                    aria-label="Permission level"
+                                  >
+                                    {getRoleSelectOptions(roleEditTarget.role).map(({ value, hidden, disabled }) => {
+                                      const disableNonAdminPromotion =
+                                        profileRole !== "admin" &&
+                                        value === "admin" &&
+                                        roleEditTarget?.role !== "admin";
+                                      const disableSoleAdminDemotion =
+                                        isSoleAdminRow && value !== "admin";
+                                      const disableOption = disableNonAdminPromotion || disableSoleAdminDemotion;
+                                      return (
+                                        <option
+                                          key={value}
+                                          value={value}
+                                          disabled={disableOption || disabled}
+                                          hidden={hidden}
+                                        >
+                                          {value.charAt(0).toUpperCase() + value.slice(1)}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                  <span className="teams-role-chip__icon" aria-hidden="true">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  </span>
+                                </label>
                               );
                             }
                             return (
@@ -1418,27 +1456,37 @@ export default function TeamsPage() {
           background: rgba(99, 102, 241, 0.12);
           color: #4338ca;
         }
-        .teams-role-select {
-          padding: 8px 36px 8px 14px;
-          border-radius: 14px;
-          border: 2px solid rgba(59, 130, 246, 0.32);
-          background: rgba(255, 255, 255, 0.9);
-          font-size: 12px;
-          font-weight: 600;
-          color: #0f172a;
-          min-width: 170px;
-          box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
-          appearance: none;
-          background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-            linear-gradient(135deg, currentColor 50%, transparent 50%);
-          background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
-          background-size: 6px 6px, 6px 6px;
-          background-repeat: no-repeat;
+        .teams-role-select-wrapper {
+          position: relative;
+          cursor: pointer;
         }
-        .teams-role-select:focus {
+        .teams-role-select-wrapper:focus-within {
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+        }
+        .teams-role-select-wrapper--disabled {
+          cursor: default;
+          opacity: 0.6;
+          pointer-events: none;
+        }
+        .teams-role-select {
+          appearance: none;
+          border: none;
+          background: transparent;
+          font: inherit;
+          color: inherit;
+          padding: 0;
+          margin: 0;
+          cursor: inherit;
+          min-width: 0;
+        }
+        .teams-role-select:focus-visible {
           outline: none;
-          border-color: rgba(59, 130, 246, 0.6);
-          box-shadow: 0 14px 32px rgba(59, 130, 246, 0.24);
+        }
+        .teams-role-select:disabled {
+          cursor: default;
+        }
+        .teams-role-select-wrapper .teams-role-chip__icon {
+          pointer-events: none;
         }
         .teams-status {
           display: inline-flex;

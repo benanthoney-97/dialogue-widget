@@ -9,6 +9,7 @@ const supabaseAdmin = createClient(
 type ExternalProvider = {
   id: string;
   name: string;
+  logo: string | null;
 };
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("external_providers")
-      .select("id, name")
+      .select("id, name, logo")
       .order("name", { ascending: true });
 
     if (error) {
@@ -30,6 +31,7 @@ export async function GET() {
     const sources = (data ?? []).map((source) => ({
       id: source.id,
       name: typeof source.name === "string" ? source.name : "",
+      logo: typeof source.logo === "string" && source.logo.trim().length > 0 ? source.logo.trim() : null,
     })) as ExternalProvider[];
 
     return NextResponse.json({ sources });

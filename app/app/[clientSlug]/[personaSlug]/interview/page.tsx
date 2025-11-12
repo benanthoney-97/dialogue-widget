@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import { slugify } from "@/app/lib/jump";
 import InterviewPanel from "./InterviewPanel";
+import PersonaTopbarSlot from "../chat/PersonaTopbarSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ type AgentRow = {
 
 type PersonaDetails = {
   agentId: string;
+  slug: string;
   name: string;
   description: string | null;
   contentType: string | null;
@@ -40,6 +42,14 @@ type PersonaDetails = {
   attributes: Array<{ label: string; value: string }>;
   profileImage: string | null;
   talkLabel: string | null;
+};
+
+type PersonaPreview = {
+  id: string;
+  slug: string;
+  name: string;
+  profileImage: string | null;
+  href?: string;
 };
 
 type ClientRow = {
@@ -91,6 +101,16 @@ export default async function InterviewPage({
     notFound();
   }
 
+  const otherPersonasRaw = await fetchOtherPersonaSummaries(
+    supabase,
+    clientInfo.clientId,
+    persona.agentId,
+  );
+  const otherPersonas = otherPersonasRaw.map((otherPersona) => ({
+    ...otherPersona,
+    href: `/app/${clientSlug}/${otherPersona.slug}`,
+  }));
+
   return (
     <div
       style={{
@@ -107,6 +127,12 @@ export default async function InterviewPage({
           padding: "48px 24px 0",
         }}
       >
+        <PersonaTopbarSlot
+          personaName={persona.name}
+          profileImage={persona.profileImage}
+          personaHref={`/app/${clientSlug}/${persona.slug}`}
+          otherPersonas={otherPersonas}
+        />
         <main
           style={{
             display: "grid",
@@ -174,11 +200,7 @@ async function fetchPersonaBySlug(
     return null;
   }
 
-  const target = (data ?? []).find((row) => {
-    const name = row.agent_name?.trim();
-    if (!name) return false;
-    return slugify(name) === personaSlug;
-  });
+  const target = (data ?? []).find((row) => buildPersonaSlug(row) === personaSlug);
 
   if (!target) {
     return null;
@@ -194,6 +216,7 @@ async function fetchPersonaBySlug(
 function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
   return {
     agentId: row.agent_id,
+    slug: buildPersonaSlug(row),
     name: row.agent_name?.trim() || "Untitled persona",
     description: row.description,
     contentType: row.content_type?.trim() || null,
@@ -207,6 +230,14 @@ function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
         : null,
     talkLabel: row.talk_label,
   };
+}
+
+function buildPersonaSlug(row: { agent_id: string; agent_name: string | null }): string {
+  const name = row.agent_name?.trim();
+  if (name && name.length > 0) {
+    return slugify(name);
+  }
+  return slugify(row.agent_id);
 }
 
 function normalizeList(source: unknown): string[] {
@@ -237,4 +268,32 @@ function buildAttributes(row: AgentRow): Array<{ label: string; value: string }>
   if (statusValue) attributes.push({ label: "Customer status", value: statusValue });
 
   return attributes;
+}
+
+async function fetchOtherPersonaSummaries(
+  supabase: Supabase,
+  clientId: number,
+  excludeAgentId: string,
+): Promise<PersonaPreview[]> {
+  const { data, error } = await supabase
+    .from("agent_map")
+    .select("agent_id, agent_name, profile_image, status")
+    .eq("client_id", clientId);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? [])
+    .filter((row) => (row.status ?? "").toLowerCase() === "ready")
+    .filter((row) => row.agent_id !== excludeAgentId)
+    .map((row) => ({
+      id: row.agent_id,
+      slug: buildPersonaSlug(row),
+      name: row.agent_name?.trim() || "Untitled persona",
+      profileImage:
+        typeof row.profile_image === "string" && row.profile_image.trim().length > 0
+          ? row.profile_image.trim()
+          : null,
+    }));
 }

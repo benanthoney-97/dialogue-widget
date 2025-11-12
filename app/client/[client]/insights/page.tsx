@@ -27,7 +27,7 @@ type InsightsRow = {
 	transcript?: unknown;
 	transcript_summary?: string | null;
 	main_language?: string;
-	ownerDisplayName?: string | null;
+	ownerEmail?: string | null;
 };
 
 type InsightsApiResponse = {
@@ -315,6 +315,9 @@ export default function InsightsTable() {
 		</div>
 	);
 
+	const errorMessage = typeof error === "string" ? error.trim() : "";
+	const showErrorBanner = !loading && errorMessage.length > 0;
+
 	useEffect(() => {
 		if (!filters.personaId) return;
 		const exists = personaOptions.some((option) => option.id === filters.personaId);
@@ -478,25 +481,38 @@ export default function InsightsTable() {
 				<div className="stage-layout__content">
 				<div className="stage-shell">
 					<StagePanel footer={pagination}>
-					{loading && <StageAlert type="info" message="Loading insights…" />}
-					{!loading && error && <StageAlert type="error" message={error} />}
-					<div className="insights-table-section">
-					<div className="insights-table-wrap">
-					<table className="insights-table">
+						<div
+							className={`insights-table-section${loading ? " insights-table-section--busy" : ""}`}
+							aria-busy={loading ? "true" : undefined}
+						>
+							{(loading || showErrorBanner) && (
+								<div
+									className="insights-table-overlay"
+									role={loading ? "status" : "alert"}
+									aria-live={loading ? "polite" : "assertive"}
+								>
+									<StageAlert
+										type={loading ? "info" : "error"}
+										message={loading ? "Loading insights…" : errorMessage || "Unable to load insights"}
+									/>
+								</div>
+							)}
+							<div className="insights-table-wrap">
+								<table className="insights-table">
 									<thead>
 										<tr className="insights-table__head-row">
-										<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
-										<th className="insights-table__head-cell">Research Type</th>
-										<th className="insights-table__head-cell">Date</th>
-										<th className="insights-table__head-cell">Owner</th>
-										<th className="insights-table__head-cell">Results</th>
-										<th className="insights-table__head-cell">Export</th>
+											<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
+											<th className="insights-table__head-cell">Research Type</th>
+											<th className="insights-table__head-cell">Date</th>
+											<th className="insights-table__head-cell">Owner</th>
+											<th className="insights-table__head-cell">Results</th>
+											<th className="insights-table__head-cell">Export</th>
 										</tr>
-									</thead>
-						<tbody>
-						{rows.map((row, i) => (
-							<React.Fragment key={row.conversation_id || `${row.personaId}-${i}`}>
-								<tr className="insights-table__row">
+								</thead>
+								<tbody>
+									{rows.map((row, i) => (
+										<React.Fragment key={row.conversation_id || `${row.personaId}-${i}`}>
+											<tr className="insights-table__row">
 									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument || "Untitled persona"}</td>
 									<td className="insights-table__cell">
 										{(() => {
@@ -525,7 +541,7 @@ export default function InsightsTable() {
 												})
 											: ''
 										}</td>
-										<td className="insights-table__cell">{row.ownerDisplayName ?? row.lead?.value ?? ''}</td>
+										<td className="insights-table__cell">{row.ownerEmail ?? row.lead?.value ?? ''}</td>
 										<td className="insights-table__cell insights-table__cell--actions">
 						<StageButton
 							type="button"
@@ -796,7 +812,7 @@ export default function InsightsTable() {
 															`Persona: ${row.sourceDocument || '—'}`,
 															`Research Type: ${row.status}`,
 															`Date: ${researchDate || '—'}`,
-															`Owner: ${row.ownerDisplayName || row.lead?.value || '—'}`,
+															`Owner: ${row.ownerEmail || row.lead?.value || '—'}`,
 														].join('\n'));
 														if (row.transcript_summary) {
 															cursorY += 20;
@@ -988,14 +1004,14 @@ export default function InsightsTable() {
 														)}
 								</React.Fragment>
 							))}
-						</tbody>
+								</tbody>
 							</table>
-						{!loading && !error && rows.length === 0 ? (
-							<div className="insights-empty">No playbacks found matching your filters.</div>
-						) : null}
+							{!loading && !error && rows.length === 0 ? (
+								<div className="insights-empty">No playbacks found matching your filters.</div>
+							) : null}
+						</div>
 					</div>
-				</div>
-							<style>{`
+					<style>{`
 								@font-face {
 									font-family: 'CooperBT';
 									src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');
@@ -1064,7 +1080,7 @@ export default function InsightsTable() {
 				}
 				.insights-root .stage-layout__content {
 					height: calc(100vh - ${TOPBAR_HEIGHT}px);
-					padding: 24px 24px 64px;
+					padding: 24px 64px 12px;
 					box-sizing: border-box;
 					overflow: hidden;
 				}
@@ -1110,7 +1126,7 @@ export default function InsightsTable() {
 					}
 				}
 				.stage-panel {
-					background: var(--bg, #f4f8ff);;
+					background: var(--bg, #f4f8ff);
 					border-radius: 20px;
 					padding: 0px;
 					display: flex;
@@ -1163,7 +1179,7 @@ export default function InsightsTable() {
 				gap: 24px;
 				flex: 1;
 				min-height: 0;
-									box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+									box-shadow: none;
 				border-radius: 20px;
 			}
 			.stage-panel__footer {
@@ -1225,6 +1241,8 @@ export default function InsightsTable() {
 				justify-content: center;
 				align-items: center;
 				gap: 12px;
+				position: relative;
+				z-index: 1;
 			}
 			.stage-alert--success {
 				color: #166534;
@@ -1240,6 +1258,31 @@ export default function InsightsTable() {
 				color: #1d4ed8;
 				background: rgba(59, 130, 246, 0.12);
 				border: 1px solid rgba(59, 130, 246, 0.28);
+			}
+			.insights-table-section {
+				position: relative;
+			}
+			.insights-table-overlay {
+				position: absolute;
+				top: 50%;
+				left: 16px;
+				right: 16px;
+				transform: translateY(-50%);
+				display: flex;
+				justify-content: center;
+				pointer-events: none;
+				z-index: 2;
+			}
+			.insights-table-section--busy .insights-table-wrap {
+				pointer-events: none;
+			}
+			.insights-table-section--busy .insights-table {
+				opacity: 0.5;
+			}
+			.insights-table-overlay .stage-alert {
+				background: transparent;
+				border: none;
+				box-shadow: none;
 			}
 			.insights-action-button {
 				padding: 10px 16px;
@@ -1284,6 +1327,7 @@ export default function InsightsTable() {
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				padding-left: 4px;
 			}
 			.insights-pagination__controls {
 				display: flex;
@@ -1483,7 +1527,7 @@ ease;
 				flex: 1;
 				min-height: 0;
 				width: 100%;
-				border-radius: 12px;
+				border-radius: 0px;
 				overflow: hidden;
 				overflow-x: auto;
 				overflow-y: auto;
@@ -1492,26 +1536,26 @@ ease;
 				width: 100%;
 				border-collapse: collapse;
 				font-size: 15px;
-				background: var(--panel, #F6F7F9fff);
+				background: var(--bg, #f4f8ff);
 			}
 			.insights-table__head-cell {
 				text-align: left;
 				padding: 10px 8px;
-				color: #f6f7f9;
+				color: rgba(15, 23, 42, 0.65);
 				font-size: 13px;
 				font-weight: 700;
 				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
 				position: sticky;
 				top: 0;
 				z-index: 1;
-				background: #1e293b;
+				background: none;
 			}
 			.insights-table__head-cell--persona {
 				min-width: 150px;
 				max-width: 220px;
 			}
 			.insights-table__row {
-				background: var(--panel, #F6F7F9fff);
+				background: none;
 				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
 			}
 			.insights-table__cell {

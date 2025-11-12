@@ -7,6 +7,40 @@ import { resolveDestinationForUser } from "../lib/authRedirect";
 
 type AuthMode = "login" | "signup";
 
+function sanitizeRedirectPath(raw: string | null | undefined): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+
+  const trimmed = decoded.trim();
+  if (!trimmed.startsWith("/")) {
+    return null;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return null;
+  }
+
+  if (trimmed.startsWith("/auth")) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmed, "https://placeholder.local");
+    const sanitized = `${url.pathname}${url.search}${url.hash}`;
+    return sanitized || null;
+  } catch {
+    return null;
+  }
+}
+
 function AuthPageContent() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -48,7 +82,8 @@ function AuthPageContent() {
           return;
         }
 
-        const destination = await resolveDestinationForUser(supabase, user.id);
+        const redirectHint = sanitizeRedirectPath(searchParams?.get("redirectTo"));
+        const destination = redirectHint ?? (await resolveDestinationForUser(supabase, user.id));
         if (!isActive) {
           return;
         }
@@ -64,7 +99,7 @@ function AuthPageContent() {
     return () => {
       isActive = false;
     };
-  }, [resolveDestinationForUser, router]);
+  }, [router, searchParams]);
 
   const verificationContext = useMemo(() => {
     const flag = searchParams?.get("verification"),
@@ -153,7 +188,8 @@ function AuthPageContent() {
           router.replace("/");
           return;
         }
-  const destination = await resolveDestinationForUser(supabase, userId);
+        const redirectHint = sanitizeRedirectPath(searchParams?.get("redirectTo"));
+        const destination = redirectHint ?? (await resolveDestinationForUser(supabase, userId));
         router.replace(destination);
         setFeedback({ type: "success", message: "Signed in successfully." });
       }

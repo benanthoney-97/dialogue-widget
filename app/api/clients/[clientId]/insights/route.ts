@@ -22,6 +22,7 @@ type AgentMapRow = {
 type ProfileRow = {
   id: string;
   display_name: string | null;
+  email: string | null;
 };
 
 type InsightsRow = {
@@ -36,7 +37,7 @@ type InsightsRow = {
   transcript?: unknown;
   transcript_summary?: string | null;
   main_language?: string | null;
-  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
 };
 
 type PersonaOption = {
@@ -216,7 +217,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
     if (userIds.length > 0) {
       const { data: profiles, error: profilesError } = await supabaseAdmin
         .from("profiles")
-        .select("id, display_name")
+  .select("id, display_name, email")
         .in("id", userIds);
 
       if (profilesError) {
@@ -244,7 +245,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
         transcript: dialogue.transcript,
         transcript_summary: dialogue.transcript_summary,
         main_language: dialogue.main_language ?? undefined,
-        ownerDisplayName: dialogue.user_id ? profileById[dialogue.user_id]?.display_name ?? null : null,
+  ownerEmail: dialogue.user_id ? profileById[dialogue.user_id]?.email ?? null : null,
       };
     });
 

@@ -10,6 +10,11 @@ import {
 } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
+import {
+  exportTranscriptToPdf,
+  type PdfTranscriptMessage,
+  type TranscriptPdfPayload,
+} from "@/app/lib/exportTranscriptPdf";
 
 type Props = {
   agentId: string;
@@ -45,17 +50,6 @@ type ClientEvent =
 
 const MIN_TEXTAREA_HEIGHT = 46;
 const MAX_TEXTAREA_HEIGHT = 200;
-const PDF_PAGE_WIDTH = 612; // 8.5in
-const PDF_PAGE_HEIGHT = 792; // 11in
-const PDF_MARGIN = 72; // 1in
-const PDF_FONT_SIZE = 12;
-const PDF_LINE_HEIGHT = 16;
-const PDF_LINE_WRAP = 90;
-const PDF_LINES_PER_PAGE = Math.floor(
-  (PDF_PAGE_HEIGHT - PDF_MARGIN * 2) / PDF_LINE_HEIGHT
-);
-const textEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -65,131 +59,6 @@ const makeMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-
-const escapePdfText = (value: string) =>
-  value
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)")
-    .replace(/[^\x20-\x7E]/g, "?");
-
-const wrapText = (value: string, max = PDF_LINE_WRAP) => {
-  const lines: string[] = [];
-  let current = "";
-  const words = value.split(/\s+/);
-  for (const word of words) {
-    if (!word) continue;
-    if (word.length >= max) {
-      if (current) {
-        lines.push(current);
-        current = "";
-      }
-      for (let i = 0; i < word.length; i += max) {
-        lines.push(word.slice(i, i + max));
-      }
-      continue;
-    }
-    const prospective = current ? `${current} ${word}` : word;
-    if (prospective.length > max && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = prospective;
-    }
-  }
-  if (current) {
-    lines.push(current);
-  }
-  if (!lines.length) {
-    return [""];
-  }
-  return lines;
-};
-
-const chunkTranscriptLines = (lines: string[]) => {
-  if (!lines.length) return [["Transcript empty."]];
-  const pages: string[][] = [];
-  for (let i = 0; i < lines.length; i += PDF_LINES_PER_PAGE) {
-    pages.push(lines.slice(i, i + PDF_LINES_PER_PAGE));
-  }
-  return pages;
-};
-
-const buildPageContent = (lines: string[]) => {
-  const startY = PDF_PAGE_HEIGHT - PDF_MARGIN - (PDF_LINE_HEIGHT - PDF_FONT_SIZE);
-  const content: string[] = [
-    "BT",
-    `/F1 ${PDF_FONT_SIZE} Tf`,
-    `${PDF_LINE_HEIGHT} TL`,
-    `${PDF_MARGIN} ${startY} Td`,
-  ];
-  lines.forEach((line, index) => {
-    const escaped = escapePdfText(line);
-    if (index === 0) {
-      content.push(`(${escaped}) Tj`);
-    } else {
-      content.push("T*");
-      content.push(`(${escaped}) Tj`);
-    }
-  });
-  content.push("ET");
-  return content.join("\n");
-};
-
-const createTranscriptPdf = (lines: string[]) => {
-  const pages = chunkTranscriptLines(lines);
-  const pageCount = pages.length;
-  const contentStartNumber = 3 + pageCount;
-  const fontObjectNumber = contentStartNumber + pageCount;
-  let pdf = "%PDF-1.4\n";
-  const offsets: number[] = [0];
-  let objectNumber = 0;
-  const appendObject = (body: string) => {
-    objectNumber += 1;
-    offsets[objectNumber] = pdf.length;
-    pdf += `${objectNumber} 0 obj\n${body}\nendobj\n`;
-  };
-  const appendStreamObject = (content: string) => {
-    const length = textEncoder?.encode(content).length ?? content.length;
-    appendObject(`<< /Length ${length} >>\nstream\n${content}\nendstream`);
-  };
-
-  // 1: Catalog
-  appendObject("<< /Type /Catalog /Pages 2 0 R >>");
-
-  const kidRefs = pages
-    .map((_, index) => `${3 + index} 0 R`)
-    .join(" ");
-  // 2: Pages
-  appendObject(`<< /Type /Pages /Count ${pageCount} /Kids [${kidRefs}] >>`);
-
-  // Page objects
-  pages.forEach((_, index) => {
-    const contentNumber = contentStartNumber + index;
-    appendObject(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_PAGE_WIDTH} ${PDF_PAGE_HEIGHT}] /Contents ${contentNumber} 0 R /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> >>`
-    );
-  });
-
-  // Content streams
-  pages.forEach((pageLines) => {
-    appendStreamObject(buildPageContent(pageLines));
-  });
-
-  // Font object
-  appendObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objectNumber + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  for (let i = 1; i <= objectNumber; i += 1) {
-    const offset = offsets[i];
-    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${objectNumber + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
-
-  return new Blob([pdf], { type: "application/pdf" });
-};
 
 export default function DialogueText({
   agentId,
@@ -227,6 +96,7 @@ export default function DialogueText({
   const lastAgentResponseRef = useRef<string>("");
   const lastAgentMessageIdRef = useRef<string | null>(null);
   const isAgentStreamingRef = useRef(false);
+  const copyInfoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -338,6 +208,43 @@ export default function DialogueText({
     },
     [appendAgentMessage, replaceLastAgentMessage]
   );
+
+  const [copyFeedback, setCopyFeedback] = useState<{ messageId: string; text: string } | null>(
+    null
+  );
+
+  const handleCopyAgentMessage = useCallback(async (messageId: string, text: string) => {
+    const value = text.trim();
+    if (!value) return;
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setCopyFeedback({ messageId, text: "Copy unavailable in this browser" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyFeedback({ messageId, text: "Copied!" });
+    } catch (error) {
+      console.error("[DialogueText] Failed to copy message", error);
+      setCopyFeedback({ messageId, text: "Copy failed" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!copyFeedback) return;
+    if (copyInfoTimeoutRef.current) {
+      clearTimeout(copyInfoTimeoutRef.current);
+    }
+    copyInfoTimeoutRef.current = setTimeout(() => {
+      setCopyFeedback(null);
+      copyInfoTimeoutRef.current = null;
+    }, 1600);
+    return () => {
+      if (copyInfoTimeoutRef.current) {
+        clearTimeout(copyInfoTimeoutRef.current);
+        copyInfoTimeoutRef.current = null;
+      }
+    };
+  }, [copyFeedback]);
 
   const { startSession, endSession, status, sendUserMessage } = useConversation({
     serverLocation,
@@ -484,7 +391,7 @@ export default function DialogueText({
     () =>
       ({
         agent: {
-          firstMessage: firstMessage ?? "",
+          firstMessage: firstMessage ?? "Hi, I'm here to help. What would you like to know?",
           prompt: {
             prompt: composedPrompt,
           },
@@ -655,6 +562,8 @@ export default function DialogueText({
 
   const containerWidth = useMemo(() => (isNarrow ? "100%" : "100%"), [isNarrow]);
 
+  const showEndedActions = messages.length === 0 && endedTranscript.length > 0;
+
   const transcriptStyle: CSSProperties = {
     padding: isNarrow ? 12 : 16,
     overflowY: "auto",
@@ -684,23 +593,59 @@ export default function DialogueText({
       );
     }
     const isUser = message.role === "user";
+    const isAssistant = message.role === "assistant";
+    const handleAssistantClick = isAssistant
+      ? () => {
+          void handleCopyAgentMessage(message.id, message.text);
+        }
+      : undefined;
+    const isCopyFeedbackVisible =
+      isAssistant && copyFeedback?.messageId === message.id ? copyFeedback.text : null;
     return (
       <div
         key={message.id}
         style={{
-          alignSelf: isUser ? "flex-end" : "flex-start",
-          maxWidth: "85%",
-          background: isUser ? buttonColor : "rgba(148, 163, 184, 0.16)",
-          color: isUser ? buttonTextColor : "#0f172a",
-          padding: "10px 14px",
-          borderRadius: isUser ? "15px 15px 4px 15px" : "15px 15px 15px 4px",
-          fontSize: 14,
-          lineHeight: 1.45,
-          wordBreak: "break-word",
-          boxShadow: "0 6px 16px rgba(6, 10, 20, 0.35)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: isUser ? "flex-end" : "flex-start",
+          gap: 6,
         }}
       >
-        {message.text}
+        <div
+          style={{
+            alignSelf: isUser ? "flex-end" : "flex-start",
+            maxWidth: "85%",
+            background: isUser ? buttonColor : "rgba(148, 163, 184, 0.16)",
+            color: isUser ? buttonTextColor : "#0f172a",
+            padding: "10px 14px",
+            borderRadius: isUser ? "15px 15px 4px 15px" : "15px 15px 15px 4px",
+            fontSize: 14,
+            lineHeight: 1.45,
+            wordBreak: "break-word",
+            boxShadow: "0 6px 16px rgba(6, 10, 20, 0.35)",
+            cursor: isAssistant ? "pointer" : "default",
+          }}
+          role={isAssistant ? "button" : undefined}
+          tabIndex={isAssistant ? 0 : undefined}
+          aria-label={isAssistant ? "Copy persona message" : undefined}
+          onClick={handleAssistantClick}
+          onKeyDown={
+            isAssistant
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    void handleCopyAgentMessage(message.id, message.text);
+                  }
+                }
+              : undefined
+          }
+          title={isAssistant ? "Click to copy" : undefined}
+        >
+          {message.text}
+        </div>
+        {isCopyFeedbackVisible ? (
+          <span style={{ color: "#94a3b8", fontSize: 11 }}>{isCopyFeedbackVisible}</span>
+        ) : null}
       </div>
     );
   };
@@ -709,43 +654,67 @@ export default function DialogueText({
   const trimmedDraft = draft.trim();
   const showSendButton = trimmedDraft.length > 0;
 
-  const handleDownloadTranscript = useCallback(() => {
+  const handleDownloadTranscript = useCallback(async () => {
     const source = endedTranscript.length ? endedTranscript : messages;
     if (!source.length) return;
-    const lines: string[] = [];
-    const personaTitle = personaName?.trim();
-    if (personaTitle) {
-      wrapText(personaTitle.toUpperCase()).forEach((line) => lines.push(line));
-      lines.push("");
-    }
-    source.forEach((message, index) => {
+
+    const transcriptMessages: PdfTranscriptMessage[] = [];
+    const fallbackSegments: string[] = [];
+
+    source.forEach((message) => {
       const normalized = message.text.replace(/\r?\n/g, " ").trim();
-      const role =
+      if (!normalized) return;
+
+      if (message.role === "user" || message.role === "assistant") {
+        transcriptMessages.push({
+          role: message.role === "user" ? "user" : "agent",
+          text: normalized,
+        });
+      }
+
+      const label =
         message.role === "assistant"
-          ? "Persona"
+          ? personaName?.trim() || "Persona"
           : message.role === "user"
           ? "User"
           : message.role === "system"
           ? "System"
           : message.role;
-      const prefix = `${role}: ${normalized}`.trim();
-      wrapText(prefix).forEach((line) => lines.push(line));
-      if (index < source.length - 1) {
-        lines.push("");
-      }
+      fallbackSegments.push(`${label}: ${normalized}`);
     });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `conversation-${agentId || "agent"}-${timestamp}.pdf`;
-    const blob = createTranscriptPdf(lines);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [agentId, endedTranscript, messages, personaName]);
+
+    const rawResearchType =
+      typeof dynamicVariables?.research_type === "string"
+        ? dynamicVariables.research_type.trim()
+        : "";
+    const formattedResearchType = rawResearchType
+      ? `${rawResearchType.charAt(0).toUpperCase()}${rawResearchType.slice(1)}`
+      : undefined;
+
+    const timestampLabel = new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date());
+
+    const payload: TranscriptPdfPayload = {
+      conversationTitle: personaName?.trim()
+        ? `Session with ${personaName.trim()}`
+        : "Dialogue Session",
+      personaName: personaName?.trim() || "Unknown persona",
+      researchType: formattedResearchType,
+      timestampLabel,
+      messages: transcriptMessages,
+      fallbackText: fallbackSegments.join("\n\n"),
+    };
+
+    try {
+      await exportTranscriptToPdf(payload);
+    } catch (error) {
+      console.error("[DialogueText] Failed to export transcript", error);
+    }
+  }, [dynamicVariables, endedTranscript, messages, personaName]);
 
   return (
     <div
@@ -775,6 +744,8 @@ export default function DialogueText({
           ref={transcriptRef}
           style={{
             ...transcriptStyle,
+            justifyContent: showEndedActions ? "center" : transcriptStyle.justifyContent,
+            alignItems: showEndedActions ? "center" : transcriptStyle.alignItems,
             background: "transparent",
             borderRadius: 0,
             border: "none",
@@ -806,14 +777,16 @@ export default function DialogueText({
               >
                 <button
                   type="button"
-                  onClick={handleDownloadTranscript}
+                  onClick={() => {
+                    void handleDownloadTranscript();
+                  }}
                   style={{
                     padding: "0 22px",
                     height: 46,
                     borderRadius: 14,
-                    border: "1px solid rgba(148, 163, 184, 0.3)",
-                    background: "rgba(59, 130, 246, 0.18)",
-                    color: "#e2e8f0",
+                    border: "1px solid #0f172a",
+                    background: "transparent",
+                    color: "#0f172a",
                     cursor: "pointer",
                     fontWeight: 600,
                     display: "inline-flex",
@@ -834,8 +807,8 @@ export default function DialogueText({
                     height: 46,
                     borderRadius: 14,
                     border: "1px solid rgba(148, 163, 184, 0.3)",
-                    background: "rgba(30, 41, 59, 0.65)",
-                    color: "#e2e8f0",
+                    background: "#0f172a",
+                    color: "#ffffff",
                     cursor: "pointer",
                     fontWeight: 600,
                     display: "inline-flex",

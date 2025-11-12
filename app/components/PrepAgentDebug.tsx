@@ -18,6 +18,13 @@ import { useConversation } from "@elevenlabs/react";
 // metadata now comes from Supabase agent_map; docMap is no longer used here
 import { insertContactRequest } from "@/app/lib/contactRequests";
 import { insertSummaryRequest } from "@/app/lib/summaryRequests";
+import {
+  ALLOWED_VOICE_IDS,
+  ALLOWED_VOICE_ID_SET,
+  normalizeVoiceOptions,
+  type ElevenLabsVoiceResponse,
+  type VoiceOption,
+} from "@/app/lib/voiceCatalog";
 
 
 const POST_CALL_BASE =
@@ -61,28 +68,6 @@ type Props = {
 export type PrepAgentProps = Props;
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
-
-type ElevenLabsVoice = {
-  voice_id: string;
-  name: string | null;
-  accent: string | null;
-  description: string | null;
-  gender: string | null;
-  age: string | null;
-  preview_url: string | null;
-};
-
-const ALLOWED_VOICE_IDS = [
-  "Tx7VLgfksXHVnoY6jDGU",
-  "lUTamkMw7gOzZbFIwmq4",
-  "56bWURjYFHyYyVf490Dp",
-  "0lp4RIz96WD1RUtvEu3Q",
-  "kdmDKE6EkgrWrrykO9Qt",
-  "1SM7GgM6IMuvQlz2BwM3",
-  "lcMyyd2HUfFzxdCaC4Ta",
-] as const;
-
-const ALLOWED_VOICE_ID_SET = new Set<string>(ALLOWED_VOICE_IDS);
 
 const PERSONA_LABEL_COLOR = "#0b1f52";
 
@@ -210,7 +195,7 @@ export default function PrepAgentDebug(props: Props) {
     });
   }, [profileImage, agentMap?.profile_image, resolvedPersonaImageUrl]);
   const [knowledgeText, setKnowledgeText] = useState<string | null>(null);
-  const [voiceOptions, setVoiceOptions] = useState<ElevenLabsVoice[]>([]);
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState<string | null>(null);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
@@ -636,15 +621,10 @@ export default function PrepAgentDebug(props: Props) {
         }
         const data = await res.json();
         if (cancelled) return;
-        const voices: ElevenLabsVoice[] = Array.isArray(data?.voices)
-          ? data.voices.filter(
-              (voice: ElevenLabsVoice) =>
-                voice && typeof voice.voice_id === "string" && voice.voice_id.length > 0
-          )
+        const rawVoices: ElevenLabsVoiceResponse[] = Array.isArray(data?.voices)
+          ? data.voices
           : [];
-        const allowedVoices = ALLOWED_VOICE_IDS.map((id) =>
-          voices.find((voice) => voice.voice_id === id)
-        ).filter(Boolean) as ElevenLabsVoice[];
+        const allowedVoices = normalizeVoiceOptions(rawVoices);
         setVoiceOptions(allowedVoices);
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
