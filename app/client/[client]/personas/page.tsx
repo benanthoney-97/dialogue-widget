@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { v4 as uuidv4 } from "uuid";
 import Link from "next/link";
@@ -8,8 +8,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { slugify } from "@/app/lib/jump";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
+import ModalPortalContext from "../../../components/ModalPortalContext";
 import { supabase } from "../../../lib/supabaseClient";
-import FullscreenModal from "../../../components/FullscreenModal";
 import PillButton from "../../../components/PillButton";
 import {
   normalizeVoiceOptions,
@@ -226,6 +226,129 @@ function buildStoragePublicUrl(bucket: string, path: string) {
 
 function buildPublicUrl(path: string) {
   return buildStoragePublicUrl("docs", path);
+}
+
+type PersonasFullscreenModalProps = {
+  open: boolean;
+  onCloseAction: () => void;
+  children?: React.ReactNode;
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  fillScreen?: boolean;
+};
+
+function PersonasFullscreenModal({
+  open,
+  onCloseAction,
+  children,
+  anchorRef,
+  fillScreen = false,
+}: PersonasFullscreenModalProps) {
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCloseAction();
+      }
+    };
+    document.addEventListener("keydown", handleKeydown);
+    return () => {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, [open, onCloseAction]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setAnchorRect(null);
+      return;
+    }
+    const anchorEl = anchorRef?.current;
+    if (!anchorEl || typeof window === "undefined") {
+      setAnchorRect(null);
+      return;
+    }
+
+    const updateRect = () => {
+      const nextRect = anchorRef?.current?.getBoundingClientRect() ?? null;
+      setAnchorRect(nextRect);
+    };
+
+    updateRect();
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => updateRect());
+      resizeObserver.observe(anchorEl);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
+      resizeObserver?.disconnect();
+    };
+  }, [open, anchorRef]);
+
+  if (!open) return null;
+
+  const anchorStyles = fillScreen
+    ? { inset: 0 as const }
+    : anchorRect !== null
+    ? {
+        top: anchorRect.top,
+        left: Math.max(anchorRect.left, 0),
+        width:
+          typeof window !== "undefined"
+            ? Math.min(anchorRect.width, window.innerWidth)
+            : anchorRect.width,
+        height: anchorRect.height,
+      }
+    : { inset: 0 as const };
+
+  return (
+    <div
+      role="presentation"
+      onClick={onCloseAction}
+      style={{
+        position: "fixed",
+        ...anchorStyles,
+        zIndex: 1000,
+        background: "rgba(var(--accent-rgb, 43,108,176), 0.08)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 0,
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <ModalPortalContext.Provider value={innerRef.current}>
+        <div
+          ref={innerRef}
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            background: fillScreen ? "#f4f6fb" : "var(--panel, #0f172a)",
+            color: fillScreen ? "#0f172a" : "var(--text, #F6F7F9fff)",
+            borderRadius: 0,
+            border: "none",
+            boxShadow: "none",
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "auto",
+            position: "relative",
+          }}
+        >
+          {children}
+        </div>
+      </ModalPortalContext.Provider>
+    </div>
+  );
 }
 
 function buildPersonaTraits(persona: PersonaRow): PersonaTrait[] {
@@ -4840,7 +4963,7 @@ export default function PersonasPage() {
                 </section>
               </StagePanel>
 
-        <FullscreenModal
+        <PersonasFullscreenModal
           open={!!activePersona}
           onCloseAction={handleClosePersona}
           anchorRef={contentContainerRef}
@@ -5278,7 +5401,7 @@ export default function PersonasPage() {
               </div>
             </div>
           </>)}
-        </FullscreenModal>
+        </PersonasFullscreenModal>
 
         {voiceSettingsPersona
           ? (() => {
