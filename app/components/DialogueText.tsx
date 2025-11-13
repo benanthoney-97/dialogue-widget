@@ -8,6 +8,8 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import Image from "next/image";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
 import {
@@ -42,23 +44,61 @@ type TranscriptMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   text: string;
+  attachments?: Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+  }>;
 };
 
 type ClientEvent =
   | { type: "user_transcript"; text: string }
   | { type: "agent_response"; text: string };
 
+type StoredAttachment = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  file: File;
+  previewUrl: string | null;
+  status: "pending" | "ready" | "error";
+  text: string;
+  error?: string;
+};
+
+type PdfJsLib = typeof import("pdfjs-dist");
+
 const MIN_TEXTAREA_HEIGHT = 46;
 const MAX_TEXTAREA_HEIGHT = 200;
+const bodyFontStyle: CSSProperties = { fontFamily: BODY_FONT_STACK };
+const headingFontStyle: CSSProperties = { fontFamily: HEADING_FONT_STACK };
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const ATTACHMENT_PROCESSING_MESSAGE =
+  "Please wait for document processing to finish.";
+
 const makeMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
+
+const extensionOf = (file: File) => {
+  const parts = file.name.toLowerCase().split(".");
+  if (parts.length < 2) return "";
+  return parts.pop() ?? "";
+};
+
+const formatAttachmentSize = (size: number) => {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 export default function DialogueText({
   agentId,
@@ -88,15 +128,146 @@ export default function DialogueText({
   const [isEnding, setIsEnding] = useState(false);
   const autoStartRef = useRef(false);
   const [knowledgeText, setKnowledgeText] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<StoredAttachment[]>([]);
+
+  const hasPendingAttachments = useMemo(
+    () => attachments.some((attachment) => attachment.status === "pending"),
+    [attachments]
+  );
+
+  const hasReadyAttachments = useMemo(
+    () => attachments.some((attachment) => attachment.status === "ready"),
+    [attachments]
+  );
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentsRef = useRef<StoredAttachment[]>([]);
   const lastLocalUserMessageRef = useRef<string>("");
   const lastRemoteUserTranscriptRef = useRef<string>("");
   const lastAgentResponseRef = useRef<string>("");
   const lastAgentMessageIdRef = useRef<string | null>(null);
   const isAgentStreamingRef = useRef(false);
   const copyInfoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    if (!hasPendingAttachments) {
+      setErr((prev) => (prev === ATTACHMENT_PROCESSING_MESSAGE ? "" : prev));
+    }
+  }, [hasPendingAttachments]);
+
+  const updateAttachment = useCallback(
+    (id: string, updates: Partial<StoredAttachment>) => {
+      setAttachments((prev) =>
+        prev.map((attachment) =>
+          attachment.id === id ? { ...attachment, ...updates } : attachment
+        )
+      );
+    },
+    []
+  );
+
+  const parseAttachment = useCallback(
+    async (attachment: StoredAttachment) => {
+      const { file, id } = attachment;
+      try {
+        const mime = file.type.toLowerCase();
+        const ext = extensionOf(file);
+
+        const readAsText = () =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result;
+              if (typeof result === "string") {
+                resolve(result);
+              } else if (result instanceof ArrayBuffer) {
+                resolve(new TextDecoder().decode(result));
+              } else {
+                resolve("");
+              }
+            };
+            reader.onerror = () =>
+              reject(reader.error ?? new Error("Failed to read file"));
+            reader.readAsText(file);
+          });
+
+        const parsePdf = async () => {
+          const buffer = await file.arrayBuffer();
+          const pdfjsModule = (await import("pdfjs-dist/build/pdf")) as unknown as PdfJsLib & {
+            default?: PdfJsLib;
+          };
+          const pdfjsLib = pdfjsModule.default ?? pdfjsModule;
+          if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+          }
+          const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+          let combined = "";
+          for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
+            const page = await doc.getPage(pageNum);
+            const content = await page.getTextContent();
+            const pageText = content.items
+              .map((item: unknown) => {
+                if (!item || typeof item !== "object") return "";
+                if ("str" in item && typeof (item as { str?: string }).str === "string") {
+                  return (item as { str: string }).str;
+                }
+                return "";
+              })
+              .join(" ");
+            if (pageText.trim()) {
+              combined += `${pageText}\n`;
+            }
+          }
+          return combined.trim();
+        };
+
+        let extracted = "";
+        if (mime === "text/plain" || mime === "text/csv" || ext === "txt" || ext === "csv") {
+          extracted = (await readAsText()).trim();
+        } else if (mime === "application/pdf" || ext === "pdf") {
+          extracted = await parsePdf();
+        } else if (mime.startsWith("image/")) {
+          extracted = `[Image attachment: ${file.name}]`;
+        } else {
+          extracted = (await readAsText()).trim();
+        }
+
+        updateAttachment(id, {
+          text: extracted,
+          status: "ready",
+          error: undefined,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error ?? "Unknown error");
+        console.error("[DialogueText] Failed to parse attachment", {
+          name: file.name,
+          error: message,
+        });
+        updateAttachment(id, {
+          status: "error",
+          error: message,
+        });
+      }
+    },
+    [updateAttachment]
+  );
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -124,11 +295,22 @@ export default function DialogueText({
     el.style.height = `${nextHeight}px`;
   }, [draft]);
 
-  const appendUserMessage = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setMessages((prev) => [...prev, { id: makeMessageId(), role: "user", text: trimmed }]);
-  }, []);
+  const appendUserMessage = useCallback(
+    (text: string, attachmentsForMessage?: TranscriptMessage["attachments"]) => {
+      const trimmed = text.trim();
+      if (!trimmed && (!attachmentsForMessage || attachmentsForMessage.length === 0)) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId(),
+          role: "user",
+          text: trimmed,
+          attachments: attachmentsForMessage,
+        },
+      ]);
+    },
+    []
+  );
 
   const appendAgentMessage = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -333,12 +515,10 @@ export default function DialogueText({
           .eq("agent_id", agentId)
           .maybeSingle<{ knowledge_text: string | null }>();
         if (error) {
-          // eslint-disable-next-line no-console
           console.error("[DialogueText] failed to load knowledge text", error);
         }
         setKnowledgeText(data?.knowledge_text ?? null);
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error("[DialogueText] unexpected error fetching knowledge text", error);
         setKnowledgeText(null);
       }
@@ -346,6 +526,16 @@ export default function DialogueText({
 
     void fetchKnowledgeText();
   }, [agentId]);
+
+  const attachmentsKnowledgeText = useMemo(() => {
+    const readyAttachments = attachments.filter(
+      (attachment) => attachment.status === "ready" && attachment.text.trim()
+    );
+    if (readyAttachments.length === 0) return "";
+    return readyAttachments
+      .map((attachment) => `Attachment: ${attachment.name}\n${attachment.text.trim()}`)
+      .join("\n\n---\n\n");
+  }, [attachments]);
 
   const dynamicVariables = useMemo(() => {
     const joinValues = (values?: string[] | null) => {
@@ -366,12 +556,19 @@ export default function DialogueText({
       key_pain_points: joinValues(personaKeyPainPoints),
     };
 
-    if (knowledgeText && knowledgeText.trim().length > 0) {
-      variables.knowledge_text = knowledgeText.trim();
+    const baseKnowledge = knowledgeText?.trim();
+    if (baseKnowledge) {
+      variables.knowledge_text = baseKnowledge;
+    }
+
+    const uploadedContent = attachmentsKnowledgeText.trim();
+    if (uploadedContent) {
+      variables.uploaded_content = uploadedContent;
     }
 
     return variables;
   }, [
+    attachmentsKnowledgeText,
     knowledgeText,
     personaCustomerStatus,
     personaIntentSignals,
@@ -391,7 +588,7 @@ export default function DialogueText({
     () =>
       ({
         agent: {
-          firstMessage: firstMessage ?? "Hi, I'm here to help. What would you like to know?",
+          firstMessage: firstMessage ?? "",
           prompt: {
             prompt: composedPrompt,
           },
@@ -410,6 +607,12 @@ export default function DialogueText({
     setDraft("");
     setPhase("ready");
     setErr("");
+    attachmentsRef.current.forEach((attachment) => {
+      if (attachment.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+      }
+    });
+    setAttachments([]);
   };
   const connect = useCallback(async () => {
     try {
@@ -465,23 +668,21 @@ export default function DialogueText({
   }, [agentId, dynamicVariables, overrides, startSession, status, useSignedUrl]);
 
   useEffect(() => {
-    if (!autoStart || autoStartRef.current) return;
+    const initialMessage = autoStartUserMessage?.trim();
+    if (!autoStart || autoStartRef.current || !initialMessage) return;
     autoStartRef.current = true;
     let messageQueued = false;
 
     const run = async () => {
       try {
         await connect();
-        const initialMessage = autoStartUserMessage?.trim();
-        if (initialMessage) {
-          appendUserMessage(initialMessage);
-          lastLocalUserMessageRef.current = initialMessage;
-          setIsSending(true);
-          messageQueued = true;
-          setErr("");
-          setEndedTranscript([]);
-          await sendUserMessage?.(initialMessage);
-        }
+            appendUserMessage(initialMessage);
+            lastLocalUserMessageRef.current = initialMessage;
+            setIsSending(true);
+            messageQueued = true;
+            setErr("");
+            setEndedTranscript([]);
+            await sendUserMessage?.(initialMessage);
       } catch (error) {
         console.error("[DialogueText] auto-start failed", error);
         setErr(error instanceof Error ? error.message : String(error ?? "Unknown error"));
@@ -503,20 +704,46 @@ export default function DialogueText({
   ]);
 
   const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text || isSending) return;
+    const rawText = draft;
+    const trimmedText = rawText.trim();
+    if (isSending) return;
+
+    if (hasPendingAttachments) {
+      setErr(ATTACHMENT_PROCESSING_MESSAGE);
+      return;
+    }
+
+    const readyToSend = attachments.filter((attachment) => attachment.status === "ready");
+    if (!trimmedText && readyToSend.length === 0) return;
+
+    const attachmentLabels = readyToSend.map((attachment) => attachment.name);
+    const generatedText = !trimmedText
+      ? attachmentLabels.length === 1
+        ? `Uploaded document: ${attachmentLabels[0]}`
+        : `Uploaded documents: ${attachmentLabels.join(", ")}`
+      : trimmedText;
+    const outgoingText = generatedText;
+    const attachmentsForMessage = readyToSend.map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      size: attachment.size,
+      type: attachment.type,
+    }));
 
     setDraft("");
-    appendUserMessage(text);
-    lastLocalUserMessageRef.current = text;
+    appendUserMessage(outgoingText, attachmentsForMessage);
+    lastLocalUserMessageRef.current = outgoingText;
     setIsSending(true);
     setErr("");
     setEndedTranscript([]);
 
+    let sentSuccessfully = false;
+
     try {
       await connect();
-      console.log("[DialogueText] Sending message", { text });
-      await sendUserMessage?.(text);
+      console.log("[DialogueText] Sending message", { text: outgoingText });
+      await sendUserMessage?.(outgoingText);
+      sentSuccessfully = true;
     } catch (error) {
       console.error("[DialogueText] Failed to send", error);
       setErr(error instanceof Error ? error.message : String(error ?? "Unknown error"));
@@ -530,8 +757,28 @@ export default function DialogueText({
       ]);
     } finally {
       setIsSending(false);
+      if (sentSuccessfully && readyToSend.length > 0) {
+        const sentIds = new Set(readyToSend.map((attachment) => attachment.id));
+        setAttachments((prev) =>
+          prev.filter((attachment) => {
+            const shouldRemove = sentIds.has(attachment.id);
+            if (shouldRemove && attachment.previewUrl) {
+              URL.revokeObjectURL(attachment.previewUrl);
+            }
+            return !shouldRemove;
+          })
+        );
+      }
     }
-  }, [appendUserMessage, connect, draft, isSending, sendUserMessage]);
+  }, [
+    appendUserMessage,
+    attachments,
+    connect,
+    draft,
+    hasPendingAttachments,
+    isSending,
+    sendUserMessage,
+  ]);
 
   const handleEndCall = useCallback(async () => {
     if (isEnding) return;
@@ -550,6 +797,12 @@ export default function DialogueText({
       lastLocalUserMessageRef.current = "";
       lastRemoteUserTranscriptRef.current = "";
       lastAgentResponseRef.current = "";
+      attachmentsRef.current.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+      setAttachments([]);
     } catch (error) {
       console.error("[DialogueText] Failed to end session", error);
       setErr(
@@ -565,6 +818,7 @@ export default function DialogueText({
   const showEndedActions = messages.length === 0 && endedTranscript.length > 0;
 
   const transcriptStyle: CSSProperties = {
+    ...bodyFontStyle,
     padding: isNarrow ? 12 : 16,
     overflowY: "auto",
     display: "flex",
@@ -582,6 +836,7 @@ export default function DialogueText({
         <div
           key={message.id}
           style={{
+            ...bodyFontStyle,
             alignSelf: "center",
             color: "#cbd5f5",
             fontSize: 12,
@@ -605,6 +860,7 @@ export default function DialogueText({
       <div
         key={message.id}
         style={{
+          ...bodyFontStyle,
           display: "flex",
           flexDirection: "column",
           alignItems: isUser ? "flex-end" : "flex-start",
@@ -613,6 +869,7 @@ export default function DialogueText({
       >
         <div
           style={{
+            ...bodyFontStyle,
             alignSelf: isUser ? "flex-end" : "flex-start",
             maxWidth: "85%",
             background: isUser ? buttonColor : "rgba(148, 163, 184, 0.16)",
@@ -641,18 +898,60 @@ export default function DialogueText({
           }
           title={isAssistant ? "Click to copy" : undefined}
         >
-          {message.text}
+          {message.text ? <div>{message.text}</div> : null}
+          {message.attachments && message.attachments.length > 0 ? (
+            <div
+              style={{
+                ...bodyFontStyle,
+                marginTop: message.text ? 8 : 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              {message.attachments.map((attachment) => (
+                <span
+                  key={attachment.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: isUser
+                      ? "1px solid rgba(255, 255, 255, 0.4)"
+                      : "1px solid rgba(148, 163, 184, 0.45)",
+                    background: isUser
+                      ? "rgba(15, 23, 42, 0.18)"
+                      : "rgba(255, 255, 255, 0.55)",
+                    color: isUser ? buttonTextColor : "#0f172a",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  <span>{attachment.name}</span>
+                  <span style={{ opacity: 0.7 }}>
+                    {formatAttachmentSize(attachment.size)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         {isCopyFeedbackVisible ? (
-          <span style={{ color: "#94a3b8", fontSize: 11 }}>{isCopyFeedbackVisible}</span>
+          <span style={{ ...bodyFontStyle, color: "#94a3b8", fontSize: 11 }}>
+            {isCopyFeedbackVisible}
+          </span>
         ) : null}
       </div>
     );
   };
 
-  const sendDisabled = isSending || phase === "connecting" || isEnding;
+  const sendDisabled =
+    isSending || phase === "connecting" || isEnding || hasPendingAttachments;
   const trimmedDraft = draft.trim();
-  const showSendButton = trimmedDraft.length > 0;
+  const showSendButton = trimmedDraft.length > 0 || hasReadyAttachments;
+  const attachmentButtonVisible = phase === "idle" || phase === "ready";
 
   const handleDownloadTranscript = useCallback(async () => {
     const source = endedTranscript.length ? endedTranscript : messages;
@@ -662,7 +961,18 @@ export default function DialogueText({
     const fallbackSegments: string[] = [];
 
     source.forEach((message) => {
-      const normalized = message.text.replace(/\r?\n/g, " ").trim();
+      const parts: string[] = [];
+      const trimmedBody = message.text.replace(/\r?\n/g, " ").trim();
+      if (trimmedBody) {
+        parts.push(trimmedBody);
+      }
+      if (message.attachments && message.attachments.length > 0) {
+        const attachmentSummary = message.attachments
+          .map((attachment) => attachment.name)
+          .join(", ");
+        parts.push(`Attachments: ${attachmentSummary}`);
+      }
+      const normalized = parts.join(" \u2014 ").trim();
       if (!normalized) return;
 
       if (message.role === "user" || message.role === "assistant") {
@@ -719,6 +1029,7 @@ export default function DialogueText({
   return (
     <div
       style={{
+        ...bodyFontStyle,
         width: containerWidth,
         margin: "0 auto",
         padding: isNarrow ? "0 8px" : "0",
@@ -732,6 +1043,7 @@ export default function DialogueText({
     >
       <div
         style={{
+          ...bodyFontStyle,
           display: "flex",
           flexDirection: "column",
           gap: 16,
@@ -758,6 +1070,7 @@ export default function DialogueText({
           ) : endedTranscript.length ? (
             <div
               style={{
+                ...bodyFontStyle,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -769,6 +1082,7 @@ export default function DialogueText({
             >
               <div
                 style={{
+                  ...bodyFontStyle,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -781,6 +1095,7 @@ export default function DialogueText({
                     void handleDownloadTranscript();
                   }}
                   style={{
+                    ...headingFontStyle,
                     padding: "0 22px",
                     height: 46,
                     borderRadius: 14,
@@ -803,6 +1118,7 @@ export default function DialogueText({
                   type="button"
                   onClick={handleResetChat}
                   style={{
+                    ...headingFontStyle,
                     padding: "0 22px",
                     height: 46,
                     borderRadius: 14,
@@ -826,6 +1142,7 @@ export default function DialogueText({
           ) : (
             <div
               style={{
+                ...bodyFontStyle,
                 color: "rgba(226, 232, 240, 0.65)",
                 fontSize: 14,
                 display: "flex",
@@ -836,7 +1153,6 @@ export default function DialogueText({
                 height: "100%",
               }}
             >
-              Chat to your persona to get answers to quickfire quesstions
             </div>
           )}
         </div>
@@ -848,45 +1164,229 @@ export default function DialogueText({
               void handleSend();
             }}
             style={{
+              ...bodyFontStyle,
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               gap: 12,
               background: "rgba(14, 21, 36, 0.9)",
               borderRadius: 16,
               border: "1px solid rgba(148, 163, 184, 0.25)",
               padding: "8px 12px",
               marginTop: "auto",
+              position: "relative",
             }}
           >
-            <textarea
-              ref={draftInputRef}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void handleSend();
-                }
-              }}
-              placeholder="Type…"
-              aria-label="Type"
-              rows={1}
+            {attachmentButtonVisible ? (
+              <button
+                type="button"
+                aria-label="Add attachment"
+                title="Add attachment"
+                style={{
+                  ...headingFontStyle,
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  border: "1px solid rgba(148, 163, 184, 0.25)",
+                  background: "rgba(15, 23, 42, 0.45)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "rgba(226, 232, 240, 0.78)",
+                  cursor: "pointer",
+                  transition: "background 0.18s ease, color 0.18s ease, transform 0.18s ease",
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.background = "rgba(30, 64, 175, 0.55)";
+                  event.currentTarget.style.color = "rgba(248, 250, 252, 0.92)";
+                  event.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.background = "rgba(15, 23, 42, 0.45)";
+                  event.currentTarget.style.color = "rgba(226, 232, 240, 0.78)";
+                  event.currentTarget.style.transform = "translateY(0)";
+                }}
+                onClick={() => {
+                  fileInputRef.current?.click();
+                }}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0z"
+                    fill="#ffffff"
+                    stroke="#ffffff"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            ) : null}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.png,.jpg,.jpeg,.csv"
+              multiple
+              tabIndex={-1}
+              aria-hidden="true"
               style={{
-                flex: 1,
-                minHeight: MIN_TEXTAREA_HEIGHT,
-                resize: "none",
-                border: "none",
-                outline: "none",
-                fontSize: 14,
-                lineHeight: 1.5,
-                color: "#e2e8f0",
-                background: "transparent",
+                position: "absolute",
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
                 overflow: "hidden",
-                padding: "12px 0",
+                clip: "rect(0, 0, 0, 0)",
+                border: 0,
+              }}
+              onChange={(event) => {
+                const files = event.target.files ? Array.from(event.target.files) : [];
+                if (files.length === 0) return;
+                const newAttachments: StoredAttachment[] = files.map((file) => {
+                  const previewUrl = file.type.startsWith("image/")
+                    ? URL.createObjectURL(file)
+                    : null;
+                  return {
+                    id: makeMessageId(),
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    file,
+                    previewUrl,
+                    text: "",
+                    status: "pending",
+                  } as StoredAttachment;
+                });
+                if (newAttachments.length > 0) {
+                  setAttachments((prev) => [...prev, ...newAttachments]);
+                  newAttachments.forEach((attachment) => {
+                    console.info("[DialogueText] Stored attachment locally", {
+                      name: attachment.name,
+                      size: attachment.size,
+                      type: attachment.type,
+                    });
+                  });
+                  newAttachments.forEach((attachment) => {
+                    void parseAttachment(attachment).catch(() => undefined);
+                  });
+                }
+                event.target.value = "";
               }}
             />
             <div
               style={{
+                ...bodyFontStyle,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <textarea
+                ref={draftInputRef}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                placeholder="Type…"
+                aria-label="Type"
+                rows={1}
+                style={{
+                  minHeight: MIN_TEXTAREA_HEIGHT,
+                  resize: "none",
+                  border: "none",
+                  outline: "none",
+                  fontFamily: BODY_FONT_STACK,
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  color: "#e2e8f0",
+                  background: "transparent",
+                  overflow: "hidden",
+                  padding: "12px 0",
+                }}
+              />
+              {attachments.length > 0 ? (
+                <div
+                  style={{
+                    ...bodyFontStyle,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  {attachments.map((attachment) => (
+                    <span
+                      key={attachment.id}
+                      style={{
+                        ...bodyFontStyle,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        background: "rgba(15, 23, 42, 0.35)",
+                        color: "rgba(226, 232, 240, 0.9)",
+                        fontSize: 12,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {attachment.previewUrl ? (
+                        <span
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 6,
+                            overflow: "hidden",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(148, 163, 184, 0.35)",
+                            background: "rgba(15, 23, 42, 0.45)",
+                          }}
+                        >
+                          <Image
+                            src={attachment.previewUrl}
+                            alt={attachment.name}
+                            width={22}
+                            height={22}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            unoptimized
+                          />
+                        </span>
+                      ) : null}
+                      <span>{attachment.name}</span>
+                      <span style={{ opacity: 0.8 }}>
+                        {(() => {
+                          if (attachment.status === "pending") return "Parsing…";
+                          if (attachment.status === "error") return "Failed";
+                          const trimmed = attachment.text.trim();
+                          if (!trimmed) {
+                            return formatAttachmentSize(attachment.size);
+                          }
+                          return trimmed.length > 30
+                            ? `${trimmed.slice(0, 30)}…`
+                            : trimmed;
+                        })()}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div
+              style={{
+                ...bodyFontStyle,
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
@@ -898,6 +1398,7 @@ export default function DialogueText({
                   type="submit"
                   disabled={sendDisabled}
                   style={{
+                    ...headingFontStyle,
                     padding: 0,
                     height: 46,
                     borderRadius: 999,
@@ -908,7 +1409,11 @@ export default function DialogueText({
                     color: sendDisabled
                       ? "rgba(226, 232, 240, 0.6)"
                       : buttonTextColor,
-                    cursor: sendDisabled ? "not-allowed" : "pointer",
+                    cursor: hasPendingAttachments
+                      ? "wait"
+                      : sendDisabled
+                      ? "not-allowed"
+                      : "pointer",
                     fontWeight: 600,
                     display: "inline-flex",
                     alignItems: "center",
@@ -917,7 +1422,16 @@ export default function DialogueText({
                     transition:
                       "background .18s ease, color .18s ease, opacity .18s ease",
                   }}
-                  aria-label={sendDisabled ? "Sending" : "Send message"}
+                  aria-label={
+                    hasPendingAttachments
+                      ? "Document processing"
+                      : sendDisabled
+                      ? "Sending"
+                      : "Send message"
+                  }
+                  title={
+                    hasPendingAttachments ? ATTACHMENT_PROCESSING_MESSAGE : undefined
+                  }
                 >
                   <svg
                     aria-hidden="true"
@@ -928,7 +1442,11 @@ export default function DialogueText({
                   >
                     <path
                       d="M12 5l6 6h-4v8h-4v-8H6l6-6z"
-                      fill={sendDisabled ? "rgba(226, 232, 240, 0.6)" : buttonTextColor}
+                      fill={
+                        sendDisabled
+                          ? "rgba(226, 232, 240, 0.6)"
+                          : buttonTextColor
+                      }
                     />
                   </svg>
                 </button>
@@ -941,6 +1459,7 @@ export default function DialogueText({
                   }}
                   disabled={isEnding}
                   style={{
+                    ...headingFontStyle,
                     padding: 0,
                     height: 46,
                     width: 46,
@@ -987,7 +1506,7 @@ export default function DialogueText({
         ) : null}
 
         {err ? (
-          <div style={{ color: "#fca5a5", fontSize: 13 }}>{err}</div>
+          <div style={{ ...bodyFontStyle, color: "#fca5a5", fontSize: 13 }}>{err}</div>
         ) : null}
       </div>
     </div>

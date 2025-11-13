@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { slugify } from "@/app/lib/jump";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import ModalPortalContext from "../../../components/ModalPortalContext";
@@ -3448,7 +3449,7 @@ export default function PersonasPage() {
     >
       <span
         className="persona-unsaved-message"
-        style={{ fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif" }}
+        style={{ fontFamily: HEADING_FONT_STACK }}
       >
         You have unsaved changes
       </span>
@@ -3521,7 +3522,7 @@ export default function PersonasPage() {
                   color: "#0f172a",
                   fontSize: 13,
                   fontWeight: 700,
-                  fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                  fontFamily: HEADING_FONT_STACK,
                   textDecoration: "none",
                   transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease",
                 }}
@@ -3715,7 +3716,7 @@ export default function PersonasPage() {
                   variant="primary"
                   onClick={() => router.push(`/client/${clientSlug}/upload`)}
                   className="personas-new-button"
-                  style={{ fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif" }}
+                  style={{ fontFamily: HEADING_FONT_STACK }}
                 >
                   <span className="stage-button__icon" aria-hidden="true">
                     +
@@ -4486,7 +4487,7 @@ export default function PersonasPage() {
                                 fontSize: 13,
                                 fontWeight: 600,
                                 color: statusColor,
-                                fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                                fontFamily: HEADING_FONT_STACK,
                               }}
                             >
                               {statusLabel}
@@ -5838,13 +5839,6 @@ export default function PersonasPage() {
         ) : null}
 
         <style>{`
-          @font-face {
-            font-family: 'CooperBT';
-            src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-          }
           .personas-stage {
             position: relative;
             min-height: 100dvh;
@@ -5854,7 +5848,7 @@ export default function PersonasPage() {
             min-height: 100dvh;
             background: var(--bg, #f4f8ff);
             padding: 0;
-            font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+            font-family: var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif));
             display: flex;
             flex-direction: row;
           }
@@ -5901,7 +5895,7 @@ export default function PersonasPage() {
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 0.4px;
-            font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+            font-family: var(--font-heading, var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif)));
             cursor: pointer;
             transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
             text-transform: none;
@@ -7218,7 +7212,7 @@ export default function PersonasPage() {
             font-size: 14px;
             line-height: 1.35;
             color: #475569;
-            font-family: 'Cooper Light BT', 'CooperBT', Cooper, serif;
+            font-family: var(--font-heading, var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif)));
             font-weight: 500;
           }
           .persona-card__footer {
@@ -8734,7 +8728,7 @@ export default function PersonasPage() {
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 0.4px;
-            font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+            font-family: var(--font-heading, var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif)));
             cursor: pointer;
             transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
             text-transform: none;

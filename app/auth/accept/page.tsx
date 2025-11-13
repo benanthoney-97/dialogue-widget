@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/app/lib/supabaseClient";
 import { resolveDestinationForUser } from "@/app/lib/authRedirect";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 type AuthMode = "login" | "signup";
 
@@ -415,7 +416,7 @@ function AcceptInvitePage() {
             radial-gradient(circle at 82% 0%, rgba(132, 180, 255, 0.32) 0%, rgba(244, 248, 255, 0) 36%),
             linear-gradient(150deg, #f8fbff 0%, #edf4ff 48%, #e1edff 100%);
           color: #052033;
-          font-family: "Cooper Light BT", "CooperBT", "Cooper", serif;
+          font-family: ${BODY_FONT_STACK};
         }
 
         .auth-page::before,
@@ -483,6 +484,7 @@ function AcceptInvitePage() {
           font-size: clamp(26px, 4vw, 32px);
           font-weight: 800;
           letter-spacing: 0.02em;
+          font-family: ${HEADING_FONT_STACK};
         }
 
         .auth-card__subtitle {
@@ -562,6 +564,7 @@ function AcceptInvitePage() {
           font-size: 18px;
           font-weight: 700;
           color: rgba(33, 66, 120, 0.92);
+          font-family: ${HEADING_FONT_STACK};
         }
 
         .auth-form {
@@ -582,6 +585,7 @@ function AcceptInvitePage() {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(63, 96, 150, 0.72);
+          font-family: ${HEADING_FONT_STACK};
         }
 
         .auth-form__input {
@@ -628,6 +632,7 @@ function AcceptInvitePage() {
           align-items: center;
           justify-content: center;
           transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, color 0.18s ease;
+          font-family: inherit;
         }
 
         .auth-button:disabled {
@@ -744,15 +749,6 @@ function AcceptInvitePage() {
           }
         }
       `}</style>
-      <style jsx global>{`
-        @font-face {
-          font-family: "CooperBT";
-          src: url("/fonts/CooperBT/Cooper Light BT.ttf") format("truetype");
-          font-weight: normal;
-          font-style: normal;
-          font-display: swap;
-        }
-      `}</style>
     </main>
   );
 }
@@ -769,7 +765,7 @@ export default function AcceptInvitePageWithSuspense() {
             justifyContent: "center",
             background:
               "linear-gradient(150deg, #f8fbff 0%, #edf4ff 48%, #e1edff 100%)",
-            fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+            fontFamily: BODY_FONT_STACK,
             color: "#052033",
             padding: "32px",
           }}

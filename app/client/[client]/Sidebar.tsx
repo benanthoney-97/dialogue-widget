@@ -119,7 +119,6 @@ export default function Sidebar() {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error("Failed to sign out", err);
     }
     router.replace("/auth");
@@ -144,6 +143,16 @@ icon: (
     <path fillRule="evenodd" d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5" />
   </svg>
 ),
+    },
+    {
+      label: "Internal Data",
+      href: `/client/${clientId}/internal-knowledge`,
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.5">
+          <circle cx="8" cy="5" r="2.5" />
+          <path d="M3 13c0-2.5 2.5-3.5 5-3.5s5 1 5 3.5v.5H3z" />
+        </svg>
+      ),
     },
     {
       label: "Web Research",
@@ -209,16 +218,6 @@ icon: (
 icon: (
   <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
     <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-  </svg>
-),
-  };
-
-  const settingsItem = {
-    label: "Settings",
-    href: `/client/${clientId}/settings`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#7ea0e6" strokeWidth="0.6">
-    <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z" />
   </svg>
 ),
   };
@@ -351,7 +350,7 @@ icon: (
 {[
   teamItem,
   {
-    label: "Live Chat",
+    label: "Live Help",
     href: `/client/${clientId}/live-chat`,
     icon: (
       <svg
@@ -367,24 +366,7 @@ icon: (
         <path d="M5.5 12.5v1.7a.8.8 0 0 0 1.27.63L10 13h2.5A2.5 2.5 0 0 0 15 10.5v-4a.5.5 0 0 0-1 0v4A1.5 1.5 0 0 1 12.5 12H10a.5.5 0 0 0-.3.1z" />
       </svg>
     ),
-  },
-  {
-    label: "Usage",
-    href: `/client/${clientId}/usage`,
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="#22325a"
-        stroke="#7ea0e6"
-        strokeWidth="0.6"
-      >
-        <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z" />
-      </svg>
-    ),
-  }, settingsItem].map((item) => {
+  }].map((item) => {
         const active = Boolean(pathname?.startsWith(item.href));
         return (
           <Link
@@ -488,14 +470,14 @@ icon: (
           <div
             style={{
               position: "absolute",
-              bottom: collapsed ? "56px" : "64px",
-              left: collapsed ? "8px" : "18px",
-              width: collapsed ? "calc(100% - 16px)" : "calc(100% - 36px)",
+              bottom: "12px",
+              left: "calc(100% + 8px)",
+              width: 180,
               background: "var(--panel, #0f1628)",
               borderRadius: 12,
               border: `1px solid rgba(var(--accent-rgb, 43,108,176),0.18)`,
               boxShadow: "0 12px 28px rgba(10,22,40,0.18)",
-              padding: "12px",
+              padding: "8px 12px 16px",
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -503,25 +485,64 @@ icon: (
             }}
             onClick={(event) => event.stopPropagation()}
           >
+            <Link
+              href={`/client/${clientId}/usage`}
+              style={{
+                padding: "0 12px",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.08)",
+                color: "var(--accent-2, #7fb3ff)",
+                fontWeight: 600,
+                fontSize: 13,
+                lineHeight: "36px",
+                textDecoration: "none",
+                textAlign: "left",
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+              }}
+            >
+              Usage
+            </Link>
+            <Link
+              href={`/client/${clientId}/settings`}
+              style={{
+                padding: "0 12px",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.08)",
+                color: "var(--accent-2, #7fb3ff)",
+                fontWeight: 600,
+                fontSize: 13,
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                gap: 8,
+                height: 36,
+              }}
+            >
+              Settings
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
               style={{
                 padding: "0 12px",
                 borderRadius: 10,
-                border: `1px solid rgba(var(--danger, 239,68,68),0.35)` ,
                 background: `rgba(var(--danger, 239,68,68),0.08)`,
-                color: "var(--danger, #ef4444)",
+                color: "var(--accent-2, #7fb3ff)",
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: "pointer",
                 height: 36,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "flex-start",
+                gap: 8,
               }}
             >
-              Log out
+              Sign out
             </button>
           </div>
         )}

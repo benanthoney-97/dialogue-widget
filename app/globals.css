@@ -2,14 +2,6 @@
 @import "tw-animate-css";
 
 
-@font-face {
-  font-family: "Cooper Light BT";
-  src: url("/fonts/CooperBT/Cooper Light BT.ttf") format("truetype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   /* Light app theme variables (shared across Personas / Insights / Upload) */
   --bg: #ffffff; /* page background (very light bluish) */
@@ -54,6 +46,8 @@
   --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
   --sidebar-border: oklch(0.923 0.003 48.717);
   --sidebar-ring: oklch(0.709 0.01 56.259);
+  --font-body: var(--font-sans, "Inter", ui-sans-serif, system-ui, sans-serif);
+  --font-heading: var(--font-geist-sans, var(--font-body));
 }
 
 @theme inline {
@@ -97,7 +91,17 @@
 }
 
 body {
-  font-family: var(--font-sans, Inter, system-ui, sans-serif);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
 }
 /* app/globals.css */
 html { scroll-behavior: smooth; }

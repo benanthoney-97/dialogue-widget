@@ -13,6 +13,7 @@ import { useParams, usePathname } from "next/navigation";
 
 import Topbar from "@/app/components/Topbar";
 import { TOPBAR_HEIGHT } from "@/app/components/topbarHeight";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import HistorySidebar from "@/app/app/[clientSlug]/HistorySidebar";
 
 type ClientPortalFrameProps = {
@@ -37,8 +38,6 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
   const personaBasePath = personaSlug ? `${clientBasePath}/${personaSlug}` : clientBasePath;
   const interviewHref = `${personaBasePath}/interview`;
   const chatHref = `${personaBasePath}/chat`;
-  const questionnaireHref = `${personaBasePath}/questionnaire`;
-  const historyHref = clientSlug ? `/app/${clientSlug}/history` : "/app/history";
 
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
 
@@ -54,6 +53,8 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     setHistoryPanelOpen(false);
   }, [pathname]);
 
+  const isPersonaDetailRoute = Boolean(personaSlug) && !isExploreRoute && !isChatRoute && !isInterviewRoute && !isQuestionnaireRoute;
+
   const topbarNavLinks = useMemo(() => {
     if (isExploreRoute) {
       if (!clientSlug) {
@@ -62,12 +63,12 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
       return [{ label: "Explore", href: `/app/${clientSlug}/explore` }];
     }
 
-    if (isChatRoute || isInterviewRoute) {
+    if (isChatRoute || isInterviewRoute || isPersonaDetailRoute) {
       return [];
     }
 
-    return [{ label: "My history", href: historyHref, onClick: openHistoryPanel }];
-  }, [clientSlug, historyHref, isChatRoute, isExploreRoute, isInterviewRoute, openHistoryPanel]);
+    return [];
+  }, [clientSlug, isChatRoute, isExploreRoute, isInterviewRoute, isPersonaDetailRoute]);
 
   const chipStyle: CSSProperties = {
     display: "inline-flex",
@@ -80,7 +81,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     color: "#0f172a",
     fontSize: 12,
     fontWeight: 600,
-    fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+    fontFamily: BODY_FONT_STACK,
     textDecoration: "none",
   };
 
@@ -89,45 +90,13 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
       aria-hidden="true"
       width={16}
       height={16}
-      viewBox="0 0 32 32"
-      fill="none"
+      viewBox="0 0 16 16"
+      fill="#1A2A44"
+      xmlns="http://www.w3.org/2000/svg"
       style={{ display: "block" }}
     >
-      <rect x="12" y="4" width="8" height="18" rx="4" fill="#e9d5ff" />
-      <path
-        d="M10 14C10 18.4183 13.5817 22 18 22C22.4183 22 26 18.4183 26 14"
-        stroke="#c084fc"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <rect x="14" y="23" width="4" height="5" rx="1.6" fill="#a855f7" />
-      <rect x="10" y="28" width="12" height="2" rx="1" fill="#7c3aed" />
+      <path d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5" />
     </svg>
-  );
-
-  const interviewChips = (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <Link href={chatHref} prefetch={false} style={chipStyle}>
-        Chat
-      </Link>
-    </div>
-  );
-
-  const chatPageChips = (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <Link href={interviewHref} prefetch={false} style={chipStyle}>
-        {interviewIcon}
-        Interview
-      </Link>
-    </div>
-  );
-
-  const questionnaireChips = (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <Link href={chatHref} prefetch={false} style={chipStyle}>
-        Chat
-      </Link>
-    </div>
   );
 
   const historyTrigger = (
@@ -142,13 +111,13 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
         gap: 10,
         padding: "6px 12px",
         borderRadius: 999,
-        background: "rgba(15,23,42,0.06)",
+        background: "transparent",
         color: "#0f172a",
         fontSize: 13,
         fontWeight: 600,
         letterSpacing: "0.2px",
-        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
-        border: "1px solid rgba(15,23,42,0.12)",
+        fontFamily: BODY_FONT_STACK,
+        border: "none",
         cursor: "pointer",
         transition: "transform 120ms ease, box-shadow 120ms ease",
         boxShadow: historyPanelOpen ? "0 10px 24px rgba(15,23,42,0.14)" : "none",
@@ -181,10 +150,68 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     </button>
   );
 
+  const leadingLinkStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 12px",
+    borderRadius: 999,
+    background: "transparent",
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: 600,
+    letterSpacing: "0.2px",
+    fontFamily: BODY_FONT_STACK,
+    textDecoration: "none",
+    transition: "transform 120ms ease, box-shadow 120ms ease",
+  };
+
+  const questionnaireChips = (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <Link href={chatHref} prefetch={false} style={chipStyle}>
+        Chat
+      </Link>
+    </div>
+  );
+
+  const interviewLeadingLink = isChatRoute
+    ? (
+        <Link
+          href={interviewHref}
+          prefetch={false}
+          style={leadingLinkStyle}
+        >
+          <span aria-hidden="true" style={{ display: "inline-flex", lineHeight: 1 }}>
+            {interviewIcon}
+          </span>
+          <span style={{ lineHeight: 1 }}>Interview</span>
+        </Link>
+      )
+    : null;
+
+  const chatLeadingLink = isInterviewRoute
+    ? (
+        <Link href={chatHref} prefetch={false} style={leadingLinkStyle}>
+          <span aria-hidden="true" style={{ display: "inline-flex", lineHeight: 1 }}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={16}
+              height={16}
+              viewBox="0 0 16 16"
+              fill="#1A2A44"
+              style={{ display: "block" }}
+            >
+              <path d="M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2" />
+              <path d="m2.165 15.803.02-.004c1.83-.363 2.948-.842 3.468-1.105A9 9 0 0 0 8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6a10.4 10.4 0 0 1-.524 2.318l-.003.011a11 11 0 0 1-.244.637c-.079.186.074.394.273.362a22 22 0 0 0 .693-.125m.8-3.108a1 1 0 0 0-.287-.801C1.618 10.83 1 9.468 1 8c0-3.192 3.004-6 7-6s7 2.808 7 6-3.004 6-7 6a8 8 0 0 1-2.088-.272 1 1 0 0 0-.711.074c-.387.196-1.24.57-2.634.893a11 11 0 0 0 .398-2" />
+            </svg>
+          </span>
+          <span style={{ lineHeight: 1 }}>Chat</span>
+        </Link>
+      )
+    : null;
+
   const topbarRightSlot = isInterviewRoute
-    ? interviewChips
-    : isChatRoute
-    ? chatPageChips
+    ? undefined
     : isQuestionnaireRoute
     ? questionnaireChips
     : undefined;
@@ -203,7 +230,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
                 fontSize: 18,
                 fontWeight: 800,
                 color: "#052033",
-                fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                fontFamily: HEADING_FONT_STACK,
               }}
             >
               {clientDisplayName}
@@ -217,7 +244,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
               fontSize: 18,
               fontWeight: 800,
               color: "#052033",
-              fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+              fontFamily: HEADING_FONT_STACK,
             }}
           >
             {clientDisplayName}
@@ -225,13 +252,18 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
         )
     : null;
 
-  const shouldShowLeadingControls = isExploreRoute || isChatRoute || isInterviewRoute;
+  const shouldShowLeadingControls =
+    isExploreRoute || isChatRoute || isInterviewRoute || isPersonaDetailRoute;
 
   const topbarLeadingSlot = shouldShowLeadingControls
     ? (
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {clientTitleElement}
-          {historyTrigger}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            {historyTrigger}
+            {interviewLeadingLink}
+            {chatLeadingLink}
+          </div>
         </div>
       )
     : undefined;

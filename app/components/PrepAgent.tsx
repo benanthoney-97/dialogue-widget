@@ -1,5 +1,7 @@
 "use client";
 
+console.log("[PrepAgent] module evaluate");
+
 import {
   useEffect,
   useState,
@@ -13,10 +15,15 @@ import ReactDOM from "react-dom";
 import { useModalPortal } from "./ModalPortalContext";
 import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
-// metadata now comes from Supabase agent_map; docMap is no longer used here
 import { insertContactRequest } from "@/app/lib/contactRequests";
 import { insertSummaryRequest } from "@/app/lib/summaryRequests";
-
+import {
+  ALLOWED_VOICE_ID_SET,
+  normalizeVoiceOptions,
+  type ElevenLabsVoiceResponse,
+  type VoiceOption,
+} from "@/app/lib/voiceCatalog";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 const POST_CALL_BASE =
   process.env.NEXT_PUBLIC_POST_CALL_BASE_URL?.replace(/\/$/, "") ?? "";
@@ -39,6 +46,8 @@ type Props = {
   title?: string;
   subtitle?: string;
   talkLabel?: string;
+  personaName?: string;
+  showVoiceControls?: boolean;
   testingOverride?: boolean;
   userId?: string;
   onConversationStart?: (conversationId: string | null) => void;
@@ -49,63 +58,39 @@ type Props = {
   panelExpanded?: boolean;
   // optional ref to the expanded panel DOM element (parent provides this)
   panelRootRef?: RefObject<HTMLElement | null> | null;
-  allowVoiceSelection?: boolean;
 };
-
-export type PrepAgentProps = Props;
 
 type Phase = "idle" | "ready" | "connecting" | "connected";
 
-type ElevenLabsVoice = {
-  voice_id: string;
-  name: string | null;
-  accent: string | null;
-  description: string | null;
-  gender: string | null;
-  age: string | null;
-  preview_url: string | null;
-};
 
-const ALLOWED_VOICE_IDS = [
-  "Tx7VLgfksXHVnoY6jDGU",
-  "lUTamkMw7gOzZbFIwmq4",
-  "56bWURjYFHyYyVf490Dp",
-  "0lp4RIz96WD1RUtvEu3Q",
-  "kdmDKE6EkgrWrrykO9Qt",
-  "1SM7GgM6IMuvQlz2BwM3",
-  "lcMyyd2HUfFzxdCaC4Ta",
-] as const;
-
-const ALLOWED_VOICE_ID_SET = new Set<string>(ALLOWED_VOICE_IDS);
-
-function formatVoiceAttribute(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return value
-    .split(/[\s_]+/)
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
-    .join(" ");
-}
-
-export default function PrepAgent(props: Props) {
-  const {
-    agentId = "agent_9701k8jk0755e9areqv4km5wsmw3",
-    useSignedUrl = false,
-    serverLocation = "us",
-    buttonColor = "#525fe1",
-    buttonTextColor = "#F6F7F9fff",
-    buttonBorderColor,
-    title = "",
-    subtitle = "",
-    talkLabel = "Start interview",
-    testingOverride,
-    userId,
-    onConversationStart,
-    onConversationEnd,
+export default function PrepAgent({
+  agentId = "agent_9701k8jk0755e9areqv4km5wsmw3",
+  useSignedUrl = false,
+  serverLocation = "us",
+  buttonColor = "#525fe1",
+  buttonTextColor = "#F6F7F9fff",
+  buttonBorderColor,
+  title = "",
+  subtitle = "",
+  talkLabel = "Start interview",
+  personaName,
+  showVoiceControls = true,
+  testingOverride,
+  userId,
+  onConversationStart,
+  onConversationEnd,
+  panelExpanded,
+  panelRootRef,
+}: Props) {
+  console.log("[PrepAgent] component render start", { agentId });
+  console.log("[PrepAgent] render props snapshot", {
+    agentId,
+    personaName,
+    talkLabel,
+    subtitle,
     panelExpanded,
-    panelRootRef,
-    allowVoiceSelection = true,
-  } = props;
+    showVoiceControls,
+  });
   const [theme, setTheme] = useState<{
     background?: string;
     text_color?: string;
@@ -124,6 +109,10 @@ export default function PrepAgent(props: Props) {
     }
     fetchTheme();
   }, [agentId]);
+
+  useEffect(() => {
+    console.log("[PrepAgent] theme state updated", theme);
+  }, [theme]);
   // load agent metadata from Supabase agent_map (if present)
   const [agentMap, setAgentMap] = useState<null | {
     idx?: number;
@@ -134,7 +123,6 @@ export default function PrepAgent(props: Props) {
     region?: string | null;
     auth?: string | null;
     talk_label?: string | null;
-    screenshot_path?: string | null;
     author?: string | null;
     work_label?: string | null;
     url?: string | null;
@@ -142,107 +130,41 @@ export default function PrepAgent(props: Props) {
     voice_id?: string | null;
   }>(null);
   const [knowledgeText, setKnowledgeText] = useState<string | null>(null);
-  const [voiceOptions, setVoiceOptions] = useState<ElevenLabsVoice[]>([]);
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState<string | null>(null);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceSavingError, setVoiceSavingError] = useState<string | null>(null);
-  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const canSelectVoice = allowVoiceSelection !== false;
-  const [documentContext, setDocumentContext] = useState<string | null>(null);
-  const [documentContextLoading, setDocumentContextLoading] = useState(false);
-  const [documentContextError, setDocumentContextError] = useState<string | null>(null);
-  const [documentContextWasTruncated, setDocumentContextWasTruncated] = useState(false);
-  const documentExtractionIdRef = useRef(0);
-
-  const extractDocumentContext = useCallback(
-    async (file: File) => {
-      documentExtractionIdRef.current += 1;
-      const extractionId = documentExtractionIdRef.current;
-      setDocumentContextLoading(true);
-      setDocumentContextError(null);
-      setDocumentContext(null);
-      setDocumentContextWasTruncated(false);
-      try {
-        const isPdf =
-          file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-        if (!isPdf) {
-          throw new Error("Only PDF files are supported at the moment.");
-        }
-        const arrayBuffer = await file.arrayBuffer();
-        const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf");
-        if (pdfjsLib.GlobalWorkerOptions) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
-        }
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdfDocument = await loadingTask.promise;
-        const pageTexts: string[] = [];
-        for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
-          const page = await pdfDocument.getPage(pageNumber);
-          const content = await page.getTextContent();
-          const text = content.items
-            .map((item: any) => {
-              if (typeof item?.str === "string") return item.str;
-              return "";
-            })
-            .join(" ");
-          if (text.trim().length > 0) {
-            pageTexts.push(text.trim());
-          }
-        }
-        let combined = pageTexts.join("\n\n");
-        combined = combined
-          .replace(/\r/g, "")
-          .replace(/[ \t]+\n/g, "\n")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
-        const MAX_CONTEXT_CHARS = 15000;
-        let truncated = false;
-        if (combined.length > MAX_CONTEXT_CHARS) {
-          truncated = true;
-          combined = `${combined.slice(0, MAX_CONTEXT_CHARS)}\n\n[...]`;
-        }
-        if (documentExtractionIdRef.current !== extractionId) return;
-        setDocumentContextWasTruncated(truncated);
-        setDocumentContext(combined.length > 0 ? combined : null);
-      } catch (error) {
-        console.error("[PrepAgent] Failed to extract document context", error);
-        if (documentExtractionIdRef.current !== extractionId) return;
-        setDocumentContext(null);
-        setDocumentContextError(
-          "We couldn't read this PDF. Please try a different file."
-        );
-      } finally {
-        if (documentExtractionIdRef.current === extractionId) {
-          setDocumentContextLoading(false);
-        }
-      }
-    },
-    []
-  );
 
   useEffect(() => {
     async function fetchAgentMap() {
-      if (!agentId) return;
+      if (!agentId) {
+        console.log("[PrepAgent] Skipping agent_map fetch; missing agentId");
+        return;
+      }
       try {
+        console.log("[PrepAgent] Fetching agent_map", { agentId });
         const { data, error, status } = await supabase
           .from("agent_map")
           .select(
-            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, screenshot_path, author, work_label, url, client_id, background_image, voice_id"
+            "key, pdf_path, agent_id, agent_name, region, auth, talk_label, author, work_label, url, client_id, voice_id"
           )
           .eq("agent_id", agentId)
           .maybeSingle();
+        console.log("[PrepAgent] agent_map response", { status, error, data });
         if (error) {
           // Log warning but don't throw
         }
         if (data) {
           setAgentMap(data as any);
+          setSelectedVoiceId(data?.voice_id ?? null);
+        }
+        if (!data) {
+          console.log("[PrepAgent] No agent_map row found for agent", { agentId });
         }
       } catch (e) {
+        console.error("[PrepAgent] Failed to fetch agent_map", e);
         // ignore - keep using passed agentId as fallback
         // console.debug('No agent_map row found for', agentId, e?.toString?.());
       }
@@ -251,12 +173,30 @@ export default function PrepAgent(props: Props) {
   }, [agentId]);
 
   useEffect(() => {
-    const defaultId = ALLOWED_VOICE_IDS[0] ?? null;
-    const nextVoiceId = agentMap?.voice_id ?? defaultId;
+    console.log("[PrepAgent] agentMap state updated", agentMap);
+  }, [agentMap]);
+
+  useEffect(() => {
+    const nextVoiceId = agentMap?.voice_id ?? null;
     setSelectedVoiceId(
-      nextVoiceId && ALLOWED_VOICE_ID_SET.has(nextVoiceId) ? nextVoiceId : defaultId
+      nextVoiceId && ALLOWED_VOICE_ID_SET.has(nextVoiceId) ? nextVoiceId : null
     );
   }, [agentMap?.voice_id]);
+  useEffect(() => {
+    console.log("[PrepAgent] Persona names", {
+      personaProp: personaName,
+      agentMapName: agentMap?.agent_name,
+    });
+  }, [personaName, agentMap?.agent_name]);
+  const displayPersonaName = useMemo(() => {
+    const propName = typeof personaName === "string" ? personaName.trim() : "";
+    if (propName) return propName;
+    const fallbackName = typeof agentMap?.agent_name === "string" ? agentMap.agent_name.trim() : "";
+    return fallbackName;
+  }, [personaName, agentMap?.agent_name]);
+  useEffect(() => {
+    console.log("[PrepAgent] Display persona name", displayPersonaName);
+  }, [displayPersonaName]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState("");
   const [isNarrow, setIsNarrow] = useState(false);
@@ -267,22 +207,12 @@ export default function PrepAgent(props: Props) {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const handleUploadClick = useCallback(() => uploadInputRef.current?.click(), []);
-  const handleUploadChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] ?? null;
-      setSelectedFile(file);
-      if (!file) {
-        documentExtractionIdRef.current += 1;
-        setDocumentContext(null);
-        setDocumentContextError(null);
-        setDocumentContextLoading(false);
-        setDocumentContextWasTruncated(false);
-        return;
-      }
-      void extractDocumentContext(file);
-    },
-    [extractDocumentContext]
-  );
+  const handleUploadChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setSelectedFile(f);
+    // placeholder: the file can be uploaded or processed here if desired
+    // console.debug('Selected file', f);
+  }, []);
 
   // preview URL for the selected file (object URL) and cleanup
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
@@ -304,11 +234,6 @@ export default function PrepAgent(props: Props) {
 
   const removeSelectedFile = useCallback(() => {
     setSelectedFile(null);
-    documentExtractionIdRef.current += 1;
-    setDocumentContext(null);
-    setDocumentContextError(null);
-    setDocumentContextLoading(false);
-    setDocumentContextWasTruncated(false);
   }, []);
 
   function formatBytes(bytes?: number | null): string {
@@ -548,6 +473,13 @@ export default function PrepAgent(props: Props) {
   }, [effectiveAgentId]);
 
   useEffect(() => {
+    if (!showVoiceControls) {
+      setVoiceOptions([]);
+      setVoicesError(null);
+      setVoicesLoading(false);
+      return;
+    }
+
     let cancelled = false;
     const controller = new AbortController();
     async function loadVoices() {
@@ -560,15 +492,10 @@ export default function PrepAgent(props: Props) {
         }
         const data = await res.json();
         if (cancelled) return;
-        const voices: ElevenLabsVoice[] = Array.isArray(data?.voices)
-          ? data.voices.filter(
-              (voice: ElevenLabsVoice) =>
-                voice && typeof voice.voice_id === "string" && voice.voice_id.length > 0
-          )
+        const rawVoices: ElevenLabsVoiceResponse[] = Array.isArray(data?.voices)
+          ? data.voices
           : [];
-        const allowedVoices = ALLOWED_VOICE_IDS.map((id) =>
-          voices.find((voice) => voice.voice_id === id)
-        ).filter(Boolean) as ElevenLabsVoice[];
+        const allowedVoices = normalizeVoiceOptions(rawVoices);
         setVoiceOptions(allowedVoices);
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
@@ -585,7 +512,7 @@ export default function PrepAgent(props: Props) {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [showVoiceControls]);
 
   const conversationOptions = useMemo(
     () => ({
@@ -610,6 +537,192 @@ export default function PrepAgent(props: Props) {
     return [...voiceOptions];
   }, [voiceOptions]);
 
+  const selectedVoice = useMemo(() => {
+    if (!selectedVoiceId) return null;
+    return sortedVoices.find((voice) => voice.voice_id === selectedVoiceId) ?? null;
+  }, [sortedVoices, selectedVoiceId]);
+
+  const voiceCardStyle: CSSProperties = {
+    width: isNarrow ? "100%" : 320,
+    maxWidth: "100%",
+    background: "rgba(8,15,35,0.84)",
+    border: "1px solid rgba(126,160,230,0.28)",
+    borderRadius: 14,
+    padding: 18,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    boxShadow: "0 24px 48px rgba(8,15,35,0.28)",
+    fontFamily: BODY_FONT_STACK,
+  };
+
+  const handleVoiceChange = useCallback(
+    async (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const nextVoiceId = event.target.value || null;
+      setVoiceSavingError(null);
+      if (nextVoiceId && !ALLOWED_VOICE_ID_SET.has(nextVoiceId)) {
+        setSelectedVoiceId(agentMap?.voice_id ?? null);
+        setVoiceSavingError("Selected voice is not available.");
+        return;
+      }
+
+      const effectiveAgent = agentMap?.agent_id || agentId;
+      if (!effectiveAgent) {
+        setSelectedVoiceId(agentMap?.voice_id ?? null);
+        setVoiceSavingError("Unable to update voice for this agent.");
+        return;
+      }
+
+      if ((agentMap?.voice_id ?? null) === nextVoiceId) {
+        setSelectedVoiceId(nextVoiceId);
+        return;
+      }
+
+      setSelectedVoiceId(nextVoiceId);
+      setVoiceSaving(true);
+      try {
+        const { error } = await supabase
+          .from("agent_map")
+          .update({ voice_id: nextVoiceId })
+          .eq("agent_id", effectiveAgent);
+        if (error) {
+          console.error("[PrepAgent] Failed to update voice_id", error);
+          setVoiceSavingError("Failed to save voice. Please try again.");
+          setSelectedVoiceId(agentMap?.voice_id ?? null);
+        } else {
+          setAgentMap((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  voice_id: nextVoiceId,
+                }
+              : prev
+          );
+        }
+      } catch (error) {
+        console.error("[PrepAgent] Unexpected error updating voice", error);
+        setVoiceSavingError("Unexpected error saving voice. Please try again.");
+        setSelectedVoiceId(agentMap?.voice_id ?? null);
+      } finally {
+        setVoiceSaving(false);
+      }
+    },
+    [agentMap?.voice_id, agentId]
+  );
+
+  const voiceCardContent = !showVoiceControls ? null : (
+    <div style={voiceCardStyle}>
+      <div
+        style={{
+          fontSize: 15,
+          fontWeight: 700,
+          color: "#f8fafc",
+          letterSpacing: 0.02,
+        }}
+      >
+        Interview voice
+      </div>
+      {voicesLoading ? (
+        <span style={{ fontSize: 13, color: "rgba(226,232,255,0.75)" }}>
+          Loading available voices…
+        </span>
+      ) : voicesError ? (
+        <span style={{ fontSize: 13, color: "#fca5a5" }}>{voicesError}</span>
+      ) : sortedVoices.length === 0 ? (
+        <span style={{ fontSize: 13, color: "rgba(226,232,255,0.75)" }}>
+          No ElevenLabs voices found for this account.
+        </span>
+      ) : (
+        <>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 13, color: "rgba(226,232,255,0.8)", fontWeight: 600 }}>
+              Voice selection
+            </span>
+            <select
+              value={selectedVoiceId ?? ""}
+              onChange={handleVoiceChange}
+              disabled={voiceSaving}
+              style={{
+                width: "100%",
+                borderRadius: 10,
+                border: "1px solid rgba(126,160,230,0.45)",
+                padding: "10px 12px",
+                fontSize: 14,
+                backgroundColor: "rgba(15,23,42,0.9)",
+                color: "#f8fafc",
+                appearance: "none",
+                WebkitAppearance: "none",
+                outline: "none",
+                boxShadow: voiceSaving ? "0 0 0 2px rgba(126,160,230,0.25)" : "none",
+                cursor: voiceSaving ? "wait" : "pointer",
+              }}
+            >
+              <option value="">Default (agent setting)</option>
+              {sortedVoices.map((voice) => (
+                <option key={voice.voice_id} value={voice.voice_id}>
+                  {voice.name ?? voice.voice_id}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedVoice ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <div style={{ color: "#f8fafc", fontWeight: 600 }}>
+                {selectedVoice.name ?? "Unnamed voice"}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  color: "rgba(226,232,255,0.78)",
+                }}
+              >
+                {selectedVoice.accent ? <span>Accent: {selectedVoice.accent}</span> : null}
+                {selectedVoice.gender ? <span>Gender: {selectedVoice.gender}</span> : null}
+                {selectedVoice.age ? <span>Age: {selectedVoice.age}</span> : null}
+              </div>
+              {selectedVoice.description ? (
+                <p
+                  style={{
+                    margin: 0,
+                    color: "rgba(226,232,255,0.75)",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {selectedVoice.description}
+                </p>
+              ) : null}
+              {selectedVoice.preview_url ? (
+                <a
+                  href={selectedVoice.preview_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: "#93c5fd",
+                    textDecoration: "underline",
+                    fontWeight: 500,
+                  }}
+                >
+                  Preview voice
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <span style={{ fontSize: 13, color: "rgba(226,232,255,0.75)" }}>
+              Using the agent&apos;s default ElevenLabs voice.
+            </span>
+          )}
+        </>
+      )}
+      {voiceSaving ? (
+        <span style={{ fontSize: 12, color: "rgba(226,232,255,0.7)" }}>Saving voice…</span>
+      ) : null}
+      {voiceSavingError ? (
+        <span style={{ fontSize: 12, color: "#fca5a5" }}>{voiceSavingError}</span>
+      ) : null}
+    </div>
+  );
 
   const {
     startSession,
@@ -640,6 +753,10 @@ export default function PrepAgent(props: Props) {
   }, [status]);
 
   useEffect(() => {
+    console.log("[PrepAgent] phase update", { phase, status: String(status) });
+  }, [phase, status]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = matchMedia("(max-width: 428px)");
     const apply = () => setIsNarrow(mq.matches);
@@ -656,292 +773,7 @@ export default function PrepAgent(props: Props) {
     }
   }
 
-  const stopPreviewPlayback = useCallback(() => {
-    const audio = previewAudioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setPlayingVoiceId(null);
-  }, []);
-
-  const togglePreviewPlayback = useCallback(
-    async (voiceId: string | null | undefined, previewUrl: string | null | undefined) => {
-      if (!voiceId || !previewUrl) return;
-      let audio = previewAudioRef.current;
-      if (!audio) {
-        audio = new Audio();
-        previewAudioRef.current = audio;
-        audio.onended = () => {
-          setPlayingVoiceId(null);
-        };
-      }
-
-      audio.pause();
-
-      if (playingVoiceId === voiceId) {
-        audio.currentTime = 0;
-        setPlayingVoiceId(null);
-        return;
-      }
-
-      try {
-        audio.src = previewUrl;
-        await audio.play();
-        setPlayingVoiceId(voiceId);
-      } catch (error) {
-        console.error("[PrepAgent] Failed to play preview", error);
-        setPlayingVoiceId(null);
-      }
-    },
-    [playingVoiceId]
-  );
-
-  useEffect(() => {
-    return () => {
-      stopPreviewPlayback();
-      if (previewAudioRef.current) {
-        previewAudioRef.current.src = "";
-        previewAudioRef.current.load();
-        previewAudioRef.current = null;
-      }
-    };
-  }, [stopPreviewPlayback]);
-
-  const handleVoiceChange = useCallback(
-    async (nextVoiceId: string | null) => {
-      if (!canSelectVoice) return;
-      stopPreviewPlayback();
-      setVoiceSavingError(null);
-      const fallbackId = ALLOWED_VOICE_IDS[0] ?? null;
-      if (nextVoiceId && !ALLOWED_VOICE_ID_SET.has(nextVoiceId)) {
-        setSelectedVoiceId(agentMap?.voice_id ?? fallbackId);
-        setVoiceSavingError("Selected voice is not available.");
-        return;
-      }
-      if (!effectiveAgentId) {
-        setSelectedVoiceId(agentMap?.voice_id ?? fallbackId);
-        setVoiceSavingError("Unable to update voice for this agent.");
-        return;
-      }
-      if ((agentMap?.voice_id ?? null) === nextVoiceId) {
-        setSelectedVoiceId(nextVoiceId);
-        return;
-      }
-
-      setSelectedVoiceId(nextVoiceId);
-      setVoiceSaving(true);
-      try {
-        const { error } = await supabase
-          .from("agent_map")
-          .update({ voice_id: nextVoiceId })
-          .eq("agent_id", effectiveAgentId);
-        if (error) {
-          console.error("[PrepAgent] Failed to update voice_id", error);
-          setVoiceSavingError("Failed to save voice. Please try again.");
-          setSelectedVoiceId(agentMap?.voice_id ?? fallbackId);
-        } else {
-          setAgentMap((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  voice_id: nextVoiceId,
-                }
-              : prev
-          );
-        }
-      } catch (error) {
-        console.error("[PrepAgent] Unexpected error updating voice", error);
-        setVoiceSavingError("Unexpected error saving voice. Please try again.");
-        setSelectedVoiceId(agentMap?.voice_id ?? fallbackId);
-      } finally {
-        setVoiceSaving(false);
-      }
-    },
-    [
-      agentMap?.voice_id,
-      canSelectVoice,
-      effectiveAgentId,
-      stopPreviewPlayback,
-    ]
-  );
-
-  const voiceCardStyle: CSSProperties = {
-    width: isNarrow ? "100%" : 320,
-    maxWidth: "100%",
-    background: "rgba(8,15,35,0.84)",
-    border: "1px solid rgba(126,160,230,0.28)",
-    borderRadius: 14,
-    padding: 18,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    boxShadow: "0 24px 48px rgba(8,15,35,0.28)",
-  };
-
-  const voiceCardContent = (
-    <div style={voiceCardStyle}>
-      <div
-        style={{
-          fontSize: 15,
-          fontWeight: 700,
-          color: "#f8fafc",
-          letterSpacing: 0.02,
-        }}
-      >
-        Persona voice
-      </div>
-      {voicesLoading ? (
-        <span style={{ fontSize: 13, color: "rgba(226,232,255,0.75)" }}>
-          Loading available voices…
-        </span>
-      ) : voicesError ? (
-        <span style={{ fontSize: 13, color: "#fca5a5" }}>{voicesError}</span>
-      ) : sortedVoices.length === 0 ? (
-        <span style={{ fontSize: 13, color: "rgba(226,232,255,0.75)" }}>
-          No ElevenLabs voices found for this account.
-        </span>
-      ) : (
-        <>
-          <div
-            role="list"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              maxHeight: 400,
-              overflowY: "auto",
-              paddingRight: 4,
-            }}
-          >
-            {sortedVoices.map((voice) => {
-              const isSelected = selectedVoiceId === voice.voice_id;
-              return (
-                <button
-                  type="button"
-                  role="listitem"
-                  key={voice.voice_id}
-                  onClick={() => handleVoiceChange(voice.voice_id ?? null)}
-                  disabled={voiceSaving}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 4,
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: isSelected
-                      ? "1px solid rgba(126,160,230,0.65)"
-                      : "1px solid rgba(126,160,230,0.28)",
-                    background: isSelected ? "rgba(126,160,230,0.22)" : "rgba(15,23,42,0.85)",
-                    color: "#f8fafc",
-                    cursor: voiceSaving ? "wait" : "pointer",
-                    fontSize: 13,
-                    transition: "border 0.18s ease, background 0.18s ease",
-                    textAlign: "left",
-                  }}
-                >
-                  <strong style={{ fontSize: 14 }}>{voice.name ?? voice.voice_id}</strong>
-                  <span style={{ opacity: 0.8 }}>
-                    {[
-                      formatVoiceAttribute(voice.accent),
-                      formatVoiceAttribute(voice.gender),
-                      formatVoiceAttribute(voice.age),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                  {isSelected ? (
-                    <span style={{ color: "#c4d5ff", fontSize: 12 }}>Currently selected</span>
-                  ) : null}
-                  {voice.preview_url ? (
-                    <span
-                      role="button"
-                      tabIndex={voiceSaving ? -1 : 0}
-                      onClick={(event) => {
-                        if (voiceSaving) return;
-                        event.stopPropagation();
-                        togglePreviewPlayback(voice.voice_id, voice.preview_url ?? null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (voiceSaving) return;
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          togglePreviewPlayback(voice.voice_id, voice.preview_url ?? null);
-                        }
-                      }}
-                      aria-disabled={voiceSaving}
-                      style={{
-                        marginTop: 6,
-                        borderRadius: 999,
-                        border: "1px solid rgba(147,197,253,0.45)",
-                        background:
-                          playingVoiceId === voice.voice_id
-                            ? "rgba(147,197,253,0.25)"
-                            : "rgba(147,197,253,0.12)",
-                        color: "#dbeafe",
-                        padding: "6px 12px",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: voiceSaving ? "default" : "pointer",
-                        opacity: voiceSaving ? 0.6 : 1,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        transition: "background 0.18s ease, border 0.18s ease",
-                        userSelect: "none",
-                      }}
-                    >
-                      {playingVoiceId === voice.voice_id ? (
-                        <>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: "#f87171",
-                            }}
-                          />
-                          Stop preview
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            style={{
-                              width: 0,
-                              height: 0,
-                              borderTop: "5px solid transparent",
-                              borderBottom: "5px solid transparent",
-                              borderLeft: "7px solid #dbeafe",
-                            }}
-                          />
-                          Play preview
-                        </>
-                      )}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-      {voiceSaving ? (
-        <span style={{ fontSize: 12, color: "rgba(226,232,255,0.7)" }}>Saving voice…</span>
-      ) : null}
-      {voiceSavingError ? (
-        <span style={{ fontSize: 12, color: "#fca5a5" }}>{voiceSavingError}</span>
-      ) : null}
-    </div>
-  );
-
   async function connect() {
-    if (documentContextLoading) {
-      setErr("Please wait while we finish preparing your document.");
-      return;
-    }
     try {
       setErr("");
       setPhase("connecting");
@@ -953,6 +785,12 @@ export default function PrepAgent(props: Props) {
 
       const effectiveUseSignedUrl = agentMap?.auth === "signed" ? true : useSignedUrl;
       const effectiveAgent = agentMap?.agent_id || agentId;
+      console.log("[PrepAgent] connect executing", {
+        requestedAgentId: agentId,
+        effectiveAgent,
+        effectiveUseSignedUrl,
+        hasKnowledgeText: Boolean(knowledgeText && knowledgeText.trim()),
+      });
       const dynamicVariables: Record<string, string | boolean> = {
         research_type: "interview",
       };
@@ -965,22 +803,6 @@ export default function PrepAgent(props: Props) {
       if (knowledgeText && knowledgeText.trim().length > 0) {
         dynamicVariables.knowledge_text = knowledgeText.trim();
       }
-      const trimmedDocumentContext = documentContext?.trim();
-      if (trimmedDocumentContext && trimmedDocumentContext.length > 0) {
-        dynamicVariables.document_context = trimmedDocumentContext;
-        if (documentContextWasTruncated) {
-          dynamicVariables.document_context_truncated = true;
-        }
-      }
-
-      const overrideVoiceId = selectedVoiceId ?? agentMap?.voice_id ?? ALLOWED_VOICE_IDS[0] ?? null;
-      const sessionOverrides = overrideVoiceId
-        ? {
-            tts: {
-              voiceId: overrideVoiceId,
-            },
-          }
-        : undefined;
 
       if (effectiveUseSignedUrl) {
         const payload: Record<string, unknown> = { agent_id: effectiveAgent };
@@ -1001,44 +823,36 @@ export default function PrepAgent(props: Props) {
         }
         if (!res.ok || !data?.signedUrl)
           throw new Error(data?.error || "Failed to get signed URL");
-        const sessionConfig: {
-          signedUrl: string;
-          connectionType: "websocket";
-          dynamicVariables?: Record<string, string | boolean>;
-          overrides?: { tts: { voiceId: string } };
-        } = {
+        await startSession({
           signedUrl: data.signedUrl,
           connectionType: "websocket",
           dynamicVariables,
-        };
-        if (sessionOverrides) {
-          sessionConfig.overrides = sessionOverrides;
-        }
-        await startSession(sessionConfig);
+        });
+        console.log("[PrepAgent] startSession called with signed URL", {
+          effectiveAgent,
+          dynamicVariables,
+        });
       } else {
-        const sessionConfig: {
-          agentId: string;
-          connectionType: "websocket";
-          dynamicVariables?: Record<string, string | boolean>;
-          overrides?: { tts: { voiceId: string } };
-        } = {
+        await startSession({
           agentId: effectiveAgent,
           connectionType: "websocket",
           dynamicVariables,
-        };
-        if (sessionOverrides) {
-          sessionConfig.overrides = sessionOverrides;
-        }
-        await startSession(sessionConfig);
+        });
+        console.log("[PrepAgent] startSession called with agentId", {
+          effectiveAgent,
+          dynamicVariables,
+        });
       }
 
       const latestId = getId?.();
       if (latestId) {
         conversationIdRef.current = latestId;
+        console.log("[PrepAgent] session ID obtained", { conversationId: latestId });
       }
 
       setPhase("connected");
     } catch (error) {
+      console.error("[PrepAgent] connect error", error);
       const message =
         error instanceof Error ? error.message : String(error ?? "Unknown error");
       setErr(message);
@@ -1047,6 +861,7 @@ export default function PrepAgent(props: Props) {
   }
 
   async function disconnect() {
+    console.log("[PrepAgent] disconnect invoked");
     try {
       await endSession();
       setPhase("ready");
@@ -1061,6 +876,7 @@ export default function PrepAgent(props: Props) {
   }
 
   async function onMicClick() {
+    console.log("[PrepAgent] onMicClick", { status: String(status) });
     if (String(status) !== "connected") {
       await connect();
     } else {
@@ -1075,6 +891,7 @@ export default function PrepAgent(props: Props) {
     : "Talk";
   const talkBackground = theme?.background || buttonColor;
   const talkTextColor = theme?.text_color || buttonTextColor;
+  const personaLabelColor = "#0b1f52";
   const talkIdleAriaLabel = `Connect and ${effectiveTalkLabel}`;
   // when connected, show who is speaking using the SDK's isSpeaking flag
   // If paused, show 'Paused'. Otherwise show who is speaking or fallback to 'Live'.
@@ -1098,7 +915,6 @@ export default function PrepAgent(props: Props) {
         auth: agentMap.auth ?? undefined,
         talkLabel: agentMap.talk_label ?? undefined,
         url: agentMap.url ?? undefined,
-        screenshotPath: agentMap.screenshot_path ?? undefined,
         author: agentMap.author ?? undefined,
         workLabel: agentMap.work_label ?? undefined,
         voiceId: agentMap.voice_id ?? undefined,
@@ -1280,51 +1096,6 @@ export default function PrepAgent(props: Props) {
   const previewFile = hasDocument ? (selectedFile as File) : null;
   const previewFileUrl = hasDocument ? (selectedFileUrl as string) : null;
   const isTwoColumn = !isNarrow && isPanelExpanded && hasDocument;
-  const canDisplayVoiceControls = canSelectVoice && !connected && !hasDocument;
-
-  useEffect(() => {
-    if (!canDisplayVoiceControls) {
-      setVoicePanelOpen(false);
-    }
-  }, [canDisplayVoiceControls]);
-
-  const voiceToggleButton = canDisplayVoiceControls ? (
-    <button
-      type="button"
-      onClick={() => setVoicePanelOpen((prev) => !prev)}
-      aria-expanded={voicePanelOpen}
-      style={{
-        borderRadius: 12,
-        border: "1px solid rgba(126,160,230,0.32)",
-        background: voicePanelOpen ? "rgba(126,160,230,0.22)" : "rgba(8,15,35,0.75)",
-        color: "#f8fafc",
-        fontSize: 13,
-        fontWeight: 600,
-        padding: "8px 16px",
-        cursor: "pointer",
-        boxShadow: voicePanelOpen ? "0 6px 16px rgba(8,15,35,0.35)" : "none",
-        transition: "background 0.18s ease, box-shadow 0.18s ease",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 20 20"
-        aria-hidden="true"
-        style={{ opacity: 0.9 }}
-      >
-        <path
-          d="M11.833 1.667a.833.833 0 0 0-.833.833v1.684a5.833 5.833 0 1 0 0 11.632v1.684a.833.833 0 0 0 1.261.715l4.167-2.5a.833.833 0 0 0 0-1.431l-4.167-2.5a.833.833 0 0 0-1.261.715V13.2a4.167 4.167 0 1 1 0-8.333v1.452a.833.833 0 0 0 1.261.716l4.167-2.5a.833.833 0 0 0 0-1.432l-4.167-2.5a.833.833 0 0 0-.428-.116Z"
-          fill="currentColor"
-        />
-      </svg>
-      {voicePanelOpen ? "Hide voices" : "Voices"}
-    </button>
-  ) : null;
-
   const documentColumnWidth = 520;
   // simplified container style: preserve spacing and layout but remove heavy background/border
   const containerStyle: CSSProperties = {
@@ -1335,11 +1106,11 @@ export default function PrepAgent(props: Props) {
     alignItems: "stretch",
     width: "100%",
     // when we're inside the modal portal and expanded, fill the available width
-  // when the panel is expanded, allow the PrepAgent container to fill the
-  // available card width so we can place controls on the left and the
-  // document renderer on the right. Otherwise keep the compact centered
-  // behavior.
-  maxWidth: isNarrow ? "100%" : isPanelExpanded ? "100%" : `${maxDesktopWidth}px`,
+    // when the panel is expanded, allow the PrepAgent container to fill the
+    // available card width so we can place controls on the left and the
+    // document renderer on the right. Otherwise keep the compact centered
+    // behavior.
+    maxWidth: isNarrow ? "100%" : isPanelExpanded ? "100%" : `${maxDesktopWidth}px`,
     // ensure container is never narrower than the main action control to avoid scroll/clipping
     minWidth: isNarrow
       ? "100%"
@@ -1347,13 +1118,13 @@ export default function PrepAgent(props: Props) {
       ? `${Math.max(baseExpandedWidth, 220)}px`
       : `${Math.max(baseCollapsedWidth, 220)}px`,
     margin: isPanelExpanded ? 0 : "0 auto",
-  // position context for absolutely positioned right-hand elements (document card)
-  position: "relative",
-    fontFamily: '"Cooper Light BT", "Cooper Lt BT", "Cooper", serif',
+    // position context for absolutely positioned right-hand elements (document card)
+    position: "relative",
+    fontFamily: BODY_FONT_STACK,
     fontWeight: 500,
     letterSpacing: "0.02em",
     color: "#eef3ff",
-    background: "transparent",
+    background: "rgba(255,0,0,0.2)",
     border: "none",
     boxShadow: "none",
   };
@@ -1455,6 +1226,7 @@ export default function PrepAgent(props: Props) {
         alignItems: "stretch",
         padding: isNarrow ? "0 10px" : "0",
         boxSizing: "border-box",
+        fontFamily: BODY_FONT_STACK,
       }}
     >
       <div
@@ -1468,6 +1240,29 @@ export default function PrepAgent(props: Props) {
           flexDirection: "column",
         }}
       >
+        <div
+          style={{
+            border: "3px dashed #39FF14",
+            borderRadius: 18,
+            padding: "12px 16px",
+            margin: "0 0 18px",
+            textAlign: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: 800,
+              color: "#39FF14",
+              textTransform: "uppercase",
+              letterSpacing: 4,
+              display: "block",
+              fontFamily: HEADING_FONT_STACK,
+            }}
+          >
+            PrepAgent Test Marker
+          </span>
+        </div>
         <div
           ref={containerRef}
           style={{
@@ -1497,6 +1292,7 @@ export default function PrepAgent(props: Props) {
                       fontWeight: 800,
                       color: "#f5f7ff",
                       letterSpacing: 0.3,
+                      fontFamily: HEADING_FONT_STACK,
                     }}
                   >
                     {title}
@@ -1508,6 +1304,7 @@ export default function PrepAgent(props: Props) {
                         fontSize: isNarrow ? 13 : 15,
                         color: "rgba(226,232,255,0.8)",
                         lineHeight: 1.4,
+                        fontFamily: BODY_FONT_STACK,
                       }}
                     >
                       {subtitle}
@@ -1516,33 +1313,8 @@ export default function PrepAgent(props: Props) {
                 </div>
               ) : null}
               {/* (viewer moved to the right-side renderer inserted later) */}
-              {isNarrow && canDisplayVoiceControls && voiceToggleButton ? (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      marginBottom: voicePanelOpen ? 12 : 6,
-                    }}
-                  >
-                    {voiceToggleButton}
-                  </div>
-                  <div
-                    style={{
-                      width: "100%",
-                      overflow: "hidden",
-                      transition: "max-height 0.3s ease, opacity 0.24s ease, transform 0.24s ease",
-                      maxHeight: voicePanelOpen ? 480 : 0,
-                      opacity: voicePanelOpen ? 1 : 0,
-                      transform: voicePanelOpen ? "translateY(0)" : "translateY(-12px)",
-                      pointerEvents: voicePanelOpen ? "auto" : "none",
-                      marginBottom: voicePanelOpen ? 24 : 0,
-                    }}
-                    aria-hidden={!voicePanelOpen}
-                  >
-                    {voiceCardContent}
-                  </div>
-                </>
+              {isNarrow && voiceCardContent ? (
+                <div style={{ width: "100%", marginBottom: 24 }}>{voiceCardContent}</div>
               ) : null}
               <div
                 style={{
@@ -1768,6 +1540,28 @@ export default function PrepAgent(props: Props) {
                   <div style={rightGroupStyle}>
                     {/* stack main action and controls vertically so controls sit below the main button */}
                     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                      <span
+                        style={{
+                          fontSize: isNarrow ? 16 : 18,
+                          fontWeight: 700,
+                          color: personaLabelColor,
+                          letterSpacing: 0.2,
+                        }}
+                      >
+                        Persona Placeholder
+                      </span>
+                      {displayPersonaName ? (
+                        <span
+                          style={{
+                            fontSize: isNarrow ? 16 : 18,
+                            fontWeight: 700,
+                            color: personaLabelColor,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {displayPersonaName}
+                        </span>
+                      ) : null}
                       <button
                         type="button"
                         onClick={async () => {
@@ -1833,7 +1627,7 @@ export default function PrepAgent(props: Props) {
                           <input
                             ref={uploadInputRef}
                             type="file"
-                            accept=".pdf,application/pdf"
+                            accept=".pdf,application/pdf,.doc,.docx,.txt"
                             onChange={handleUploadChange}
                             style={{ display: "none" }}
                           />
@@ -1857,26 +1651,6 @@ export default function PrepAgent(props: Props) {
                           >
                             Upload a document (optional)
                           </button>
-                          {documentContextLoading ? (
-                            <span style={{ fontSize: 12, color: "rgba(226,232,255,0.75)" }}>
-                              Preparing document context…
-                            </span>
-                          ) : null}
-                          {!documentContextLoading && documentContext ? (
-                            <span style={{ fontSize: 12, color: "rgba(148,197,255,0.85)" }}>
-                              Document context ready for this call.
-                            </span>
-                          ) : null}
-                          {!documentContextLoading && documentContextWasTruncated ? (
-                            <span style={{ fontSize: 12, color: "rgba(226,232,255,0.75)" }}>
-                              Long PDFs are trimmed to the first 15k characters.
-                            </span>
-                          ) : null}
-                          {documentContextError ? (
-                            <span style={{ fontSize: 12, color: "#fca5a5" }}>
-                              {documentContextError}
-                            </span>
-                          ) : null}
                           {/* document card removed - using the in-panel renderer instead */}
                         </div>
                       ) : null}
@@ -1922,7 +1696,7 @@ export default function PrepAgent(props: Props) {
                             type="button"
                             onClick={() => {
                               if (!connected) return;
-                              setMicMuted((prev) => {
+                              setMicMuted((prev: boolean) => {
                                 const next = !prev;
                                 if (isPaused && !next) {
                                   setIsPaused(false);
@@ -2084,34 +1858,16 @@ export default function PrepAgent(props: Props) {
               </div>
             ) : null}
           </div>
-          {!isNarrow && canDisplayVoiceControls && voiceToggleButton ? (
+          {!isNarrow && voiceCardContent ? (
             <div
               style={{
                 position: "absolute",
                 top: isPanelExpanded ? 24 : 16,
                 right: isPanelExpanded ? 24 : 16,
                 zIndex: 30,
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "flex-end",
-                gap: voicePanelOpen ? 12 : 0,
-                transition: "gap 0.2s ease",
               }}
             >
-              <div>{voiceToggleButton}</div>
-              <div
-                style={{
-                  overflow: "hidden",
-                  maxWidth: voicePanelOpen ? 320 : 0,
-                  opacity: voicePanelOpen ? 1 : 0,
-                  transform: voicePanelOpen ? "translateX(0)" : "translateX(12px)",
-                  pointerEvents: voicePanelOpen ? "auto" : "none",
-                  transition: "max-width 0.28s ease, opacity 0.22s ease, transform 0.28s ease",
-                }}
-                aria-hidden={!voicePanelOpen}
-              >
-                {voiceCardContent}
-              </div>
+              {voiceCardContent}
             </div>
           ) : null}
         </div>

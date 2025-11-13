@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
 import PurposeCard from "../../../components/PurposeCard";
 import ExecutiveAgent from "@/app/components/BriefingAgent";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -13,7 +14,7 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const TIMELINE_STEPS = ["Name", "Create", "Upload", "Briefing", "Confirm"];
+const STAGE_CHIPS = ["Basic Info", "Image", "Description", "Data", "Links", "Web Research"];
 
 type StagedDoc = {
   temp_id: string;
@@ -94,6 +95,35 @@ function fileKey(file: File): string {
   return `${file.name}::${file.size}::${file.lastModified}`;
 }
 
+function isValidUrl(value: string): boolean {
+  if (!value.trim()) {
+    return false;
+  }
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return "";
+  const kb = bytes / 1024;
+  if (kb >= 1024) {
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+  return `${Math.round(kb)} KB`;
+}
+
+function normalizeFileType(file: File): string {
+  if (file.type) {
+    return file.type.replace(/^.*\//, '').toUpperCase();
+  }
+  const parts = file.name.split('.');
+  return parts.length > 1 ? parts.pop()!.toUpperCase() : 'FILE';
+}
+
 function mergeFileLists(existing: File[], additions: File[]): File[] {
   if (additions.length === 0) return existing;
   const map = new Map<string, File>();
@@ -103,18 +133,19 @@ function mergeFileLists(existing: File[], additions: File[]): File[] {
 }
 
 type StagePanelProps = {
-  heading: string;
+  heading?: string;
   subheading?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
 };
 
-function StagePanel({ heading, subheading, leading, trailing, footer, children }: StagePanelProps) {
+function StagePanel({ heading, subheading, leading, trailing, footer, children, className = "" }: StagePanelProps) {
   const hasHeader = Boolean(heading || subheading || leading || trailing);
   return (
-    <section className="stage-panel">
+    <section className={`stage-panel ${className}`.trim()}>
       {hasHeader && (
         <header className="stage-panel__header">
           {leading ? (
@@ -166,112 +197,6 @@ function StageAlert({ type, message }: StageAlertProps) {
   );
 }
 
-type TimelineStepState = "pending" | "current" | "done" | "skipped";
-
-type TimelineStep = {
-  label: string;
-  state: TimelineStepState;
-  optional?: boolean;
-};
-
-type TimelineContext = {
-  currentStep: number;
-  canSkipUpload: boolean;
-  canSkipBriefing: boolean;
-  hasDocs: boolean;
-  hasBriefing: boolean;
-};
-
-function buildTimelineSteps({
-  currentStep,
-  canSkipUpload,
-  canSkipBriefing,
-  hasDocs,
-  hasBriefing,
-}: TimelineContext): TimelineStep[] {
-  const steps: TimelineStep[] = TIMELINE_STEPS.map((label) => ({
-    label,
-    state: "pending" as TimelineStepState,
-  }));
-
-  steps.forEach((step, idx) => {
-    if (idx < currentStep) {
-      step.state = "done";
-    } else if (idx === currentStep) {
-      step.state = "current";
-    } else {
-      step.state = "pending";
-    }
-  });
-
-  const uploadStep = steps[2];
-  const briefingStep = steps[3];
-
-  if (canSkipUpload) {
-    uploadStep.optional = true;
-  if (currentStep > 2 && !hasDocs) {
-      uploadStep.state = "skipped";
-    }
-  }
-
-  if (canSkipBriefing) {
-    briefingStep.optional = true;
-  if (currentStep > 3 && !hasBriefing) {
-      briefingStep.state = "skipped";
-    }
-  }
-
-  return steps;
-}
-
-function StagesTimeline({ steps }: { steps: TimelineStep[] }) {
-  const currentIndex = steps.findIndex((step) => step.state === "current");
-  const progressIndex = currentIndex === -1 ? steps.length - 1 : currentIndex;
-
-  return (
-    <nav className="stage-timeline" aria-label="Persona creation progress">
-      {steps.map((step, index) => {
-        const connectorClasses = ["stage-timeline__connector"];
-        if (index < progressIndex) {
-          connectorClasses.push("stage-timeline__connector--complete");
-        } else if (index === progressIndex) {
-          connectorClasses.push("stage-timeline__connector--active");
-        }
-        if (step.state === "skipped") {
-          connectorClasses.push("stage-timeline__connector--skipped");
-        }
-
-        return (
-          <React.Fragment key={step.label}>
-            <div className="stage-timeline__step">
-              <div
-                className={[
-                  "stage-timeline__node",
-                  `stage-timeline__node--${step.state}`,
-                  step.optional ? "stage-timeline__node--optional" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                <span>{index + 1}</span>
-              </div>
-              <div className="stage-timeline__label">
-                <span>{step.label}</span>
-                {step.optional && (
-                  <small>{step.state === "skipped" ? "Skipped" : "Optional"}</small>
-                )}
-              </div>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={connectorClasses.join(" ")} aria-hidden="true" />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </nav>
-  );
-}
-
 export default function UploadPage() {
   const router = useRouter();
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -280,6 +205,7 @@ export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const personaImageInputRef = useRef<HTMLInputElement | null>(null);
   const [tempId, setTempId] = useState<string | null>(null);
   const [createdDocs, setCreatedDocs] = useState<StagedDoc[]>([]);
   const [briefingConversationId, setBriefingConversationId] = useState<string | null>(null);
@@ -309,6 +235,37 @@ export default function UploadPage() {
     }
   }
 
+  function loadPersonaImageFile(file: File | null) {
+    if (!file) {
+      setPersonaImagePreview(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      setPersonaImagePreview(result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handlePersonaImageInput(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files && event.target.files[0];
+    loadPersonaImageFile(nextFile ?? null);
+    event.target.value = "";
+  }
+
+  function handlePersonaImageDrop(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dropped = event.dataTransfer.files && event.dataTransfer.files[0];
+    if (dropped) {
+      loadPersonaImageFile(dropped);
+    }
+  }
+
   function handleRemoveFile(idx: number) {
     setFiles((prev) => {
       const updated = prev.filter((_, i) => i !== idx);
@@ -335,8 +292,7 @@ export default function UploadPage() {
     }
   }
   const clientSlug = getClientSlug(pathname);
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function stageFiles() {
     setSubmitted(true);
     setNotification(null);
 
@@ -358,9 +314,9 @@ export default function UploadPage() {
             } satisfies StagedDoc;
           })
         );
-    setTempId(groupTempId);
-  setCreatedDocs(stagedDocs);
-    setCurrentStep(3);
+        setTempId(groupTempId);
+        setCreatedDocs(stagedDocs);
+        setCurrentStep(4);
       } else if (uploadMode === 'url' && fileUrl.trim()) {
         const groupTempId = uuidv4();
         const stagedDoc: StagedDoc = {
@@ -373,9 +329,9 @@ export default function UploadPage() {
           lastModified: Date.now(),
           groupTempId,
         };
-    setTempId(groupTempId);
-  setCreatedDocs([stagedDoc]);
-    setCurrentStep(3);
+        setTempId(groupTempId);
+        setCreatedDocs([stagedDoc]);
+        setCurrentStep(4);
       } else {
         setNotification({ type: 'error', message: 'Please add at least one file or URL before continuing.' });
       }
@@ -387,10 +343,16 @@ export default function UploadPage() {
     }
   }
 
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Name, 1: Purpose, 2: Upload, 3: Briefing, 4: Confirm
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await stageFiles();
+  }
+
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic info, 1: Persona image, 2: Description, 3: Data, 4: Links, 5: Briefing, 6: Confirm
   const [personaName, setPersonaName] = useState<string>("");
   const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
+  const [personaTagline, setPersonaTagline] = useState<string>("");
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
   const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
@@ -409,18 +371,43 @@ export default function UploadPage() {
   const isDataMode = selectedGuidance === "Add my data" || (!isDescribeMode && hasDocs);
   const canSkipBriefing = isDataMode && hasDocs;
   const canContinueFromBriefing = hasBriefing || canSkipBriefing;
+  const [linksUrl, setLinksUrl] = useState<string>("");
+  const [linksUrls, setLinksUrls] = useState<string[]>([]);
+  const isLinksUrlValid = isValidUrl(linksUrl);
+  const canAddCurrentLink = !!linksUrl.trim() && isLinksUrlValid && !linksUrls.includes(linksUrl.trim());
+  function handleAddLink() {
+    const trimmed = linksUrl.trim();
+    if (!trimmed || !isValidUrl(trimmed)) {
+      return;
+    }
+    setLinksUrls((prev) => [...prev, trimmed]);
+    setLinksUrl("");
+  }
+  function handleRemoveLink(target: string) {
+    setLinksUrls((prev) => prev.filter((url) => url !== target));
+  }
+  function stageLinks() {
+    if (linksUrls.length === 0) return;
+    setCurrentStep(5);
+  }
   const canSkipUpload = isDescribeMode;
-  const timelineStepsData = buildTimelineSteps({
-    currentStep,
-    canSkipUpload,
-    canSkipBriefing,
-    hasDocs,
-    hasBriefing,
-  });
   const personaNameTrimmed = personaName.trim();
-  const personaNameDisplay = personaNameTrimmed || "Untitled persona";
+  const personaTaglineTrimmed = personaTagline.trim();
+  const personaNameDisplay = personaNameTrimmed || "Your persona";
   const personaNameHeadline = personaNameTrimmed || "your persona";
   const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "your persona's";
+  const personaNameFormId = "persona-name-form";
+  const personaImageInputId = "persona-image-upload";
+  const [personaDescription, setPersonaDescription] = useState<string>("");
+  const personaRoleDisplay = personaTaglineTrimmed || "Their role";
+  const [personaImagePreview, setPersonaImagePreview] = useState<string | null>(null);
+  const resourceImageStyle = personaImagePreview
+    ? {
+        backgroundImage: `url(${personaImagePreview})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : undefined;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -436,7 +423,7 @@ export default function UploadPage() {
   }, []);
 
   useEffect(() => {
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       if (briefingConversationId && briefingEndedAt) {
         setBriefingComplete(true);
       } else {
@@ -447,7 +434,7 @@ export default function UploadPage() {
 
   useEffect(() => {
     if (selectedGuidance === 'Describe persona' && currentStep === 2) {
-      setCurrentStep(3);
+      setCurrentStep(4);
     }
   }, [selectedGuidance, currentStep]);
 
@@ -459,7 +446,7 @@ export default function UploadPage() {
     hasHydratedFromParams.current = true;
 
     if (stageParam === "upload") {
-      setCurrentStep(2);
+      setCurrentStep(3);
     }
 
     if (purposeParam) {
@@ -609,18 +596,51 @@ export default function UploadPage() {
 
   return (
     <>
-      <main className="upload-layout">
+      <main className="upload-layout" style={{ fontFamily: BODY_FONT_STACK }}>
         <aside className="upload-layout__sidebar">
           <Sidebar />
         </aside>
         <div className="upload-layout__content">
           <div className="stage-shell">
-            <StagesTimeline steps={timelineStepsData} />
+            <div className="stage-chip-row" role="list">
+              {STAGE_CHIPS.map((label, index) => {
+                const completed = index < currentStep;
+                const isCurrent = index === currentStep;
+                const classes = [
+                  "stage-chip",
+                  completed ? "stage-chip--complete" : "",
+                  !completed && isCurrent ? "stage-chip--current" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <div key={label} role="listitem" className={classes}>
+                    {label}
+                  </div>
+                );
+              })}
+            </div>
             {currentStep === 0 && (
               <StagePanel
-                heading="What's your persona's name?"
-              >
-                <form
+                footer={
+                <div className="stage-button-row stage-button-row--with-back">
+                    <span className="stage-button-note">
+                      Don't worry, you can edit these later
+                    </span>
+                    <StageButton
+                      type="submit"
+                      form={personaNameFormId}
+                      variant="primary"
+                      disabled={!personaNameTrimmed || !personaTaglineTrimmed}
+                      style={{ width: "25%" }}
+                    >
+                      Continue
+                    </StageButton>
+                </div>
+              }
+            >
+              <form
+                  id={personaNameFormId}
                   onSubmit={(event) => {
                     event.preventDefault();
                     const nextName = personaName.trim();
@@ -634,8 +654,8 @@ export default function UploadPage() {
                   }}
                   style={{ display: "flex", flexDirection: "column", gap: 16 }}
                 >
-                  <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}></span>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Persona name</span>
                     <input
                       type="text"
                       value={personaName}
@@ -646,7 +666,7 @@ export default function UploadPage() {
                         }
                       }}
                       onBlur={() => setPersonaNameTouched(true)}
-                      placeholder="e.g. Pathfinder Analyst"
+                      placeholder="e.g. Jane Doe"
                       maxLength={120}
                       style={{
                         width: "100%",
@@ -655,152 +675,163 @@ export default function UploadPage() {
                         border: personaNameTouched && !personaNameTrimmed
                           ? "2px solid rgba(220, 38, 38, 0.65)"
                           : "2px solid rgba(30, 41, 59, 0.18)",
-                        fontSize: 16,
-                        fontWeight: 600,
+                        fontSize: 14,
+                        fontWeight: 500,
                         color: "#0f172a",
                         background: "rgba(255,255,255,0.9)",
                         boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
                         transition: "border 0.18s ease, box-shadow 0.18s ease",
                       }}
                     />
-
                   </label>
-                  {personaNameTouched && !personaNameTrimmed ? (
-                    <StageAlert type="error" message="Add a name or use the skip option below." />
-                  ) : null}
-                  <StageButton
-                    type="submit"
-                    variant="primary"
-                    width="full"
-                    disabled={!personaNameTrimmed}
-                  >
-                    Continue
-                  </StageButton>
-                  <StageButton
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setPersonaName("");
-                      setPersonaNameTouched(false);
-                      setCurrentStep(1);
-                    }}
-                  >
-                    Skip for now
-                  </StageButton>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Role</span>
+                    <input
+                      type="text"
+                      value={personaTagline}
+                      onChange={(event) => setPersonaTagline(event.target.value)}
+                      placeholder="e.g. Senior Buyer, National Health Retailer"
+                      maxLength={120}
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        borderRadius: 12,
+                        border: "2px solid rgba(30, 41, 59, 0.18)",
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: "#0f172a",
+                        background: "rgba(255,255,255,0.9)",
+                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                        transition: "border 0.18s ease, box-shadow 0.18s ease",
+                      }}
+                    />
+                  </label>
                 </form>
               </StagePanel>
             )}
             {currentStep === 1 && (
               <StagePanel
-                heading="How are you creating your persona?"
-                leading={
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(0)}
-                    aria-label="Back"
-                    title="Back"
-                    className="stage-back"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
-                  </button>
+                heading="Persona image"
+                footer={
+                  <div className="stage-button-row stage-button-row--with-back">
+                    <button
+                      type="button"
+                      className="stage-back"
+                      onClick={() => setCurrentStep(0)}
+                      style={{ width: "25%" }}
+                    >
+                      Back
+                    </button>
+                    <StageButton
+                      type="button"
+                      variant="primary"
+                      onClick={() => setCurrentStep(2)}
+                      style={{ width: "25%" }}
+                    >
+                      Continue
+                    </StageButton>
+                  </div>
                 }
               >
-                <PurposeCard
-                  guidanceTexts={guidanceTexts}
-                  selectedGuidance={selectedGuidance}
-                  purposeText={purposeText}
-                  onSelectGuidance={async (key, purpose, audience) => {
-                    setSelectedGuidance(key);
-                    setSavedPurpose(purpose);
-                    setAudienceType(audience ?? "Custom");
-                    if (key === "Add my data") {
-                      try {
-                        const ok = await savePurpose();
-                        if (ok) setCurrentStep(2);
-                      } catch (e) {
-                        // handled within savePurpose
-                      }
-                    }
-                    if (key === "Describe persona") {
-                      try {
-                        const ok = await savePurpose();
-                        if (ok) setCurrentStep(3);
-                      } catch (e) {
-                        // handled within savePurpose
-                      }
-                    }
-                  }}
-                  onCustomFocus={() => {
-                    setSelectedGuidance(null);
-                    setSavedPurpose(null);
-                    setAudienceType("Custom");
-                  }}
-                  onPurposeChange={(value) => {
-                    setPurposeText(value);
-                  }}
-                  onPurposeBlur={() => {
-                    void savePurpose();
-                  }}
-                  onNext={async () => {
-                    const ok = await savePurpose();
-                    if (!ok) return;
-                    if (selectedGuidance === "Describe persona") {
-                      setCurrentStep(3);
-                    } else {
-                      setCurrentStep(2);
-                    }
-                  }}
-                  nextDisabled={purposeSaving || (!selectedGuidance && !purposeText.trim())}
-                  saving={purposeSaving}
-                  headingText=""
-                  subheadingText=""
-                />
+                <label
+                  className="image-stage-placeholder"
+                  htmlFor={personaImageInputId}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handlePersonaImageDrop}
+                  aria-label="Upload persona image"
+                >
+                  <input
+                    id={personaImageInputId}
+                    ref={personaImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePersonaImageInput}
+                    style={{ display: "none" }}
+                  />
+                  <div className="image-stage-placeholder__icon" aria-hidden="true">
+                    {personaImagePreview ? (
+                      <img src={personaImagePreview} alt="Persona preview" />
+                    ) : (
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 16 16"
+                        fill="#22325a"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" />
+                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="image-stage-placeholder__copy">
+                    <p className="image-stage-placeholder__title">
+                      {personaImagePreview ? "Change image" : "Click or drop an image"}
+                    </p>
+                    <p className="image-stage-placeholder__hint">PNG, JPG, or GIF up to 5MB</p>
+                  </div>
+                </label>
               </StagePanel>
             )}
             {currentStep === 2 && (
               <StagePanel
-                heading={`Build ${personaNamePossessive} knowledge`}
-                subheading="Upload supporting documents so the persona has source material to work from."
-                leading={
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    disabled={purposeSaving}
-                    aria-label="Back"
-                    title="Back"
-                    className="stage-back"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
-                  </button>
+                className="stage-panel--align-left"
+                footer={
+                  <div className="stage-button-row stage-button-row--with-back">
+                    <button
+                      type="button"
+                      className="stage-back"
+                      onClick={() => setCurrentStep(1)}
+                      style={{ width: "25%" }}
+                    >
+                      Back
+                    </button>
+                    <StageButton
+                      type="button"
+                      variant="primary"
+                      onClick={() => setCurrentStep(3)}
+                      style={{ width: "25%" }}
+                    >
+                      Continue
+                    </StageButton>
+                  </div>
                 }
               >
-                <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span className="persona-description-input-label">Persona description</span>
+                  <textarea
+                    value={personaDescription}
+                    onChange={(event) => setPersonaDescription(event.target.value)}
+                    placeholder="Describe pain points, intent signals, behavioural traits, and more context."
+                    rows={5}
+                    style={{
+                      width: "100%",
+                      minHeight: 120,
+                      borderRadius: 12,
+                      border: "1px solid rgba(30, 41, 59, 0.18)",
+                      padding: "14px 16px",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: "#0f172a",
+                      background: "rgba(255,255,255,0.9)",
+                      boxShadow: "inset 0 1px 3px rgba(15, 23, 42, 0.08)",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
+              </StagePanel>
+            )}
+            {currentStep === 3 && (
+              <StagePanel
+                heading={`Upload documents to ${personaNamePossessive} knowledge`}
+              >
+              <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               {uploadMode === 'upload' ? (
                 <label
                   htmlFor="file-upload"
+                  className="image-stage-placeholder data-upload-placeholder"
                   style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid #2d406b',
-                    background: 'var(--bg, #f4f8ff)',
-                    borderRadius: 12,
-                    marginBottom: 22,
-                    color: '#a3c0ff',
-                    fontSize: 16,
-                    fontWeight: 600,
-                    transition: 'border 0.18s',
                     minHeight: files.length > 0 ? 218 : 186,
-                    width: '100%',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    padding: files.length > 0 ? '12px 16px 16px' : 0,
-                    overflow: files.length > 0 ? 'visible' : 'hidden',
                   }}
                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={e => {
@@ -825,24 +856,13 @@ export default function UploadPage() {
                   />
                   {files.length === 0 ? (
                     <>
-                      <div style={{ marginBottom: 8, color: '#1e293b' }}>Drag & drop files here</div>
-                      <div style={{ fontSize: 15, color: '#1e293b', fontWeight: 400 }}>or <span style={{ textDecoration: 'underline', color: '#1e293b', cursor: 'pointer' }}>click to select from computer</span></div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 24, justifyContent: 'center' }}>
-                        {['PDF', 'TXT', 'DOCX', 'HTML'].map(type => (
-                          <span
-                            key={type}
-                            style={{
-                              background: 'var(--bg, #f4f8ff)',
-                              color: '#1e293b',
-                              border: '1px solid rgba(30,41,59,0.16)',
-                              borderRadius: 8,
-                              padding: '2px 10px',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              letterSpacing: 0.5,
-                              textTransform: 'uppercase',
-                            }}
-                          >
+                      <div className="data-upload-placeholder__heading">Drag & drop files here</div>
+                      <div className="data-upload-placeholder__subheading">
+                        or <span className="data-upload-placeholder__link">click to select from computer</span>
+                      </div>
+                      <div className="data-upload-placeholder__types">
+                        {['PDF', 'TXT', 'DOCX', 'HTML'].map((type) => (
+                          <span key={type} className="data-upload-placeholder__chip">
                             {type}
                           </span>
                         ))}
@@ -1021,97 +1041,124 @@ export default function UploadPage() {
                   />
                 </div>
               )}
-              <StageButton
-                type="submit"
-                variant="primary"
-                width="full"
-                disabled={
-                  (uploadMode === "upload" && (files.length === 0 || submitted)) ||
-                  (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
-                }
-                style={{ marginTop: 18 }}
-              >
-                {submitted ? "Uploading..." : "Next"}
-              </StageButton>
               {/* Uploading message and notification below the button */}
               {submitted && !notification && (
                 <StageAlert type="info" message="Stay on the page while document is uploading." />
-                  )}
-                  {notification && <StageAlert type={notification.type} message={notification.message} />}
+              )}
+              {notification && <StageAlert type={notification.type} message={notification.message} />}
               </form>
-              </StagePanel>
-            )}
-            {currentStep === 3 && (
-              <StagePanel
-                heading={`Enhance ${personaNameHeadline}'s responses`}
-                subheading="Improve the quality of persona responses by briefing Dialogue's AI assistant."
-                leading={
+              <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="stage-back"
+                  onClick={() => setCurrentStep(2)}
+                  style={{ width: "25%" }}
+                >
+                  Back
+                </button>
+                <div className="stage-button-row__group">
+                  <StageButton
+                    type="button"
+                    variant="ghost"
+                    className="stage-button--outline"
+                    onClick={() => setCurrentStep(4)}
+                  >
+                    Skip
+                  </StageButton>
+                  <StageButton
+                    type="button"
+                    variant="primary"
+                    onClick={() => stageFiles()}
+                    disabled={
+                      (uploadMode === "upload" && (files.length === 0 || submitted)) ||
+                      (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
+                    }
+                  >
+                    Continue
+                  </StageButton>
+                </div>
+              </div>
+            </StagePanel>
+          )}
+            {currentStep === 4 && (
+              <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
+                <div className="links-stage__url-input">
+                  <label>
+                    <input
+                      type="url"
+                      placeholder="https://"
+                      value={linksUrl}
+                      onChange={(event) => setLinksUrl(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          handleAddLink();
+                        }
+                      }}
+                    />
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(selectedGuidance === 'Describe persona' ? 1 : 2)}
-                    disabled={finalizing}
-                    aria-label="Back"
-                    title="Back"
-                    className="stage-back"
+                    className="links-stage__add-link"
+                    onClick={handleAddLink}
+                    disabled={!canAddCurrentLink}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
+                    Add link
                   </button>
-                }
-              >
-                <ExecutiveAgent
-                  talkLabel="Start chat"
-                  onConversationStart={(conversationId) => {
-                    setBriefingComplete(false);
-                    setBriefingConversationId(conversationId ?? null);
-                    setBriefingEndedAt(null);
-                    setBriefingTranscript([]);
-                  }}
-                  onConversationEnd={({ conversationId, endedAt }) => {
-                    setBriefingComplete(true);
-                    setBriefingConversationId(conversationId ?? null);
-                    setBriefingEndedAt(endedAt ?? null);
-                  }}
-                  onTranscriptUpdate={(messages) => {
-                    setBriefingTranscript(messages.slice());
-                  }}
-                />
-
-                {briefingConversationId && briefingEndedAt ? (
-                  <p style={{ color: 'rgba(30,41,59,0.7)', fontSize: 14, textAlign: 'center', margin: 0 }}>
-                    Briefing saved on {new Date(briefingEndedAt).toLocaleString()}. Restart briefing call to replace.
-                  </p>
-                ) : null}
-
-                <StageButton
-                  type="button"
-                  onClick={() => setCurrentStep(4)}
-                  disabled={!canContinueFromBriefing}
-                  variant="primary"
-                  width="full"
-                  style={{ marginTop: 8 }}
-                >
-                  {hasBriefing
-                    ? 'Continue to confirm'
-                    : canSkipBriefing
-                    ? 'Skip briefing and continue'
-                    : 'Continue to confirm'}
-                </StageButton>
-                {!hasBriefing && canSkipBriefing ? (
-                  <p style={{ color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 6 }}>
-                    You can record a briefing later if needed.
-                  </p>
-                ) : null}
+                  {linksUrls.length > 0 && (
+                    <div className="links-stage__urls-list">
+                      {linksUrls.map((url) => (
+                        <div className="links-stage__url-chip" key={url}>
+                          <span>{url}</span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${url}`}
+                            onClick={() => handleRemoveLink(url)}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="stage-back"
+                    onClick={() => setCurrentStep(3)}
+                    style={{ width: '25%' }}
+                  >
+                    Back
+                  </button>
+                <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
+                  <StageButton
+                    type="button"
+                    variant="ghost"
+                    className="stage-button--outline"
+                    onClick={() => setCurrentStep(5)}
+                  >
+                    Skip
+                  </StageButton>
+                  <StageButton
+                    type="button"
+                    variant="primary"
+                    onClick={() => stageLinks()}
+                    disabled={!isLinksUrlValid}
+                  >
+                    Continue
+                  </StageButton>
+                </div>
+                </div>
               </StagePanel>
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <StagePanel
                 heading={`Confirm ${personaNameHeadline}`}
                 leading={
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(4)}
                     disabled={finalizing}
                     aria-label="Back"
                     title="Back"
@@ -1217,13 +1264,82 @@ export default function UploadPage() {
               </StagePanel>
             )}
           </div>
+          <div className="upload-layout__separator" aria-hidden="true" />
+          <div className="upload-layout__side-panel">
+            <div className="upload-layout__resource-card" aria-label="Resource placeholder card">
+              <div className="upload-layout__resource-card__top">
+                <div className="upload-layout__resource-card__image" style={resourceImageStyle} />
+                <div className="upload-layout__resource-card__stack">
+                  <div className="upload-layout__resource-card__copy">
+                    <p className="upload-layout__resource-card__name">{personaNameDisplay}</p>
+                    <p className="upload-layout__resource-card__role">{personaRoleDisplay}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="upload-layout__resource-actions-row">
+                <button type="button" className="upload-layout__resource-action">
+                  <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="12" r="7" fill="#7dd3fc" />
+                    <rect x="9" y="18" width="14" height="7" rx="3.5" fill="#38bdf8" />
+                    <path d="M16 25L12 29H20L16 25Z" fill="#0ea5e9" />
+                  </svg>
+                  <span>Chat</span>
+                </button>
+                <button type="button" className="upload-layout__resource-action">
+                  <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="12" y="4" width="8" height="18" rx="4" fill="#e9d5ff" />
+                    <path
+                      d="M10 14C10 18.4183 13.5817 22 18 22C22.4183 22 26 18.4183 26 14"
+                      stroke="#c084fc"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <rect x="14" y="23" width="4" height="5" rx="1.6" fill="#a855f7" />
+                    <rect x="10" y="28" width="12" height="2" rx="1" fill="#7c3aed" />
+                  </svg>
+                  <span>Interview</span>
+                </button>
+              </div>
+            </div>
+            <div className="upload-layout__resource-description">
+              <h4>Persona description</h4>
+            <div className="upload-layout__resource-description__body">
+              <p>
+                {personaDescription
+                  ? personaDescription
+                  : "This is a detailed description of your persona based on their pain points, intent signals, behavioural traits and more..."
+                }
+              </p>
+            </div>
+          </div>
+          <div className="upload-layout__internal-data">
+            <h4>Internal data</h4>
+            {files.length === 0 ? (
+              <p className="upload-layout__internal-data__empty">No documents staged yet.</p>
+            ) : (
+              <div className="upload-layout__doc-card-list">
+                {files.map((file) => (
+                  <div className="upload-layout__doc-card" key={fileKey(file)}>
+                    <div className="upload-layout__doc-card__icon" aria-hidden="true" />
+                    <div className="upload-layout__doc-card__copy">
+                      <p className="upload-layout__doc-card__title">{file.name}</p>
+                      <p className="upload-layout__doc-card__meta">
+                        {normalizeFileType(file)}{file.size ? ` · ${formatFileSize(file.size)}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </div>
         </div>
         <style>{`
           .upload-layout {
             min-height: 100dvh;
             background: var(--bg, #f4f8ff);
             padding: 0;
-            font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+            font-family: ${BODY_FONT_STACK};
             display: flex;
             flex-direction: row;
           }
@@ -1239,6 +1355,255 @@ export default function UploadPage() {
             padding: 64px 24px 96px;
             min-height: 100dvh;
             overflow-y: auto;
+            gap: 32px;
+            flex-wrap: wrap;
+          }
+          .upload-layout__separator {
+            width: 1px;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.45));
+            align-self: stretch;
+            flex-shrink: 0;
+            margin: 8px 4px 0;
+          }
+          .upload-layout__side-panel {
+            margin-top: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+            width: min(320px, 80vw);
+            align-self: flex-start;
+          }
+          .upload-layout__resource-card {
+            display: flex;
+            flex-direction: column;
+            width: min(320px, 80vw);
+            padding: 8px;
+            gap: 12px;
+          }
+          .upload-layout__resource-card__top {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .upload-layout__resource-card__stack {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            flex: 1;
+            min-height: 20px;
+          }
+          .upload-layout__resource-actions-row {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            justify-content: flex-start;
+            margin-top: 6px;
+          }
+          .upload-layout__resource-card__image {
+            width: 110px;
+            height: 160px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #e2e8f0 0%, #cbd5f5 45%, #bae6fd 100%);
+            box-shadow: 0 18px 30px rgba(15, 23, 42, 0.15);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+          }
+          .upload-layout__resource-card__copy {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .upload-layout__resource-card__role {
+            margin: 0;
+            font-size: 14px;
+            color: rgba(15, 23, 42, 0.6);
+            letter-spacing: 0.01em;
+          }
+          .upload-layout__resource-card__label {
+            margin: 0;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .upload-layout__resource-card__name {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .upload-layout__resource-card__role {
+            margin: 0;
+            font-size: 14px;
+            color: rgba(15, 23, 42, 0.6);
+            letter-spacing: 0.01em;
+          }
+          .upload-layout__resource-actions {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            justify-content: flex-start;
+            align-items: flex-end;
+          }
+          .upload-layout__resource-action {
+            min-width: 120px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: #fff;
+            color: #0f172a;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            font-size: 12px;
+            padding: 10px 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+          }
+          .upload-layout__resource-action:hover,
+          .upload-layout__resource-action:focus-visible {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
+            border-color: rgba(59, 130, 246, 0.6);
+            outline: none;
+          }
+          .upload-layout__resource-description {
+            margin-top: 16px;
+            border-radius: 16px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+          }
+          .upload-layout__resource-description h4 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            letter-spacing: 0.08em;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .upload-layout__resource-description__body {
+            max-height: 120px;
+            overflow-y: auto;
+          }
+          .upload-layout__resource-description p {
+            margin: 0;
+            font-size: 14px;
+            color: #0f172a;
+            line-height: 1.5;
+          }
+          .upload-layout__internal-data {
+            width: 100%;
+            border-radius: 16px;
+            padding: 14px 16px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .upload-layout__internal-data h4 {
+margin: 0 0 6px;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    color: rgba(15, 23, 42, 0.6);
+}
+
+
+         
+          .upload-layout__internal-data p {
+            margin: 0;
+            font-size: 13px;
+            color: #0f172a;
+          }
+          .upload-layout__internal-data__empty {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+          }
+          .upload-layout__doc-card {
+            margin-top: 8px;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: rgba(248, 250, 252, 0.9);
+          }
+          .upload-layout__doc-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            max-height: 216px;
+            padding-right: 8px;
+          }
+          .upload-layout__doc-card__icon {
+            width: 34px;
+            height: 42px;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #dbeafe, #bfdbfe 70%, #a5b4fc);
+            position: relative;
+          }
+          .upload-layout__doc-card__icon::after {
+            content: "";
+            position: absolute;
+            inset: 10px 12px auto;
+            height: 12px;
+            border-radius: 2px;
+            background: rgba(59, 130, 246, 0.7);
+          }
+          .upload-layout__doc-card__copy {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .upload-layout__doc-card__title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+          }
+          .upload-layout__doc-card__meta {
+            margin: 0;
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .links-stage__url-input {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            text-align: left;
+            font-size: 14px;
+            color: #0f172a;
+          }
+          .links-stage__url-input label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-weight: 600;
+          }
+          .links-stage__url-input input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 15px;
+          }
+          .links-stage__url-input input:disabled {
+            opacity: 0.8;
+            cursor: not-allowed;
+          }
+          .links-stage__url-helper {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.6);
           }
           .stage-shell {
             width: min(760px, 92%);
@@ -1246,97 +1611,43 @@ export default function UploadPage() {
             flex-direction: column;
             gap: 24px;
           }
-          .stage-timeline {
+          .stage-chip-row {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 0 12px;
-            margin-bottom: 4px;
+            gap: 10px;
+            flex-wrap: wrap;
           }
-          .stage-timeline__step {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-          .stage-timeline__node {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 2px solid rgba(30, 41, 59, 0.2);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 16px;
-            color: #1e293b;
-            background: rgba(255, 255, 255, 0.85);
-            transition: background 0.18s ease, border 0.18s ease, color 0.18s ease;
-          }
-          .stage-timeline__node--done {
-            background: #1e293b;
-            border-color: #1e293b;
-            color: #f8fafc;
-          }
-          .stage-timeline__node--current {
-            background: rgba(59, 130, 246, 0.15);
-            border-color: rgba(59, 130, 246, 0.65);
-            color: #1d4ed8;
-          }
-          .stage-timeline__node--skipped {
-            background: rgba(148, 163, 184, 0.12);
-            border-style: dashed;
-            border-color: rgba(148, 163, 184, 0.75);
-            color: rgba(71, 85, 105, 0.9);
-          }
-          .stage-timeline__node--optional {
-            border-style: dashed;
-          }
-          .stage-timeline__label {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+          .stage-chip {
+            padding: 8px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 41, 59, 0.12);
+            background: rgba(15, 23, 42, 0.04);
+            color: #0f172a;
             font-size: 13px;
-            color: rgba(30, 41, 59, 0.8);
-            text-align: left;
+            font-weight: 600;
+            transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
           }
-          .stage-timeline__label small {
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            color: rgba(59, 130, 246, 0.75);
+          .stage-chip--complete {
+            background: #a7f3d0;
+            color: #0f172a;
+            border-color: #bbf7d0;
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
           }
-          .stage-timeline__connector {
-            flex: 1;
-            height: 2px;
-            background: rgba(148, 163, 184, 0.3);
-            border-radius: 999px;
-          }
-          .stage-timeline__connector--complete {
-            background: rgba(30, 41, 59, 0.75);
-          }
-          .stage-timeline__connector--active {
-            background: rgba(59, 130, 246, 0.65);
-          }
-          .stage-timeline__connector--skipped {
-            background: repeating-linear-gradient(
-              to right,
-              rgba(148, 163, 184, 0.6),
-              rgba(148, 163, 184, 0.6) 6px,
-              rgba(148, 163, 184, 0.25) 6px,
-              rgba(148, 163, 184, 0.25) 12px
-            );
+          .stage-chip--current {
+            background: linear-gradient(180deg, #0f172a, #1e293b);
+            color: #f8fafc;
+            border-color: rgba(15, 23, 42, 0.4);
           }
           .stage-panel {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(30, 41, 59, 0.12);
+            background: transparent;
+            border: none;
             border-radius: 18px;
-            padding: 28px;
-            box-shadow: 0 24px 60px rgba(10, 22, 40, 0.12);
+            padding: 28px 0;
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             gap: 24px;
             color: #1e293b;
+            flex: 1;
           }
           .stage-panel__header {
             display: flex;
@@ -1356,6 +1667,9 @@ export default function UploadPage() {
           .stage-panel__spacer {
             visibility: hidden;
           }
+          .stage-panel--align-left .stage-panel__spacer {
+            display: none;
+          }
           .stage-panel__titles {
             flex: 1;
             text-align: center;
@@ -1363,12 +1677,16 @@ export default function UploadPage() {
             flex-direction: column;
             gap: 4px;
           }
+          .stage-panel--align-left .stage-panel__titles {
+            text-align: left;
+          }
           .stage-panel__titles h2 {
             margin: 0;
-            font-size: 20px;
-            font-weight: 800;
+            font-size: 14px;
+            font-weight: 600;
             letter-spacing: 0.5px;
             color: #1e293b;
+            font-family: ${HEADING_FONT_STACK};
           }
           .stage-panel__titles p {
             margin: 0;
@@ -1379,6 +1697,12 @@ export default function UploadPage() {
             display: flex;
             flex-direction: column;
             gap: 18px;
+            flex: 1;
+          }
+          .persona-description-input-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgb(15, 23, 42);
           }
           .stage-panel__footer {
             margin-top: 12px;
@@ -1388,17 +1712,17 @@ export default function UploadPage() {
             font-family: inherit;
           }
           .stage-back {
-            padding: 6px 12px;
-            border-radius: 8px;
-            background: rgba(30, 41, 59, 0.08);
-            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            background: transparent;
+            border: 1px solid rgba(15, 23, 42, 0.2);
             color: #1e293b;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            font-weight: 600;
-            font-size: 13px;
+            font-weight: 700;
+            font-size: 15px;
             cursor: pointer;
             transition: background 0.18s ease, transform 0.18s ease;
           }
@@ -1422,6 +1746,129 @@ export default function UploadPage() {
             font-size: 15px;
             cursor: pointer;
             transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+          }
+          .stage-button-row {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            justify-content: flex-end;
+            margin-top: auto;
+          }
+          .stage-button-row--with-back {
+            justify-content: space-between;
+            align-items: center;
+          }
+          .stage-button-row__group {
+            display: flex;
+            gap: 12px;
+            flex: 0 0 50%;
+            justify-content: space-between;
+          }
+          .stage-button-row__group .stage-button {
+            flex: 1;
+          }
+          .image-stage-placeholder {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px;
+            border: 1px dashed rgba(30, 41, 59, 0.25);
+            border-radius: 16px;
+            background: rgba(226, 232, 240, 0.35);
+            max-width: 360px;
+            margin: 0 auto;
+            cursor: pointer;
+            transition: border 0.18s ease, background 0.18s ease;
+          }
+          .image-stage-placeholder:hover {
+            border-color: rgba(37, 99, 235, 0.6);
+            background: rgba(226, 232, 240, 0.7);
+          }
+          .image-stage-placeholder__icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0e7ff;
+            flex-shrink: 0;
+          }
+          .image-stage-placeholder__icon img {
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            object-fit: cover;
+          }
+          .image-stage-placeholder__copy {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+          }
+          .image-stage-placeholder__title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+          }
+          .image-stage-placeholder__hint {
+            margin: 0;
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.7);
+          }
+          .data-upload-placeholder {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+            padding: 18px 12px;
+            box-sizing: border-box;
+          }
+          .data-upload-placeholder__heading {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+          }
+          .data-upload-placeholder__subheading {
+            font-size: 14px;
+            color: #1e293b;
+          }
+          .data-upload-placeholder__link {
+            text-decoration: underline;
+            color: #1e293b;
+            cursor: pointer;
+          }
+          .data-upload-placeholder__types {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+            width: 100%;
+            justify-content: center;
+          }
+          .data-upload-placeholder__chip {
+            background: var(--bg, #f4f8ff);
+            color: #1e293b;
+            border: 1px solid rgba(30, 41, 59, 0.16);
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-align: center;
+          }
+          .stage-button-note {
+            align-self: center;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+            margin-right: auto;
           }
           .stage-button:disabled {
             cursor: not-allowed;
@@ -1454,6 +1901,12 @@ export default function UploadPage() {
           .stage-button--ghost:not(:disabled):hover {
             color: #0f172a;
           }
+          .stage-button--outline {
+            border: 1px solid #1e293b;
+            background: transparent;
+            color: #1e293b;
+            box-shadow: none;
+          }
           .stage-alert {
             margin-top: 18px;
             width: 100%;
@@ -1481,13 +1934,6 @@ export default function UploadPage() {
             color: #1d4ed8;
             background: rgba(59, 130, 246, 0.12);
             border: 1px solid rgba(59, 130, 246, 0.28);
-          }
-          @font-face {
-            font-family: 'CooperBT';
-            src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
           }
         `}</style>
       </main>

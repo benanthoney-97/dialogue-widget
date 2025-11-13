@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
       canvas: "./stubs/canvas.js",
     },
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "kbxwedaluywyogaimmyi.supabase.co",
+        pathname: "/storage/v1/object/public/persona_images/**",
+      },
+    ],
+  },
   webpack: (config: Configuration) => {
     config.resolve = config.resolve || {};
     config.resolve.fallback = { ...(config.resolve.fallback || {}), canvas: false };

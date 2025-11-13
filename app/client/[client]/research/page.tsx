@@ -1,10 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
+import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 
 function getClientSlug(pathname: string | null): string {
   if (!pathname) return "";
@@ -22,9 +25,9 @@ type ExternalSource = {
 type AgentResearchRecord = {
   agentId: string;
   personaName: string;
-  sourcedArticles: Array<{ title: string | null; url: string | null }>;
   knowledgeText: string | null;
   updatedAt: string | null;
+  sourcedArticles: Array<{ title: string; url: string }>;
 };
 
 function deriveInitials(name: string): string {
@@ -63,16 +66,25 @@ export default function ResearchPage() {
   const [agentResearch, setAgentResearch] = useState<AgentResearchRecord[]>([]);
   const [agentResearchLoading, setAgentResearchLoading] = useState(false);
   const [agentResearchError, setAgentResearchError] = useState<string | null>(null);
-  const [expandedAgents, setExpandedAgents] = useState<string[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<AgentResearchRecord | null>(null);
+  const overlayTitleId = "research-overlay-title";
+  const overlayDescriptionId = "research-overlay-description";
 
-  const toggleAgentExpansion = useCallback((agentId: string) => {
-    setExpandedAgents((prev) => {
-      if (prev.includes(agentId)) {
-        return prev.filter((id) => id !== agentId);
-      }
-      return [...prev, agentId];
-    });
-  }, []);
+  const knowledgeParagraphs = useMemo(() => {
+    const text = selectedAgent?.knowledgeText;
+    if (!text) return null;
+    return text
+      .split(/\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph, index) => (
+        <p key={index}>{paragraph}</p>
+      ));
+  }, [selectedAgent?.knowledgeText]);
+
+  const closeOverlay = () => {
+    setSelectedAgent(null);
+  };
 
   useEffect(() => {
     if (!clientSlug) return;
@@ -216,7 +228,6 @@ export default function ResearchPage() {
       setAgentResearch([]);
       setAgentResearchError(null);
       setAgentResearchLoading(false);
-      setExpandedAgents([]);
       return;
     }
 
@@ -250,49 +261,43 @@ export default function ResearchPage() {
         };
         if (!isMounted) return;
 
-        const records = Array.isArray(payload.records) ? payload.records : [];
-        const normalized: AgentResearchRecord[] = records
-          .map((record) => {
-            const agentId = typeof record.agent_id === "string" ? record.agent_id.trim() : "";
-            if (!agentId) return null;
-            const personaName =
-              typeof record.persona_name === "string" && record.persona_name.trim().length > 0
-                ? record.persona_name.trim()
-                : "Unnamed agent";
-            const knowledgeText =
-              typeof record.knowledge_text === "string" && record.knowledge_text.trim().length > 0
-                ? record.knowledge_text.trim()
-                : null;
-            const updatedAt =
-              typeof record.updated_at === "string" && record.updated_at.trim().length > 0
-                ? record.updated_at
-                : null;
-            const sourcedArticles = Array.isArray(record.sourced_articles)
-              ? record.sourced_articles
-                  .map((article) => {
-                    if (!article || typeof article !== "object") return null;
-                    const title =
-                      typeof article.title === "string" && article.title.trim().length > 0
-                        ? article.title.trim()
-                        : null;
-                    const url =
-                      typeof article.url === "string" && article.url.trim().length > 0
-                        ? article.url.trim()
-                        : null;
-                    if (!title && !url) return null;
-                    return { title, url };
-                  })
-                  .filter((article): article is { title: string | null; url: string | null } => article !== null)
-              : [];
-
-            return {
-              agentId,
-              personaName,
-              knowledgeText,
-              updatedAt,
-              sourcedArticles,
-            } satisfies AgentResearchRecord;
-          })
+            const records = Array.isArray(payload.records) ? payload.records : [];
+            const normalized: AgentResearchRecord[] = records
+              .map((record) => {
+                const agentId = typeof record.agent_id === "string" ? record.agent_id.trim() : "";
+                if (!agentId) return null;
+                const personaName =
+                  typeof record.persona_name === "string" && record.persona_name.trim().length > 0
+                    ? record.persona_name.trim()
+                    : "Unnamed agent";
+                const knowledgeText =
+                  typeof record.knowledge_text === "string" && record.knowledge_text.trim().length > 0
+                    ? record.knowledge_text.trim()
+                    : null;
+                const updatedAt =
+                  typeof record.updated_at === "string" && record.updated_at.trim().length > 0
+                    ? record.updated_at
+                    : null;
+                const sourcedArticles =
+                  Array.isArray(record.sourced_articles) && record.sourced_articles.length > 0
+                    ? record.sourced_articles
+                        .map((article) => ({
+                          title:
+                            typeof article?.title === "string" && article.title.trim().length > 0
+                              ? article.title.trim()
+                              : "Untitled article",
+                          url: typeof article?.url === "string" ? article.url : "",
+                        }))
+                        .filter((article) => article.url.length > 0)
+                    : [];
+                return {
+                  agentId,
+                  personaName,
+                  knowledgeText,
+                  updatedAt,
+                  sourcedArticles,
+                } satisfies AgentResearchRecord;
+              })
           .filter((item): item is AgentResearchRecord => item !== null)
           .sort((a, b) => {
             const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
@@ -301,7 +306,6 @@ export default function ResearchPage() {
           });
 
         setAgentResearch(normalized);
-  setExpandedAgents((prev) => prev.filter((id) => normalized.some((item) => item.agentId === id)));
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error("[Research] Unexpected error loading agent research", error);
@@ -326,15 +330,43 @@ export default function ResearchPage() {
 
   return (
     <div
-      className="research-stage"
-      style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
+        className="research-stage"
+      style={{
+        "--stage-topbar-offset": "var(--sidebar-width)",
+        fontFamily: BODY_FONT_STACK,
+      } as React.CSSProperties}
     >
       <Topbar
         title="Web research"
         offsetLeft="var(--stage-topbar-offset, 0px)"
         hideProfileAvatar
         hideCadenceControls
-        rightSlot={<></>}
+        centerSlot={
+          <div
+            className="research-chip-tabs research-chip-tabs--topbar"
+            role="list"
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <button
+              type="button"
+              className={`research-chip research-chip--tab${activeView === "agent" ? " research-chip--active" : ""}`}
+              role="tab"
+              aria-selected={activeView === "agent"}
+              onClick={() => setActiveView("agent")}
+            >
+              Agent Research
+            </button>
+            <button
+              type="button"
+              className={`research-chip research-chip--tab${activeView === "sources" ? " research-chip--active" : ""}`}
+              role="tab"
+              aria-selected={activeView === "sources"}
+              onClick={() => setActiveView("sources")}
+            >
+              Target Sources
+            </button>
+          </div>
+        }
       />
       <main className="stage-layout research-root">
         <aside className="stage-layout__sidebar">
@@ -346,33 +378,6 @@ export default function ResearchPage() {
               <header />
               <div className="research-card__body">
                 <div className="research-sources">
-                  <div className="research-chip-row" role="list">
-                    <button
-                      type="button"
-                      className={`research-chip${activeView === "agent" ? " research-chip--active" : ""}`}
-                      role="listitem"
-                      aria-pressed={activeView === "agent"}
-                      onClick={() => setActiveView("agent")}
-                    >
-                      Agent Research
-                    </button>
-                    <button
-                      type="button"
-                      className={`research-chip${activeView === "sources" ? " research-chip--active" : ""}`}
-                      role="listitem"
-                      aria-pressed={activeView === "sources"}
-                      onClick={() => setActiveView("sources")}
-                    >
-                      Target Sources
-                    </button>
-                  </div>
-                  <header className="research-section-header">
-                    <p className="research-section-helper">
-                      {activeView === "agent"
-                        ? "Review the research your agents run on a recurring basis."
-                        : "Pin the news sources most relevant to your customer personas."}
-                    </p>
-                  </header>
                   {activeView === "agent" ? (
                     <div className="research-agent-table" role="region" aria-label="Agent research queue">
                       {agentResearchLoading ? (
@@ -386,41 +391,30 @@ export default function ResearchPage() {
                       ) : (
                         <table>
                           <thead>
-                            <tr>
-                              <th scope="col">Persona</th>
-                              <th scope="col">Sources</th>
-                              <th scope="col">Knowledge</th>
-                              <th scope="col">Last updated</th>
-                            </tr>
+                          <tr>
+                            <th scope="col">Persona</th>
+                            <th scope="col">Last updated</th>
+                          </tr>
                           </thead>
                           <tbody>
                             {agentResearch.map((item) => {
-                              const isExpanded = expandedAgents.includes(item.agentId);
-                              const isExpandable =
-                                item.sourcedArticles.length > 3 || Boolean(item.knowledgeText && item.knowledgeText.length > 240);
+                              const isExpandable = Boolean(item.knowledgeText && item.knowledgeText.length > 240);
 
                               const rowClassName = [
                                 "agent-row",
-                                isExpanded ? "agent-row--expanded" : "",
                                 isExpandable ? "agent-row--expandable" : "",
                               ]
                                 .filter(Boolean)
                                 .join(" ");
 
-                              const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
-                                if (!isExpandable) return;
-                                const target = event.target as HTMLElement;
-                                if (target.closest("a, button")) return;
-                                toggleAgentExpansion(item.agentId);
+                              const handleRowClick = () => {
+                                setSelectedAgent(item);
                               };
 
                               const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
-                                if (!isExpandable) return;
                                 if (event.key === "Enter" || event.key === " ") {
-                                  const target = event.target as HTMLElement;
-                                  if (target.closest("a, button")) return;
                                   event.preventDefault();
-                                  toggleAgentExpansion(item.agentId);
+                                  setSelectedAgent(item);
                                 }
                               };
                               return (
@@ -429,37 +423,10 @@ export default function ResearchPage() {
                                   className={rowClassName}
                                   onClick={handleRowClick}
                                   onKeyDown={handleRowKeyDown}
-                                  role={isExpandable ? "button" : undefined}
-                                  tabIndex={isExpandable ? 0 : undefined}
-                                  aria-expanded={isExpandable ? isExpanded : undefined}
+                                  role="button"
+                                  tabIndex={0}
                                 >
                                   <td>{item.personaName}</td>
-                                  <td className="agent-sources-cell">
-                                    <div className={isExpanded ? "agent-cell agent-cell--expanded" : "agent-cell"}>
-                                      {item.sourcedArticles.length > 0 ? (
-                                        <ul className="agent-articles-list">
-                                          {item.sourcedArticles.map((article, index) => (
-                                            <li key={`${item.agentId}-article-${index}`}>
-                                              {article.url ? (
-                                                <a href={article.url} target="_blank" rel="noreferrer noopener">
-                                                  {article.title ?? article.url}
-                                                </a>
-                                              ) : (
-                                                article.title ?? "Untitled source"
-                                              )}
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        <span className="agent-articles-empty">No sources linked</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className={isExpanded ? "agent-knowledge-cell agent-knowledge-cell--expanded" : "agent-knowledge-cell"}>
-                                    <div className={isExpanded ? "agent-cell agent-cell--expanded" : "agent-cell"}>
-                                      <div className="agent-knowledge-text">{item.knowledgeText ?? "—"}</div>
-                                    </div>
-                                  </td>
                                   <td>{formatUpdatedAt(item.updatedAt)}</td>
                                 </tr>
                               );
@@ -487,7 +454,14 @@ export default function ResearchPage() {
                           >
                             <div className="research-source-logo" style={logoStyle}>
                               {source.logoUrl ? (
-                                <img src={source.logoUrl} alt="" loading="lazy" />
+                                <Image
+                                  src={source.logoUrl}
+                                  alt={source.name}
+                                  className="research-source-logo__image"
+                                  width={64}
+                                  height={64}
+                                  unoptimized
+                                />
                               ) : (
                                 <span aria-hidden="true">{deriveInitials(source.name)}</span>
                               )}
@@ -502,7 +476,52 @@ export default function ResearchPage() {
               </div>
             </section>
           </div>
-      </div>
+        </div>
+        {selectedAgent ? (
+          <SlidingPanelOverlay
+            open
+            onRequestClose={closeOverlay}
+            onAfterClose={() => setSelectedAgent(null)}
+            title={
+              <div className="research-overlay__header-content">
+                <span>{selectedAgent.personaName}</span>
+                <p className="research-overlay__updated">
+                  Last updated <strong>{formatUpdatedAt(selectedAgent.updatedAt)}</strong>
+                </p>
+              </div>
+            }
+            titleId={overlayTitleId}
+            descriptionId={overlayDescriptionId}
+            actions={
+              <div className="research-overlay__actions-stack">
+                {selectedAgent.sourcedArticles.length > 0 ? (
+                  <section className="research-overlay__sources" aria-label="Source articles">
+                    <p className="research-overlay__sources-heading">Sourced articles</p>
+                    <ul>
+                      {selectedAgent.sourcedArticles.map((article) => (
+                        <li key={article.url}>
+                          <a href={article.url} target="_blank" rel="noreferrer">
+                            {article.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </div>
+            }
+          >
+            <div id={overlayDescriptionId} className="research-overlay__body">
+              <div className="research-overlay__main" role="group" aria-labelledby={overlayTitleId}>
+                <section className="research-overlay__summary" aria-label="Knowledge summary">
+                  <p className="research-overlay__placeholder-heading">Summary</p>
+                  {knowledgeParagraphs || <p className="research-overlay__placeholder-text">No knowledge captured for this persona.</p>}
+                </section>
+              </div>
+            </div>
+         </SlidingPanelOverlay>
+        ) : null}
+      </main>
       <style>{`
         .research-stage {
           position: relative;
@@ -510,7 +529,7 @@ export default function ResearchPage() {
         }
         .stage-layout {
           background: var(--bg, #f4f8ff);
-          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          font-family: ${BODY_FONT_STACK};
           display: flex;
           height: 100%;
         }
@@ -552,6 +571,7 @@ export default function ResearchPage() {
           margin: 0;
           font-size: 20px;
           font-weight: 800;
+          font-family: ${HEADING_FONT_STACK};
         }
         .research-card header p {
           margin: 0px 0 0;
@@ -565,26 +585,41 @@ export default function ResearchPage() {
           flex-direction: column;
           gap: 20px;
         }
-        .research-chip-row {
+        .research-chip-tabs {
           display: inline-flex;
-          gap: 10px;
           margin: 4px 0 12px;
-          flex-wrap: wrap;
+          border-radius: 12px;
+          border: 1px solid rgba(15, 23, 42, 0.14);
+          overflow: hidden;
+          background: rgba(248, 250, 255, 0.95);
+          min-width: 320px;
+        }
+        .research-chip-tabs--topbar {
+          margin: 0;
+          min-width: 280px;
         }
         .research-chip {
-          border: 1px solid rgba(15, 23, 42, 0.14);
-          background: rgba(248, 250, 255, 0.85);
+          border: none;
+          background: transparent;
           color: #052033;
           font-size: 12px;
           font-weight: 600;
-          border-radius: 999px;
-          padding: 6px 12px;
+          padding: 8px 18px;
           cursor: pointer;
-          transition: background 0.18s ease, border 0.18s ease, transform 0.18s ease;
+          transition: background 0.18s ease;
+          flex: 1;
+          text-align: center;
+        }
+        .research-chip--tab:first-child {
+          border-right: 1px solid rgba(15, 23, 42, 0.14);
+        }
+        .research-chip--tab:focus-visible,
+        .research-chip--tab:hover {
+          outline: none;
+          background: rgba(59, 130, 246, 0.12);
         }
         .research-chip--active {
           background: rgba(59, 130, 246, 0.18);
-          border-color: rgba(59, 130, 246, 0.55);
           color: #052033;
         }
         .research-chip:hover,
@@ -637,6 +672,7 @@ export default function ResearchPage() {
           font-size: 18px;
           font-weight: 700;
           color: #0f172a;
+          font-family: ${HEADING_FONT_STACK};
         }
         .research-section-helper {
           margin: 0;
@@ -734,28 +770,121 @@ export default function ResearchPage() {
         .research-agent-state--error {
           color: #b91c1c;
         }
+        .research-overlay__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .research-overlay__header h2 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+        }
+        .research-overlay__header-content {
+          display: flex;
+          flex-direction: row;
+          align-items: baseline;
+          gap: 12px;
+        }
+        .research-overlay__updated {
+          margin: 0;
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.68);
+        }
+        .research-overlay__close {
+          border: none;
+          background: transparent;
+          color: #0f172a;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .research-overlay__body {
+          flex: 1;
+          display: flex;
+          gap: 28px;
+          align-items: stretch;
+          min-height: 0;
+        }
+        .research-overlay__main {
+          flex: 1;
+          min-width: 0;
+          background: rgba(148, 197, 255, 0.12);
+          border: 1px dashed rgba(59, 130, 246, 0.32);
+          border-radius: 16px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          color: rgba(15, 23, 42, 0.78);
+        }
+        .research-overlay__summary {
+          font-size: 14px;
+          color: #475569;
+          line-height: 1.6;
+        }
+        .research-overlay__actions-stack {
+          flex: 1;
+          min-height: 0;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.16);
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .research-overlay__actions-placeholder {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(15, 23, 42, 0.72);
+        }
+        .research-overlay__sources {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.75);
+        }
+        .research-overlay__sources-heading {
+          margin: 0 0 8px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.55);
+        }
+        .research-overlay__placeholder-heading {
+          margin: 0;
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.55);
+        }
+        .research-overlay__placeholder-text {
+          margin: 0;
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.7);
+        }
+        .research-overlay__sources ul {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .research-overlay__sources li a {
+          color: #1d4ed8;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .research-overlay__sources li a:hover {
+          text-decoration: underline;
+        }
         .agent-articles-list {
           margin: 0;
           padding-left: 0;
           display: flex;
           flex-direction: column;
           gap: 4px;
-        }
-        .agent-articles-list li {
-          margin: 0;
-        }
-        .agent-articles-list a {
-          color: #2563eb;
-          text-decoration: none;
-        }
-        .agent-articles-list a:hover,
-        .agent-articles-list a:focus-visible {
-          text-decoration: underline;
-          outline: none;
-        }
-        .agent-articles-empty {
-          color: rgba(15, 23, 42, 0.48);
-          font-style: italic;
         }
         .agent-row {
           transition: background 0.18s ease;
@@ -765,46 +894,6 @@ export default function ResearchPage() {
         }
         .agent-row--expandable {
           cursor: pointer;
-        }
-        .agent-sources-cell {
-          min-width: 180px;
-          position: relative;
-        }
-        .agent-knowledge-cell {
-          min-width: 240px;
-          position: relative;
-          max-width: 420px;
-        }
-        .agent-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          max-height: 110px;
-          overflow: hidden;
-          position: relative;
-        }
-        .agent-cell--expanded,
-        .agent-row--expanded .agent-cell {
-          max-height: none;
-        }
-        .agent-row--expandable:not(.agent-row--expanded) .agent-cell::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          height: 32px;
-          pointer-events: none;
-          background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.92));
-        }
-        .agent-knowledge-text {
-          min-height: 64px;
-          white-space: pre-wrap;
-          line-height: 1.5;
-          overflow: hidden;
-        }
-        .agent-knowledge-cell--expanded .agent-knowledge-text {
-          min-height: 0;
         }
         .research-source-logo {
           width: 64px;
@@ -827,8 +916,9 @@ export default function ResearchPage() {
           color: rgba(255, 255, 255, 0.92);
           text-transform: uppercase;
           letter-spacing: 0.06em;
+          font-family: ${HEADING_FONT_STACK};
         }
-        .research-source-logo img {
+        .research-source-logo__image {
           width: 70%;
           height: 70%;
           object-fit: contain;
@@ -850,7 +940,6 @@ export default function ResearchPage() {
           .research-card {
             padding: 28px;
           }
-          .agent-sources-cell,
           .agent-knowledge-cell {
             min-width: 0;
           }
@@ -893,7 +982,7 @@ export default function ResearchPage() {
           }
         }
       `}</style>
-    </main>
-  </div>
+    </div>
   );
 }
+        /* placeholder styles moved into main block */

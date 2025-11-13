@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import { resolveDestinationForUser } from "../lib/authRedirect";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "../lib/fontStacks";
 
 type AuthMode = "login" | "signup";
 
@@ -302,7 +303,7 @@ function AuthPageContent() {
             radial-gradient(circle at 82% 0%, rgba(132, 180, 255, 0.36) 0%, rgba(244, 248, 255, 0) 38%),
             linear-gradient(150deg, #f8fbff 0%, #edf4ff 48%, #e1edff 100%);
           color: #052033;
-          font-family: "Cooper Light BT", "CooperBT", "Cooper", serif;
+          font-family: ${BODY_FONT_STACK};
         }
 
         .auth-page::before,
@@ -371,6 +372,7 @@ function AuthPageContent() {
           font-size: clamp(26px, 4vw, 30px);
           font-weight: 800;
           letter-spacing: 0.02em;
+          font-family: ${HEADING_FONT_STACK};
         }
 
         .auth-card__subtitle {
@@ -435,6 +437,7 @@ function AuthPageContent() {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(63, 96, 150, 0.72);
+          font-family: ${HEADING_FONT_STACK};
         }
 
         .auth-form__input {
@@ -471,6 +474,7 @@ function AuthPageContent() {
           font-weight: 700;
           cursor: pointer;
           transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, color 0.18s ease;
+          font-family: inherit;
         }
 
         .auth-button:disabled {
@@ -561,15 +565,6 @@ function AuthPageContent() {
           .auth-button--link {
             align-self: flex-end;
           }
-        }
-      `}</style>
-      <style jsx global>{`
-        @font-face {
-          font-family: "CooperBT";
-          src: url("/fonts/CooperBT/Cooper Light BT.ttf") format("truetype");
-          font-weight: normal;
-          font-style: normal;
-          font-display: swap;
         }
       `}</style>
     </main>

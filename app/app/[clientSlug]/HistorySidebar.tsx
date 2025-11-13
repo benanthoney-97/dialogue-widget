@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import {
   exportTranscriptToPdf,
   type PdfTranscriptMessage,
@@ -60,7 +61,7 @@ const CHIP_BASE_STYLE: CSSProperties = {
   fontWeight: 600,
   letterSpacing: "0.3px",
   padding: "4px 10px",
-  fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+  fontFamily: BODY_FONT_STACK,
 };
 
 function getResearchChipStyle(value: string): CSSProperties {
@@ -122,10 +123,8 @@ function normalizeTranscriptMessages(value: unknown): TranscriptMessage[] {
       let match: RegExpExecArray | null = pattern.exec(trimmed);
 
       while (match) {
-        const [, prefix, label] = match;
+        const [, , label] = match;
         const matchIndex = match.index ?? 0;
-        const prefixLength = prefix?.length ?? 0;
-        const start = matchIndex + prefixLength;
         if (segments.length > 0) {
           const prev = segments[segments.length - 1];
           prev.text = trimmed.slice(lastIndex, matchIndex).trim();
@@ -546,7 +545,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
                         fontSize: 13,
                         fontWeight: 600,
                         color: "rgba(15, 23, 42, 0.72)",
-                        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                        fontFamily: BODY_FONT_STACK,
                         letterSpacing: "0.2px",
                       }}
                     >
@@ -586,7 +585,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
                       fontSize: 14,
                       fontWeight: 600,
                       color: "#0f172a",
-                      fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                      fontFamily: BODY_FONT_STACK,
                     }}
                   >
                     {title}
@@ -655,7 +654,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
                                 letterSpacing: "0.3px",
                                 color: "rgba(15, 23, 42, 0.55)",
                                 textTransform: "uppercase",
-                                fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                                fontFamily: BODY_FONT_STACK,
                                 textAlign: isUserMessage ? "right" : "left",
                               }}
                             >
@@ -738,7 +737,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
                         fontWeight: 600,
                         letterSpacing: "0.2px",
                         cursor: "pointer",
-                        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                        fontFamily: BODY_FONT_STACK,
                         opacity: downloadingDialogueId === dialogue.id ? 0.6 : 1,
                         pointerEvents: downloadingDialogueId === dialogue.id ? "none" : "auto",
                       }}
@@ -754,7 +753,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
         })}
       </ul>
     );
-  }, [agentNames, dialogues, error, expandedDialogueId, loading]);
+  }, [agentNames, dialogues, downloadingDialogueId, error, expandedDialogueId, handleTranscriptDownload, loading]);
 
   return (
     <>
@@ -795,6 +794,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
           padding: "28px 24px 36px",
           gap: 20,
           pointerEvents: isOpen ? "auto" : "none",
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         <div
@@ -811,7 +811,7 @@ export default function HistorySidebar({ isOpen, onCloseAction }: HistorySidebar
               fontSize: 20,
               fontWeight: 700,
               color: "#0f172a",
-              fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+              fontFamily: HEADING_FONT_STACK,
             }}
           >
             History

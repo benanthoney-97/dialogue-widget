@@ -1,11 +1,19 @@
 import Link from "next/link";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import Image from "next/image";
+import { createClient } from "@supabase/supabase-js";
 import PersonaDescription from "@/app/components/personas/PersonaDescription";
 import PersonaActionsMenu from "@/app/components/personas/PersonaActionsMenu";
 import { slugify } from "@/app/lib/jump";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 type PersonaDetailPageProps = {
   params: Promise<{ clientSlug: string; personaSlug: string }>;
+};
+
+type ClientRow = {
+  id: number;
+  name: string | null;
+  display_name: string | null;
 };
 
 type PersonaRow = {
@@ -39,20 +47,22 @@ type SuggestedQuestionRow = {
   suggested_question: string | null;
 };
 
-type Supabase = SupabaseClient<any, "public", any>;
-
-async function resolveClientId(supabase: Supabase, clientSlug: string): Promise<number | null> {
+async function resolveClientId(supabaseUrl: string, supabaseAnonKey: string, clientSlug: string): Promise<number | null> {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
   const direct = await supabase
     .from("clients")
     .select("id, name, display_name")
     .eq("name", clientSlug)
-    .maybeSingle<{ id: number; name: string; display_name: string | null }>();
+    .maybeSingle<ClientRow>();
 
   if (direct.data) {
     return direct.data.id;
   }
 
-  const { data } = await supabase.from("clients").select("id, name, display_name");
+  const { data } = await supabase
+    .from("clients")
+    .select("id, name, display_name")
+    .returns<ClientRow[]>();
   if (!data) return null;
 
   const match = data.find((client) => {
@@ -118,6 +128,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           padding: 20,
           color: "#b91c1c",
           fontWeight: 600,
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         Supabase environment variables are not configured. The persona page cannot load yet.
@@ -125,8 +136,8 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
     );
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey) as Supabase;
-  const clientId = await resolveClientId(supabase, clientSlug);
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const clientId = await resolveClientId(supabaseUrl, supabaseAnonKey, clientSlug);
 
   if (!clientId) {
     return (
@@ -138,6 +149,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           padding: 20,
           color: "#b91c1c",
           fontWeight: 600,
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         Workspace not found. Ask the Dialogue team to confirm the shareable portal URL.
@@ -151,7 +163,8 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
       "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image"
     )
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<PersonaRow[]>();
 
   if (error) {
     return (
@@ -163,6 +176,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           padding: 20,
           color: "#b91c1c",
           fontWeight: 600,
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         Unable to load this persona right now. Please try again in a moment.
@@ -177,7 +191,8 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
   const { data: suggestedQuestionRows, error: suggestedQuestionsError } = await supabase
     .from("suggested_questions")
     .select("id, suggested_question")
-    .order("id", { ascending: true });
+    .order("id", { ascending: true })
+    .returns<SuggestedQuestionRow[]>();
 
   if (suggestedQuestionsError) {
     console.error("Failed to load suggested questions", suggestedQuestionsError);
@@ -197,6 +212,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           padding: 20,
           color: "#1d4ed8",
           fontWeight: 600,
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         That persona is not available. Return to explore to see the full gallery.
@@ -247,6 +263,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
         justifyContent: "center",
         padding: "32px 0",
         paddingBottom: 0,
+        fontFamily: BODY_FONT_STACK,
       }}
     >
       <style>{`
@@ -262,6 +279,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           justify-items: stretch;
           justify-content: center;
           min-height: 0;
+          font-family: ${BODY_FONT_STACK};
         }
 
         [data-persona-action-chip] {
@@ -279,7 +297,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           font-weight: 600;
           letter-spacing: 0.03em;
           text-transform: uppercase;
-          font-family: "Cooper Light BT", "CooperBT", Cooper, serif;
+          font-family: ${HEADING_FONT_STACK};
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
           cursor: pointer;
           min-width: 140px;
@@ -319,6 +337,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           text-decoration: none;
           display: block;
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          font-family: ${BODY_FONT_STACK};
         }
 
         [data-persona-suggested-link]:hover,
@@ -336,21 +355,21 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
           maxWidth: "840px",
           borderRadius: 28,
           padding: "28px 0",
+          fontFamily: BODY_FONT_STACK,
         }}
       >
         <div data-persona-layout-container>
           <div data-persona-portrait>
             {persona.profileImage ? (
-              <img
+              <Image
                 src={persona.profileImage}
                 alt={`Portrait of ${persona.name}`}
+                fill
+                sizes="(max-width: 768px) 200px, 280px"
                 style={{
-                  width: "100%",
-                  height: "100%",
                   objectFit: "cover",
-                  maxWidth: "640px",
-                  display: "block",
                 }}
+                priority
               />
             ) : (
               <div
@@ -365,6 +384,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
+                  fontFamily: HEADING_FONT_STACK,
                 }}
               >
                 {(() => {
@@ -392,6 +412,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               alignSelf: "stretch",
               height: "100%",
               minHeight: "100%",
+              fontFamily: BODY_FONT_STACK,
             }}
           >
             <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -409,7 +430,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                     fontSize: 26,
                     lineHeight: 1.15,
                     fontWeight: 700,
-                    fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                    fontFamily: HEADING_FONT_STACK,
                   }}
                 >
                   {persona.name}
@@ -422,6 +443,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                   fontSize: 15,
                   lineHeight: 1.4,
                   color: "#475569",
+                  fontFamily: BODY_FONT_STACK,
                 }}
               >
                 Wizard from Hogwarts school
@@ -443,10 +465,21 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                     background: "#ffffff",
                   }}
                 >
-                  <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "#64748b",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 6,
+                      fontFamily: HEADING_FONT_STACK,
+                    }}
+                  >
                     Content focus
                   </span>
-                  <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{persona.contentType}</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", fontFamily: BODY_FONT_STACK }}>{persona.contentType}</span>
                 </div>
               ) : null}
             </div>
@@ -511,6 +544,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               gridColumn: "1 / -1",
               borderRadius: 20,
               color: "#0f172a",
+              fontFamily: BODY_FONT_STACK,
             }}
           >
             <h2
@@ -518,7 +552,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 700,
-                fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                fontFamily: HEADING_FONT_STACK,
               }}
             >
               Persona description
@@ -543,6 +577,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               borderRadius: 20,
               padding: "0 0 ",
               color: "#0f172a",
+              fontFamily: BODY_FONT_STACK,
             }}
           >
             <h2
@@ -550,7 +585,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 700,
-                fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                fontFamily: HEADING_FONT_STACK,
               }}
             >
               Suggested questions
@@ -583,6 +618,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                     color: "#475569",
                     fontSize: 15,
                     lineHeight: 1.5,
+                    fontFamily: BODY_FONT_STACK,
                   }}
                 >
                   Suggested questions are coming soon.

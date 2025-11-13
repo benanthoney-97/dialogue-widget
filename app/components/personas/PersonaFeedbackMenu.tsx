@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 
-type PersonaActionsMenuProps = {
+type PersonaFeedbackMenuProps = {
   personaName: string;
   personaId?: string;
 };
@@ -19,14 +19,14 @@ function buildEmailLink(personaName: string, currentUrl: string): string {
   return `mailto:?subject=${subject}&body=${body}`;
 }
 
-export default function PersonaActionsMenu({ personaName, personaId }: PersonaActionsMenuProps) {
+export default function PersonaFeedbackMenu({ personaName, personaId }: PersonaFeedbackMenuProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<MenuStatus | null>(null);
-const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-const [submittingFeedback, setSubmittingFeedback] = useState(false);
-const [clientId, setClientId] = useState<number | null>(null);
-const buttonRef = useRef<HTMLButtonElement | null>(null);
-const menuRef = useRef<HTMLDivElement | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [clientId, setClientId] = useState<number | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +67,7 @@ const menuRef = useRef<HTMLDivElement | null>(null);
       setStatus({ message: "Persona link copied", tone: "positive" });
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("[PersonaActionsMenu] Failed to copy link", error);
+      console.error("[PersonaFeedbackMenu] Failed to copy link", error);
       setStatus({ message: "Unable to copy link. Try again.", tone: "warning" });
     }
     setOpen(false);
@@ -85,7 +85,7 @@ const menuRef = useRef<HTMLDivElement | null>(null);
     setStatus(null);
     setShowFeedbackModal(true);
   };
-  
+
   useEffect(() => {
     if (!personaId) {
       setClientId(null);
@@ -105,7 +105,7 @@ const menuRef = useRef<HTMLDivElement | null>(null);
 
       if (error) {
         // eslint-disable-next-line no-console
-        console.error("[PersonaActionsMenu] Failed to resolve client_id", error);
+        console.error("[PersonaFeedbackMenu] Failed to resolve client_id", error);
         setClientId(null);
         return;
       }
@@ -138,8 +138,8 @@ const menuRef = useRef<HTMLDivElement | null>(null);
       const { error } = await supabase.from("user_feedback").insert({
         user_id: userId,
         persona_id: personaId ?? null,
-        from_url: typeof window !== "undefined" ? window.location.href : null,
         client_id: clientId ?? null,
+        from_url: typeof window !== "undefined" ? window.location.href : null,
         feedback_title: feedbackTitle,
         feedback_body: feedbackBody.length > 0 ? feedbackBody : null,
       });
@@ -153,7 +153,7 @@ const menuRef = useRef<HTMLDivElement | null>(null);
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("[PersonaActionsMenu] Failed to submit feedback", error);
+      console.error("[PersonaFeedbackMenu] Failed to submit feedback", error);
       setStatus({ message: "Couldn't save feedback. Please try again.", tone: "warning" });
       return false;
     } finally {
@@ -234,7 +234,7 @@ const menuRef = useRef<HTMLDivElement | null>(null);
               event.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            Copy link
+            Copy persona link
           </button>
           <button
             type="button"
@@ -453,11 +453,11 @@ function FeedbackModal({ onClose, onSubmit, isSubmitting }: FeedbackModalProps) 
             <textarea
               value={content}
               onChange={(event) => setContent(event.target.value)}
-              placeholder="Share what's working well or what needs attention"
-              rows={5}
+              placeholder="Tell us what you appreciated or what could improve"
+              rows={4}
               style={{
-                padding: "12px",
-                borderRadius: 14,
+                padding: "10px 12px",
+                borderRadius: 12,
                 border: "1px solid rgba(148,163,184,0.6)",
                 fontSize: 14,
                 color: "#0f172a",
@@ -467,64 +467,24 @@ function FeedbackModal({ onClose, onSubmit, isSubmitting }: FeedbackModalProps) 
             />
           </label>
           {formError ? (
-            <span
-              role="alert"
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#b91c1c",
-                fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
-              }}
-            >
-              {formError}
-            </span>
+            <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{formError}</div>
           ) : null}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.5)",
-                background: "transparent",
-                color: "#334155",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                cursor: "pointer",
-              }}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(15, 23, 42, 0.16)",
-                background: "#0f172a",
-                color: "#f8fafc",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                cursor: "pointer",
-                transition: "transform 0.18s ease, box-shadow 0.18s ease",
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.transform = "translateY(-1px)";
-                event.currentTarget.style.boxShadow = "0 10px 20px rgba(15, 23, 42, 0.18)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.transform = "translateY(0)";
-                event.currentTarget.style.boxShadow = "none";
-              }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting..." : "Submit feedback"}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            style={{
+              border: "none",
+              borderRadius: 12,
+              padding: "12px 16px",
+              background: "#0f172a",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: isSubmitting ? "progress" : "pointer",
+            }}
+          >
+            {isSubmitting ? "Submitting..." : "Submit feedback"}
+          </button>
         </form>
       </div>
     </div>

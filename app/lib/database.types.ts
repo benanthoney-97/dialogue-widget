@@ -253,6 +253,61 @@ export type Database = {
           },
         ]
       }
+      user_feedback: {
+        Row: {
+          client_id: number | null
+          created_at: string | null
+          feedback_body: string | null
+          feedback_title: string
+          from_url: string | null
+          id: string
+          persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          client_id?: number | null
+          created_at?: string | null
+          feedback_body?: string | null
+          feedback_title: string
+          from_url?: string | null
+          id?: string
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          client_id?: number | null
+          created_at?: string | null
+          feedback_body?: string | null
+          feedback_title?: string
+          from_url?: string | null
+          id?: string
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "agent_map"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       theme_map: {
         Row: {
           agent_id: string

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import { TOPBAR_HEIGHT } from "./topbarHeight";
 
 type NavLink = {
@@ -148,7 +149,6 @@ export default function Topbar({
         });
       } catch (error) {
         if (!isMounted) return;
-        // eslint-disable-next-line no-console
         console.error("[Topbar] Failed to load profile details", error);
         setProfileDetails({ ...DEFAULT_PROFILE_STATE });
       }
@@ -241,7 +241,6 @@ export default function Topbar({
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("[Topbar] Failed to sign out", error);
     } finally {
       closeMenu();
@@ -261,7 +260,7 @@ export default function Topbar({
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+    fontFamily: BODY_FONT_STACK,
     transition: "background 0.18s ease, color 0.18s ease",
   };
 
@@ -341,7 +340,7 @@ export default function Topbar({
                         fontSize: 18,
                         fontWeight: 800,
                         color: "#052033",
-                        fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                        fontFamily: HEADING_FONT_STACK,
                       }}
                     >
                       {title}
@@ -354,7 +353,7 @@ export default function Topbar({
                       fontSize: 18,
                       fontWeight: 800,
                       color: "#052033",
-                      fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                      fontFamily: HEADING_FONT_STACK,
                     }}
                   >
                     {title}
@@ -367,6 +366,7 @@ export default function Topbar({
                       fontSize: 14,
                       color: "rgba(15, 23, 42, 0.72)",
                       maxWidth: 560,
+                      fontFamily: BODY_FONT_STACK,
                     }}
                   >
                     {subtitle}
@@ -387,7 +387,7 @@ export default function Topbar({
             fontSize: 13,
             fontWeight: 600,
             color: "#0f172a",
-            fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+            fontFamily: BODY_FONT_STACK,
             flexShrink: 0,
           }}
         >
@@ -517,7 +517,7 @@ export default function Topbar({
                   borderRadius: 999,
                   fontSize: 13,
                   fontWeight: 700,
-                  fontFamily: "'CooperBT', Cooper, 'Cooper Light BT', serif",
+                  fontFamily: BODY_FONT_STACK,
                   cursor: "pointer",
                   transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease",
                 }}
@@ -565,7 +565,7 @@ export default function Topbar({
                   textTransform: "uppercase",
                   boxShadow: menuOpen ? "0 10px 24px rgba(10,22,40,0.24)" : "0 6px 18px rgba(10,22,40,0.18)",
                   cursor: "pointer",
-                  fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+                  fontFamily: HEADING_FONT_STACK,
                   transition: "background 0.18s ease, box-shadow 0.18s ease",
                 }}
               >
@@ -664,7 +664,7 @@ export default function Topbar({
           font-size: 13px;
           font-weight: 600;
           color: #1e293b;
-          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          font-family: ${BODY_FONT_STACK};
         }
         .topbar-cadence-chip {
           border: none;
@@ -674,7 +674,7 @@ export default function Topbar({
           border-radius: 10px;
           font-size: 12px;
           font-weight: 600;
-          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          font-family: ${BODY_FONT_STACK};
           cursor: pointer;
           transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
         }
