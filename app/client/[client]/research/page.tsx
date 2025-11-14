@@ -29,6 +29,7 @@ type AgentResearchRecord = {
   updatedAt: string | null;
   sourcedArticles: Array<{ title: string; url: string }>;
   sourcedArticlesCount: number;
+  watchlistQuery: string | null;
 };
 
 function deriveInitials(name: string): string {
@@ -107,6 +108,10 @@ export default function ResearchPage() {
   const [agentResearchLoading, setAgentResearchLoading] = useState(false);
   const [agentResearchError, setAgentResearchError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<AgentResearchRecord | null>(null);
+  const [promptValue, setPromptValue] = useState("");
+  const [isPromptDirty, setIsPromptDirty] = useState(false);
+  const [isPromptSaving, setIsPromptSaving] = useState(false);
+  const [promptSaveError, setPromptSaveError] = useState<string | null>(null);
   const overlayTitleId = "research-overlay-title";
   const overlayDescriptionId = "research-overlay-description";
 
@@ -121,6 +126,76 @@ export default function ResearchPage() {
         <p key={index}>{paragraph}</p>
       ));
   }, [selectedAgent?.knowledgeText]);
+  useEffect(() => {
+    setPromptValue(selectedAgent?.watchlistQuery ?? "");
+    setIsPromptDirty(false);
+    setPromptSaveError(null);
+  }, [selectedAgent]);
+
+  const handleClearPromptDraft = useCallback(() => {
+    setPromptValue(selectedAgent?.watchlistQuery ?? "");
+    setPromptSaveError(null);
+  }, [selectedAgent]);
+
+  const handlePromptSave = useCallback(
+    async (value: string) => {
+      if (!clientSlug || !selectedAgent) return;
+      const trimmed = value.trim();
+      const current = selectedAgent.watchlistQuery ?? "";
+      if (trimmed === current) {
+        setPromptValue(value);
+        setIsPromptDirty(false);
+        return;
+      }
+
+      setIsPromptSaving(true);
+      setPromptSaveError(null);
+      try {
+        const response = await fetch(`/api/clients/${clientSlug}/watchlist`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            agentId: selectedAgent.agentId,
+            query: trimmed || null,
+          }),
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const errorMessage =
+            payload?.error ?? payload?.message ?? `Unable to save prompt (${response.status})`;
+          setPromptSaveError(errorMessage);
+          return;
+        }
+        if (payload?.error) {
+          setPromptSaveError(payload.error);
+          return;
+        }
+
+        const savedQuery = typeof payload?.query === "string" ? payload.query.trim() : null;
+        setAgentResearch((prev) =>
+          prev.map((record) =>
+            record.agentId === selectedAgent.agentId ? { ...record, watchlistQuery: savedQuery } : record
+          )
+        );
+        setSelectedAgent((prev) => (prev ? { ...prev, watchlistQuery: savedQuery } : prev));
+        setPromptValue(savedQuery ?? "");
+        setIsPromptDirty(false);
+      } catch (error) {
+        console.error("[Research] Failed to save prompt", error);
+        setPromptSaveError("Unable to save prompt.");
+      } finally {
+        setIsPromptSaving(false);
+      }
+    },
+    [clientSlug, selectedAgent]
+  );
+
+  useEffect(() => {
+    console.log("[Research] promptValue changed", { promptValue, isPromptDirty });
+  }, [promptValue, isPromptDirty]);
 
   const closeOverlay = () => {
     setSelectedAgent(null);
@@ -298,6 +373,7 @@ export default function ResearchPage() {
             updated_at?: string | null;
             sourced_articles?: Array<{ title?: string | null; url?: string | null }>;
             sourced_articles_count?: number | null;
+            watchlist_query?: string | null;
           }>;
         };
         if (!isMounted) return;
@@ -331,6 +407,10 @@ export default function ResearchPage() {
                         }))
                         .filter((article) => article.url.length > 0)
                     : [];
+                const watchlistQuery =
+                  typeof record.watchlist_query === "string" && record.watchlist_query.trim().length > 0
+                    ? record.watchlist_query.trim()
+                    : null;
                 const rawSourcedArticleCount =
                   typeof record.sourced_articles_count === "number" && !Number.isNaN(record.sourced_articles_count)
                     ? Math.max(0, Math.floor(record.sourced_articles_count))
@@ -346,6 +426,7 @@ export default function ResearchPage() {
                   updatedAt,
                   sourcedArticles,
                   sourcedArticlesCount,
+                  watchlistQuery,
                 } satisfies AgentResearchRecord;
               })
           .filter((item): item is AgentResearchRecord => item !== null)
@@ -429,83 +510,95 @@ export default function ResearchPage() {
               <div className="research-card__body">
                 <div className="research-sources">
                   {activeView === "agent" ? (
-                    <div className="research-agent-table" role="region" aria-label="Agent research queue">
-                      {agentResearchLoading ? (
-                        <div className="research-agent-state">Loading agent research…</div>
-                      ) : agentResearchError ? (
-                        <div className="research-agent-state research-agent-state--error">
-                          {agentResearchError}
-                        </div>
-                      ) : agentResearch.length === 0 ? (
-                        <div className="research-agent-state">No agent research runs yet.</div>
-                      ) : (
-                        <table>
-                          <thead>
-                          <tr>
-                            <th scope="col">Persona</th>
-                            <th scope="col">Last updated</th>
-                            <th scope="col">Articles</th>
-                            <th scope="col">Top Sources</th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                            {agentResearch.map((item) => {
-                              const isExpandable = Boolean(item.knowledgeText && item.knowledgeText.length > 240);
+                    <div
+                      className={`research-agent-table${agentResearchLoading ? " research-agent-table--busy" : ""}`}
+                      role="region"
+                      aria-label="Agent research queue"
+                    >
+                      <div
+                        className={`research-agent-table__overlay${agentResearchLoading ? " research-agent-table__overlay--visible" : ""}`}
+                        aria-live="polite"
+                      >
+                        <span className="stage-alert stage-alert--info">Loading agent research…</span>
+                      </div>
+                      {!agentResearchLoading && (
+                        <>
+                          {agentResearchError ? (
+                            <div className="research-agent-state research-agent-state--error">
+                              {agentResearchError}
+                            </div>
+                          ) : agentResearch.length === 0 ? (
+                            <div className="research-agent-state">No agent research runs yet.</div>
+                          ) : (
+                            <table>
+                              <thead>
+                              <tr>
+                                <th scope="col">Persona</th>
+                                <th scope="col">Last updated</th>
+                                <th scope="col">Articles</th>
+                                <th scope="col">Top Sources</th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                                {agentResearch.map((item) => {
+                                  const isExpandable = Boolean(item.knowledgeText && item.knowledgeText.length > 240);
 
-                              const rowClassName = [
-                                "agent-row",
-                                isExpandable ? "agent-row--expandable" : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ");
+                                  const rowClassName = [
+                                    "agent-row",
+                                    isExpandable ? "agent-row--expandable" : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ");
 
-                              const handleRowClick = () => {
-                                setSelectedAgent(item);
-                              };
+                                  const handleRowClick = () => {
+                                    setSelectedAgent(item);
+                                  };
 
-                              const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  setSelectedAgent(item);
-                                }
-                              };
-                              const articleCount = Math.max(
-                                item.sourcedArticlesCount,
-                                item.sourcedArticles.length
-                              );
-                              const topSources = deriveTopSources(item.sourcedArticles);
-                              return (
-                                <tr
-                                  key={item.agentId}
-                                  className={rowClassName}
-                                  onClick={handleRowClick}
-                                  onKeyDown={handleRowKeyDown}
-                                  role="button"
-                                  tabIndex={0}
-                                >
-                                  <td className="agent-row__persona-cell">{item.personaName}</td>
-                                  <td className="agent-row__updated-cell">
-                                    {formatUpdatedAt(item.updatedAt)}
-                                  </td>
-                                  <td className="agent-row__articles-cell">
-                                    <span className="agent-row__articles-count">
-                                      {articleCount}
-                                    </span>
-                                  </td>
-                                  <td className="agent-row__sources-cell">
-                                    {topSources.length > 0 ? (
-                                      <span className="agent-row__source-list">
-                                        {topSources.join(", ")}
-                                      </span>
-                                    ) : (
-                                      <span className="agent-row__empty">No sources</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      setSelectedAgent(item);
+                                    }
+                                  };
+                                  const articleCount = Math.max(
+                                    item.sourcedArticlesCount,
+                                    item.sourcedArticles.length
+                                  );
+                                  const topSources = deriveTopSources(item.sourcedArticles);
+                                  return (
+                                    <tr
+                                      key={item.agentId}
+                                      className={rowClassName}
+                                      onClick={handleRowClick}
+                                      onKeyDown={handleRowKeyDown}
+                                      role="button"
+                                      tabIndex={0}
+                                    >
+                                      <td className="agent-row__persona-cell">{item.personaName}</td>
+                                      <td className="agent-row__updated-cell">
+                                        {formatUpdatedAt(item.updatedAt)}
+                                      </td>
+                                      <td className="agent-row__articles-cell">
+                                        <span className="agent-row__articles-count">
+                                          {articleCount}
+                                        </span>
+                                      </td>
+                                      <td className="agent-row__sources-cell">
+                                        {topSources.length > 0 ? (
+                                          <span className="agent-row__source-list">
+                                            {topSources.join(", ")}
+                                          </span>
+                                        ) : (
+                                          <span className="agent-row__empty">No sources</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </>
                       )}
                     </div>
                   ) : (
@@ -586,12 +679,66 @@ export default function ResearchPage() {
           >
             <div id={overlayDescriptionId} className="research-overlay__body">
               <div className="research-overlay__main" role="group" aria-labelledby={overlayTitleId}>
-                <section className="research-overlay__summary" aria-label="Knowledge summary">
+                <section className="research-overlay__snapshot-panel" aria-label="Research prompt">
+                  <p className="research-overlay__placeholder-heading">Research Prompt</p>
+                  <textarea
+                    className="research-overlay__prompt-input"
+                    value={promptValue}
+                    placeholder="No research prompt captured for this persona."
+            onChange={(event) => {
+              setPromptValue(event.target.value);
+              setIsPromptDirty(true);
+            }}
+                    disabled={isPromptSaving}
+                    rows={4}
+                  />
+                  <div className="research-overlay__prompt-status">
+                    {isPromptSaving ? (
+                      <span>Saving…</span>
+                    ) : promptSaveError ? (
+                      <span className="research-overlay__prompt-error">{promptSaveError}</span>
+                    ) : !isPromptDirty ? (
+                      <span className="research-overlay__prompt-hint">
+                        No changes yet. Edit the prompt to unlock the banner.
+                      </span>
+                    ) : null}
+                  </div>
+                </section>
+                <section className="research-overlay__summary-panel" aria-label="Knowledge summary">
                   <p className="research-overlay__placeholder-heading">Summary</p>
-                  {knowledgeParagraphs || <p className="research-overlay__placeholder-text">No knowledge captured for this persona.</p>}
+                  <div className="research-overlay__summary-content">
+                    {knowledgeParagraphs || <p className="research-overlay__placeholder-text">No knowledge captured for this persona.</p>}
+                  </div>
                 </section>
               </div>
             </div>
+            {isPromptDirty ? (
+              <div className="persona-unsaved-banner persona-unsaved-banner--visible research-prompt-banner">
+                <span className="persona-unsaved-message">
+                  You have unsaved changes to this prompt
+                </span>
+                <div className="persona-unsaved-actions">
+                  <button
+                    type="button"
+                    className="persona-unsaved-clear"
+                    onClick={handleClearPromptDraft}
+                    disabled={isPromptSaving}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="persona-unsaved-save"
+                    onClick={() => {
+                      void handlePromptSave(promptValue);
+                    }}
+                    disabled={isPromptSaving}
+                  >
+                    Save &amp; Refresh
+                  </button>
+                </div>
+              </div>
+            ) : null}
          </SlidingPanelOverlay>
         ) : null}
       </main>
@@ -798,6 +945,36 @@ export default function ResearchPage() {
           overflow: hidden;
           background: none;
           box-shadow: none;
+          position: relative;
+          min-height: 220px;
+        }
+        .research-agent-table--busy {
+          pointer-events: none;
+          opacity: 0.4;
+        }
+        .research-agent-table__overlay {
+          position: absolute;
+          left: 16px;
+          right: 16px;
+          top: 60%;
+          transform: translateY(-50%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          z-index: 2;
+          opacity: 0;
+        }
+        .research-agent-table__overlay--visible {
+          opacity: 1;
+        }
+        .research-agent-table__overlay .stage-alert {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          padding: 0;
+          font-size: 14px;
+          color: #0f172a;
         }
         .research-agent-table table {
           width: 100%;
@@ -885,30 +1062,140 @@ export default function ResearchPage() {
         }
         .research-overlay__body {
           flex: 1;
+          width: 100%;
           display: flex;
           gap: 28px;
           align-items: stretch;
           min-height: 0;
+          overflow-x: hidden;
         }
         .research-overlay__main {
-          flex: 1;
+          flex: 2;
           min-width: 0;
+          width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          overflow: visible;
+          position: relative;
+        }
+        .research-overlay__summary-panel {
           background: rgba(148, 197, 255, 0.12);
           border: 1px dashed rgba(59, 130, 246, 0.32);
           border-radius: 16px;
           padding: 24px;
+          color: rgba(15, 23, 42, 0.78);
           display: flex;
           flex-direction: column;
-          gap: 24px;
-          color: rgba(15, 23, 42, 0.78);
+          gap: 12px;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
         }
-        .research-overlay__summary {
+        .research-overlay__summary-content {
           font-size: 14px;
           color: #475569;
           line-height: 1.6;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .research-overlay__summary-content > p {
+          margin: 0;
+        }
+        .research-overlay__snapshot-panel {
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 16px;
+          border: 1px solid rgba(59, 130, 246, 0.16);
+          padding: 18px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          color: rgba(15, 23, 42, 0.8);
+          min-height: 140px;
+          max-height: 260px;
+          overflow-y: auto;
+          position: relative;
+        }
+        .research-overlay__prompt-input {
+          width: 100%;
+          border-radius: 10px;
+          border: 1px solid rgba(15, 23, 42, 0.2);
+          padding: 10px 12px;
+          font-size: 14px;
+          font-family: ${BODY_FONT_STACK};
+          background: #ffffff;
+          resize: vertical;
+          min-height: 80px;
+          color: rgba(15, 23, 42, 0.85);
+        }
+        .research-overlay__prompt-input:focus-visible {
+          outline: none;
+          border-color: rgba(59, 130, 246, 0.8);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+        }
+        .research-overlay__prompt-status {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .research-overlay__prompt-error {
+          color: #b91c1c;
+        }
+        .research-overlay__prompt-action {
+          margin-top: 8px;
+          align-self: flex-start;
+          border: none;
+          background: #0f172a;
+          color: #ffffff;
+          border-radius: 10px;
+          padding: 8px 14px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .research-overlay__prompt-action:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .research-overlay__prompt-action:not(:disabled):hover,
+        .research-overlay__prompt-action:not(:disabled):focus-visible {
+          transform: translateY(-1px);
+          background: #001935;
+        }
+        .research-overlay__snapshot-heading-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .research-overlay__snapshot-count {
+          font-size: 14px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .research-overlay__snapshot-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 12px;
+        }
+        .research-overlay__snapshot-label {
+          margin: 0;
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .research-overlay__snapshot-value {
+          margin: 4px 0 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #0f172a;
         }
         .research-overlay__actions-stack {
           flex: 1;
+          min-width: 0;
+          max-width: 320px;
           min-height: 0;
           background: rgba(59, 130, 246, 0.08);
           border: 1px solid rgba(59, 130, 246, 0.16);
@@ -917,6 +1204,7 @@ export default function ResearchPage() {
           display: flex;
           flex-direction: column;
           gap: 16px;
+          overflow: hidden;
         }
         .research-overlay__actions-placeholder {
           margin: 0;
@@ -926,6 +1214,10 @@ export default function ResearchPage() {
         .research-overlay__sources {
           font-size: 12px;
           color: rgba(15, 23, 42, 0.75);
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
         }
         .research-overlay__sources-heading {
           margin: 0 0 8px;
@@ -954,6 +1246,9 @@ export default function ResearchPage() {
           display: flex;
           flex-direction: column;
           gap: 6px;
+          flex: 1;
+          overflow-y: auto;
+          min-height: 0;
         }
         .research-overlay__sources li a {
           color: #1d4ed8;
@@ -977,6 +1272,34 @@ export default function ResearchPage() {
           gap: 4px;
           font-size: 13px;
           color: rgba(15, 23, 42, 0.85);
+        }
+        .persona-unsaved-banner {
+          position: fixed;
+          left: 50%;
+          bottom: -120px;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 16px 22px;
+          border-radius: 16px;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          background: rgba(15, 23, 42, 0.92);
+          box-shadow: 0 16px 40px rgba(10, 22, 40, 0.35);
+          color: rgba(226, 232, 240, 0.9);
+          z-index: 1200;
+          -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
+          width: min(520px, calc(100vw - 40px));
+          opacity: 0;
+          pointer-events: none;
+          transition: transform 0.3s ease, opacity 0.3s ease, bottom 0.3s ease;
+        }
+        .persona-unsaved-banner--visible {
+          bottom: 32px;
+          opacity: 1;
+          pointer-events: auto;
         }
         .agent-row__articles-count {
           font-size: inherit;
@@ -1119,6 +1442,35 @@ export default function ResearchPage() {
           .agent-row__sources-cell {
             min-width: 0;
           }
+        }
+        .stage-alert {
+          width: 100%;
+          border-radius: 12px;
+          padding: 12px 18px;
+          font-weight: 600;
+          font-size: 14px;
+          text-align: center;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 12px;
+          position: relative;
+          z-index: 1;
+        }
+        .stage-alert--success {
+          color: #166534;
+          background: rgba(34, 197, 94, 0.12);
+          border: 1px solid rgba(34, 197, 94, 0.35);
+        }
+        .stage-alert--error {
+          color: #b91c1c;
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+        .stage-alert--info {
+          color: #0f172a;
+          background: rgba(15, 23, 42, 0.12);
+          border: 1px solid rgba(15, 23, 42, 0.28);
         }
       `}</style>
     </div>

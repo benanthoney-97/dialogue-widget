@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Topbar from "../../../components/Topbar";
 import Sidebar from "../Sidebar";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 type StagePanelProps = {
   heading?: string;
@@ -367,7 +368,7 @@ export default function UsagePage() {
           background: var(--bg, #f4f8ff);
           display: flex;
           height: 100vh;
-          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          font-family: ${BODY_FONT_STACK};
         }
         .stage-layout__sidebar {
           width: var(--sidebar-width);
@@ -425,6 +426,7 @@ export default function UsagePage() {
           font-size: 22px;
           font-weight: 800;
           color: #1e293b;
+          font-family: ${HEADING_FONT_STACK};
         }
         .stage-panel__titles p {
           margin: 0;

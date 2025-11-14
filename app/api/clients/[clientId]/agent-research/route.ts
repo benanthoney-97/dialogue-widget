@@ -18,6 +18,11 @@ type PersonaExternalKnowledgeRow = {
   updated_at?: string | null;
 };
 
+type PersonaWatchlistRow = {
+  agent_id: string | null;
+  query?: string | null;
+};
+
 type ArticleRecord = {
   title: string | null;
   url: string | null;
@@ -115,9 +120,27 @@ export async function GET(
       }
     }
 
+    const { data: watchlistRows, error: watchlistError } = await supabaseAdmin
+      .from("persona_watchlist")
+      .select("agent_id, query")
+      .in("agent_id", agentIds);
+
+    if (watchlistError) {
+      console.error("[AgentResearch] Failed to load watchlist prompts", watchlistError);
+    }
+
+    const watchlistByAgent = new Map<string, PersonaWatchlistRow>();
+    for (const entry of watchlistRows ?? []) {
+      if (!entry || typeof entry !== "object") continue;
+      const row = entry as PersonaWatchlistRow;
+      if (!row.agent_id) continue;
+      watchlistByAgent.set(String(row.agent_id), row);
+    }
+
     const formatted = agentIds.map((agentId) => {
       const personaName = agentMap.get(agentId)?.name?.trim() || "Unnamed agent";
       const row = knowledgeByAgent.get(agentId);
+      const watchlistRow = watchlistByAgent.get(agentId);
       return {
         agent_id: agentId,
         persona_name: personaName,
@@ -127,6 +150,10 @@ export async function GET(
             : null,
         updated_at: row?.updated_at ?? null,
         sourced_articles: normalizeArticles(row?.sourced_articles),
+        watchlist_query:
+          watchlistRow && typeof watchlistRow.query === "string" && watchlistRow.query.trim().length > 0
+            ? watchlistRow.query.trim()
+            : null,
       };
     });
 

@@ -4508,19 +4508,19 @@ export default function PersonasPage() {
                         <tbody className="personas-list-body">
                           {loading ? (
                             <tr className="personas-list-row personas-list-row--message">
-                              <td colSpan={3} className="personas-list-cell personas-list-cell--message">
+                              <td colSpan={4} className="personas-list-cell personas-list-cell--message">
                                 Loading personas…
                               </td>
                             </tr>
                           ) : error ? (
                             <tr className="personas-list-row personas-list-row--message personas-list-row--error">
-                              <td colSpan={3} className="personas-list-cell personas-list-cell--message">
+                              <td colSpan={4} className="personas-list-cell personas-list-cell--message">
                                 {error}
                               </td>
                             </tr>
                           ) : personas.length === 0 ? (
                             <tr className="personas-list-row personas-list-row--message">
-                              <td colSpan={3} className="personas-list-cell personas-list-cell--message">
+                              <td colSpan={4} className="personas-list-cell personas-list-cell--message">
                                 No personas configured yet.
                               </td>
                             </tr>
@@ -4535,15 +4535,20 @@ export default function PersonasPage() {
                               const statusDisplay = statusDisplayRaw.replace(/_/g, " ");
                               const statusText =
                                 statusDisplay.charAt(0).toUpperCase() + statusDisplay.slice(1);
-                              const traitChips = buildPersonaTraits(persona);
-                              const listViewChips = traitChips.filter((trait) =>
-                                !["Age", "Gender", "Location", "Customer status"].includes(trait.label)
-                              );
+                              const isClockEnabled =
+                                personaClockStates[persona.agent_id] ?? !!persona.active_status;
+                              const statusLabel = isClockEnabled ? "Active" : "Inactive";
+                              const statusVariant = isClockEnabled ? "active" : "inactive";
                               const keyTraits = Array.isArray(persona.key_traits)
                                 ? persona.key_traits
                                     .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
                                     .filter((trait): trait is string => trait.length > 0)
                                 : [];
+                              const traitChips = buildPersonaTraits(persona);
+                              const roleTitle =
+                                typeof persona.role_title === "string" && persona.role_title.trim().length > 0
+                                  ? persona.role_title.trim()
+                                  : null;
                               const documents = (personaDocuments[persona.agent_id] ?? [])
                                 .slice()
                                 .sort((a, b) => {
@@ -4648,41 +4653,40 @@ export default function PersonasPage() {
                                         </div>
                                       </div>
                                     </td>
-                                    <td className="personas-list-cell personas-list-cell--completion">
+                                    <td className="personas-list-cell personas-list-cell--placeholder">
                                       <span
-                                        className={`personas-list-completion personas-list-completion--${completionVariant}`}
+                                        className="personas-list-placeholder"
+                                        title={roleTitle ?? undefined}
                                       >
-                                        {completionPercent}%
+                                        {roleTitle ?? "—"}
                                       </span>
                                     </td>
-                                    <td className="personas-list-cell personas-list-cell--traits">
-                                      <div className="personas-list-chips" role="list">
-                                        {listViewChips.length > 0 ? (
-                                          listViewChips.map((trait) => (
-                                            <span
-                                              key={`persona-list-chip-${persona.agent_id}-${trait.label}`}
-                                              className="persona-trait-chip personas-list-chip"
-                                              role="listitem"
-                                            >
-                                              <strong>{trait.label}:</strong>
-                                              <span>{trait.value}</span>
-                                            </span>
-                                          ))
-                                        ) : (
-                                          <span className="personas-list-empty">No highlights yet.</span>
-                                        )}
+                                    <td className="personas-list-cell personas-list-cell--completion">
+                                      <div className="personas-list-completion-wrapper">
+                                        <span className="personas-list-completion-label">COMPLETION</span>
+                                        <span
+                                          className={`personas-list-completion personas-list-completion--${completionVariant}`}
+                                        >
+                                          {completionPercent}%
+                                        </span>
                                       </div>
+                                    </td>
+                                    <td className="personas-list-cell personas-list-cell--status">
+                                      <span
+                                        className={`personas-list-status-pill personas-list-status-pill--${statusVariant}`}
+                                      >
+                                        {statusLabel}
+                                      </span>
                                     </td>
                                   </tr>
                                   {isExpanded ? (
                                     <tr className="personas-list-expanded-row">
-                                      <td colSpan={3} className="personas-list-expanded-cell">
+                                      <td colSpan={4} className="personas-list-expanded-cell">
                                         {/* Keep expanded content in sync with grid view dropdown */}
                                         <div className="personas-list-expanded" data-persona-id={persona.agent_id}>
                                           <div
                                             className="persona-card persona-card--list-expanded"
                                             style={{
-                                              borderColor: "rgba(30, 41, 59, 0.28)",
                                               boxShadow: "0 18px 44px rgba(15, 23, 42, 0.18)",
                                             }}
                                           >
@@ -6134,6 +6138,17 @@ export default function PersonasPage() {
             max-height: calc(100dvh - 220px);
           }
           .personas-list-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+            background: none;
+            border: none;
+            border-radius: 0px;
+            box-shadow: none;
+            overflow: hidden;
+            min-width: 720px;
+            table-layout: fixed;
+          }
           .personas-list-expanded-row {
             background: rgba(248, 250, 252, 0.68);
           }
@@ -6165,17 +6180,6 @@ export default function PersonasPage() {
           .persona-card--list-expanded .persona-expanded-scroll {
             max-height: max(420px, calc(100vh - 320px));
           }
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            background: none;
-            border: none;
-            border-radius: 0px;
-            box-shadow: none;
-            overflow: hidden;
-            min-width: 720px;
-            table-layout: fixed;
-          }
           .personas-list-body {
             background: none;
           }
@@ -6186,8 +6190,8 @@ export default function PersonasPage() {
           }
           .personas-list-row[data-ready="true"]:hover,
           .personas-list-row[data-ready="true"]:focus-visible {
-            background: rgba(255, 255, 255, 0.9);
-            transform: translateY(-1px);
+            background: rgba(59, 130, 246, 0.08);
+            transform: none;
           }
           .personas-list-row[data-ready="false"] {
             cursor: default;
@@ -6214,14 +6218,18 @@ export default function PersonasPage() {
             white-space: nowrap;
           }
           .personas-list-cell--persona {
-            width: 36%;
+            width: 25%;
+          }
+          .personas-list-cell--placeholder {
+            width: 25%;
+          }
+          .personas-list-cell--status {
+            width: 25%;
+            text-align: right;
           }
           .personas-list-cell--completion {
-            width: 14%;
-          }
-          .personas-list-cell--traits {
-            width: 50%;
-            overflow: hidden;
+            width: 25%;
+            text-align: right;
           }
           .personas-list-cell--message {
             text-align: center;
@@ -6283,6 +6291,26 @@ export default function PersonasPage() {
             width: fit-content;
             white-space: nowrap;
           }
+          .personas-list-status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            min-width: 88px;
+            justify-content: center;
+            background: transparent;
+            border: none;
+          }
+          .personas-list-status-pill--active {
+            color: #13cd67;
+          }
+          .personas-list-status-pill--inactive {
+            color: #475569;
+          }
           .personas-list-completion {
             display: inline-flex;
             align-items: center;
@@ -6293,9 +6321,34 @@ export default function PersonasPage() {
             font-size: 13px;
             letter-spacing: 0.3px;
           }
+          .personas-list-completion-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            white-space: nowrap;
+          }
+          .personas-list-completion-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.64);
+            letter-spacing: 0.3px;
+          }
+          .personas-list-placeholder {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.64);
+            letter-spacing: 0.2px;
+            text-transform: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            max-width: 100%;
+          }
           .personas-list-completion--complete {
-            background: rgba(34, 197, 94, 0.18);
-            color: #166534;
+            background: rgba(59, 130, 246, 0.16);
+            color: #1d4ed8;
           }
           .personas-list-completion--warning {
             background: rgba(251, 191, 36, 0.2);
@@ -6339,13 +6392,18 @@ export default function PersonasPage() {
               min-width: 640px;
             }
             .personas-list-cell--persona {
-              width: 44%;
+              width: 25%;
+            }
+            .personas-list-cell--placeholder {
+              width: 25%;
+            }
+            .personas-list-cell--status {
+              width: 25%;
+              text-align: right;
             }
             .personas-list-cell--completion {
-              width: 18%;
-            }
-            .personas-list-cell--traits {
-              width: 38%;
+              width: 25%;
+              text-align: right;
             }
           }
           @media (max-width: 960px) {

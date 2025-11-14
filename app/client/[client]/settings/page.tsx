@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import { supabase } from "@/app/lib/supabaseClient";
+import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 function getClientSlug(pathname: string | null): string {
   if (!pathname) return "";
@@ -464,7 +465,7 @@ export default function SettingsPage() {
         .stage-layout {
           min-height: 100dvh;
           background: var(--bg, #f4f8ff);
-          font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+          font-family: ${BODY_FONT_STACK};
           display: flex;
         }
         .stage-layout__sidebar {
@@ -522,6 +523,7 @@ export default function SettingsPage() {
           font-size: 24px;
           font-weight: 800;
           color: #1e293b;
+          font-family: ${HEADING_FONT_STACK};
         }
         .stage-panel__titles p {
           margin: 0;

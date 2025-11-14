@@ -184,7 +184,7 @@ export default function FeedbackPage() {
             <section className="stage-panel">
               <div className="stage-panel__body">
                 <div className="feedback-table-section">
-                  <div className="feedback-table-wrap">
+                  <div className={`feedback-table-wrap${loading ? " feedback-table-wrap--busy" : ""}`} >
                     <table className="feedback-table">
                       <thead>
                         <tr>
@@ -195,25 +195,20 @@ export default function FeedbackPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {loading ? (
-                          <tr>
-                            <td colSpan={4} className="feedback-empty">
-                              Loading feedback…
-                            </td>
-                          </tr>
-                        ) : fetchError ? (
+                        {!loading && fetchError ? (
                           <tr>
                             <td colSpan={4} className="feedback-empty">
                               {fetchError}
                             </td>
                           </tr>
-                        ) : feedbackRows.length === 0 ? (
+                        ) : !loading && feedbackRows.length === 0 ? (
                           <tr>
                             <td colSpan={4} className="feedback-empty">
                               No feedback has been submitted yet.
                             </td>
                           </tr>
                         ) : (
+                          !loading &&
                           feedbackRows.map((row) => (
                             <tr
                               key={row.id}
@@ -237,6 +232,12 @@ export default function FeedbackPage() {
                         )}
                       </tbody>
                     </table>
+                    <div
+                      className={`feedback-table-overlay${loading ? " feedback-table-overlay--visible" : ""}`}
+                      aria-live="polite"
+                    >
+                      <span className="stage-alert stage-alert--info">Loading feedback…</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -352,6 +353,11 @@ export default function FeedbackPage() {
           width: 100%;
           min-width: 0;
           overflow-x: auto;
+          position: relative;
+        }
+        .feedback-table-wrap--busy {
+          pointer-events: none;
+          opacity: 0.5;
         }
         .feedback-table {
           width: 100%;
@@ -410,6 +416,23 @@ export default function FeedbackPage() {
         }
         .feedback-table__row:hover {
           background: rgba(59, 130, 246, 0.08);
+        }
+        .feedback-table-overlay {
+          position: absolute;
+          top: 50%;
+          left: 16px;
+          right: 16px;
+          transform: translateY(-50%);
+          display: none;
+          justify-content: center;
+          pointer-events: none;
+          z-index: 2;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        .feedback-table-overlay--visible {
+          display: flex;
+          opacity: 1;
         }
           flex: 1;
           display: flex;
