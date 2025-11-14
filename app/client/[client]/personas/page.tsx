@@ -9768,6 +9768,33 @@ export default function PersonasPage() {
           --muted-2: #6b7280; /* secondary muted */
           --danger: #ef4444;
         }
+        :global(.persona-root table) {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0 10px;
+          font-family: ${BODY_FONT_STACK};
+          font-size: 15px;
+          background: transparent;
+        }
+        :global(.persona-root table th) {
+          text-align: left;
+          padding: 10px 8px;
+          color: rgba(15, 23, 42, 0.65);
+          font-size: 13px;
+          font-weight: 700;
+          border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: none;
+        }
+        :global(.persona-root table td) {
+          padding: 10px 8px;
+          color: var(--text, #052033);
+          background: var(--panel-2, #F6F7F9fff);
+          font-size: 15px;
+          vertical-align: middle;
+        }
         `}</style>
             </div>
           </div>

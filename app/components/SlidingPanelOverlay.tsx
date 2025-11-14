@@ -26,8 +26,8 @@ export default function SlidingPanelOverlay({
   children,
   onRequestClose,
   description,
-  titleId,
   descriptionId,
+  titleId,
   actions,
   width = "clamp(320px, calc(100vw - var(--stage-topbar-offset, 0px) - 164px), 100vw)",
   className = "",
@@ -39,6 +39,7 @@ export default function SlidingPanelOverlay({
   const closeTimeoutRef = useRef<number | null>(null);
   const generatedTitleId = useId();
   const generatedDescriptionId = useId();
+  const descriptionProvided = typeof description !== "undefined" && description !== null;
   const resolvedTitleId = titleId ?? generatedTitleId;
   const resolvedDescriptionId = descriptionId ?? generatedDescriptionId;
 
@@ -68,7 +69,7 @@ export default function SlidingPanelOverlay({
         closeTimeoutRef.current = null;
       }
     };
-  }, [open, isMounted]);
+  }, [open, isMounted, onAfterClose]);
 
   useEffect(() => {
     return () => {
@@ -99,14 +100,14 @@ export default function SlidingPanelOverlay({
         className={`sliding-panel-overlay__backdrop${isClosing ? " sliding-panel-overlay__backdrop--closing" : ""}`}
         tabIndex={-1}
       />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={resolvedTitleId}
-        aria-describedby={resolvedDescriptionId}
-        className={`sliding-panel-overlay${isClosing ? " sliding-panel-overlay--closing" : ""} ${className}`}
-        style={{ width }}
-      >
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={resolvedTitleId}
+          className={`sliding-panel-overlay${isClosing ? " sliding-panel-overlay--closing" : ""} ${className}`}
+          style={{ width }}
+          aria-describedby={descriptionProvided ? resolvedDescriptionId : undefined}
+        >
         <header className="sliding-panel-overlay__header">
           <h2 id={resolvedTitleId} className="sliding-panel-overlay__title">
             {title}
@@ -120,12 +121,10 @@ export default function SlidingPanelOverlay({
             </svg>
           </button>
         </header>
-        {description ? (
-          <p className="sliding-panel-overlay__description" id={resolvedDescriptionId}>
+        {descriptionProvided && (
+          <p id={resolvedDescriptionId} className="sliding-panel-overlay__description">
             {description}
           </p>
-        ) : (
-          <div id={resolvedDescriptionId} />
         )}
         <div className="sliding-panel-overlay__content">
           <div className={`sliding-panel-overlay__body ${bodyClassName}`}>{children}</div>
@@ -213,13 +212,12 @@ export default function SlidingPanelOverlay({
           overflow-y: auto;
         }
         .sliding-panel-overlay__actions {
-          flex: 0 0 220px;
+          flex: 0 0 auto;
+          min-width: 260px;
           display: flex;
           flex-direction: column;
           gap: 12px;
           font-size: 12px;
-          overflow-y: auto;
-          max-height: calc(100vh - 120px);
           padding-right: 4px;
         }
         @keyframes slidingPanelOverlayEnter {

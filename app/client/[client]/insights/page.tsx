@@ -1,16 +1,18 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import QuestionnaireResults from "@/app/components/QuestionnaireResults";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
+import { exportTranscriptToPdf, type PdfTranscriptMessage, type TranscriptPdfPayload } from "@/app/lib/exportTranscriptPdf";
 
 // API response types
 type PersonaOption = {
 	id: string;
 	name: string;
+	profile_image?: string | null;
 };
 
 type InsightsRow = {
@@ -26,6 +28,11 @@ type InsightsRow = {
 	transcript_summary?: string | null;
 	main_language?: string;
 	ownerEmail?: string | null;
+};
+
+type TranscriptChatMessage = {
+	role: "persona" | "user" | "system";
+	text: string;
 };
 
 type InsightsApiResponse = {
@@ -111,6 +118,90 @@ function StageAlert({ type, message }: StageAlertProps) {
 	);
 }
 
+type InsightActionsProps = {
+	activeRow: InsightsRow | null;
+	copyStatus: string | null;
+	onCopyStatusChange: (status: string | null) => void;
+	transcriptText: string;
+	chatMessages: TranscriptChatMessage[];
+};
+
+function InsightActions({
+	activeRow,
+	copyStatus,
+	onCopyStatusChange,
+	transcriptText,
+	chatMessages,
+}: InsightActionsProps) {
+	if (!activeRow) return null;
+	const handleDownloadTranscript = useCallback(async () => {
+		if (!transcriptText) return;
+		const pdfMessages: PdfTranscriptMessage[] = chatMessages
+			.filter((message) => message.role === "user" || message.role === "persona")
+			.map((message) => ({
+				role: message.role === "user" ? "user" : "agent",
+				text: message.text,
+			}));
+		const dateValue = activeRow.date ? new Date(activeRow.date) : new Date();
+		const validDate = Number.isNaN(dateValue.getTime()) ? new Date() : dateValue;
+		const timestampLabel = new Intl.DateTimeFormat("en", {
+			month: "short",
+			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+		}).format(validDate);
+		const payload: TranscriptPdfPayload = {
+			conversationTitle: activeRow.sourceDocument
+				? `Session with ${activeRow.sourceDocument}`
+				: "Dialogue session",
+			personaName: activeRow.sourceDocument ?? "Persona",
+			researchType: activeRow.status,
+			timestampLabel,
+			messages: pdfMessages,
+			fallbackText: transcriptText,
+		};
+		try {
+			await exportTranscriptToPdf(payload);
+		} catch (error) {
+			console.error("[InsightActions] Failed to download transcript", error);
+		}
+	}, [activeRow, chatMessages, transcriptText]);
+	const handleCopySummary = async () => {
+		if (!transcriptText) return;
+		try {
+			if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(transcriptText);
+				onCopyStatusChange("Transcript copied");
+			}
+		} catch {
+			onCopyStatusChange("Copy failed");
+		} finally {
+			setTimeout(() => onCopyStatusChange(null), 1500);
+		}
+	};
+	return (
+		<div className="insights-panel__actions">
+			<button
+				type="button"
+				className="insights-panel__action insights-panel__action--primary"
+				onClick={handleDownloadTranscript}
+				disabled={!transcriptText}
+			>
+				Download
+			</button>
+			<button
+				type="button"
+				className="insights-panel__action"
+				onClick={handleCopySummary}
+				disabled={!transcriptText}
+			>
+				Copy transcript
+			</button>
+			{copyStatus ? <span className="insights-panel__action-status">{copyStatus}</span> : null}
+		</div>
+	);
+}
+
 export default function InsightsTable() {
 	const PAGE_SIZE = 25;
 	const [filters, setFilters] = useState<{ personaId: string; search: string }>({
@@ -136,7 +227,40 @@ export default function InsightsTable() {
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
 	const [activeRow, setActiveRow] = useState<InsightsRow | null>(null);
+	const [copyStatus, setCopyStatus] = useState<string | null>(null);
 	const pathname = usePathname();
+	const transcriptText = useMemo(
+		() => (activeRow && typeof activeRow.transcript === "string" ? activeRow.transcript : ""),
+		[activeRow],
+	);
+	const chatMessages = useMemo<TranscriptChatMessage[]>(() => {
+		if (!transcriptText) return [];
+		const messages: TranscriptChatMessage[] = [];
+		for (const rawLine of transcriptText.split(/\r?\n/)) {
+			const trimmed = rawLine.trim();
+			if (!trimmed) continue;
+			let role: TranscriptChatMessage["role"] = "system";
+			let text = trimmed;
+			const colonIndex = trimmed.indexOf(":");
+			if (colonIndex > -1) {
+				const label = trimmed.slice(0, colonIndex).trim().toLowerCase();
+				const remainder = trimmed.slice(colonIndex + 1).trim();
+				if (label === "agent" || label === "persona") {
+					role = "persona";
+					text = remainder || trimmed;
+				} else if (label === "user") {
+					role = "user";
+					text = remainder || trimmed;
+				} else {
+					role = "system";
+					text = trimmed;
+				}
+			}
+			if (!text) continue;
+			messages.push({ role, text });
+		}
+		return messages;
+	}, [transcriptText]);
 
 	const selectedStatusKeys = React.useMemo(() => {
 		if (allStatuses) return [];
@@ -279,6 +403,11 @@ export default function InsightsTable() {
 		});
 	}, [personaOptions]);
 
+	const selectedPersonaOption = React.useMemo(() => {
+		if (!filters.personaId) return null;
+		return personaOptions.find((option) => option.id === filters.personaId) ?? null;
+	}, [filters.personaId, personaOptions]);
+
 	const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
 	const pageRangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
 	const pageRangeEnd = totalCount === 0 ? 0 : Math.min(totalCount, page * PAGE_SIZE);
@@ -333,6 +462,10 @@ export default function InsightsTable() {
 			setPage(totalPages);
 		}
 	}, [page, totalPages]);
+
+	useEffect(() => {
+		setCopyStatus(null);
+	}, [activeRow]);
 
 	const topbarRightSlot = (
 		<>
@@ -500,7 +633,21 @@ export default function InsightsTable() {
 									<thead>
 										<tr className="insights-table__head-row">
 											<th className="insights-table__head-cell">Date</th>
-											<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
+											<th className="insights-table__head-cell insights-table__head-cell--persona">
+												<div className="insights-table__head-persona">
+													<span>Persona</span>
+													{selectedPersonaOption ? (
+														selectedPersonaOption.profile_image &&
+														selectedPersonaOption.profile_image.trim().length > 0 ? (
+															<img
+																src={selectedPersonaOption.profile_image.trim()}
+																alt={selectedPersonaOption.name || "Persona avatar"}
+																className="insights-table__head-persona-avatar"
+															/>
+														) : null
+													) : null}
+												</div>
+											</th>
 											<th className="insights-table__head-cell">Owner</th>
 											<th className="insights-table__head-cell">Research Type</th>
 										</tr>
@@ -549,22 +696,42 @@ export default function InsightsTable() {
 								<SlidingPanelOverlay
 									open
 									title={activeRow.sourceDocument || "Playback details"}
-									description={`Research type: ${activeRow.status}`}
 									onRequestClose={() => setActiveRow(null)}
 									onAfterClose={() => setActiveRow(null)}
+									actions={
+										<InsightActions
+											activeRow={activeRow}
+											copyStatus={copyStatus}
+											onCopyStatusChange={setCopyStatus}
+											transcriptText={transcriptText}
+											chatMessages={chatMessages}
+										/>
+									}
 								>
 									<div className="insights-detail-panel">
-										<div className="insights-detail-row">
-											<span>Date</span>
-											<strong>{formatInsightsDate(activeRow.date)}</strong>
-										</div>
-										<div className="insights-detail-row">
-											<span>Owner</span>
-											<strong>{activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}</strong>
-										</div>
-										<div className="insights-detail-row">
-											<span>Research type</span>
-											<strong>{activeRow.status}</strong>
+										<div className="insights-panel__meta-grid">
+											<article className="insights-panel__meta-card">
+												<p className="insights-panel__meta-label">Date</p>
+												<p className="insights-panel__meta-value">{formatInsightsDate(activeRow.date)}</p>
+											</article>
+											<article className="insights-panel__meta-card">
+												<p className="insights-panel__meta-label">User</p>
+												<p className="insights-panel__meta-value">
+													{activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}
+												</p>
+											</article>
+											<article className="insights-panel__meta-card insights-panel__meta-card--persona">
+												<p className="insights-panel__meta-label">Research type</p>
+												<p className="insights-panel__meta-value">{activeRow.status}</p>
+											</article>
+											</div>
+										<div className="insights-panel__wide-container" aria-live="polite">
+											<span className="insights-panel__wide-label">Session summary</span>
+											<p className="insights-panel__wide-body">
+												{activeRow?.transcript_summary && activeRow.transcript_summary.trim()
+													? activeRow.transcript_summary
+													: "Summary unavailable"}
+											</p>
 										</div>
 										{activeRow.briefReport ? (
 											<section>
@@ -572,10 +739,19 @@ export default function InsightsTable() {
 												<p>{activeRow.briefReport}</p>
 											</section>
 										) : null}
-										{activeRow.transcript_summary ? (
-											<section>
-												<p className="insights-detail-heading">Summary</p>
-												<p>{activeRow.transcript_summary}</p>
+										{chatMessages.length > 0 ? (
+											<section className="insights-panel__summary">
+												<p className="insights-detail-heading">Transcript</p>
+												<div className="insights-panel__chat" role="log" aria-label="Transcript conversation">
+													{chatMessages.map((message, index) => (
+														<div
+															key={`${message.role}-${index}`}
+															className={`insights-panel__chat-message insights-panel__chat-message--${message.role}`}
+														>
+															<span>{message.text}</span>
+														</div>
+													))}
+												</div>
 											</section>
 										) : null}
 										{activeRow.status === "Questionnaire" && activeRow.transcript ? (
@@ -832,9 +1008,9 @@ export default function InsightsTable() {
 				border: 1px solid rgba(239, 68, 68, 0.35);
 			}
 			.stage-alert--info {
-				color: #1d4ed8;
-				background: rgba(59, 130, 246, 0.12);
-				border: 1px solid rgba(59, 130, 246, 0.28);
+				color: #0f172a;
+				background: rgba(15, 23, 42, 0.12);
+				border: 1px solid rgba(15, 23, 42, 0.28);
 			}
 			.insights-table-section {
 				position: relative;
@@ -1109,13 +1285,19 @@ ease;
 				overflow-x: auto;
 				overflow-y: auto;
 			}
-			.insights-table {
-				width: 100%;
-				border-collapse: separate;
-				border-spacing: 0 10px;
-				font-size: 15px;
-				background: var(--bg, #f4f8ff);
-			}
+				.insights-table {
+					width: 100%;
+					table-layout: fixed;
+					border-collapse: separate;
+					border-spacing: 0 10px;
+					font-size: 15px;
+					background: var(--bg, #f4f8ff);
+				}
+				.insights-table__head-cell,
+				.insights-table__cell {
+					width: 25%;
+					min-width: 0;
+				}
 			.insights-table__head-cell {
 				text-align: left;
 				padding: 10px 8px;
@@ -1128,12 +1310,30 @@ ease;
 				z-index: 1;
 				background: none;
 			}
-			.insights-table__head-cell--persona {
-				min-width: 150px;
-				max-width: 220px;
+			.insights-table__head-persona {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
 			}
+			.insights-table__head-persona-avatar {
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+				object-fit: cover;
+			}
+				.insights-table__head-cell--persona {
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+					min-width: 0;
+				}
 			.insights-table__row {
 				background: none;
+			}
+			.insights-table__row:hover,
+			.insights-table__row:focus-within {
+				border-radius: 12px;
+				background: rgba(59, 130, 246, 0.08);
 			}
 			.insights-table__row--clickable {
 				cursor: pointer;
@@ -1149,14 +1349,12 @@ ease;
 				font-size: 15px;
 				vertical-align: middle;
 			}
-			.insights-table__cell--persona {
-				max-width: 220px;
-				min-width: 150px;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-				padding-bottom: 0;
-			}
+				.insights-table__cell--persona {
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+					min-width: 0;
+				}
 			.insights-table__cell--actions {
 				white-space: nowrap;
 				padding-right: 4px;
@@ -1182,11 +1380,10 @@ ease;
 				color: rgba(15, 23, 42, 0.78);
 			}
 			.insights-detail-heading {
-				margin: 0 0 4px;
-				font-size: 13px;
-				color: rgba(15, 23, 42, 0.62);
-				text-transform: uppercase;
-				letter-spacing: 0.08em;
+				margin: 0;
+				font-size: 14px;
+				font-weight: 600;
+				color: #0f172a;
 			}
 			.sr-only {
 				position: absolute;
@@ -1202,6 +1399,121 @@ ease;
 			.insights-table__expanded-cell {
 				padding: 0;
 				background: var(--panel, #F6F7F9fff);
+			}
+			.insights-panel__summary {
+				background: #f5f7ff;
+				border-radius: 16px;
+				padding: 18px 20px;
+				min-height: 140px;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+			.insights-panel__chat {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				max-height: 270px;
+				overflow-y: auto;
+				overflow-x: hidden;
+				padding-right: 4px;
+			}
+			.insights-panel__chat-message {
+				max-width: 76%;
+				padding: 10px 14px;
+				border-radius: 14px;
+				font-size: 13px;
+				line-height: 1.5;
+				word-break: break-word;
+				text-align: left;
+			}
+			.insights-panel__chat-message--persona {
+				align-self: flex-start;
+				background: rgba(15, 23, 42, 0.08);
+				color: #0f172a;
+			}
+			.insights-panel__chat-message--user {
+				align-self: flex-end;
+				background: #0A1C2F;
+				color: #f8fafc;
+			}
+			.insights-panel__chat-message--system {
+				align-self: center;
+				background: rgba(148, 163, 184, 0.32);
+				color: rgba(15, 23, 42, 0.85);
+				font-size: 12px;
+				font-weight: 600;
+				border-radius: 12px;
+			}
+			.insights-panel__action--primary {
+				background: #073a70;
+				color: #ffffff;
+				box-shadow: 0 6px 16px rgba(6, 10, 20, 0.35);
+				border-radius: 12px;
+				border: none;
+			}
+			.insights-panel__wide-container {
+				width: min(1120px, 96vw);
+				max-width: 100%;
+				margin: 0 auto 12px;
+				padding: 10px 16px;
+				background: rgba(15, 23, 42, 0.04);
+				border-radius: 16px;
+				border: 1px solid rgba(15, 23, 42, 0.1);
+			}
+			.insights-panel__wide-label {
+				margin: 0;
+				font-size: 13px;
+				font-weight: 600;
+				color: rgba(15, 23, 42, 0.75);
+			}
+			.insights-panel__wide-body {
+				margin: 4px 0 0;
+				font-size: 14px;
+				color: rgba(15, 23, 42, 0.85);
+				line-height: 1.4;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				display: -webkit-box;
+				-webkit-line-clamp: 3;
+				-webkit-box-orient: vertical;
+			}
+			.insights-panel__actions {
+				display: flex;
+				flex-direction: column;
+				align-items: stretch;
+				gap: 10px;
+				justify-content: flex-start;
+			}
+			.insights-panel__action {
+				align-self: flex-start;
+				appearance: none;
+				border: none;
+				border-radius: 12px;
+				padding: 12px 18px;
+				font-size: 13px;
+				font-weight: 600;
+				color: #ffffff;
+				background: #0f172a;
+				cursor: pointer;
+				transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+				width: 100%;
+				min-width: 0;
+				min-height: 44px;
+			}
+			.insights-panel__action:disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+			}
+			.insights-panel__action:not(:disabled):hover,
+			.insights-panel__action:not(:disabled):focus-visible {
+				transform: translateY(-1px);
+				background: #111b2e;
+			}
+			.insights-panel__action-status {
+				font-size: 12px;
+				color: rgba(15, 23, 42, 0.7);
+				white-space: nowrap;
 			}
 			.insights-questionnaire {
 				display: flex;
@@ -1297,6 +1609,41 @@ ease;
 				white-space: pre-wrap;
 				word-break: break-word;
 				color: #f8fafc;
+			}
+			.insights-panel__meta-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+			.insights-panel__meta-card {
+				background: #f8fafc;
+				border-radius: 12px;
+				padding: 12px 14px;
+				border: 1px solid rgba(15, 23, 42, 0.08);
+				box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+			}
+			.insights-panel__meta-label {
+				margin: 0 0 2px;
+				font-size: 11px;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				color: rgba(15, 23, 42, 0.45);
+			}
+			.insights-panel__meta-value {
+				margin: 0;
+				font-size: 14px;
+				color: #0f172a;
+			}
+			.insights-panel__meta-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				margin-bottom: 4px;
+			}
+			.insights-panel__meta-card--persona .insights-status-badge {
+				margin-left: auto;
 			}
 			@media (max-width: 1500px) {
 				.insights-questionnaire__grid {

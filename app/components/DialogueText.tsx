@@ -867,6 +867,18 @@ export default function DialogueText({
           gap: 6,
         }}
       >
+        {isAssistant ? (
+          <div
+            style={{
+              ...bodyFontStyle,
+              fontSize: 11,
+              fontWeight: 600,
+              color: "rgba(15, 23, 42, 0.6)",
+            }}
+          >
+            {personaName?.trim() || "Persona"}
+          </div>
+        ) : null}
         <div
           style={{
             ...bodyFontStyle,

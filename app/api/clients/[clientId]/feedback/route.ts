@@ -15,6 +15,7 @@ type FeedbackRow = {
 type PersonaRow = {
   agent_id: string;
   agent_name: string | null;
+  profile_image: string | null;
 };
 
 type ProfileRow = {
@@ -33,6 +34,7 @@ type FeedbackPayload = {
     createdAt: string | null;
     personaId: string | null;
     personaName: string | null;
+    personaImage: string | null;
     userId: string | null;
     submittedBy: string | null;
   }>;
@@ -136,7 +138,7 @@ export async function GET(
     if (personaIds.length > 0) {
       const { data: personaRows, error: personaError } = await supabaseAdmin
         .from("agent_map")
-        .select("agent_id, agent_name")
+        .select("agent_id, agent_name, profile_image")
         .in("agent_id", personaIds);
       if (personaError) {
         console.error("[Feedback API] Failed to load personas", personaError);
@@ -145,7 +147,8 @@ export async function GET(
           { status: 500 }
         );
       }
-      personaById = (personaRows ?? []).reduce<Record<string, PersonaRow>>((acc, persona) => {
+      const personaRowsData = (personaRows ?? []) as PersonaRow[];
+      personaById = personaRowsData.reduce<Record<string, PersonaRow>>((acc, persona) => {
         acc[persona.agent_id] = persona;
         return acc;
       }, {});
@@ -174,6 +177,10 @@ export async function GET(
       const persona = row.persona_id ? personaById[row.persona_id] : undefined;
       const profile = row.user_id ? profileById[row.user_id] : undefined;
       const submittedBy = profile?.display_name?.trim() || profile?.email?.trim() || row.user_id;
+      const personaImage =
+        persona && typeof persona.profile_image === "string" && persona.profile_image.trim().length > 0
+          ? persona.profile_image.trim()
+          : null;
 
       return {
         id: row.id,
@@ -184,6 +191,7 @@ export async function GET(
         createdAt: row.created_at,
         personaId: row.persona_id,
         personaName: persona?.agent_name ?? null,
+        personaImage,
         userId: row.user_id,
         submittedBy: submittedBy ?? null,
       };

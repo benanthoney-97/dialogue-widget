@@ -15,6 +15,7 @@ type FeedbackApiEntry = {
   fromUrl: string | null;
   createdAt: string | null;
   personaName: string | null;
+  personaImage: string | null;
   submittedBy: string | null;
 };
 
@@ -34,6 +35,27 @@ function formatFeedbackDate(value?: string | null): string {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function getPersonaDisplayName(value?: string | null): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed.length > 0 ? trimmed : "General";
+}
+
+function getPersonaImageUrl(value?: string | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildPersonaInitial(name: string | null | undefined): string {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) {
+    return "?";
+  }
+  return trimmed.charAt(0).toUpperCase();
 }
 
 function deriveClientSlug(pathname: string | null): string {
@@ -98,6 +120,8 @@ export default function FeedbackPage() {
           setLoading(false);
         }
       }
+
+
     }
 
     void loadFeedback();
@@ -137,6 +161,10 @@ export default function FeedbackPage() {
       }
     }
   }, [activeRow, goToPageHref]);
+
+  const personaDisplayName = getPersonaDisplayName(activeRow?.personaName);
+  const personaImageUrl = getPersonaImageUrl(activeRow?.personaImage);
+  const personaInitial = buildPersonaInitial(personaDisplayName);
 
   return (
     <div
@@ -221,8 +249,7 @@ export default function FeedbackPage() {
         onRequestClose={() => setActiveRow(null)}
         onAfterClose={() => setActiveRow(null)}
         title={activeRow?.title ?? "Feedback submission"}
-        titleId="feedback-overlay-title"
-        descriptionId="feedback-overlay-description"
+  titleId="feedback-overlay-title"
         bodyClassName="feedback-panel"
         actions={
           <div className="feedback-panel__actions">
@@ -246,8 +273,7 @@ export default function FeedbackPage() {
           </div>
         }
       >
-        <div id="feedback-overlay-description" />
-        {activeRow ? (
+  {activeRow ? (
           <>
             <div className="feedback-panel__meta">
               <div>
@@ -260,7 +286,16 @@ export default function FeedbackPage() {
               </div>
               <div>
                 <p className="feedback-panel__meta-label">Persona</p>
-                <p className="feedback-panel__meta-value">{activeRow.personaName ?? "General"}</p>
+                  <div className="feedback-panel__meta-persona">
+                    <div className="feedback-panel__meta-persona-avatar" aria-hidden="true">
+                      {personaImageUrl ? (
+                        <img src={personaImageUrl} alt={`${personaDisplayName} avatar`} />
+                      ) : (
+                        <span>{personaInitial}</span>
+                      )}
+                    </div>
+                    <p className="feedback-panel__meta-value">{personaDisplayName}</p>
+                  </div>
               </div>
             </div>
             <div className="feedback-panel__body">
@@ -310,6 +345,24 @@ export default function FeedbackPage() {
           gap: 24px;
           height: 100%;
         }
+        .feedback-table-section {
+          width: 100%;
+        }
+        .feedback-table-wrap {
+          width: 100%;
+          min-width: 0;
+          overflow-x: auto;
+        }
+        .feedback-table {
+          width: 100%;
+          min-width: 0;
+          table-layout: fixed;
+          font-family: 'Cooper', 'Helvetica Neue', sans-serif;
+          font-size: 15px;
+          background: var(--bg, #f4f8ff);
+          border-collapse: collapse;
+          border-spacing: 0;
+        }
         .stage-panel {
           background: #ffffff;
           border-radius: 20px;
@@ -345,13 +398,29 @@ export default function FeedbackPage() {
           border-bottom-right-radius: 12px;
         }
         .feedback-panel__actions {
+        .feedback-table__row {
+          transition: background 0.2s ease;
+        }
+        .feedback-table__row--clickable {
+          cursor: pointer;
+        }
+        .feedback-table__row--clickable:focus-visible {
+          outline: 3px solid rgba(59, 130, 246, 0.45);
+          outline-offset: -1px;
+        }
+        .feedback-table__row:hover {
+          background: rgba(59, 130, 246, 0.08);
+        }
           flex: 1;
-          min-height: 120px;
           display: flex;
-          align-items: flex-start;
+          flex-direction: column;
+          align-items: stretch;
           justify-content: flex-start;
           gap: 10px;
-          flex-wrap: wrap;
+        }
+        .feedback-panel__actions button {
+          width: 100%;
+          min-width: 0;
         }
         .feedback-table__row--clickable:focus-visible {
           outline: 3px solid rgba(59, 130, 246, 0.45);
@@ -360,12 +429,14 @@ export default function FeedbackPage() {
         .feedback-table th,
         .feedback-table td {
           padding: 16px;
-          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+          border: none;
         }
         .feedback-table th {
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 700;
           letter-spacing: 0.5px;
-          color: rgba(15, 23, 42, 0.6);
+          color: rgba(15, 23, 42, 0.65);
+          text-align: left;
         }
         .feedback-status-badge {
           display: inline-flex;
@@ -394,6 +465,30 @@ export default function FeedbackPage() {
           border-radius: 12px;
           padding: 12px 14px;
         }
+        .feedback-panel__meta-persona {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .feedback-panel__meta-persona-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: #e2e8f0;
+          color: #0f172a;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+        .feedback-panel__meta-persona-avatar img {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+        }
         .feedback-panel__meta-label {
           margin: 0 0 2px;
           font-size: 11px;
@@ -420,13 +515,14 @@ export default function FeedbackPage() {
           appearance: none;
           border: none;
           border-radius: 12px;
-          padding: 8px 18px;
+          padding: 12px 18px;
           font-size: 13px;
           font-weight: 600;
           color: #ffffff;
           background: #0f172a;
           cursor: pointer;
           transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+          min-height: 44px;
         }
         .feedback-panel__go-page:hover:not(:disabled),
         .feedback-panel__go-page:focus-visible:not(:disabled) {

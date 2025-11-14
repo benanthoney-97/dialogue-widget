@@ -17,6 +17,7 @@ type DialogueRow = {
 type AgentMapRow = {
   agent_id: string;
   agent_name: string;
+  profile_image?: string | null;
 };
 
 type ProfileRow = {
@@ -43,6 +44,7 @@ type InsightsRow = {
 type PersonaOption = {
   id: string;
   name: string;
+  profile_image?: string | null;
 };
 
 type InsightsResponse = {
@@ -153,6 +155,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
     const personaOptions: PersonaOption[] = (agents ?? []).map((agent) => ({
       id: agent.agent_id,
       name: agent.agent_name ?? "",
+      profile_image: (agent as AgentMapRow & { profile_image?: string | null }).profile_image ?? null,
     }));
 
     let personaNameMatches: string[] = [];

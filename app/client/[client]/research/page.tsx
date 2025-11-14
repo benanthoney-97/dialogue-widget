@@ -28,6 +28,7 @@ type AgentResearchRecord = {
   knowledgeText: string | null;
   updatedAt: string | null;
   sourcedArticles: Array<{ title: string; url: string }>;
+  sourcedArticlesCount: number;
 };
 
 function deriveInitials(name: string): string {
@@ -56,6 +57,45 @@ function deriveAccent(name: string): string {
   const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return palette[hash % palette.length];
 }
+
+const ARTICLE_PREVIEW_LIMIT = 2;
+const TOP_SOURCE_LIMIT = 2;
+const ARTICLE_TITLE_TRIM = 48;
+
+const truncateText = (value: string, limit: number) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, limit - 1)}…`;
+};
+
+const deriveSourceLabel = (rawUrl: string | null | undefined): string | null => {
+  if (!rawUrl) return null;
+  const candidate = rawUrl.trim();
+  if (!candidate) return null;
+  try {
+    return new URL(candidate).hostname;
+  } catch {
+    const withoutProtocol = candidate.replace(/^https?:\/\//i, "");
+    const host = withoutProtocol.split(/[/?#]/)[0];
+    return host || null;
+  }
+};
+
+const deriveTopSources = (articles: AgentResearchRecord["sourcedArticles"]) => {
+  const counts = new Map<string, number>();
+  articles.forEach((article) => {
+    const label = deriveSourceLabel(article.url);
+    if (!label) return;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  });
+  return [...counts.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .slice(0, TOP_SOURCE_LIMIT)
+    .map(([label]) => label);
+};
 
 export default function ResearchPage() {
   const pathname = usePathname();
@@ -257,6 +297,7 @@ export default function ResearchPage() {
             knowledge_text?: string | null;
             updated_at?: string | null;
             sourced_articles?: Array<{ title?: string | null; url?: string | null }>;
+            sourced_articles_count?: number | null;
           }>;
         };
         if (!isMounted) return;
@@ -290,12 +331,21 @@ export default function ResearchPage() {
                         }))
                         .filter((article) => article.url.length > 0)
                     : [];
+                const rawSourcedArticleCount =
+                  typeof record.sourced_articles_count === "number" && !Number.isNaN(record.sourced_articles_count)
+                    ? Math.max(0, Math.floor(record.sourced_articles_count))
+                    : null;
+                const sourcedArticlesCount =
+                  rawSourcedArticleCount !== null
+                    ? Math.max(rawSourcedArticleCount, sourcedArticles.length)
+                    : sourcedArticles.length;
                 return {
                   agentId,
                   personaName,
                   knowledgeText,
                   updatedAt,
                   sourcedArticles,
+                  sourcedArticlesCount,
                 } satisfies AgentResearchRecord;
               })
           .filter((item): item is AgentResearchRecord => item !== null)
@@ -394,6 +444,8 @@ export default function ResearchPage() {
                           <tr>
                             <th scope="col">Persona</th>
                             <th scope="col">Last updated</th>
+                            <th scope="col">Articles</th>
+                            <th scope="col">Top Sources</th>
                           </tr>
                           </thead>
                           <tbody>
@@ -417,6 +469,11 @@ export default function ResearchPage() {
                                   setSelectedAgent(item);
                                 }
                               };
+                              const articleCount = Math.max(
+                                item.sourcedArticlesCount,
+                                item.sourcedArticles.length
+                              );
+                              const topSources = deriveTopSources(item.sourcedArticles);
                               return (
                                 <tr
                                   key={item.agentId}
@@ -426,8 +483,24 @@ export default function ResearchPage() {
                                   role="button"
                                   tabIndex={0}
                                 >
-                                  <td>{item.personaName}</td>
-                                  <td>{formatUpdatedAt(item.updatedAt)}</td>
+                                  <td className="agent-row__persona-cell">{item.personaName}</td>
+                                  <td className="agent-row__updated-cell">
+                                    {formatUpdatedAt(item.updatedAt)}
+                                  </td>
+                                  <td className="agent-row__articles-cell">
+                                    <span className="agent-row__articles-count">
+                                      {articleCount}
+                                    </span>
+                                  </td>
+                                  <td className="agent-row__sources-cell">
+                                    {topSources.length > 0 ? (
+                                      <span className="agent-row__source-list">
+                                        {topSources.join(", ")}
+                                      </span>
+                                    ) : (
+                                      <span className="agent-row__empty">No sources</span>
+                                    )}
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -719,7 +792,7 @@ export default function ResearchPage() {
           background: rgba(59, 130, 246, 0.12);
         }
         .research-agent-table {
-          margin-top: 20px;
+          margin-top: 0px;
           border: none;
           border-radius: 0px;
           overflow: hidden;
@@ -728,8 +801,11 @@ export default function ResearchPage() {
         }
         .research-agent-table table {
           width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
+          border-collapse: separate;
+          border-spacing: 0 10px;
+          font-size: 15px;
+          font-family: 'Cooper', 'Helvetica Neue', sans-serif;
+          background: var(--bg, #f4f8ff);
         }
         .research-agent-table th,
         .research-agent-table td {
@@ -739,24 +815,33 @@ export default function ResearchPage() {
           vertical-align: top;
         }
         .research-agent-table th {
-    text-align: left;
-    padding: 10px 8px;
-    color: rgba(15, 23, 42, 0.65);
-    font-size: 13px;
-    font-weight: 700;
-    border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: none;
-}
+          text-align: left;
+          padding: 10px 8px;
+          color: rgba(15, 23, 42, 0.65);
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: none;
+        }
+        .research-agent-table th:nth-child(1),
+        .research-agent-table td:nth-child(1) {
+          width: 26%;
+        }
         .research-agent-table th:nth-child(2),
         .research-agent-table td:nth-child(2) {
-          width: 24%;
+          width: 18%;
         }
         .research-agent-table th:nth-child(3),
         .research-agent-table td:nth-child(3) {
-          width: 36%;
+          width: 30%;
+        }
+        .research-agent-table th:nth-child(4),
+        .research-agent-table td:nth-child(4) {
+          width: 26%;
         }
         .research-agent-table tbody tr:last-of-type td {
           border-bottom: none;
@@ -879,15 +964,68 @@ export default function ResearchPage() {
         .research-overlay__sources li a:hover {
           text-decoration: underline;
         }
-        .agent-articles-list {
-          margin: 0;
-          padding-left: 0;
+        .agent-row__articles-cell,
+        .agent-row__sources-cell {
+          vertical-align: middle;
+        }
+        .agent-row__sources-cell {
+          min-width: 0;
+        }
+        .agent-row__articles {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.85);
+        }
+        .agent-row__articles-count {
+          font-size: inherit;
+          font-weight: 400;
+          color: inherit;
+          letter-spacing: 0;
+          text-transform: none;
+          font-family: inherit;
+        }
+        .agent-row__article-title {
+          display: inline-block;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .agent-row__article-more {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .agent-row__source-list {
+          display: inline-flex;
+          gap: 6px;
+          flex-wrap: nowrap;
+          font-size: 13px;
+          color: rgba(30, 64, 175, 0.85);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+          min-width: 0;
+        }
+        .agent-row__empty {
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.58);
         }
         .agent-row {
           transition: background 0.18s ease;
+          cursor: pointer;
+          border-radius: 12px;
+        }
+        .agent-row:hover,
+        .agent-row:focus-visible {
+          background: rgba(59, 130, 246, 0.08);
+        }
+        .agent-row:focus-visible {
+          outline: 3px solid rgba(59, 130, 246, 0.45);
+          outline-offset: -1px;
         }
         .agent-row--expanded {
           background: rgba(37, 99, 235, 0.04);
@@ -940,7 +1078,8 @@ export default function ResearchPage() {
           .research-card {
             padding: 28px;
           }
-          .agent-knowledge-cell {
+          .agent-row__articles-cell,
+          .agent-row__sources-cell {
             min-width: 0;
           }
         }
@@ -976,8 +1115,8 @@ export default function ResearchPage() {
           .research-sources-grid {
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           }
-          .agent-sources-cell,
-          .agent-knowledge-cell {
+          .agent-row__articles-cell,
+          .agent-row__sources-cell {
             min-width: 0;
           }
         }
