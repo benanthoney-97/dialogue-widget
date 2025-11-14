@@ -145,8 +145,8 @@ icon: (
 ),
     },
     {
-      label: "Internal Data",
-      href: `/client/${clientId}/internal-knowledge`,
+      label: "Knowledge Base",
+      href: `/client/${clientId}/internal-data`,
       icon: (
         <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.5">
           <circle cx="8" cy="5" r="2.5" />

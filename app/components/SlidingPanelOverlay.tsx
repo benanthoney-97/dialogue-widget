@@ -32,6 +32,7 @@ export default function SlidingPanelOverlay({
   width = "clamp(320px, calc(100vw - var(--stage-topbar-offset, 0px) - 164px), 100vw)",
   className = "",
   bodyClassName = "",
+  onAfterClose,
 }: SlidingPanelOverlayProps) {
   const [isMounted, setIsMounted] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
@@ -111,7 +112,12 @@ export default function SlidingPanelOverlay({
             {title}
           </h2>
           <button type="button" className="sliding-panel-overlay__close" onClick={handleCloseClick} aria-label="Close detail panel">
-            Close
+            <svg width="22" height="22" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"
+                fill="#22325A"
+              />
+            </svg>
           </button>
         </header>
         {description ? (
@@ -145,12 +151,12 @@ export default function SlidingPanelOverlay({
           pointer-events: none;
         }
         .sliding-panel-overlay {
+          background: #fff;
           position: fixed;
           top: 0;
           right: 0;
           height: 100vh;
           bottom: 0;
-          background: rgba(246, 247, 249, 0.98);
           border-radius: 0;
           border: 1px solid rgba(59, 130, 246, 0.24);
           box-shadow: 0 32px 80px rgba(15, 23, 42, 0.32);

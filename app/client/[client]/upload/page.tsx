@@ -1,5 +1,6 @@
 "use client";
-import React, { useRef, useState, useEffect } from "react";
+import Image from "next/image";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
@@ -130,6 +131,40 @@ function mergeFileLists(existing: File[], additions: File[]): File[] {
   existing.forEach(file => map.set(fileKey(file), file));
   additions.forEach(file => map.set(fileKey(file), file));
   return Array.from(map.values());
+}
+
+type ExternalSource = {
+  id: string;
+  name: string;
+  accent: string;
+  logoUrl: string | null;
+};
+
+function deriveInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2) || "WS";
+}
+
+function deriveAccent(name: string): string {
+  const palette = [
+    "#2563eb",
+    "#0ea5e9",
+    "#10b981",
+    "#f97316",
+    "#6366f1",
+    "#dc2626",
+    "#7c3aed",
+    "#14b8a6",
+    "#f59e0b",
+  ];
+  if (!name) return palette[0];
+  const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return palette[hash % palette.length];
 }
 
 type StagePanelProps = {
@@ -375,6 +410,8 @@ export default function UploadPage() {
   const [linksUrls, setLinksUrls] = useState<string[]>([]);
   const isLinksUrlValid = isValidUrl(linksUrl);
   const canAddCurrentLink = !!linksUrl.trim() && isLinksUrlValid && !linksUrls.includes(linksUrl.trim());
+  const [availableExternalSources, setAvailableExternalSources] = useState<ExternalSource[]>([]);
+  const [selectedExternalSources, setSelectedExternalSources] = useState<string[]>([]);
   function handleAddLink() {
     const trimmed = linksUrl.trim();
     if (!trimmed || !isValidUrl(trimmed)) {
@@ -390,6 +427,46 @@ export default function UploadPage() {
     if (linksUrls.length === 0) return;
     setCurrentStep(5);
   }
+  const handleExternalSourceToggle = useCallback(
+    async (sourceName: string) => {
+      if (!clientSlug) return;
+      const previous = selectedExternalSources;
+      const isActive = previous.includes(sourceName);
+      const nextSources = isActive
+        ? previous.filter((name) => name !== sourceName)
+        : [...previous, sourceName];
+
+      setSelectedExternalSources(nextSources);
+
+      try {
+        const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ target_sources: nextSources }),
+        });
+
+        if (!response.ok) {
+          console.error("[Upload] Failed to update target sources", response.status);
+          setSelectedExternalSources(previous);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          priority?: { target_sources?: string[] | null } | null;
+        };
+
+        if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
+          setSelectedExternalSources(payload.priority.target_sources);
+        }
+      } catch (error) {
+        console.error("[Upload] Unexpected error updating target sources", error);
+        setSelectedExternalSources(previous);
+      }
+    },
+    [clientSlug, selectedExternalSources]
+  );
   const canSkipUpload = isDescribeMode;
   const personaNameTrimmed = personaName.trim();
   const personaTaglineTrimmed = personaTagline.trim();
@@ -420,7 +497,7 @@ export default function UploadPage() {
         sessionStorage.removeItem('temp-upload-purpose');
       }
     };
-  }, []);
+  }, [clientSlug]);
 
   useEffect(() => {
     if (currentStep === 4) {
@@ -437,6 +514,96 @@ export default function UploadPage() {
       setCurrentStep(4);
     }
   }, [selectedGuidance, currentStep]);
+
+  useEffect(() => {
+    if (!clientSlug) {
+      setSelectedExternalSources([]);
+      return;
+    }
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchResearchPriorities() {
+      try {
+        const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          console.error("[Upload] Failed to load research priorities", response.status);
+          return;
+        }
+        const payload = (await response.json()) as {
+          priority?: { target_sources?: string[] | null } | null;
+        };
+
+        if (!isMounted) return;
+
+        const sources = payload.priority?.target_sources;
+        if (Array.isArray(sources)) {
+          setSelectedExternalSources(sources);
+        } else {
+          setSelectedExternalSources([]);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Upload] Unexpected error loading research priorities", error);
+      }
+    }
+
+    void fetchResearchPriorities();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [clientSlug]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchExternalSources() {
+      try {
+        const response = await fetch("/api/external-sources", {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          console.error("[Upload] Failed to load external sources", response.status);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          sources?: Array<{ id: string; name?: string | null; logo?: string | null }>;
+        };
+
+        if (!isMounted) return;
+
+        const normalized = (payload.sources ?? []).map((source) => {
+          const name = source.name?.trim() ?? "";
+          const safeName = name.length > 0 ? name : "Unknown source";
+          const rawLogo = typeof source.logo === "string" ? source.logo.trim() : "";
+          return {
+            id: source.id,
+            name: safeName,
+            accent: deriveAccent(safeName),
+            logoUrl: rawLogo.length > 0 ? rawLogo : null,
+          } satisfies ExternalSource;
+        });
+
+        setAvailableExternalSources(normalized);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Upload] Unexpected error loading external sources", error);
+      }
+    }
+
+    void fetchExternalSources();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (hasHydratedFromParams.current) return;
@@ -1083,7 +1250,7 @@ export default function UploadPage() {
             {currentStep === 4 && (
               <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
                 <div className="links-stage__url-input">
-                  <label>
+                <div className="links-stage__url-wrapper">
                     <input
                       type="url"
                       placeholder="https://"
@@ -1096,29 +1263,32 @@ export default function UploadPage() {
                         }
                       }}
                     />
-                  </label>
-                  <button
-                    type="button"
-                    className="links-stage__add-link"
-                    onClick={handleAddLink}
-                    disabled={!canAddCurrentLink}
-                  >
-                    Add link
-                  </button>
+                    {canAddCurrentLink && (
+                      <button
+                        type="button"
+                        className="links-stage__add-link"
+                        onClick={handleAddLink}
+                      >
+                        Add link
+                      </button>
+                    )}
+                  </div>
                   {linksUrls.length > 0 && (
-                    <div className="links-stage__urls-list">
-                      {linksUrls.map((url) => (
-                        <div className="links-stage__url-chip" key={url}>
-                          <span>{url}</span>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${url}`}
-                            onClick={() => handleRemoveLink(url)}
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ))}
+                    <div className="links-stage__urls-wrapper">
+                      <div className="links-stage__urls-list">
+                        {linksUrls.map((url) => (
+                          <div className="links-stage__url-chip" key={url}>
+                            <span>{url}</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${url}`}
+                              onClick={() => handleRemoveLink(url)}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1144,7 +1314,7 @@ export default function UploadPage() {
                     type="button"
                     variant="primary"
                     onClick={() => stageLinks()}
-                    disabled={!isLinksUrlValid}
+                    disabled={linksUrls.length === 0}
                   >
                     Continue
                   </StageButton>
@@ -1154,112 +1324,69 @@ export default function UploadPage() {
             )}
             {currentStep === 5 && (
               <StagePanel
-                heading={`Confirm ${personaNameHeadline}`}
-                leading={
+                heading="Tell our AI agents where to research"
+              >
+                <div className="web-research-sources">
+                  {availableExternalSources.length === 0 ? (
+                    <p className="web-research-sources__empty">Loading sources…</p>
+                  ) : (
+                    <div className="web-research-sources-grid">
+                      {availableExternalSources.map((source) => {
+                        const active = selectedExternalSources.includes(source.name);
+                        const logoStyle = source.logoUrl
+                          ? undefined
+                          : {
+                              background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
+                            };
+                        return (
+                          <button
+                            type="button"
+                            key={source.id}
+                            className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
+                            onClick={() => handleExternalSourceToggle(source.name)}
+                            aria-pressed={active}
+                          >
+                            <div className="web-research-source-logo" style={logoStyle}>
+                              {source.logoUrl ? (
+                                <Image
+                                  src={source.logoUrl}
+                                  alt={source.name}
+                                  width={52}
+                                  height={52}
+                                  className="web-research-source-logo__image"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span aria-hidden="true">{deriveInitials(source.name)}</span>
+                              )}
+                            </div>
+                            <span className="web-research-source-name">{source.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(4)}
-                    disabled={finalizing}
-                    aria-label="Back"
-                    title="Back"
                     className="stage-back"
+                    onClick={() => setCurrentStep(4)}
+                    style={{ width: '25%' }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
+                    Back
                   </button>
-                }
-              >
-                <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'nowrap', justifyContent: 'center', overflowX: 'auto', paddingBottom: 6 }}>
-                  {[
-                    {
-                      title: 'Persona name',
-                      value: personaNameDisplay,
-                    },
-                    {
-                      title: 'Pitch type',
-                      value: selectedGuidance ?? (savedPurpose ? 'Custom brief' : 'Not set'),
-                    },
-                    {
-                      title: 'Documents',
-                      value: hasDocs
-                        ? `${createdDocs.length} document${createdDocs.length === 1 ? '' : 's'}`
-                        : 'No documents',
-                    },
-                    {
-                      title: 'Briefing',
-                      value: hasBriefing
-                        ? 'Call completed'
-                        : canSkipBriefing
-                        ? 'Skipped (optional)'
-                        : 'Pending call',
-                    },
-                  ].map((card) => (
-                    <div
-                        key={card.title}
-                        style={{
-                          position: 'relative',
-                          /* fixed small width so cards line up horizontally */
-                          flex: '0 0 120px',
-                          minWidth: 120,
-                          maxWidth: 160,
-                          aspectRatio: '1 / 1',
-                          /* slightly tighter corners */
-                          borderRadius: 12,
-                          background: '#f4f8ff',
-                          border: '1px solid rgba(30,41,59,0.12)',
-                          padding: 14,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textAlign: 'center',
-                          color: '#1e293b',
-                          boxShadow: '0 4px 16px rgba(15,23,42,0.08)',
-                        }}
-                      >
-                      <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: '#3b82f6', marginBottom: 6, textAlign: 'center' }}>
-                        {card.title}
-                      </div>
-                      <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.3, textAlign: 'center' }}>
-                        {card.value}
-                      </div>
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: 10,
-                          bottom: 10,
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          background: '#1e40af',
-                          border: '2px solid rgba(59,130,246,0.65)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#f8fafc',
-                          boxShadow: '0 0 10px rgba(59,130,246,0.35)',
-                        }}
-                        aria-hidden="true"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M6.33333 10.2733L4.06 8L3 9.05333L6.33333 12.3867L13.3333 5.38667L12.28 4.33333L6.33333 10.2733Z" fill="currentColor" />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: 'flex', gap: 12, width: '100%' }}>
-                  <StageButton
-                    type="button"
-                    onClick={handleFinalize}
-                    disabled={finalizing}
-                    variant="primary"
-                    width="full"
-                  >
-                    {finalizing ? 'Creating…' : 'Create Persona'}
-                  </StageButton>
+                  <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
+                    <StageButton
+                      type="button"
+                      variant="primary"
+                      width="full"
+                      onClick={handleFinalize}
+                      disabled={finalizing}
+                    >
+                      {finalizing ? 'Creating…' : 'Create Persona'}
+                    </StageButton>
+                  </div>
                 </div>
               </StagePanel>
             )}
@@ -1332,8 +1459,36 @@ export default function UploadPage() {
               </div>
             )}
           </div>
+          <div className="upload-layout__knowledge-links">
+            <h4>Knowledge links</h4>
+            {linksUrls.length === 0 ? (
+              <p className="upload-layout__knowledge-links__empty">Add links to see them here.</p>
+            ) : (
+              <ul>
+                {linksUrls.map((url) => (
+                  <li key={url}>
+                    <a href={url} target="_blank" rel="noreferrer">
+                      {url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="upload-layout__target-sources">
+            <h4>Target sources</h4>
+            {selectedExternalSources.length === 0 ? (
+              <p className="upload-layout__target-sources__empty">Select sources after adding links so they show up here.</p>
+            ) : (
+              <ul>
+                {selectedExternalSources.map((source) => (
+                  <li key={source}>{source}</li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
+      </div>
         <style>{`
           .upload-layout {
             min-height: 100dvh;
@@ -1373,6 +1528,11 @@ export default function UploadPage() {
             align-items: flex-start;
             width: min(320px, 80vw);
             align-self: flex-start;
+            max-height: calc(100dvh - 96px);
+            overflow-y: auto;
+            position: sticky;
+            top: 64px;
+            padding-bottom: 16px;
           }
           .upload-layout__resource-card {
             display: flex;
@@ -1472,12 +1632,14 @@ export default function UploadPage() {
             outline: none;
           }
           .upload-layout__resource-description {
-            margin-top: 16px;
+            width: 100%;
             border-radius: 16px;
-            padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            padding: 14px 16px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
           }
           .upload-layout__resource-description h4 {
             margin: 0 0 6px;
@@ -1523,6 +1685,76 @@ margin: 0 0 6px;
             margin: 0;
             font-size: 13px;
             color: rgba(15, 23, 42, 0.7);
+          }
+          .upload-layout__knowledge-links {
+            width: 100%;
+            border-radius: 16px;
+            padding: 14px 16px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .upload-layout__knowledge-links h4 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            letter-spacing: 0.08em;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .upload-layout__knowledge-links__empty {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+          }
+          .upload-layout__knowledge-links ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .upload-layout__knowledge-links li a {
+            color: #0f172a;
+            text-decoration: underline;
+            font-size: 13px;
+            word-break: break-all;
+          }
+          .upload-layout__target-sources {
+            width: 100%;
+            border-radius: 16px;
+            padding: 14px 16px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .upload-layout__target-sources h4 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            letter-spacing: 0.08em;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .upload-layout__target-sources__empty {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+          }
+          .upload-layout__target-sources ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .upload-layout__target-sources li {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            word-break: break-all;
           }
           .upload-layout__doc-card {
             margin-top: 8px;
@@ -1582,15 +1814,14 @@ margin: 0 0 6px;
             font-size: 14px;
             color: #0f172a;
           }
-          .links-stage__url-input label {
+          .links-stage__url-wrapper {
+            position: relative;
             display: flex;
-            flex-direction: column;
-            gap: 6px;
-            font-weight: 600;
           }
           .links-stage__url-input input {
             width: 100%;
             padding: 12px 14px;
+            padding-right: 140px;
             border-radius: 10px;
             border: 1px solid rgba(15, 23, 42, 0.2);
             background: rgba(255, 255, 255, 0.9);
@@ -1600,10 +1831,123 @@ margin: 0 0 6px;
             opacity: 0.8;
             cursor: not-allowed;
           }
+          .links-stage__add-link {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: #f8fafc;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, border 0.2s ease;
+            z-index: 3;
+          }
+          .links-stage__add-link:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          .links-stage__urls-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 0;
+          }
+          .links-stage__urls-wrapper {
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-radius: 12px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.9);
+          }
+          .links-stage__url-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 4px 6px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.03);
+          }
+          .links-stage__url-chip button {
+            margin: 0;
+            padding: 0 6px;
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+          }
           .links-stage__url-helper {
             margin: 0;
             font-size: 13px;
             color: rgba(15, 23, 42, 0.6);
+          }
+          .web-research-sources {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .web-research-sources__empty {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.65);
+          }
+          .web-research-sources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+          }
+          .web-research-source-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            border-radius: 18px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            padding: 14px 12px;
+            background: #fff;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+            color: #0f172a;
+          }
+          .web-research-source-card:hover,
+          .web-research-source-card:focus-visible {
+            outline: none;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+          }
+          .web-research-source-card--active {
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.15);
+            background: rgba(59, 130, 246, 0.08);
+          }
+          .web-research-source-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #1e293b;
+          }
+          .web-research-source-logo__image {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            object-fit: contain;
+          }
+          .web-research-source-name {
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            color: #0f172a;
           }
           .stage-shell {
             width: min(760px, 92%);

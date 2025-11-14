@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, memo } from "react";
 
 type Props = {
   file: string; // direct URL or /api/pdf-proxy?url=...
+  style?: React.CSSProperties;
+  background?: string;
 };
 
 function loadScriptOnce(src: string) {
@@ -41,7 +43,7 @@ function safeRemoveAllChildren(el: HTMLElement) {
   }
 }
 
-function PDFJSViewerInner({ file }: Props) {
+function PDFJSViewerInner({ file, style, background }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null); // outer wrapper (React owns)
   const hostRef = useRef<HTMLDivElement | null>(null);  // inner host (we own)
   const renderTokenRef = useRef<symbol | null>(null);
@@ -174,9 +176,10 @@ function PDFJSViewerInner({ file }: Props) {
         width: "100%",
         height: "100%",
         overflow: "auto",
-        background: "#F6F7F9",
+        background: background ?? "#F6F7F9",
         padding: 8,
         boxSizing: "border-box",
+        ...style,
       }}
     >
       {/* React owns shellRef but NOT this hostRef subtree */}

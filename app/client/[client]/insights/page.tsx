@@ -1,13 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import QuestionnaireResults from "@/app/components/QuestionnaireResults";
-import { jsPDF } from "jspdf";
+import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import { usePathname } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
-import { COOPER_FONT_NAME, ensureCooperFont } from "@/app/lib/pdfFonts";
 
 // API response types
 type PersonaOption = {
@@ -36,10 +34,19 @@ type InsightsApiResponse = {
 	personas: PersonaOption[];
 };
 
-const reportDropdownOptions = [
-	"Transcript",
-];
-
+function formatInsightsDate(value?: string): string {
+	if (!value) return "";
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return "";
+	return date.toLocaleString("en-US", {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		hour12: true,
+	});
+}
 // Status options for the connected segmented control (kept here so length is available)
 const statusOptions = (['All','Questionnaire','Interview','Chat'] as const);
 
@@ -104,16 +111,8 @@ function StageAlert({ type, message }: StageAlertProps) {
 	);
 }
 
-type TranscriptMessage = {
-	role: "agent" | "user";
-	content: string;
-};
-
-
 export default function InsightsTable() {
 	const PAGE_SIZE = 25;
-	const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-	const [selectedChip, setSelectedChip] = useState<{ [rowIdx: number]: string }>({});
 	const [filters, setFilters] = useState<{ personaId: string; search: string }>({
 		personaId: "",
 		search: "",
@@ -136,6 +135,7 @@ export default function InsightsTable() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
+	const [activeRow, setActiveRow] = useState<InsightsRow | null>(null);
 	const pathname = usePathname();
 
 	const selectedStatusKeys = React.useMemo(() => {
@@ -181,8 +181,6 @@ export default function InsightsTable() {
 		setAllStatuses(true);
 		setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
 		setFiltersOpen(false);
-		setOpenDropdown(null);
-		setSelectedChip({});
 		setRows([]);
 		setTotalCount(0);
 		setPersonaOptions([]);
@@ -250,8 +248,6 @@ export default function InsightsTable() {
 				setRows(data.rows ?? []);
 				setPersonaOptions(data.personas ?? []);
 				setTotalCount(data.totalCount ?? 0);
-				setOpenDropdown(null);
-				setSelectedChip({});
 			} catch (fetchError) {
 				if (controller.signal.aborted) return;
 				console.error("[Insights] Failed to load insights", fetchError);
@@ -413,7 +409,9 @@ export default function InsightsTable() {
 						<div className="insights-status-group" role="tablist" aria-label="Research type">
 							{statusOptions.map((opt, idx) => {
 								const isAll = opt === 'All';
-								const isActive = isAll ? allStatuses : (selectedStatuses as any)[opt];
+								const isActive = isAll
+									? allStatuses
+									: selectedStatuses[opt as keyof typeof selectedStatuses];
 								const chipClasses = [
 									'insights-status-chip',
 									isActive ? 'insights-status-chip--active' : '',
@@ -501,19 +499,31 @@ export default function InsightsTable() {
 								<table className="insights-table">
 									<thead>
 										<tr className="insights-table__head-row">
-											<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
-											<th className="insights-table__head-cell">Research Type</th>
 											<th className="insights-table__head-cell">Date</th>
+											<th className="insights-table__head-cell insights-table__head-cell--persona">Persona</th>
 											<th className="insights-table__head-cell">Owner</th>
-											<th className="insights-table__head-cell">Results</th>
-											<th className="insights-table__head-cell">Export</th>
+											<th className="insights-table__head-cell">Research Type</th>
 										</tr>
 								</thead>
 								<tbody>
 									{rows.map((row, i) => (
 										<React.Fragment key={row.conversation_id || `${row.personaId}-${i}`}>
-											<tr className="insights-table__row">
+											<tr
+												className="insights-table__row insights-table__row--clickable"
+												tabIndex={0}
+												role="button"
+												onClick={() => setActiveRow(row)}
+												onKeyDown={(event) => {
+													if (event.key === "Enter" || event.key === " ") {
+														event.preventDefault();
+														setActiveRow(row);
+													}
+												}}
+											>
+										{/* Length column removed - engagementTime omitted */}
+										<td className="insights-table__cell">{formatInsightsDate(row.date)}</td>
 									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument || "Untitled persona"}</td>
+										<td className="insights-table__cell">{row.ownerEmail ?? row.lead?.value ?? ''}</td>
 									<td className="insights-table__cell">
 										{(() => {
 											const statusClass = row.status === 'Questionnaire'
@@ -528,502 +538,69 @@ export default function InsightsTable() {
 											);
 										})()}
 									</td>
-										{/* Length column removed - engagementTime omitted */}
-										<td className="insights-table__cell">{
-											row.date
-												? new Date(row.date).toLocaleString('en-US', {
-													year: 'numeric',
-													month: 'short',
-													day: 'numeric',
-													hour: 'numeric',
-													minute: '2-digit',
-													hour12: true
-												})
-											: ''
-										}</td>
-										<td className="insights-table__cell">{row.ownerEmail ?? row.lead?.value ?? ''}</td>
-										<td className="insights-table__cell insights-table__cell--actions">
-						<StageButton
-							type="button"
-							variant="secondary"
-							className="insights-action-button"
-							onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
-							aria-expanded={openDropdown === i}
-						>
-							<span className="insights-action-button__content">
-								<span>{openDropdown === i ? 'Hide Results' : 'View Results'}</span>
-											  <svg
-												className={`insights-action-button__chevron${openDropdown === i ? ' insights-action-button__chevron--open' : ''}`}
-												width="12"
-												height="12"
-												viewBox="0 0 24 24"
-												fill="none"
-												xmlns="http://www.w3.org/2000/svg"
-												aria-hidden="true"
-												focusable="false"
-											  >
-									<path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-								</svg>
-							</span>
-						</StageButton>
-										</td>
-										<td className="insights-table__cell insights-table__cell--compact">
-											<StageButton
-												type="button"
-												variant="ghost"
-												className="insights-action-button insights-action-button--icon"
-												onClick={async () => {
-													try {
-														const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-														const cooperLoaded = await ensureCooperFont(doc);
-														let cursorY = 48;
-														const textFont = cooperLoaded ? COOPER_FONT_NAME : 'helvetica';
-														const monoFont = 'courier';
-														const titleFontSize = cooperLoaded ? 26 : 18;
-														const sectionTitleSize = cooperLoaded ? 15 : 13;
-														const bodyFontSize = cooperLoaded ? 12 : 11;
-                                                        const maxTitleWidth = doc.internal.pageSize.getWidth() * 0.6;
-                                                        const ellipsizeTitle = (text: string) => {
-                                                            doc.setFont(textFont, "normal");
-                                                            doc.setFontSize(titleFontSize);
-                                                            if (doc.getTextWidth(text) <= maxTitleWidth) return text;
-                                                            let current = text.trim();
-                                                            const ellipsis = "…";
-                                                            while (current.length > 0 && doc.getTextWidth(`${current}${ellipsis}`) > maxTitleWidth) {
-                                                                current = current.slice(0, -1);
-                                                            }
-                                                            return `${current.trimEnd()}${ellipsis}`;
-                                                        };
-                                                        const baseTitle = `Playback - ${row.sourceDocument || 'Untitled'}`;
-                                                        const drawPageFrame = (isFirstPage: boolean) => {
-                                                            doc.setFillColor(30, 41, 59);
-                                                            doc.rect(0, 0, doc.internal.pageSize.getWidth(), 60, 'F');
-                                                            doc.setFont(textFont, "normal");
-                                                            doc.setTextColor(246, 247, 249);
-                                                            doc.setFontSize(titleFontSize);
-                                                            doc.text(ellipsizeTitle(baseTitle), 40, 40);
-															doc.setFontSize(12);
-															doc.text('powered by Dialogue', doc.internal.pageSize.getWidth() - 40, 40, { align: 'right' });
-															doc.setDrawColor(230, 235, 243);
-															doc.setFillColor(246, 247, 249);
-															doc.roundedRect(30, 70, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 100, 12, 12, 'FD');
-															doc.setTextColor(5, 32, 51);
-															cursorY = 82;
-														};
-														drawPageFrame(true);
-														const addSectionHeading = (title: string) => {
-															doc.setFont(textFont, "normal");
-															doc.setFontSize(sectionTitleSize);
-															cursorY += 20;
-															doc.text(title, 40, cursorY);
-														};
-														const addSection = (title: string, text: string | string[] | undefined, isMono = false) => {
-															if (!text) return;
-															addSectionHeading(title);
-															doc.setFont(isMono ? monoFont : textFont, "normal");
-															doc.setFontSize(isMono ? 10 : bodyFontSize);
-															const safeText = Array.isArray(text) ? text.join('\n') : text;
-															const wrapped = doc.splitTextToSize(safeText, 512) as string[];
-															wrapped.forEach((line: string) => {
-																if (cursorY > doc.internal.pageSize.getHeight() - 60) {
-																	doc.addPage();
-																	drawPageFrame(false);
-																	addSectionHeading(`${title} (continued)`);
-																}
-																cursorY += 18;
-																doc.setFont(isMono ? monoFont : textFont, "normal");
-																doc.setFontSize(isMono ? 10 : bodyFontSize);
-																doc.text(line, 40, cursorY);
-															});
-														};
-														const addSummarySection = (summary: string | undefined) => {
-															if (!summary) return;
-															const panelLeft = 40;
-															const panelRight = doc.internal.pageSize.getWidth() - 40;
-															const blockWidth = panelRight - panelLeft;
-															const maxTextWidth = blockWidth - 32; // paddingX * 2
-															const paddingX = 16;
-															const paddingY = 12;
-															const lineHeight = bodyFontSize + 4;
-															const panelBottomMargin = 60;
-															let remaining = doc.splitTextToSize(summary, maxTextWidth) as string[];
-															let headingLabel = 'Summary';
-															const ensureSpace = () => {
-																const minNeeded = 20 + paddingY * 2 + lineHeight + 12; // heading + block with at least one line
-																const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
-																if (cursorY + minNeeded > pageBottom) {
-																	doc.addPage();
-																	drawPageFrame(false);
-																}
-															};
-															while (remaining.length) {
-																ensureSpace();
-																addSectionHeading(headingLabel);
-																const pageBottom = doc.internal.pageSize.getHeight() - panelBottomMargin;
-																let availableHeight = pageBottom - (cursorY + paddingY + 12);
-																if (availableHeight < lineHeight + paddingY * 2) {
-																	doc.addPage();
-																	drawPageFrame(false);
-																	headingLabel = headingLabel === 'Summary' ? 'Summary (continued)' : headingLabel;
-																	addSectionHeading(headingLabel);
-																	availableHeight = (doc.internal.pageSize.getHeight() - panelBottomMargin) - (cursorY + paddingY + 12);
-																}
-																const maxLines = Math.max(1, Math.floor((availableHeight - paddingY * 2) / lineHeight));
-																const linesForPage = remaining.splice(0, maxLines);
-																const blockHeight = linesForPage.length * lineHeight + paddingY * 2;
-																const blockX = panelLeft;
-																const blockY = cursorY + 12;
-																doc.setFillColor(232, 237, 245);
-																doc.setDrawColor(200, 210, 222);
-																doc.roundedRect(blockX, blockY, blockWidth, blockHeight, 10, 10, 'F');
-																doc.setFont(textFont, "normal");
-																doc.setFontSize(bodyFontSize);
-																doc.setTextColor(5, 32, 51);
-																let textY = blockY + paddingY + bodyFontSize;
-																const textX = blockX + paddingX;
-																linesForPage.forEach((line) => {
-																	doc.text(line, textX, textY);
-																	textY += lineHeight;
-																});
-																cursorY = blockY + blockHeight;
-																doc.setDrawColor(230, 235, 243);
-																if (remaining.length) {
-																	doc.addPage();
-																	drawPageFrame(false);
-																	headingLabel = 'Summary (continued)';
-																}
-															}
-															doc.setTextColor(5, 32, 51);
-														};
-														const parseTranscript = (transcriptValue: any): TranscriptMessage[] => {
-															if (!transcriptValue) return [];
-															if (Array.isArray(transcriptValue)) {
-																return (transcriptValue.map((entry) => {
-																	if (!entry) return null;
-																	if (typeof entry === 'string') {
-																		const trimmed = entry.trim();
-																		return trimmed ? ({ role: 'agent', content: trimmed } as TranscriptMessage) : null;
-																	}
-																	const role: TranscriptMessage['role'] = entry.role === 'agent' ? 'agent' : 'user';
-																	const content = typeof entry.content === 'string' ? entry.content.trim() : '';
-																	if (!content) return null;
-																	return { role, content };
-																})
-																	.filter(Boolean)) as TranscriptMessage[];
-															}
-															if (typeof transcriptValue === 'string') {
-																const messages: TranscriptMessage[] = [];
-																const sections = transcriptValue.split(/\n\n+/);
-																let currentRole: TranscriptMessage['role'] | null = null;
-																let buffer = '';
-																const pushBuffer = () => {
-																	const trimmed = buffer.trim();
-																	if (trimmed && currentRole) {
-																		messages.push({ role: currentRole, content: trimmed });
-																	}
-																	buffer = '';
-																};
-																sections.forEach((section) => {
-																	const trimmed = section.trim();
-																	if (!trimmed) return;
-																	if (/^Agent:/i.test(trimmed)) {
-																		pushBuffer();
-																		currentRole = 'agent';
-																		buffer = trimmed.replace(/^Agent:/i, '').trim();
-																	} else if (/^User:/i.test(trimmed)) {
-																		pushBuffer();
-																		currentRole = 'user';
-																		buffer = trimmed.replace(/^User:/i, '').trim();
-																	} else {
-																		buffer += (buffer ? '\n' : '') + trimmed;
-																	}
-																});
-																pushBuffer();
-																return messages;
-															}
-															return [];
-														};
-														const renderTranscript = (messages: TranscriptMessage[]) => {
-															if (!messages.length) return false;
-															addSectionHeading('Transcript');
-															doc.setFont(textFont, "normal");
-															doc.setFontSize(bodyFontSize);
-															const panelLeft = 50;
-															const panelRight = doc.internal.pageSize.getWidth() - 50;
-															const bubblePaddingX = 14;
-															const bubblePaddingY = 12;
-															const bubbleGap = 14;
-															const bubbleMaxWidth = panelRight - panelLeft - 120;
-															const lineHeight = bodyFontSize + 4;
-															messages.forEach((message, index) => {
-																const content = message.content.trim();
-																if (!content) return;
-																const lines = doc.splitTextToSize(content, bubbleMaxWidth) as string[];
-																let measuredWidth = 0;
-																lines.forEach((line) => {
-																	measuredWidth = Math.max(measuredWidth, doc.getTextWidth(line));
-																});
-																const innerWidth = Math.min(bubbleMaxWidth, measuredWidth || bubbleMaxWidth);
-																const bubbleWidth = innerWidth + bubblePaddingX * 2;
-																const bubbleHeight = lines.length * lineHeight + bubblePaddingY * 2;
-																if (cursorY + bubbleGap + bubbleHeight > doc.internal.pageSize.getHeight() - 60) {
-																	doc.addPage();
-																	drawPageFrame(false);
-																	addSectionHeading('Transcript (continued)');
-																}
-																const bubbleX = message.role === 'agent'
-																	? panelLeft
-																	: panelRight - bubbleWidth;
-																const bubbleY = cursorY + bubbleGap;
-																if (message.role === 'agent') {
-																	doc.setFillColor(34, 50, 90);
-																	doc.setDrawColor(34, 50, 90);
-																	doc.setTextColor(126, 160, 230);
-																} else {
-																	doc.setFillColor(246, 247, 249);
-																	doc.setDrawColor(200, 210, 222);
-																	doc.setTextColor(5, 32, 51);
-																}
-																doc.roundedRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 12, 12, 'F');
-																let textX = bubbleX + bubblePaddingX;
-																let textY = bubbleY + bubblePaddingY + bodyFontSize;
-																lines.forEach((line) => {
-																	doc.text(line, textX, textY);
-																	textY += lineHeight;
-																});
-																cursorY = bubbleY + bubbleHeight;
-															});
-															doc.setTextColor(5, 32, 51);
-															doc.setDrawColor(230, 235, 243);
-															cursorY += 6;
-															return true;
-														};
-														const researchDate = row.date
-															? new Date(row.date).toLocaleString('en-US', {
-																year: 'numeric',
-																month: 'short',
-																day: 'numeric',
-																hour: 'numeric',
-																minute: '2-digit',
-																hour12: true,
-															})
-															: '';
-														addSection('Details', [
-															`Persona: ${row.sourceDocument || '—'}`,
-															`Research Type: ${row.status}`,
-															`Date: ${researchDate || '—'}`,
-															`Owner: ${row.ownerEmail || row.lead?.value || '—'}`,
-														].join('\n'));
-														if (row.transcript_summary) {
-															cursorY += 20;
-															addSummarySection(row.transcript_summary);
-															cursorY += 24;
-														}
-															if (row.transcript) {
-																const parsed = parseTranscript(row.transcript);
-																const rendered = renderTranscript(parsed);
-																if (!rendered) {
-																	const transcriptText = typeof row.transcript === 'string'
-																		? row.transcript
-																		: JSON.stringify(row.transcript, null, 2);
-																	addSection('Transcript', transcriptText, true);
-																}
-															}
-															const formatDateForFile = (value?: string | null) => {
-																if (!value) return undefined;
-																const parsed = new Date(value);
-																if (Number.isNaN(parsed.getTime())) return value;
-																return parsed.toISOString().slice(0, 10);
-															};
-															const fileNameParts = [
-																row.status || 'Insights',
-																row.sourceDocument || 'Untitled',
-																formatDateForFile(row.date),
-															].filter(Boolean);
-															const safeName = fileNameParts
-																.join(' - ')
-																.replace(/[^a-z0-9]+/gi, '-')
-																.replace(/-+/g, '-')
-																.replace(/^-|-$/g, '');
-															doc.save(`${safeName || 'insights-results'}.pdf`);
-													} catch (e) {
-														console.error('Export failed', e);
-													}
-												}}
-											>
-												<span className="insights-action-button__content" aria-hidden="false">
-													<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-														<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-														<polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-														<line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-													</svg>
-													<span className="sr-only">Export</span>
-												</span>
-											</StageButton>
-										</td>
+					
 										</tr>
-														{openDropdown === i && (
-															<tr>
-																<td colSpan={6} className="insights-table__expanded-cell">
-																	<div className="insights-results">
-																		{(() => {
-																			if (row.status === 'Questionnaire') {
-																				return (
-																					<QuestionnaireResults
-																						raw={row.transcript}
-																						title="Questionnaire responses"
-																					/>
-																				);
-																			}
-
-																			const optionsForRow = reportDropdownOptions;
-																			const hasOptions = optionsForRow.length > 0;
-																			const activeOption = hasOptions ? (selectedChip[i] || optionsForRow[0]) : null;
-
-																			return (
-																				<>
-																					{hasOptions ? (
-																						<div className="insights-results__chips">
-																							{optionsForRow.map((opt) => {
-																								const isSelected = selectedChip[i] === opt || (!selectedChip[i] && opt === optionsForRow[0]);
-																								const chipClasses = [
-																									"insights-results__chip",
-																									isSelected ? "insights-results__chip--active" : "",
-																								]
-																									.filter(Boolean)
-																									.join(" ");
-																								return (
-																									<button
-																										key={opt}
-																										type="button"
-																										className={chipClasses}
-																										aria-pressed={isSelected}
-																										onClick={() => setSelectedChip((prev) => ({ ...prev, [i]: opt }))}
-																									>
-																										{opt}
-																									</button>
-																								);
-																							})}
-																						</div>
-																					) : null}
-
-																					<div className="insights-results__content">
-																						{hasOptions && activeOption === "Transcript"
-																							? (() => {
-																									// Render transcript as chat interface
-																									const transcript = row.transcript;
-																									console.log("[DEBUG] Rendering transcript for row", i, transcript);
-																									let chatMessages: { role: "agent" | "user"; content: string }[] = [];
-																									if (typeof transcript === "string") {
-																										const lines = transcript.split(/\n\n+/);
-																										let currentRole: "agent" | "user" | null = null;
-																										let buffer = "";
-																										lines.forEach((line) => {
-																											const trimmed = line.trim();
-																											if (/^Agent:/i.test(trimmed)) {
-																												if (buffer && currentRole) {
-																													chatMessages.push({ role: currentRole, content: buffer.trim() });
-																												}
-																												currentRole = "agent";
-																												buffer = trimmed.replace(/^Agent:/i, "").trim();
-																											} else if (/^User:/i.test(trimmed)) {
-																												if (buffer && currentRole) {
-																													chatMessages.push({ role: currentRole, content: buffer.trim() });
-																												}
-																												currentRole = "user";
-																												buffer = trimmed.replace(/^User:/i, "").trim();
-																											} else {
-																												buffer += (buffer ? "\n" : "") + trimmed;
-																											}
-																										});
-																										if (buffer && currentRole) {
-																											chatMessages.push({ role: currentRole, content: buffer.trim() });
-																										}
-																									} else if (Array.isArray(transcript)) {
-																										chatMessages = transcript;
-																									}
-																									if (!chatMessages.length) {
-																										return (
-																											<div className="insights-results__empty insights-results__empty--content">
-																												<span>No transcript available.</span>
-																												<pre className="insights-results__debug">
-																													{typeof transcript === "undefined"
-																														? "transcript: undefined"
-																														: "transcript: " + JSON.stringify(transcript, null, 2)}
-																												</pre>
-																											</div>
-																										);
-																									}
-																									return (
-																										<div className="insights-chat">
-																											{chatMessages.map((msg, idx) => {
-																												const isAgent = msg.role === "agent";
-																												return (
-																													<div
-																														key={idx}
-																														className={`insights-chat__row ${
-																															isAgent ? "insights-chat__row--agent" : "insights-chat__row--user"
-																														}`}
-																													>
-																														<div
-																															className={`insights-chat__col ${
-																																isAgent ? "insights-chat__col--agent" : "insights-chat__col--user"
-																															}`}
-																														>
-																															<span
-																																className={`insights-chat__label ${
-																																	isAgent ? "insights-chat__label--agent" : "insights-chat__label--user"
-																																}`}
-																														>
-																															{isAgent ? "Chat" : "User"}
-																														</span>
-																															<div
-																																className={`insights-chat__bubble ${
-																																	isAgent ? "insights-chat__bubble--agent" : "insights-chat__bubble--user"
-																																}`}
-																															>
-																																{msg.content}
-																															</div>
-																														</div>
-																													</div>
-																												);
-																											})}
-																										</div>
-																									);
-																							  })()
-																							: hasOptions
-																							? "Sample content."
-																							: null}
-																					</div>
-																				</>
-																			);
-																		})()}
-																	</div>
-																</td>
-															</tr>
-														)}
+														
 								</React.Fragment>
 							))}
 								</tbody>
 							</table>
+							{activeRow && (
+								<SlidingPanelOverlay
+									open
+									title={activeRow.sourceDocument || "Playback details"}
+									description={`Research type: ${activeRow.status}`}
+									onRequestClose={() => setActiveRow(null)}
+									onAfterClose={() => setActiveRow(null)}
+								>
+									<div className="insights-detail-panel">
+										<div className="insights-detail-row">
+											<span>Date</span>
+											<strong>{formatInsightsDate(activeRow.date)}</strong>
+										</div>
+										<div className="insights-detail-row">
+											<span>Owner</span>
+											<strong>{activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}</strong>
+										</div>
+										<div className="insights-detail-row">
+											<span>Research type</span>
+											<strong>{activeRow.status}</strong>
+										</div>
+										{activeRow.briefReport ? (
+											<section>
+												<p className="insights-detail-heading">Short report</p>
+												<p>{activeRow.briefReport}</p>
+											</section>
+										) : null}
+										{activeRow.transcript_summary ? (
+											<section>
+												<p className="insights-detail-heading">Summary</p>
+												<p>{activeRow.transcript_summary}</p>
+											</section>
+										) : null}
+										{activeRow.status === "Questionnaire" && activeRow.transcript ? (
+											<section>
+												<p className="insights-detail-heading">Questionnaire</p>
+												<QuestionnaireResults
+													raw={activeRow.transcript}
+													title="Questionnaire responses"
+												/>
+											</section>
+										) : null}
+									</div>
+								</SlidingPanelOverlay>
+							)}
 							{!loading && !error && rows.length === 0 ? (
 								<div className="insights-empty">No playbacks found matching your filters.</div>
 							) : null}
 						</div>
 					</div>
 					<style>{`
-								@font-face {
-									font-family: 'CooperBT';
-									src: url('/fonts/CooperBT/Cooper Light BT.ttf') format('truetype');
-									font-weight: normal;
-									font-style: normal;
-									font-display: swap;
-								}
-								@keyframes slideDown {
-									from { opacity: 0; transform: translateY(-16px); }
-									to { opacity: 1; transform: translateY(0); }
-								}
-							`}</style>
+							@keyframes slideDown {
+								from { opacity: 0; transform: translateY(-16px); }
+								to { opacity: 1; transform: translateY(0); }
+							}
+						`}</style>
 					</StagePanel>
 				</div>
 				</div>
@@ -1035,7 +612,7 @@ export default function InsightsTable() {
 				.stage-layout {
 					background: var(--bg, #f4f8ff);
 					padding: 0;
-					font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+						font-family: 'Cooper', 'Helvetica Neue', sans-serif;
 					display: flex;
 					flex-direction: row;
 					height: 100%;
@@ -1394,7 +971,7 @@ export default function InsightsTable() {
 				display: flex;
 				align-items: center;
 				gap: 12px;
-				font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+						font-family: 'Cooper', 'Helvetica Neue', sans-serif;
 			}
 			.insights-topbar-controls__search {
 				min-width: 220px;
@@ -1452,7 +1029,7 @@ ease;
 				display: flex;
 				flex-direction: column;
 				gap: 20px;
-				font-family: 'CooperBT', Cooper, 'Cooper Light BT', serif;
+				font-family: 'Cooper', 'Helvetica Neue', sans-serif;
 				transform: translateX(32px);
 				opacity: 0;
 				pointer-events: none;
@@ -1534,7 +1111,8 @@ ease;
 			}
 			.insights-table {
 				width: 100%;
-				border-collapse: collapse;
+				border-collapse: separate;
+				border-spacing: 0 10px;
 				font-size: 15px;
 				background: var(--bg, #f4f8ff);
 			}
@@ -1556,7 +1134,13 @@ ease;
 			}
 			.insights-table__row {
 				background: none;
-				border-bottom: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
+			}
+			.insights-table__row--clickable {
+				cursor: pointer;
+			}
+			.insights-table__row--clickable:focus-visible {
+				outline: 3px solid rgba(59, 130, 246, 0.45);
+				outline-offset: -1px;
 			}
 			.insights-table__cell {
 				padding: 10px 8px;
@@ -1586,6 +1170,24 @@ ease;
 			.insights-action-button__chevron--open {
 				transform: rotate(180deg);
 			}
+			.insights-detail-panel {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+			.insights-detail-row {
+				display: flex;
+				justify-content: space-between;
+				font-size: 14px;
+				color: rgba(15, 23, 42, 0.78);
+			}
+			.insights-detail-heading {
+				margin: 0 0 4px;
+				font-size: 13px;
+				color: rgba(15, 23, 42, 0.62);
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+			}
 			.sr-only {
 				position: absolute;
 				width: 1px;
@@ -1600,81 +1202,6 @@ ease;
 			.insights-table__expanded-cell {
 				padding: 0;
 				background: var(--panel, #F6F7F9fff);
-			}
-			.insights-results {
-				padding: 18px 32px;
-				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.12);
-				border-top: none;
-				border-bottom-left-radius: 12px;
-				border-bottom-right-radius: 12px;
-				box-shadow: 0 4px 18px rgba(2,6,23,0.06);
-				animation: slideDown 0.32s cubic-bezier(.4,2,.6,1);
-				height: 420px;
-				max-height: 420px;
-				overflow: hidden;
-				display: flex;
-				flex-direction: column;
-				gap: 20px;
-			}
-			.insights-results__chips {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 16px;
-				margin-bottom: 4px;
-			}
-			.insights-results__chip {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				padding: 7px 18px;
-				border-radius: 999px;
-				background: var(--panel, #F6F7F9fff);
-				color: var(--accent-2, #7fb3ff);
-				font-weight: 600;
-				font-size: 14px;
-				cursor: pointer;
-				border: 1px solid rgba(var(--accent-rgb, 43,108,176),0.08);
-				box-shadow: 0 2px 8px rgba(2,6,23,0.04);
-				transition: background 0.18s ease, color 0.18s ease, border 0.18s ease;
-				line-height: 1;
-				font-family: inherit;
-				outline: none;
-			}
-			.insights-results__chip--active {
-				background: rgba(var(--accent-rgb, 43,108,176),0.16);
-				color: #f6f7f9;
-				border: 2px solid rgba(var(--accent-rgb, 43,108,176),0.22);
-				box-shadow: 0 2px 12px rgba(2,6,23,0.06);
-			}
-			.insights-results__chip:focus-visible {
-				outline: 3px solid rgba(var(--accent-rgb, 43,108,176),0.32);
-				outline-offset: 2px;
-			}
-			.insights-results__content {
-				color: var(--accent-2, #7ea0e6);
-				font-size: 15px;
-				min-height: 32px;
-				padding-left: 2px;
-				flex: 1;
-				overflow-y: auto;
-			}
-			.insights-results__empty {
-				color: var(--muted, #7b8aa8);
-				font-size: 14px;
-				padding: 8px 12px;
-			}
-			.insights-results__empty--content {
-				padding: 0;
-				font-size: 15px;
-			}
-			.insights-results__debug {
-				color: var(--accent, #2b6cb0);
-				background: var(--panel-2, #f1f7ff);
-				font-size: 12px;
-				margin-top: 8px;
-				padding: 8px;
-				border-radius: 6px;
-				overflow-x: auto;
 			}
 			.insights-questionnaire {
 				display: flex;
