@@ -4619,71 +4619,76 @@ export default function PersonasPage() {
                               const isDescriptionEditing = descriptionEditingPersonaId === persona.agent_id;
                               const isDocumentsEditing = canEdit && documentsEditingPersonaId === persona.agent_id;
                               return (
-                                <React.Fragment key={`persona-list-${persona.agent_id}`}>
-                                  <tr
-                                    className="personas-list-row"
-                                    data-ready={isReady ? "true" : "false"}
-                                    data-expanded={isExpanded ? "true" : "false"}
-                                    tabIndex={isReady ? 0 : undefined}
-                                    onClick={() => {
-                                      if (!isReady) return;
-                                      handleTogglePersonaCard(persona);
-                                    }}
-                                    onKeyDown={(event) => {
-                                      if (!isReady) return;
-                                      handlePersonaCardKeyDown(event, persona);
-                                    }}
-                                    aria-expanded={isReady ? (isExpanded ? "true" : "false") : undefined}
-                                    title={!isReady ? `${statusText}. Persona setup in progress.` : undefined}
-                                  >
-                                    <td className="personas-list-cell personas-list-cell--persona">
-                                      <div className="personas-list-persona">
-                                        <div className="personas-list-avatar">
-                                          {profileImageUrl ? (
-                                            <img src={profileImageUrl} alt={profileImageAlt} />
-                                          ) : (
-                                            <span aria-hidden="true">{personaInitial}</span>
-                                          )}
+                                <tr
+                                  key={`persona-list-${persona.agent_id}`}
+                                  className="personas-list-row"
+                                  data-ready={isReady ? "true" : "false"}
+                                  data-expanded={isExpanded ? "true" : "false"}
+                                >
+                                  <td colSpan={4} className="personas-list-cell personas-list-card-cell">
+                                    <div
+                                      className="personas-list-card persona-card-button"
+                                      role="button"
+                                      tabIndex={isReady ? 0 : undefined}
+                                      onClick={() => {
+                                        if (!isReady) return;
+                                        handleTogglePersonaCard(persona);
+                                      }}
+                                      onKeyDown={(event) => {
+                                        if (!isReady) return;
+                                        handlePersonaCardKeyDown(event, persona);
+                                      }}
+                                      aria-expanded={isReady ? (isExpanded ? "true" : "false") : undefined}
+                                      aria-disabled={!isReady}
+                                      title={!isReady ? `${statusText}. Persona setup in progress.` : undefined}
+                                    >
+                                      <div className="personas-list-card__header">
+                                        <div className="personas-list-card__group personas-list-card__group--persona">
+                                          <div className="personas-list-avatar">
+                                            {profileImageUrl ? (
+                                              <img src={profileImageUrl} alt={profileImageAlt} />
+                                            ) : (
+                                              <span aria-hidden="true">{personaInitial}</span>
+                                            )}
+                                          </div>
+                                          <div className="personas-list-meta">
+                                            <span className="personas-list-name">{persona.agent_name ?? "Untitled persona"}</span>
+                                            {!isReady ? (
+                                              <span className="personas-list-status">{statusText}</span>
+                                            ) : null}
+                                          </div>
                                         </div>
-                                        <div className="personas-list-meta">
-                                          <span className="personas-list-name">{persona.agent_name ?? "Untitled persona"}</span>
-                                          {!isReady ? (
-                                            <span className="personas-list-status">{statusText}</span>
-                                          ) : null}
+                                        <div className="personas-list-card__group personas-list-card__group--placeholder">
+                                          <span
+                                            className="personas-list-placeholder"
+                                            title={roleTitle ?? undefined}
+                                          >
+                                            {roleTitle ?? "—"}
+                                          </span>
+                                        </div>
+                                        <div className="personas-list-card__group personas-list-card__group--completion">
+                                          <div className="personas-list-completion-wrapper">
+                                            <span className="personas-list-completion-label">COMPLETION</span>
+                                            <span
+                                              className={`personas-list-completion personas-list-completion--${completionVariant}`}
+                                            >
+                                              {completionPercent}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="personas-list-card__group personas-list-card__group--status">
+                                          <span
+                                            className={`personas-list-status-pill personas-list-status-pill--${statusVariant}`}
+                                          >
+                                            {statusLabel}
+                                          </span>
                                         </div>
                                       </div>
-                                    </td>
-                                    <td className="personas-list-cell personas-list-cell--placeholder">
-                                      <span
-                                        className="personas-list-placeholder"
-                                        title={roleTitle ?? undefined}
-                                      >
-                                        {roleTitle ?? "—"}
-                                      </span>
-                                    </td>
-                                    <td className="personas-list-cell personas-list-cell--completion">
-                                      <div className="personas-list-completion-wrapper">
-                                        <span className="personas-list-completion-label">COMPLETION</span>
-                                        <span
-                                          className={`personas-list-completion personas-list-completion--${completionVariant}`}
+                                      {isExpanded ? (
+                                        <div
+                                          className="personas-list-expanded"
+                                          data-persona-id={persona.agent_id}
                                         >
-                                          {completionPercent}%
-                                        </span>
-                                      </div>
-                                    </td>
-                                    <td className="personas-list-cell personas-list-cell--status">
-                                      <span
-                                        className={`personas-list-status-pill personas-list-status-pill--${statusVariant}`}
-                                      >
-                                        {statusLabel}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                  {isExpanded ? (
-                                    <tr className="personas-list-expanded-row">
-                                      <td colSpan={4} className="personas-list-expanded-cell">
-                                        {/* Keep expanded content in sync with grid view dropdown */}
-                                        <div className="personas-list-expanded" data-persona-id={persona.agent_id}>
                                           <div
                                             className="persona-card persona-card--list-expanded"
                                             style={{
@@ -4701,263 +4706,262 @@ export default function PersonasPage() {
                                                   aria-label="Persona overview sections"
                                                 >
                                                   <div className="persona-expanded-track">
-                                                    <div className="persona-expanded-block persona-expanded-block--description">
-                                                      <div className="persona-expanded-block__header persona-expanded-block__header--description">
-                                                        <h4>Description</h4>
-                                                      </div>
-                                                      <div
-                                                        className={`persona-description${
-                                                          isDescriptionEditing
-                                                            ? " persona-description--editing"
-                                                            : hasDescription
-                                                              ? ""
-                                                              : " persona-description--empty"
-                                                        }`}
-                                                        style={
-                                                          isDescriptionEditing && canEdit ? { height: "100%" } : undefined
-                                                        }
-                                                      >
-                                                        {isDescriptionEditing && canEdit ? (
-                                                          <>
-                                                            <textarea
-                                                              className="persona-description__input"
-                                                              value={descriptionDraft}
-                                                              onChange={(event) => setDescriptionDraft(event.target.value)}
-                                                              onClick={(event) => event.stopPropagation()}
-                                                              onFocus={(event) => event.stopPropagation()}
-                                                              onKeyDown={(event) => event.stopPropagation()}
-                                                              onKeyUp={(event) => event.stopPropagation()}
-                                                              disabled={isSavingDescriptionInline}
-                                                              rows={hasDescription ? 5 : 6}
-                                                              placeholder="Add a description for this persona"
-                                                            />
-                                                            {descriptionInlineError ? (
-                                                              <p className="persona-inline-error">{descriptionInlineError}</p>
-                                                            ) : null}
-                                                          </>
-                                                        ) : (
-                                                          <p>{descriptionText}</p>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                    <div
-                                                      className={`persona-expanded-block${
-                                                        isDocumentsEditing ? " persona-expanded-block--documents" : ""
-                                                      }`}
-                                                    >
-                                                      <div className="persona-expanded-block__header">
-                                                        <h4>Internal Data</h4>
-                                                        {documentsUpdatedAt ? (
-                                                          <span className="persona-updated-chip">
-                                                            Updated {formatDate(documentsUpdatedAt)}
-                                                          </span>
-                                                        ) : null}
-                                                      </div>
-                                                      {isDocumentsEditing ? (
-                                                        <>
-                                                          {documentsActionError ? (
-                                                            <p className="persona-inline-error">{documentsActionError}</p>
-                                                          ) : null}
-                                                          {documentsLoading ? (
-                                                            <div className="persona-edit-documents--empty">Loading data sources…</div>
-                                                          ) : documentsError ? (
-                                                            <div className="persona-edit-documents--empty">Unable to load data sources.</div>
-                                                          ) : documents.length === 0 ? (
-                                                            <div className="persona-edit-documents--empty">No data sources added yet.</div>
-                                                          ) : (
-                                                            <div className="persona-edit-documents persona-edit-documents--inline" role="list">
-                                                              {documents.map((doc) => {
-                                                                const metaParts: string[] = [];
-                                                                const title = doc.file_name && doc.file_name.trim().length > 0 ? doc.file_name.trim() : "Untitled document";
-                                                                const trimmedSource = doc.source && doc.source.trim().length > 0 ? doc.source.trim() : null;
-                                                                if (trimmedSource) {
-                                                                  metaParts.push(trimmedSource);
-                                                                } else if (doc.mime_type && doc.mime_type.trim().length > 0) {
-                                                                  metaParts.push(doc.mime_type.trim());
-                                                                }
-                                                                if (typeof doc.file_size === "number" && doc.file_size > 0) {
-                                                                  metaParts.push(formatBytes(doc.file_size));
-                                                                }
-                                                                const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
-                                                                if (createdLabel && createdLabel !== "—") {
-                                                                  metaParts.push(createdLabel);
-                                                                }
-                                                                const displayTitle =
-                                                                  title.length > DOCUMENT_TITLE_MAX_CHARS
-                                                                    ? `${title.slice(0, DOCUMENT_TITLE_MAX_CHARS).trimEnd()}…`
-                                                                    : title;
-                                                                return (
-                                                                  <div key={doc.id} className="persona-edit-document-card" role="listitem">
-                                                                    <button
-                                                                      type="button"
-                                                                      className="persona-edit-document-close"
-                                                                      onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        void handleRemoveDocument(doc);
-                                                                      }}
-                                                                      aria-label={`Remove ${title}`}
-                                                                      disabled={isSavingDocuments}
-                                                                    >
-                                                                      ×
-                                                                    </button>
-                                                                    <div className="persona-edit-document-meta">
-                                                                      <strong className="persona-edit-document-title" title={title}>{displayTitle}</strong>
-                                                                      {metaParts.length > 0 ? (
-                                                                        <span className="persona-edit-document-details">{metaParts.join(" · ")}</span>
-                                                                      ) : null}
-                                                                    </div>
-                                                                    <div className="persona-edit-document-actions">
-                                                                      {doc.public_url ? (
-                                                                        <a
-                                                                          className="persona-edit-document-open"
-                                                                          href={doc.public_url}
-                                                                          target="_blank"
-                                                                          rel="noopener noreferrer"
-                                                                        >
-                                                                          Open
-                                                                        </a>
-                                                                      ) : null}
-                                                                    </div>
-                                                                  </div>
-                                                                );
-                                                              })}
-                                                            </div>
-                                                          )}
-                                                          <PillButton
-                                                            type="button"
-                                                            variant="subtle"
-                                                            className="persona-expanded-add persona-expanded-add--floating"
-                                                            onClick={(event) => {
-                                                              event.stopPropagation();
-                                                              handleDataSourceUploadClick(persona.agent_id);
-                                                            }}
-                                                            disabled={isSavingDocuments || isUploadingDocument}
-                                                            aria-label="Upload data source"
-                                                          >
-                                                            <span className="persona-expanded-add__icon" aria-hidden="true">
-                                                              +
-                                                            </span>
-                                                          </PillButton>
-                                                          {isSavingDocuments ? (
-                                                            <span className="persona-edit-status persona-edit-status--documents">
-                                                              {isUploadingDocument ? "Uploading…" : "Saving…"}
-                                                            </span>
-                                                          ) : null}
-                                                        </>
-                                                      ) : (
-                                                        <ul className="persona-expanded-list">
-                                                          {documents.length > 0 ? (
-                                                            documents.map((doc) => {
-                                                              const metaParts: string[] = [];
-                                                              const title = doc.file_name && doc.file_name.trim().length > 0 ? doc.file_name.trim() : "Untitled document";
-                                                              const trimmedSource = doc.source && doc.source.trim().length > 0 ? doc.source.trim() : null;
-                                                              const hasMeaningfulSource =
-                                                                trimmedSource && trimmedSource.toLowerCase() !== "storage";
-                                                              if (hasMeaningfulSource) {
-                                                                metaParts.push(trimmedSource as string);
-                                                              } else if (doc.mime_type && doc.mime_type.trim().length > 0) {
-                                                                metaParts.push(doc.mime_type.trim());
-                                                              }
-                                                              if (typeof doc.file_size === "number" && doc.file_size > 0) {
-                                                                const sizeInKb = doc.file_size / 1024;
-                                                                const sizeLabel = sizeInKb >= 1024
-                                                                  ? `${(sizeInKb / 1024).toFixed(1)} MB`
-                                                                  : `${Math.max(sizeInKb, 1).toFixed(0)} KB`;
-                                                                metaParts.push(sizeLabel);
-                                                              }
-                                                              const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
-                                                              if (createdLabel && createdLabel !== "—") {
-                                                                metaParts.push(createdLabel);
-                                                              }
-                                                              return (
-                                                                <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
-                                                                  <div className="persona-expanded-list-item persona-expanded-list-item--document">
-                                                                    <span className="persona-doc-title">{title}</span>
-                                                                    {metaParts.length > 0 ? (
-                                                                      <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
-                                                                    ) : null}
-                                                                  </div>
-                                                                </li>
-                                                              );
-                                                            })
-                                                          ) : (
-                                                            <li>
-                                                              <div className="persona-expanded-list-item">
-                                                                {documentsLoading
-                                                                  ? "Loading data sources…"
-                                                                  : documentsError
-                                                                    ? "Unable to load data sources."
-                                                                    : "No data sources added yet."}
-                                                              </div>
-                                                            </li>
-                                                          )}
-                                                        </ul>
-                                                      )}
-                                                    </div>
-                                                    <div className="persona-expanded-block">
-                                                      <div className="persona-expanded-block__header">
-                                                        <h4>External Data</h4>
-                                                        {externalUpdatedAt ? (
-                                                          <span className="persona-updated-chip">
-                                                            Updated {formatDate(externalUpdatedAt)}
-                                                          </span>
-                                                        ) : null}
-                                                      </div>
-                                                      <ul className="persona-expanded-list">
-                                                        {externalArticles.length > 0 ? (
-                                                          externalArticles.map((article, extIndex) => {
-                                                            const displayTitle = article.title || article.url || "Untitled source";
-                                                            return (
-                                                              <li key={`external-article-${persona.agent_id}-${extIndex}`}>
-                                                                <div className="persona-expanded-list-item persona-expanded-list-item--document">
-                                                                  {article.url ? (
-                                                                    <a
-                                                                      href={article.url}
-                                                                      target="_blank"
-                                                                      rel="noreferrer"
-                                                                      className="persona-doc-title"
-                                                                    >
-                                                                      {displayTitle}
-                                                                    </a>
-                                                                  ) : (
-                                                                    <span className="persona-doc-title">{displayTitle}</span>
-                                                                  )}
-                                                                  {article.url ? (
-                                                                    <span className="persona-doc-meta">{article.url}</span>
-                                                                  ) : null}
-                                                                </div>
-                                                              </li>
-                                                            );
-                                                          })
-                                                        ) : externalKnowledgeText ? (
-                                                          <li>
-                                                            <div className="persona-expanded-list-item">
-                                                              {externalKnowledgeText}
-                                                            </div>
-                                                          </li>
-                                                        ) : (
-                                                          <li>
-                                                            <div className="persona-expanded-list-item">
-                                                              {externalArticlesLoading
-                                                                ? "Loading external data sources…"
-                                                                : externalArticlesError
-                                                                  ? externalArticlesError
-                                                                  : "External data sources will appear automatically after creating your persona."}
-                                                            </div>
-                                                          </li>
-                                                        )}
-                                                      </ul>
-                                                    </div>
-                                                  </div>
+                            <div className="persona-expanded-block persona-expanded-block--description">
+                              <div className="persona-expanded-block__header persona-expanded-block__header--description">
+                                <h4>Description</h4>
+                              </div>
+                              <div
+                                className={`persona-description${
+                                  isDescriptionEditing
+                                    ? " persona-description--editing"
+                                    : hasDescription
+                                      ? ""
+                                      : " persona-description--empty"
+                                }`}
+                                style={isDescriptionEditing && canEdit ? { height: "100%" } : undefined}
+                              >
+                                {isDescriptionEditing && canEdit ? (
+                                  <>
+                                    <textarea
+                                      className="persona-description__input"
+                                      value={descriptionDraft}
+                                      onChange={(event) => setDescriptionDraft(event.target.value)}
+                                      onClick={(event) => event.stopPropagation()}
+                                      onFocus={(event) => event.stopPropagation()}
+                                      onKeyDown={(event) => event.stopPropagation()}
+                                      onKeyUp={(event) => event.stopPropagation()}
+                                      disabled={isSavingDescriptionInline}
+                                      rows={hasDescription ? 5 : 6}
+                                      placeholder="Add a description for this persona"
+                                    />
+                                    {descriptionInlineError ? (
+                                      <p className="persona-inline-error">{descriptionInlineError}</p>
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  <p>{descriptionText}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={`persona-expanded-block${
+                                isDocumentsEditing ? " persona-expanded-block--documents" : ""
+                              }`}
+                            >
+                              <div className="persona-expanded-block__header">
+                                <h4>Internal Data</h4>
+                                {documentsUpdatedAt ? (
+                                  <span className="persona-updated-chip">
+                                    Updated {formatDate(documentsUpdatedAt)}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {isDocumentsEditing ? (
+                                <>
+                                  {documentsActionError ? (
+                                    <p className="persona-inline-error">{documentsActionError}</p>
+                                  ) : null}
+                                  {documentsLoading ? (
+                                    <div className="persona-edit-documents--empty">Loading data sources…</div>
+                                  ) : documentsError ? (
+                                    <div className="persona-edit-documents--empty">Unable to load data sources.</div>
+                                  ) : documents.length === 0 ? (
+                                    <div className="persona-edit-documents--empty">No data sources added yet.</div>
+                                  ) : (
+                                    <div className="persona-edit-documents persona-edit-documents--inline" role="list">
+                                      {documents.map((doc) => {
+                                        const metaParts: string[] = [];
+                                        const title = doc.file_name && doc.file_name.trim().length > 0 ? doc.file_name.trim() : "Untitled document";
+                                        const trimmedSource = doc.source && doc.source.trim().length > 0 ? doc.source.trim() : null;
+                                        if (trimmedSource) {
+                                          metaParts.push(trimmedSource);
+                                        } else if (doc.mime_type && doc.mime_type.trim().length > 0) {
+                                          metaParts.push(doc.mime_type.trim());
+                                        }
+                                        if (typeof doc.file_size === "number" && doc.file_size > 0) {
+                                          metaParts.push(formatBytes(doc.file_size));
+                                        }
+                                        const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
+                                        if (createdLabel && createdLabel !== "—") {
+                                          metaParts.push(createdLabel);
+                                        }
+                                        const displayTitle =
+                                          title.length > DOCUMENT_TITLE_MAX_CHARS
+                                            ? `${title.slice(0, DOCUMENT_TITLE_MAX_CHARS).trimEnd()}…`
+                                            : title;
+                                        return (
+                                          <div key={doc.id} className="persona-edit-document-card" role="listitem">
+                                            <button
+                                              type="button"
+                                              className="persona-edit-document-close"
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                void handleRemoveDocument(doc);
+                                              }}
+                                              aria-label={`Remove ${title}`}
+                                              disabled={isSavingDocuments}
+                                            >
+                                              ×
+                                            </button>
+                                            <div className="persona-edit-document-meta">
+                                              <strong className="persona-edit-document-title" title={title}>{displayTitle}</strong>
+                                              {metaParts.length > 0 ? (
+                                                <span className="persona-edit-document-details">{metaParts.join(" · ")}</span>
+                                              ) : null}
+                                            </div>
+                                            <div className="persona-edit-document-actions">
+                                              {doc.public_url ? (
+                                                <a
+                                                  className="persona-edit-document-open"
+                                                  href={doc.public_url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                >
+                                                  Open
+                                                </a>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  <PillButton
+                                    type="button"
+                                    variant="subtle"
+                                    className="persona-expanded-add persona-expanded-add--floating"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleDataSourceUploadClick(persona.agent_id);
+                                    }}
+                                    disabled={isSavingDocuments || isUploadingDocument}
+                                    aria-label="Upload data source"
+                                  >
+                                    <span className="persona-expanded-add__icon" aria-hidden="true">
+                                      +
+                                    </span>
+                                  </PillButton>
+                                  {isSavingDocuments ? (
+                                    <span className="persona-edit-status persona-edit-status--documents">
+                                      {isUploadingDocument ? "Uploading…" : "Saving…"}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <ul className="persona-expanded-list">
+                                  {documents.length > 0 ? (
+                                    documents.map((doc) => {
+                                      const metaParts: string[] = [];
+                                      const title = doc.file_name && doc.file_name.trim().length > 0 ? doc.file_name.trim() : "Untitled document";
+                                      const trimmedSource = doc.source && doc.source.trim().length > 0 ? doc.source.trim() : null;
+                                      const hasMeaningfulSource =
+                                        trimmedSource && trimmedSource.toLowerCase() !== "storage";
+                                      if (hasMeaningfulSource) {
+                                        metaParts.push(trimmedSource as string);
+                                      } else if (doc.mime_type && doc.mime_type.trim().length > 0) {
+                                        metaParts.push(doc.mime_type.trim());
+                                      }
+                                      if (typeof doc.file_size === "number" && doc.file_size > 0) {
+                                        const sizeInKb = doc.file_size / 1024;
+                                        const sizeLabel = sizeInKb >= 1024
+                                          ? `${(sizeInKb / 1024).toFixed(1)} MB`
+                                          : `${Math.max(sizeInKb, 1).toFixed(0)} KB`;
+                                        metaParts.push(sizeLabel);
+                                      }
+                                      const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
+                                      if (createdLabel && createdLabel !== "—") {
+                                        metaParts.push(createdLabel);
+                                      }
+                                      return (
+                                        <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
+                                          <div className="persona-expanded-list-item persona-expanded-list-item--document">
+                                            <span className="persona-doc-title">{title}</span>
+                                            {metaParts.length > 0 ? (
+                                              <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
+                                            ) : null}
+                                          </div>
+                                        </li>
+                                      );
+                                    })
+                                  ) : (
+                                    <li>
+                                      <div className="persona-expanded-list-item">
+                                        {documentsLoading
+                                          ? "Loading data sources…"
+                                          : documentsError
+                                            ? "Unable to load data sources."
+                                            : "No data sources added yet."}
+                                      </div>
+                                    </li>
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                            <div className="persona-expanded-block">
+                              <div className="persona-expanded-block__header">
+                                <h4>External Data</h4>
+                                {externalUpdatedAt ? (
+                                  <span className="persona-updated-chip">
+                                    Updated {formatDate(externalUpdatedAt)}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <ul className="persona-expanded-list">
+                                {externalArticles.length > 0 ? (
+                                  externalArticles.map((article, index) => {
+                                    const displayTitle = article.title || article.url || "Untitled source";
+                                    return (
+                                      <li key={`external-article-${persona.agent_id}-${index}`}>
+                                        <div className="persona-expanded-list-item persona-expanded-list-item--document">
+                                          {article.url ? (
+                                            <a
+                                              href={article.url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="persona-doc-title"
+                                            >
+                                              {displayTitle}
+                                            </a>
+                                          ) : (
+                                            <span className="persona-doc-title">{displayTitle}</span>
+                                          )}
+                                          {article.url ? (
+                                            <span className="persona-doc-meta">{article.url}</span>
+                                          ) : null}
+                                        </div>
+                                      </li>
+                                    );
+                                  })
+                                ) : externalKnowledgeText ? (
+                                  <li>
+                                    <div className="persona-expanded-list-item">
+                                      {externalKnowledgeText}
+                                    </div>
+                                  </li>
+                                ) : (
+                                  <li>
+                                    <div className="persona-expanded-list-item">
+                                      {externalArticlesLoading
+                                        ? "Loading external data sources…"
+                                        : externalArticlesError
+                                          ? externalArticlesError
+                                          : "External data sources will appear automatically after creating your persona."}
+                                    </div>
+                                  </li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
                                                 </div>
+
                                               </div>
                                             </div>
                                           </div>
                                         </div>
-                                      </td>
-                                    </tr>
-                                  ) : null}
-                                </React.Fragment>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                </tr>
                               );
                             })
                           )}
@@ -6153,7 +6157,7 @@ export default function PersonasPage() {
             background: rgba(248, 250, 252, 0.68);
           }
           .personas-list-expanded-cell {
-            padding: 0 24px 32px;
+            padding: 0 0px 34px;
             border-top: 1px solid rgba(15, 23, 42, 0.08);
             background: rgba(248, 250, 252, 0.65);
           }
@@ -6202,6 +6206,9 @@ export default function PersonasPage() {
           }
           .personas-list-row + .personas-list-row .personas-list-cell {
             border-top: 1px solid rgba(15, 23, 42, 0.08);
+          }
+          .personas-list-row + .personas-list-row .personas-list-card {
+            margin-top: 18px;
           }
           .personas-list-row--message {
             cursor: default;
@@ -6380,6 +6387,43 @@ export default function PersonasPage() {
             font-size: 13px;
             color: rgba(15, 23, 42, 0.52);
             font-style: italic;
+          }
+          .personas-list-card-cell {
+            padding: 14px;
+            border-radius: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: #f8fafe;
+            box-shadow: 0 12px 18px rgba(15, 23, 42, 0.08);
+          }
+          .personas-list-card {
+            border: none;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 0;
+          }
+          .personas-list-card-button {
+            width: 100%;
+          }
+          .personas-list-card-button:focus-visible {
+            outline: 2px solid rgba(59, 130, 246, 0.8);
+            outline-offset: 4px;
+            border-radius: 16px;
+          }
+          .personas-list-card__header {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+            gap: 16px;
+            align-items: center;
+          }
+          .personas-list-card__group {
+            min-width: 0;
+          }
+          .personas-list-card__group--persona {
+            display: flex;
+            align-items: center;
+            gap: 12px;
           }
           @media (max-width: 960px) {
             .personas-list-scroll {

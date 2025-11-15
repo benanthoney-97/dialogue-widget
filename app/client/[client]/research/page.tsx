@@ -135,6 +135,7 @@ export default function ResearchPage() {
   const handleClearPromptDraft = useCallback(() => {
     setPromptValue(selectedAgent?.watchlistQuery ?? "");
     setPromptSaveError(null);
+    setIsPromptDirty(false);
   }, [selectedAgent]);
 
   const handlePromptSave = useCallback(
@@ -652,7 +653,7 @@ export default function ResearchPage() {
               <div className="research-overlay__header-content">
                 <span>{selectedAgent.personaName}</span>
                 <p className="research-overlay__updated">
-                  Last updated <strong>{formatUpdatedAt(selectedAgent.updatedAt)}</strong>
+                  Last updated <strong>{formatUpdatedAt(selectedAgent.updatedAt)}</strong> <span className="research-overlay__refresh-note">(refreshes weekly)</span>
                 </p>
               </div>
             }
@@ -714,9 +715,12 @@ export default function ResearchPage() {
             </div>
             {isPromptDirty ? (
               <div className="persona-unsaved-banner persona-unsaved-banner--visible research-prompt-banner">
-                <span className="persona-unsaved-message">
-                  You have unsaved changes to this prompt
-                </span>
+                <div className="research-prompt-banner__message">
+                  <span className="persona-unsaved-message">
+                    You have unsaved changes to this prompt
+                  </span>
+                  <span className="research-prompt-banner__refresh">Refreshes weekly</span>
+                </div>
                 <div className="persona-unsaved-actions">
                   <button
                     type="button"
@@ -1052,6 +1056,18 @@ export default function ResearchPage() {
           margin: 0;
           font-size: 12px;
           color: rgba(15, 23, 42, 0.68);
+          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
+        }
+        .research-overlay__updated strong {
+          font-weight: 600;
+          font-family: inherit;
+        }
+        .research-overlay__refresh-note {
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.55);
+          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
+          text-transform: none;
+          margin-left: 6px;
         }
         .research-overlay__close {
           border: none;
@@ -1291,7 +1307,7 @@ export default function ResearchPage() {
           z-index: 1200;
           -webkit-backdrop-filter: blur(4px);
           backdrop-filter: blur(4px);
-          width: min(520px, calc(100vw - 40px));
+          width: min(560px, calc(100vw - 40px));
           opacity: 0;
           pointer-events: none;
           transition: transform 0.3s ease, opacity 0.3s ease, bottom 0.3s ease;
@@ -1300,6 +1316,51 @@ export default function ResearchPage() {
           bottom: 32px;
           opacity: 1;
           pointer-events: auto;
+        }
+        .persona-unsaved-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          justify-content: flex-end;
+        }
+        .research-prompt-banner__message {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .research-prompt-banner__refresh {
+          font-size: 11px;
+          letter-spacing: 0.3px;
+          color: rgba(226, 232, 240, 0.7);
+        }
+        .persona-unsaved-save {
+          display: inline-flex;
+          justify-content: center;
+          border-radius: 12px;
+          border: 1px solid rgba(148, 195, 255, 0.45);
+          background: #ffffff;
+          color: #052033;
+          padding: 8px 18px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.4px;
+          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
+          cursor: pointer;
+        }
+        .persona-unsaved-save:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .persona-unsaved-banner,
+        .persona-unsaved-message,
+        .persona-unsaved-actions button {
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+        }
+        .persona-unsaved-message {
+          flex: 1;
+          text-align: left;
         }
         .agent-row__articles-count {
           font-size: inherit;
@@ -1355,6 +1416,20 @@ export default function ResearchPage() {
         }
         .agent-row--expandable {
           cursor: pointer;
+        }
+        .persona-unsaved-clear {
+          border-radius: 12px;
+          border: 1px solid rgba(148, 195, 255, 0.45);
+          background: transparent;
+          color: rgba(226, 232, 240, 0.85);
+          padding: 8px 18px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.4px;
+          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+          text-transform: none;
         }
         .research-source-logo {
           width: 64px;

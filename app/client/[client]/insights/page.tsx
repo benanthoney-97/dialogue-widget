@@ -1298,6 +1298,12 @@ ease;
 					width: 25%;
 					min-width: 0;
 				}
+				.insights-table__head-cell:last-child,
+				.insights-table__cell:last-child {
+					width: auto;
+					text-align: right;
+					padding-right: 12px;
+				}
 			.insights-table__head-cell {
 				text-align: left;
 				padding: 10px 8px;
