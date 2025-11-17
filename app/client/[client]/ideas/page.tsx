@@ -8,7 +8,7 @@ import { supabase } from "@/app/lib/supabaseClient";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import IdeasOverlayContent from "@/app/components/IdeasOverlayContent";
 import { DevelopmentIdeaRow } from "@/app/types/developmentIdea";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 function formatDate(value: string | null) {
   if (!value) return "Unknown";
@@ -34,6 +34,7 @@ export default function IdeasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeIdea, setActiveIdea] = useState<DevelopmentIdeaRow | null>(null);
+  const [insightsIdea, setInsightsIdea] = useState<DevelopmentIdeaRow | null>(null);
   const [deletionCandidate, setDeletionCandidate] = useState<DevelopmentIdeaRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export default function IdeasPage() {
   const clientIdParam = params?.client;
   const clientId = Array.isArray(clientIdParam) ? clientIdParam[0] ?? "" : clientIdParam ?? "";
 
+  const router = useRouter();
   const [editableTitle, setEditableTitle] = useState(overlayTitle);
   const [titleStatus, setTitleStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const titleSaveTimerRef = useRef<number | null>(null);
@@ -236,7 +238,8 @@ export default function IdeasPage() {
                       <th>Summary title</th>
                       <th>Added</th>
                       <th>Status</th>
-                      <th>Created by</th>
+                      <th>Interviews</th>
+                      <th>Insights</th>
                       <th aria-label="Actions" className="ideas-table__action-header" />
                     </tr>
                   </thead>
@@ -245,20 +248,65 @@ export default function IdeasPage() {
                       const ideaTitle =
                         idea.call_summary_title ?? getSourceDocumentText(idea.body) ?? "Idea";
                       return (
-                        <tr
-                          key={idea.id}
-                          className="ideas-table__row"
-                          onClick={() => setActiveIdea(idea)}
-                        >
-                          <td>{ideaTitle}</td>
-                          <td>{formatDate(idea.received_at)}</td>
-                          <td>
-                            <span className="ideas-table__status">
-                              {idea.development_status ?? "Pending"}
-                            </span>
-                          </td>
-                          <td>{idea.created_by ?? idea.user_id ?? "Unknown"}</td>
-                          <td className="ideas-table__action-cell">
+                        <tr key={idea.id} className="ideas-table__row">
+                        <td>{ideaTitle}</td>
+                        <td>{formatDate(idea.received_at)}</td>
+                        <td>
+                          <span className="ideas-table__status">
+                            {idea.development_status ?? "Pending"}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ideas-table__secondary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveIdea(idea);
+                            }}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="#22325A"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0z"
+                              />
+                            </svg>
+                            Interviews
+                          </button>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ideas-table__secondary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setInsightsIdea(idea);
+                            }}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="#22325A"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0z"
+                              />
+                            </svg>
+                            Insights
+                          </button>
+                        </td>
+                      <td className="ideas-table__action-cell">
                             <button
                               type="button"
                               className="ideas-table__action"
@@ -279,11 +327,9 @@ export default function IdeasPage() {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             >
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6" />
-                              <path d="M14 11v6" />
-                              <path d="M9 6V4h6v2" />
+                              <circle cx="6" cy="12" r="1.5" />
+                              <circle cx="12" cy="12" r="1.5" />
+                              <circle cx="18" cy="12" r="1.5" />
                             </svg>
                             </button>
                           </td>
@@ -353,6 +399,44 @@ export default function IdeasPage() {
         {activeIdea ? <IdeasOverlayContent idea={activeIdea} clientId={clientId} /> : null}
       </SlidingPanelOverlay>
 
+      <SlidingPanelOverlay
+        open={Boolean(insightsIdea)}
+        title={insightsIdea?.call_summary_title ?? "Insights"}
+        description={
+          insightsIdea
+            ? `Added ${formatDate(insightsIdea.received_at)} · Status ${insightsIdea.development_status ?? "Pending"}`
+            : undefined
+        }
+        width="clamp(320px, calc(100vw - var(--stage-topbar-offset, 0px) - 164px), 100vw)"
+        onRequestClose={() => setInsightsIdea(null)}
+        onAfterClose={() => setInsightsIdea(null)}
+      >
+        {insightsIdea ? (
+          <div className="ideas-insights">
+            <section className="ideas-insights__section">
+              <h3>Insights snapshot</h3>
+              <p className="ideas-insights__note">
+                Use the insights panel to review the refined feedback that came out of the most recent simulated
+                interviews. You can reference the transcript summary or capture new observations before exporting.
+              </p>
+              <div className="ideas-insights__summary-card">
+                <p>
+                  {insightsIdea.transcript_summary ?? "Transcript summary not yet available for this idea."}
+                </p>
+              </div>
+            </section>
+            <section className="ideas-insights__section">
+              <h3>What to do next</h3>
+              <ul className="ideas-insights__list">
+                <li>Review patterns across related interviews and add notes for the team.</li>
+                <li>Tag highlights that should influence product or research decisions.</li>
+                <li>Plan outreach if additional follow-up interviews are needed.</li>
+              </ul>
+            </section>
+          </div>
+        ) : null}
+      </SlidingPanelOverlay>
+
       </div>
 
       <style jsx>{`
@@ -405,7 +489,6 @@ export default function IdeasPage() {
           display: inline-flex;
           padding: 4px 10px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.08);
           color: #0f172a;
           font-size: 12px;
           font-weight: 500;
@@ -450,6 +533,22 @@ export default function IdeasPage() {
         .ideas-table__action:hover {
           background: rgba(15, 23, 42, 0.08);
           color: #0f172a;
+        }
+        .ideas-table__secondary {
+          border: none;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #0f172a;
+          background: rgba(59, 130, 246, 0.12);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .ideas-table__secondary:hover {
+          background: rgba(59, 130, 246, 0.2);
         }
         .ideas-delete-overlay {
           position: fixed;
@@ -537,6 +636,43 @@ export default function IdeasPage() {
         .ideas-overlay__title-status {
           font-size: 12px;
           color: rgba(15, 23, 42, 0.6);
+        }
+        .ideas-insights {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .ideas-insights__section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .ideas-insights__section h3 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .ideas-insights__note {
+          margin: 0;
+          color: rgba(15, 23, 42, 0.7);
+          font-size: 14px;
+        }
+        .ideas-insights__summary-card {
+          background: #fff;
+          border: 1px solid rgba(15, 23, 42, 0.1);
+          border-radius: 12px;
+          padding: 14px 16px;
+          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+          font-size: 14px;
+          color: #0f172a;
+        }
+        .ideas-insights__list {
+          margin: 0;
+          padding: 0 0 0 20px;
+          color: rgba(15, 23, 42, 0.7);
+          font-size: 14px;
+          line-height: 1.6;
         }
       `}</style>
     </>

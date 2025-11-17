@@ -479,11 +479,12 @@ export default function InterviewsPage() {
           background: #f5f7ff;
           border-radius: 16px;
           padding: 18px 20px;
-          flex: 1 1 auto;
+          flex: 1 1 0;
           min-height: 0;
           display: flex;
           flex-direction: column;
           gap: 12px;
+          align-self: stretch;
         }
         .interviews-panel__wide-label {
           margin: 0;
@@ -496,7 +497,7 @@ export default function InterviewsPage() {
           flex-direction: column;
           gap: 10px;
           overflow-y: auto;
-          flex: 1 1 auto;
+          flex: 1 1 0;
           padding-right: 4px;
           min-height: 0;
         }
