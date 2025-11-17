@@ -443,11 +443,12 @@ export default function IdeasPage() {
         .insights-stage {
           display: flex;
           min-height: 100vh;
+          background: #fff;
         }
         .insights-stage__content {
           margin-left: var(--sidebar-width);
           flex: 1;
-          background: #f4f8ff;
+          background: #fff;
           min-height: 100vh;
           padding-top: ${TOPBAR_HEIGHT}px;
         }
@@ -470,9 +471,7 @@ export default function IdeasPage() {
           margin-top: 16px;
           background: #fff;
           border-radius: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
           overflow: hidden;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
         }
         table {
           width: 100%;
@@ -500,14 +499,19 @@ export default function IdeasPage() {
           justify-content: flex-end;
         }
         th {
-          background: #f1f5f9;
-          font-size: 12px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(15, 23, 42, 0.7);
+          text-align: left;
+          padding: 10px 8px;
+          color: rgba(15, 23, 42, 0.65);
+          font-size: 13px;
+          font-weight: 700;
+          border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: none;
         }
         .ideas-table__action-header {
-          background: #f1f5f9;
+          background: none;
         }
         tr:hover td {
           background: rgba(15, 23, 42, 0.03);

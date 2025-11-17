@@ -273,49 +273,8 @@ export default function Sidebar() {
     ),
   };
 
-  const agentsItem = {
-    label: "Agents",
-    href: `/client/${clientId}/agents`,
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="#22325a"
-        stroke="#22325a"
-        strokeWidth="0.6"
-      >
-        <circle cx="5" cy="6" r="2" />
-        <path d="M3 10c0-1.5 1.5-2.5 3.5-2.5S10 8.5 10 10" />
-        <circle cx="11" cy="5" r="1.5" />
-        <path d="M9.5 9c0-1 .5-1.5 1.5-1.5s1.5.5 1.5 1.5" />
-      </svg>
-    ),
-  };
-
-  const resultsItem = {
-    label: "Results",
-    href: `/client/${clientId}/results`,
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="#22325a"
-        stroke="#22325a"
-        strokeWidth="0.6"
-      >
-        <rect x="2" y="4" width="4" height="8" rx="1" />
-        <rect x="7" y="6" width="4" height="6" rx="1" />
-        <rect x="12" y="8" width="2" height="4" rx="1" />
-        <path d="M2 12h12" strokeLinecap="round" strokeWidth="1" />
-      </svg>
-    ),
-  };
   const ideaItem = {
-    label: "Ideas",
+    label: "Opportunities",
     href: `/client/${clientId}/ideas`,
     icon: (
       <svg
@@ -331,7 +290,7 @@ export default function Sidebar() {
   };
 
   const buildNavItems: NavItem[] = [ideaItem, interviewsItem];
-  const testNavItems: NavItem[] = [agentsItem, resultsItem];
+  const testNavItems: NavItem[] = [];
   const launchNavItems: NavItem[] = [teamItem, feedbackItem, liveHelpItem];
   const allNavItems: NavItem[] = [
     ...visibleNavItems,
@@ -528,7 +487,7 @@ export default function Sidebar() {
           </Link>
         );
       })}
-  {renderHeading("Build", sectionHeadingMarginTop)}
+        {renderHeading("Refine", sectionHeadingMarginTop)}
   {buildNavItems.map(renderSecondaryNavItem)}
   {renderHeading("Test", sectionHeadingMarginTop)}
   {testNavItems.map(renderSecondaryNavItem)}
