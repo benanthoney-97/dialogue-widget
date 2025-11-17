@@ -18,6 +18,7 @@ type SlidingPanelOverlayProps = {
   className?: string;
   bodyClassName?: string;
   onAfterClose?: () => void;
+  titleElement?: React.ReactNode;
 };
 
 export default function SlidingPanelOverlay({
@@ -33,6 +34,7 @@ export default function SlidingPanelOverlay({
   className = "",
   bodyClassName = "",
   onAfterClose,
+  titleElement,
 }: SlidingPanelOverlayProps) {
   const [isMounted, setIsMounted] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
@@ -109,9 +111,20 @@ export default function SlidingPanelOverlay({
           aria-describedby={descriptionProvided ? resolvedDescriptionId : undefined}
         >
         <header className="sliding-panel-overlay__header">
-          <h2 id={resolvedTitleId} className="sliding-panel-overlay__title">
-            {title}
-          </h2>
+          {titleElement ? (
+            <div
+              id={resolvedTitleId}
+              className="sliding-panel-overlay__title sliding-panel-overlay__title-slot"
+              role="heading"
+              aria-level={2}
+            >
+              {titleElement}
+            </div>
+          ) : (
+            <h2 id={resolvedTitleId} className="sliding-panel-overlay__title">
+              {title}
+            </h2>
+          )}
           <button type="button" className="sliding-panel-overlay__close" onClick={handleCloseClick} aria-label="Close detail panel">
             <svg width="22" height="22" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -182,6 +195,14 @@ export default function SlidingPanelOverlay({
           font-weight: 700;
           color: #052033;
           font-family: ${HEADING_FONT_STACK};
+        }
+        .sliding-panel-overlay__title-slot {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          width: 100%;
+          flex: 1 1 auto;
+          min-width: 0;
         }
         .sliding-panel-overlay__close {
           border: none;

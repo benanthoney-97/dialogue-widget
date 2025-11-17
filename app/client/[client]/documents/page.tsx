@@ -28,6 +28,20 @@ type AgentDocumentRow = {
   added_stage?: string | null;
 };
 
+type DialogueRow = {
+  key?: string;
+  agent_id?: string | null;
+  agent_name?: string | null;
+  audience_type?: string | null;
+  status?: string | null;
+  dialogue_created_date?: string | null;
+};
+
+type PublicUrlResponse = {
+  publicUrl?: string;
+  publicURL?: string;
+};
+
 const PURPOSE_GUIDANCE_TEXTS: Record<string, string> = {
   Prepare: "I want to prepare for a presentation, seminar or meeting using the documents in your knowledge base.",
   Learn: "I want to learn in-depth about the topics discussed in the documents in your knowledge base.",
@@ -55,7 +69,7 @@ function buildPublicUrl(path: string) {
 
 export default function DocumentsPage() {
   const [selectedTab, setSelectedTab] = useState<"documents" | "upload">("documents");
-  const [docs, setDocs] = useState<any[]>([]);
+  const [docs, setDocs] = useState<DialogueRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -166,7 +180,7 @@ export default function DocumentsPage() {
     }));
   };
 
-  const handleProgressToggle = (row: any) => {
+  const handleProgressToggle = (row: DialogueRow) => {
     if (!row || !row.key) return;
     const rowKey = row.key as string;
     setExpandedKey(null);
@@ -178,7 +192,7 @@ export default function DocumentsPage() {
     setDetailsExpandedKey(null);
   };
 
-  const handleRowToggle = (row: any) => {
+  const handleRowToggle = (row: DialogueRow) => {
     if (!row || !row.key) return;
     const rowKey = row.key as string;
     const agentId = typeof row.agent_id === 'string' ? row.agent_id : null;
@@ -198,7 +212,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDetailsToggle = (row: any) => {
+  const handleDetailsToggle = (row: DialogueRow) => {
     if (!row || !row.key) return;
     const rowKey = row.key as string;
     setExpandedKey(null);
@@ -255,9 +269,10 @@ export default function DocumentsPage() {
       if (uploadError) throw new Error(uploadError.message);
 
       const { data: publicUrlData } = await supabase.storage.from('docs').getPublicUrl(storagePath);
+      const publicUrlResponse = (publicUrlData as PublicUrlResponse) ?? {};
       const publicUrl =
-        (publicUrlData as any)?.publicUrl ??
-        (publicUrlData as any)?.publicURL ??
+        publicUrlResponse.publicUrl ??
+        publicUrlResponse.publicURL ??
         buildPublicUrl(storagePath);
 
       const { data: insertedDoc, error: insertError } = await supabase
@@ -292,13 +307,14 @@ export default function DocumentsPage() {
         const { [agentId]: _removed, ...rest } = prev;
         return rest;
       });
-    } catch (e: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       setAgentDocumentDrafts((prev) => ({
         ...prev,
         [agentId]: {
           file: prev[agentId]?.file ?? draft.file,
           saving: false,
-          error: e?.message ?? "Failed to upload document",
+          error: message || "Failed to upload document",
         },
       }));
     }
@@ -1082,7 +1098,8 @@ export default function DocumentsPage() {
                       if (docFetchError) {
                         throw new Error(docFetchError.message);
                       }
-                      documentIds = (docRows ?? []).map((doc: any) => doc?.id).filter((id: any): id is string => typeof id === 'string' && id.length > 0);
+                    const docRowList = (docRows ?? []) as Array<{ id?: string }>;
+                    documentIds = docRowList.map((doc) => doc.id).filter((id): id is string => typeof id === 'string' && id.length > 0);
 
                       const res = await fetch('/api/eleven/delete-agent', {
                         method: 'POST',
@@ -1125,8 +1142,9 @@ export default function DocumentsPage() {
                       });
                     }
                     setConfirmingKey(null);
-                  } catch (e: any) {
-                    setError(e?.message ?? 'Failed to delete');
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    setError(message || 'Failed to delete');
                   } finally {
                     setDeletingKey(null);
                   }
@@ -1240,8 +1258,9 @@ export default function DocumentsPage() {
                       };
                     });
                     setConfirmingDoc(null);
-                  } catch (e: any) {
-                    setDocDeleteError(e?.message ?? 'Failed to delete document');
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    setDocDeleteError(message || 'Failed to delete document');
                   } finally {
                     setDeletingDoc(false);
                   }

@@ -8,6 +8,8 @@ import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
+import ResearchOverlayContent, { AgentResearchRecord } from "@/app/components/ResearchOverlayContent";
+import { useResearchOverlayState } from "@/app/hooks/useResearchOverlayState";
 
 function getClientSlug(pathname: string | null): string {
   if (!pathname) return "";
@@ -20,16 +22,6 @@ type ExternalSource = {
   name: string;
   accent: string;
   logoUrl: string | null;
-};
-
-type AgentResearchRecord = {
-  agentId: string;
-  personaName: string;
-  knowledgeText: string | null;
-  updatedAt: string | null;
-  sourcedArticles: Array<{ title: string; url: string }>;
-  sourcedArticlesCount: number;
-  watchlistQuery: string | null;
 };
 
 function deriveInitials(name: string): string {
@@ -105,17 +97,26 @@ export default function ResearchPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [availableSources, setAvailableSources] = useState<ExternalSource[]>([]);
   const [activeView, setActiveView] = useState<"agent" | "sources">("agent");
-  const [agentResearch, setAgentResearch] = useState<AgentResearchRecord[]>([]);
-  const [agentResearchLoading, setAgentResearchLoading] = useState(false);
-  const [agentResearchError, setAgentResearchError] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<AgentResearchRecord | null>(null);
-  const [promptValue, setPromptValue] = useState("");
-  const [isPromptDirty, setIsPromptDirty] = useState(false);
-  const [isPromptSaving, setIsPromptSaving] = useState(false);
-  const [promptSaveError, setPromptSaveError] = useState<string | null>(null);
+  const {
+    agentResearch,
+    agentResearchLoading,
+    agentResearchError,
+    selectedAgent,
+    selectAgentById,
+    promptValue,
+    isPromptDirty,
+    isPromptSaving,
+    promptSaveError,
+    handlePromptChange,
+    handlePromptSave,
+    handleClearPrompt,
+    handleRemoveSourcedArticle,
+    setSelectedAgent,
+  } = useResearchOverlayState(clientSlug);
   const overlayTitleId = "research-overlay-title";
   const overlayDescriptionId = "research-overlay-description";
   const searchParams = useSearchParams();
+  const [activeOverlayTab, setActiveOverlayTab] = useState<"research" | "prompt">("research");
 
   const knowledgeParagraphs = useMemo(() => {
     const text = selectedAgent?.knowledgeText;
@@ -129,87 +130,10 @@ export default function ResearchPage() {
       ));
   }, [selectedAgent?.knowledgeText]);
   useEffect(() => {
-    setPromptValue(selectedAgent?.watchlistQuery ?? "");
-    setIsPromptDirty(false);
-    setPromptSaveError(null);
-  }, [selectedAgent]);
-
-  useEffect(() => {
     const agentIdFromParam = searchParams?.get("agentId") ?? null;
     if (!agentIdFromParam) return;
-    if (!agentResearch.length) return;
-    if (selectedAgent && selectedAgent.agentId === agentIdFromParam) return;
-    const matched = agentResearch.find((record) => record.agentId === agentIdFromParam);
-    if (matched) {
-      setSelectedAgent(matched);
-    }
-  }, [agentResearch, searchParams, selectedAgent]);
-
-  const handleClearPromptDraft = useCallback(() => {
-    setPromptValue(selectedAgent?.watchlistQuery ?? "");
-    setPromptSaveError(null);
-    setIsPromptDirty(false);
-  }, [selectedAgent]);
-
-  const handlePromptSave = useCallback(
-    async (value: string) => {
-      if (!clientSlug || !selectedAgent) return;
-      const trimmed = value.trim();
-      const current = selectedAgent.watchlistQuery ?? "";
-      if (trimmed === current) {
-        setPromptValue(value);
-        setIsPromptDirty(false);
-        return;
-      }
-
-      setIsPromptSaving(true);
-      setPromptSaveError(null);
-      try {
-        const response = await fetch(`/api/clients/${clientSlug}/watchlist`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            agentId: selectedAgent.agentId,
-            query: trimmed || null,
-          }),
-        });
-        const payload = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          const errorMessage =
-            payload?.error ?? payload?.message ?? `Unable to save prompt (${response.status})`;
-          setPromptSaveError(errorMessage);
-          return;
-        }
-        if (payload?.error) {
-          setPromptSaveError(payload.error);
-          return;
-        }
-
-        const savedQuery = typeof payload?.query === "string" ? payload.query.trim() : null;
-        setAgentResearch((prev) =>
-          prev.map((record) =>
-            record.agentId === selectedAgent.agentId ? { ...record, watchlistQuery: savedQuery } : record
-          )
-        );
-        setSelectedAgent((prev) => (prev ? { ...prev, watchlistQuery: savedQuery } : prev));
-        setPromptValue(savedQuery ?? "");
-        setIsPromptDirty(false);
-      } catch (error) {
-        console.error("[Research] Failed to save prompt", error);
-        setPromptSaveError("Unable to save prompt.");
-      } finally {
-        setIsPromptSaving(false);
-      }
-    },
-    [clientSlug, selectedAgent]
-  );
-
-  useEffect(() => {
-    console.log("[Research] promptValue changed", { promptValue, isPromptDirty });
-  }, [promptValue, isPromptDirty]);
+    selectAgentById(agentIdFromParam);
+  }, [searchParams, selectAgentById]);
 
   const handleCreatePersona = useCallback(() => {
     if (clientSlug) {
@@ -228,6 +152,10 @@ export default function ResearchPage() {
     const targetPath = `${pathname}${search ? `?${search}` : ""}`;
     router.replace(targetPath, { scroll: false });
   }, [pathname, router, searchParams]);
+
+  const handlePromptSaveCurrent = useCallback(() => {
+    void handlePromptSave(promptValue);
+  }, [handlePromptSave, promptValue]);
 
   useEffect(() => {
     if (!clientSlug) return;
@@ -692,103 +620,32 @@ export default function ResearchPage() {
               <div className="research-overlay__header-content">
                 <span>{selectedAgent.personaName}</span>
                 <p className="research-overlay__updated">
-                  Last updated <strong>{formatUpdatedAt(selectedAgent.updatedAt)}</strong> <span className="research-overlay__refresh-note">(refreshes weekly)</span>
+                  Last updated{" "}
+                  <strong>{formatUpdatedAt(selectedAgent.updatedAt)}</strong>{" "}
+                  <span className="research-overlay__refresh-note">(refreshes weekly)</span>
                 </p>
               </div>
             }
             titleId={overlayTitleId}
             descriptionId={overlayDescriptionId}
-            actions={
-              <div className="research-overlay__actions-stack">
-                <button
-                  type="button"
-                  className="research-overlay__actions-button"
-                >
-                  Add article
-                </button>
-                {selectedAgent.sourcedArticles.length > 0 ? (
-                  <section className="research-overlay__sources" aria-label="Source articles">
-                    <p className="research-overlay__sources-heading">Sourced articles</p>
-                    <ul>
-                      {selectedAgent.sourcedArticles.map((article) => (
-                        <li key={article.url}>
-                          <a href={article.url} target="_blank" rel="noreferrer">
-                            {article.title}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ) : null}
-              </div>
-            }
           >
-            <div id={overlayDescriptionId} className="research-overlay__body">
-              <div className="research-overlay__main" role="group" aria-labelledby={overlayTitleId}>
-                <section className="research-overlay__snapshot-panel" aria-label="Research prompt">
-                  <p className="research-overlay__placeholder-heading">Research Prompt</p>
-                  <textarea
-                    className="research-overlay__prompt-input"
-                    value={promptValue}
-                    placeholder="No research prompt captured for this persona."
-            onChange={(event) => {
-              setPromptValue(event.target.value);
-              setIsPromptDirty(true);
-            }}
-                    disabled={isPromptSaving}
-                    rows={4}
-                  />
-                  <div className="research-overlay__prompt-status">
-                    {isPromptSaving ? (
-                      <span>Saving…</span>
-                    ) : promptSaveError ? (
-                      <span className="research-overlay__prompt-error">{promptSaveError}</span>
-                    ) : !isPromptDirty ? (
-                      <span className="research-overlay__prompt-hint">
-                        No changes yet. Edit the prompt to unlock the banner.
-                      </span>
-                    ) : null}
-                  </div>
-                </section>
-                <section className="research-overlay__summary-panel" aria-label="Knowledge summary">
-                  <p className="research-overlay__placeholder-heading">Summary</p>
-                  <div className="research-overlay__summary-content">
-                    {knowledgeParagraphs || <p className="research-overlay__placeholder-text">No knowledge captured for this persona.</p>}
-                  </div>
-                </section>
-              </div>
-            </div>
-            {isPromptDirty ? (
-              <div className="persona-unsaved-banner persona-unsaved-banner--visible research-prompt-banner">
-                <div className="research-prompt-banner__message">
-                  <span className="persona-unsaved-message">
-                    You have unsaved changes to this prompt
-                  </span>
-                  <span className="research-prompt-banner__refresh">Refreshes weekly</span>
-                </div>
-                <div className="persona-unsaved-actions">
-                  <button
-                    type="button"
-                    className="persona-unsaved-clear"
-                    onClick={handleClearPromptDraft}
-                    disabled={isPromptSaving}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    className="persona-unsaved-save"
-                    onClick={() => {
-                      void handlePromptSave(promptValue);
-                    }}
-                    disabled={isPromptSaving}
-                  >
-                    Save &amp; Refresh
-                  </button>
-                </div>
-              </div>
-            ) : null}
-         </SlidingPanelOverlay>
+            <ResearchOverlayContent
+              agent={selectedAgent}
+              activeTab={activeOverlayTab}
+              setActiveTab={setActiveOverlayTab}
+              promptValue={promptValue}
+              isPromptDirty={isPromptDirty}
+              isPromptSaving={isPromptSaving}
+              promptSaveError={promptSaveError}
+              onPromptChange={handlePromptChange}
+              onPromptSave={handlePromptSaveCurrent}
+              onClearPrompt={handleClearPrompt}
+              onRemoveArticle={handleRemoveSourcedArticle}
+              overlayTitleId={overlayTitleId}
+              overlayDescriptionId={overlayDescriptionId}
+              lastUpdatedLabel={formatUpdatedAt(selectedAgent.updatedAt)}
+            />
+          </SlidingPanelOverlay>
         ) : null}
       </main>
       <style>{`
@@ -1119,258 +976,6 @@ export default function ResearchPage() {
         .research-agent-state--error {
           color: #b91c1c;
         }
-        .research-overlay__header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .research-overlay__header h2 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 700;
-        }
-        .research-overlay__header-content {
-          display: flex;
-          flex-direction: row;
-          align-items: baseline;
-          gap: 12px;
-        }
-        .research-overlay__updated {
-          margin: 0;
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.68);
-          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
-        }
-        .research-overlay__updated strong {
-          font-weight: 600;
-          font-family: inherit;
-        }
-        .research-overlay__refresh-note {
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.68);
-          font-family: var(--font-heading, var(--font-body, var(--font-sans)));
-          text-transform: none;
-          margin-left: 6px;
-        }
-        .research-overlay__close {
-          border: none;
-          background: transparent;
-          color: #0f172a;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .research-overlay__body {
-          flex: 1;
-          width: 100%;
-          display: flex;
-          gap: 28px;
-          align-items: stretch;
-          min-height: 0;
-          overflow-x: hidden;
-        }
-        .research-overlay__main {
-          flex: 2;
-          min-width: 0;
-          width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          overflow: visible;
-          position: relative;
-        }
-        .research-overlay__summary-panel {
-          background: rgba(148, 197, 255, 0.12);
-          border: 1px dashed rgba(59, 130, 246, 0.32);
-          border-radius: 16px;
-          padding: 24px;
-          color: rgba(15, 23, 42, 0.78);
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-        }
-        .research-overlay__summary-content {
-          font-size: 14px;
-          color: #475569;
-          line-height: 1.6;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        .research-overlay__summary-content > p {
-          margin: 0;
-        }
-        .research-overlay__snapshot-panel {
-          background: rgba(59, 130, 246, 0.1);
-          border-radius: 16px;
-          border: 1px solid rgba(59, 130, 246, 0.16);
-          padding: 18px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          color: rgba(15, 23, 42, 0.8);
-          min-height: 140px;
-          max-height: 260px;
-          overflow-y: auto;
-          position: relative;
-        }
-        .research-overlay__prompt-input {
-          width: 100%;
-          border-radius: 10px;
-          border: 1px solid rgba(15, 23, 42, 0.2);
-          padding: 10px 12px;
-          font-size: 14px;
-          font-family: ${BODY_FONT_STACK};
-          background: #ffffff;
-          resize: vertical;
-          min-height: 80px;
-          color: rgba(15, 23, 42, 0.85);
-        }
-        .research-overlay__prompt-input:focus-visible {
-          outline: none;
-          border-color: rgba(59, 130, 246, 0.8);
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
-        }
-        .research-overlay__prompt-status {
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.6);
-        }
-        .research-overlay__prompt-error {
-          color: #b91c1c;
-        }
-        .research-overlay__prompt-action {
-          margin-top: 8px;
-          align-self: flex-start;
-          border: none;
-          background: #0f172a;
-          color: #ffffff;
-          border-radius: 10px;
-          padding: 8px 14px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: transform 0.2s ease, opacity 0.2s ease;
-        }
-        .research-overlay__prompt-action:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-        .research-overlay__prompt-action:not(:disabled):hover,
-        .research-overlay__prompt-action:not(:disabled):focus-visible {
-          transform: translateY(-1px);
-          background: #001935;
-        }
-        .research-overlay__snapshot-heading-row {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .research-overlay__snapshot-count {
-          font-size: 14px;
-          font-weight: 700;
-          color: #0f172a;
-        }
-        .research-overlay__snapshot-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 12px;
-        }
-        .research-overlay__snapshot-label {
-          margin: 0;
-          font-size: 12px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(15, 23, 42, 0.6);
-        }
-        .research-overlay__snapshot-value {
-          margin: 4px 0 0;
-          font-size: 14px;
-          font-weight: 600;
-          color: #0f172a;
-        }
-        .research-overlay__actions-stack {
-          flex: 1;
-          min-width: 0;
-          max-width: 320px;
-          min-height: 0;
-          background: rgba(59, 130, 246, 0.08);
-          border: 1px solid rgba(59, 130, 246, 0.16);
-          border-radius: 16px;
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          overflow: hidden;
-        }
-        .research-overlay__actions-button {
-          border: none;
-          border-radius: 10px;
-          background: #2563eb;
-          color: #fff;
-          font-weight: 600;
-          font-size: 13px;
-          padding: 10px 16px;
-          cursor: pointer;
-          transition: background 0.2s ease;
-        }
-        .research-overlay__actions-button:hover {
-          background: #1d4ed8;
-        }
-        .research-overlay__actions-placeholder {
-          margin: 0;
-          font-size: 14px;
-          color: rgba(15, 23, 42, 0.72);
-        }
-        .research-overlay__sources {
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.75);
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-        }
-        .research-overlay__sources-heading {
-          margin: 0 0 8px;
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-          color: rgba(15, 23, 42, 0.55);
-        }
-        .research-overlay__placeholder-heading {
-          margin: 0;
-          font-size: 12px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(15, 23, 42, 0.55);
-        }
-        .research-overlay__placeholder-text {
-          margin: 0;
-          font-size: 13px;
-          color: rgba(15, 23, 42, 0.7);
-        }
-        .research-overlay__sources ul {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          flex: 1;
-          overflow-y: auto;
-          min-height: 0;
-        }
-        .research-overlay__sources li a {
-          color: #1d4ed8;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-        }
-        .research-overlay__sources li a:hover {
-          text-decoration: underline;
         }
         .agent-row__articles-cell,
         .agent-row__sources-cell {

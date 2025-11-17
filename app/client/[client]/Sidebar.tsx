@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
+type NavItem = { label: string; href: string; icon: React.ReactNode };
+
 function getClientIdFromPath(pathname: string | null): string {
   if (!pathname) return "";
   // Match /client/CLIENTID/...
@@ -124,63 +126,100 @@ export default function Sidebar() {
     router.replace("/auth");
   };
 
+  const interviewsItem = {
+    label: "Interviews",
+    href: `/client/${clientId}/interviews`,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#22325A">
+        <path
+          fillRule="evenodd"
+          d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5m14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5"
+        />
+      </svg>
+    ),
+  };
+
   const navItems = [
     {
       label: "Personas",
       href: `/client/${clientId}/personas`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
-    <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
-    <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
-  </svg>
-),
-    },
-    {
-      label: "Playbacks",
-      href: `/client/${clientId}/insights`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
-    <path fillRule="evenodd" d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5" />
-  </svg>
-),
-    },
-    {
-      label: "Knowledge Base",
-      href: `/client/${clientId}/internal-data`,
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="#22325a" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1"/>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#22325a"
+          stroke="#22325a"
+          strokeWidth="0.6"
+        >
+          <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+          <path
+            fillRule="evenodd"
+            d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
+          />
         </svg>
       ),
     },
     {
-      label: "Web Research",
-      href: `/client/${clientId}/research`,
-icon: (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="#22325a"
-    stroke="#22325a"
-    strokeWidth="0.4"
-  >
-    <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m7.5-6.923c-.67.204-1.335.82-1.887 1.855A8 8 0 0 0 5.145 4H7.5zM4.09 4a9.3 9.3 0 0 1 .64-1.539 7 7 0 0 1 .597-.933A7.03 7.03 0 0 0 2.255 4zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a7 7 0 0 0-.656 2.5zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5zM8.5 5v2.5h2.99a12.5 12.5 0 0 0-.337-2.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5zM5.145 12q.208.58.468 1.068c.552 1.035 1.218 1.65 1.887 1.855V12zm.182 2.472a7 7 0 0 1-.597-.933A9.3 9.3 0 0 1 4.09 12H2.255a7 7 0 0 0 3.072 2.472M3.82 11a13.7 13.7 0 0 1-.312-2.5h-2.49c.062.89.291 1.733.656 2.5zm6.853 3.472A7 7 0 0 0 13.745 12H11.91a9.3 9.3 0 0 1-.64 1.539 7 7 0 0 1-.597.933M8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855q.26-.487.468-1.068zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.7 13.7 0 0 1-.312 2.5m2.802-3.5a7 7 0 0 0-.656-2.5H12.18c.174.782.282 1.623.312 2.5zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7 7 0 0 0-3.072-2.472c.218.284.418.598.597.933M10.855 4a8 8 0 0 0-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4z"/>
-  </svg>
-),
+      label: "Conversations",
+      href: `/client/${clientId}/conversations`,
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#22325a"
+          stroke="#22325a"
+          strokeWidth="0.6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5"
+          />
+        </svg>
+      ),
     },
     {
       label: "New Persona",
       href: `/client/${clientId}/upload`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
-    <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H1s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C9.516 10.68 8.289 10 6 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z" />
-    <path fillRule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5" />
-  </svg>
-),
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#22325a"
+          stroke="#22325a"
+          strokeWidth="0.6"
+        >
+          <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H1s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C9.516 10.68 8.289 10 6 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z" />
+          <path
+            fillRule="evenodd"
+            d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"
+          />
+        </svg>
+      ),
     },
   ];
+
+  const insightsTabItem = {
+    label: "Insights",
+    href: `/client/${clientId}/insights`,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8 M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"
+          fill="#22325A"
+        />
+        <path
+          d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5 M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"
+          fill="#22325A"
+        />
+      </svg>
+    ),
+  };
 
   const visibleNavItems = profileRole === "viewer"
     ? navItems.filter((item) => item.label !== "New Persona")
@@ -198,11 +237,19 @@ icon: (
   const teamItem = {
     label: "Team",
     href: `/client/${clientId}/teams`,
-icon: (
-  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
-    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-  </svg>
-),
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="#22325a"
+        stroke="#22325a"
+        strokeWidth="0.6"
+      >
+        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
+      </svg>
+    ),
   };
 
   const feedbackItem = {
@@ -224,6 +271,156 @@ icon: (
     ),
   };
 
+  const liveHelpItem = {
+    label: "Live Help",
+    href: `/client/${clientId}/live-chat`,
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="#22325a"
+        stroke="#22325a"
+        strokeWidth="0.4"
+      >
+        <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h7A2.5 2.5 0 0 1 14 3.5v4A2.5 2.5 0 0 1 11.5 10H9l-2.8 2.1A.8.8 0 0 1 5 11.5V10H4.5A2.5 2.5 0 0 1 2 7.5z" />
+        <path d="M5.5 12.5v1.7a.8.8 0 0 0 1.27.63L10 13h2.5A2.5 2.5 0 0 0 15 10.5v-4a.5.5 0 0 0-1 0v4A1.5 1.5 0 0 1 12.5 12H10a.5.5 0 0 0-.3.1z" />
+      </svg>
+    ),
+  };
+
+  const agentsItem = {
+    label: "Agents",
+    href: `/client/${clientId}/agents`,
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="#22325a"
+        stroke="#22325a"
+        strokeWidth="0.6"
+      >
+        <circle cx="5" cy="6" r="2" />
+        <path d="M3 10c0-1.5 1.5-2.5 3.5-2.5S10 8.5 10 10" />
+        <circle cx="11" cy="5" r="1.5" />
+        <path d="M9.5 9c0-1 .5-1.5 1.5-1.5s1.5.5 1.5 1.5" />
+      </svg>
+    ),
+  };
+
+  const resultsItem = {
+    label: "Results",
+    href: `/client/${clientId}/results`,
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="#22325a"
+        stroke="#22325a"
+        strokeWidth="0.6"
+      >
+        <rect x="2" y="4" width="4" height="8" rx="1" />
+        <rect x="7" y="6" width="4" height="6" rx="1" />
+        <rect x="12" y="8" width="2" height="4" rx="1" />
+        <path d="M2 12h12" strokeLinecap="round" strokeWidth="1" />
+      </svg>
+    ),
+  };
+  const ideaItem = {
+    label: "Ideas",
+    href: `/client/${clientId}/ideas`,
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="#22325a"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1"/>
+      </svg>
+    ),
+  };
+
+  const buildNavItems: NavItem[] = [ideaItem, interviewsItem, insightsTabItem];
+  const testNavItems: NavItem[] = [agentsItem, resultsItem];
+  const launchNavItems: NavItem[] = [teamItem, feedbackItem, liveHelpItem];
+  const allNavItems: NavItem[] = [
+    ...visibleNavItems,
+    ...buildNavItems,
+    ...testNavItems,
+    ...launchNavItems,
+  ];
+  const pathMatches = (href: string) => Boolean(pathname && pathname.startsWith(href));
+  const activeNavHref = allNavItems.find((item) => pathMatches(item.href))?.href ?? null;
+
+  const headingStyle: React.CSSProperties = {
+    width: "100%",
+    padding: collapsed ? "4px 12px" : "2px 20px",
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.1em",
+    marginBottom: 2,
+    display: "flex",
+    justifyContent: collapsed ? "center" : "flex-start",
+  };
+
+  const sectionHeadingMarginTop = collapsed ? 6 : 10;
+
+  const renderHeading = (text: string, marginTop = 0) => (
+    <div style={{ ...headingStyle, marginTop }}>
+      <span>{text}</span>
+    </div>
+  );
+
+  const renderSecondaryNavItem = (item: NavItem) => {
+    const active = activeNavHref === item.href;
+    const secondaryBorderRadius = collapsed ? 12 : "0 12px 12px 0";
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          padding: collapsed ? "10px 8px" : "4px 12px",
+          color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+          background: active ? `rgba(var(--accent-rgb, 43,108,176), 0.12)` : "none",
+          borderRadius: secondaryBorderRadius,
+          fontWeight: 600,
+          fontSize: 13,
+          textDecoration: "none",
+          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: collapsed ? 0 : 8,
+        }}
+        title={item.label}
+        aria-label={item.label}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: 20,
+            display: "flex",
+            alignItems: "center",
+            color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+            transition: "color 0.18s ease",
+          }}
+        >
+          {item.icon}
+        </span>
+        <span style={labelVisibilityStyle}>{item.label}</span>
+      </Link>
+    );
+  };
+
   return (
     <aside
       data-collapsed={collapsed ? "true" : "false"}
@@ -243,11 +440,12 @@ icon: (
         flexDirection: "column",
         alignItems: "center",
         padding: collapsed ? "12px 0 12px 0" : "12px 0 12px 0",
-        gap: collapsed ? 4 : 8,
+        gap: collapsed ? 2 : 4,
         transition: "width 0.24s ease",
       }}
     >
-      <div
+  {/* Keep the collapsed primary/secondary stack tight by using a minimal gap. */}
+  <div
         style={{
           display: "flex",
           alignItems: "center",
@@ -303,11 +501,10 @@ icon: (
           </svg>
         </button>
       </div>
-  {visibleNavItems.map((item) => {
-        let active = false;
-        if (pathname) {
-          active = pathname.startsWith(item.href);
-        }
+      {renderHeading("Explore", 0)}
+      {visibleNavItems.map((item) => {
+        const active = activeNavHref === item.href;
+        const primaryBorderRadius = collapsed ? 10 : "0 10px 10px 0";
 
         return (
           <Link
@@ -317,16 +514,16 @@ icon: (
               display: "flex",
               alignItems: "center",
               width: "100%",
-              padding: collapsed ? "10px 12px" : "10px 20px",
+              padding: collapsed ? "10px 12px" : "4px 20px",
               color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
               background: active ? `rgba(var(--accent-rgb, 43,108,176), 0.12)` : "none",
-              borderRadius: 10,
+              borderRadius: primaryBorderRadius,
               fontWeight: 600,
               fontSize: 13,
               textDecoration: "none",
               transition: "background 0.18s, color 0.18s, padding 0.18s, margin 0.18s, gap 0.18s, justify-content 0.18s",
               justifyContent: collapsed ? "center" : "flex-start",
-              gap: collapsed ? 0 : 10,
+              gap: collapsed ? 0 : 8,
               marginRight: active && !collapsed ? 16 : 0,
             }}
             title={item.label}
@@ -348,68 +545,22 @@ icon: (
           </Link>
         );
       })}
-<div style={{ flex: 1 }} />
-{[
-  teamItem,
-  feedbackItem,
-  {
-    label: "Live Help",
-    href: `/client/${clientId}/live-chat`,
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="#22325a"
-        stroke="#22325a"
-        strokeWidth="0.4"
+  {renderHeading("Build", sectionHeadingMarginTop)}
+  {buildNavItems.map(renderSecondaryNavItem)}
+  {renderHeading("Test", sectionHeadingMarginTop)}
+  {testNavItems.map(renderSecondaryNavItem)}
+      {renderHeading("Launch", sectionHeadingMarginTop)}
+      <div style={{ flex: 1 }} />
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: collapsed ? 2 : 0,
+        }}
       >
-        <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h7A2.5 2.5 0 0 1 14 3.5v4A2.5 2.5 0 0 1 11.5 10H9l-2.8 2.1A.8.8 0 0 1 5 11.5V10H4.5A2.5 2.5 0 0 1 2 7.5z" />
-        <path d="M5.5 12.5v1.7a.8.8 0 0 0 1.27.63L10 13h2.5A2.5 2.5 0 0 0 15 10.5v-4a.5.5 0 0 0-1 0v4A1.5 1.5 0 0 1 12.5 12H10a.5.5 0 0 0-.3.1z" />
-      </svg>
-    ),
-  }].map((item) => {
-        const active = Boolean(pathname?.startsWith(item.href));
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              width: collapsed ? "100%" : "calc(100% - 24px)",
-              padding: collapsed ? "0 8px" : "0 12px",
-              color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-              background: "none",
-              borderRadius: 12,
-              fontWeight: 600,
-              fontSize: 13,
-              textDecoration: "none",
-              transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
-              justifyContent: collapsed ? "center" : "flex-start",
-              gap: collapsed ? 0 : 10,
-              marginBottom: 8,
-            }}
-            title={item.label}
-            aria-label={item.label}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                fontSize: 20,
-                display: "flex",
-                alignItems: "center",
-                color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-                transition: "color 0.18s ease",
-              }}
-            >
-              {item.icon}
-            </span>
-            <span style={labelVisibilityStyle}>{item.label}</span>
-          </Link>
-        );
-      })}
+        {launchNavItems.map(renderSecondaryNavItem)}
+      </div>
       <div
         style={{
           width: "100%",

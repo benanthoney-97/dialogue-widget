@@ -11,6 +11,7 @@ type DialogueRow = {
   main_language?: string | null;
   research_type?: string | null;
   conversation_id?: string | null;
+  call_summary_title?: string | null;
   user_id?: string | null;
 };
 
@@ -169,7 +170,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
     const baseQuery = supabaseAdmin
       .from("dialogues")
       .select(
-        "id, conversation_id, agent_id, user_id, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type",
+        "id, conversation_id, agent_id, user_id, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type, call_summary_title",
         { count: "exact" }
       )
       .eq("client_id", clientRow.id)
@@ -248,7 +249,8 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
         transcript: dialogue.transcript,
         transcript_summary: dialogue.transcript_summary,
         main_language: dialogue.main_language ?? undefined,
-  ownerEmail: dialogue.user_id ? profileById[dialogue.user_id]?.email ?? null : null,
+        ownerEmail: dialogue.user_id ? profileById[dialogue.user_id]?.email ?? null : null,
+        call_summary_title: dialogue.call_summary_title ?? null,
       };
     });
 

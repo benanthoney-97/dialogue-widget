@@ -17,6 +17,10 @@ import {
   type VoiceOption,
   type ElevenLabsVoiceResponse,
 } from "@/app/lib/voiceCatalog";
+import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
+import ResearchOverlayContent from "@/app/components/ResearchOverlayContent";
+import InternalKnowledgeOverlayContent from "@/app/components/InternalKnowledgeOverlayContent";
+import { useResearchOverlayState } from "@/app/hooks/useResearchOverlayState";
 
 const QUESTIONNAIRE_STORAGE_BUCKET = "questionnaires";
 const PERSONA_IMAGES_BUCKET = "persona_images";
@@ -98,6 +102,36 @@ function formatDate(dateString: string | null): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+
+function getLatestDocumentDate(docs: AgentDocumentRow[]): string | null {
+  let latest: string | null = null;
+  docs.forEach((doc) => {
+    if (!doc.created_at) return;
+    if (!latest) {
+      latest = doc.created_at;
+      return;
+    }
+    const currentTime = new Date(doc.created_at).getTime();
+    const previousTime = new Date(latest).getTime();
+    if (currentTime > previousTime) {
+      latest = doc.created_at;
+    }
+  });
+  return latest;
+}
+
+function formatResearchUpdatedAt(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -618,6 +652,59 @@ export default function PersonasPage() {
       }
     };
   }, []);
+  const {
+    agentResearch,
+    agentResearchLoading,
+    selectedAgent,
+    selectAgentById,
+    promptValue,
+    isPromptDirty,
+    isPromptSaving,
+    promptSaveError,
+    handlePromptChange,
+    handlePromptSave,
+    handleClearPrompt,
+    handleRemoveSourcedArticle,
+    setSelectedAgent,
+  } = useResearchOverlayState(clientSlug);
+  const overlayTitleId = "research-overlay-title";
+  const overlayDescriptionId = "research-overlay-description";
+  const [activeOverlayTab, setActiveOverlayTab] = useState<"research" | "prompt">("research");
+  const handleOpenResearchOverlay = useCallback(
+    (agentId: string) => {
+      selectAgentById(agentId);
+      setActiveOverlayTab("research");
+    },
+    [selectAgentById]
+  );
+  const closeResearchOverlay = useCallback(() => {
+    setSelectedAgent(null);
+  }, [setSelectedAgent]);
+  const handlePromptSaveCurrent = useCallback(() => {
+    void handlePromptSave(promptValue);
+  }, [handlePromptSave, promptValue]);
+  const [internalOverlayPersonaId, setInternalOverlayPersonaId] = useState<string | null>(null);
+  const internalOverlayTitleId = "internal-knowledge-overlay-title";
+  const internalOverlayDescriptionId = "internal-knowledge-overlay-description";
+  const openInternalOverlay = useCallback((personaId: string) => {
+    setInternalOverlayPersonaId(personaId);
+  }, []);
+  const closeInternalOverlay = useCallback(() => {
+    setInternalOverlayPersonaId(null);
+  }, []);
+  const internalOverlayPersona = useMemo(
+    () => (internalOverlayPersonaId ? personas.find((persona) => persona.agent_id === internalOverlayPersonaId) ?? null : null),
+    [internalOverlayPersonaId, personas]
+  );
+  const internalOverlayDocuments = useMemo(
+    () => (internalOverlayPersonaId ? personaDocuments[internalOverlayPersonaId] ?? [] : []),
+    [internalOverlayPersonaId, personaDocuments]
+  );
+  const internalOverlayLastUpdated = useMemo(
+    () => getLatestDocumentDate(internalOverlayDocuments),
+    [internalOverlayDocuments]
+  );
+  const internalOverlayLastUpdatedLabel = formatDate(internalOverlayLastUpdated);
   const handleCreateFirstPersona = useCallback(() => {
     if (clientSlug) {
       router.push(`/client/${clientSlug}/upload`);
@@ -3516,7 +3603,7 @@ export default function PersonasPage() {
                   event.currentTarget.style.transform = "none";
                 }}
               >
-                Personas View
+                Talk to Personas
               </Link>
               <button
                 type="button"
@@ -3759,12 +3846,8 @@ export default function PersonasPage() {
                   completionPercent >= 90 ? "complete" : completionPercent >= 50 ? "warning" : "danger";
                 const personaSlug = personaSlugLookup.get(persona.agent_id) ?? null;
                 const targetClientSlug = resolvedClientSlug ?? clientSlug ?? "";
-                const researchClientSegment =
-                  resolvedClientId ??
-                  (clientIdFromPath || (targetClientSlug ? encodeURIComponent(targetClientSlug) : ""));
-                const researchHref = researchClientSegment
-                  ? `/client/${researchClientSegment}/research?agentId=${encodeURIComponent(persona.agent_id)}`
-                  : "";
+                const personaResearchRecord =
+                  agentResearch.find((record) => record.agentId === persona.agent_id) ?? null;
                 const canEditAvatar = canEdit && isExpanded;
                 const isClockEnabled =
                   personaClockStates[persona.agent_id] ?? !!persona.active_status;
@@ -4134,17 +4217,14 @@ export default function PersonasPage() {
                             </span>
                           ) : null}
                         </div>
-                          <button
-                            type="button"
-                            className="persona-expanded-manage"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const targetClientSlug = resolvedClientSlug ?? clientSlug ?? "";
-                              if (!targetClientSlug) return;
-                              const clientSegment = encodeURIComponent(targetClientSlug);
-                              router.push(`/client/${clientSegment}/research`);
-                            }}
-                          >
+                                <button
+                                  type="button"
+                                  className="persona-expanded-manage"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openInternalOverlay(persona.agent_id);
+                                  }}
+                                >
                           <svg
                             width="16"
                             height="16"
@@ -4279,11 +4359,9 @@ export default function PersonasPage() {
                                   className="persona-expanded-external-manage"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    if (researchHref) {
-                                      router.push(researchHref);
-                                    }
+                                    handleOpenResearchOverlay(persona.agent_id);
                                   }}
-                                  disabled={!researchHref}
+                                  disabled={agentResearchLoading || !personaResearchRecord}
                                 >
                                   <svg
                                     width="16"
@@ -5550,7 +5628,7 @@ export default function PersonasPage() {
             padding-bottom: 12px;
             align-items: stretch;
             justify-items: center;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             grid-auto-flow: row;
           }
           .personas-empty {
@@ -9054,6 +9132,59 @@ export default function PersonasPage() {
         `}</style>
             </div>
           </div>
+          {internalOverlayPersona ? (
+            <SlidingPanelOverlay
+              open
+              onRequestClose={closeInternalOverlay}
+              title={internalOverlayPersona.agent_name ?? "Internal documents"}
+              titleId={internalOverlayTitleId}
+              descriptionId={internalOverlayDescriptionId}
+            >
+              <InternalKnowledgeOverlayContent
+                personaName={internalOverlayPersona.agent_name ?? "Persona"}
+                documents={internalOverlayDocuments}
+                isLoading={documentsLoading}
+                overlayTitleId={internalOverlayTitleId}
+                overlayDescriptionId={internalOverlayDescriptionId}
+                lastUpdatedLabel={internalOverlayLastUpdatedLabel}
+              />
+            </SlidingPanelOverlay>
+          ) : null}
+          {selectedAgent ? (
+            <SlidingPanelOverlay
+              open
+              onRequestClose={closeResearchOverlay}
+              title={
+                <div className="research-overlay__header-content">
+                  <span>{selectedAgent.personaName}</span>
+                  <p className="research-overlay__updated">
+                    Last updated{" "}
+                    <strong>{formatResearchUpdatedAt(selectedAgent.updatedAt)}</strong>{" "}
+                    <span className="research-overlay__refresh-note">(refreshes weekly)</span>
+                  </p>
+                </div>
+              }
+              titleId={overlayTitleId}
+              descriptionId={overlayDescriptionId}
+            >
+              <ResearchOverlayContent
+                agent={selectedAgent}
+                activeTab={activeOverlayTab}
+                setActiveTab={setActiveOverlayTab}
+                promptValue={promptValue}
+                isPromptDirty={isPromptDirty}
+                isPromptSaving={isPromptSaving}
+                promptSaveError={promptSaveError}
+                onPromptChange={handlePromptChange}
+                onPromptSave={handlePromptSaveCurrent}
+                onClearPrompt={handleClearPrompt}
+                onRemoveArticle={handleRemoveSourcedArticle}
+                overlayTitleId={overlayTitleId}
+                overlayDescriptionId={overlayDescriptionId}
+                lastUpdatedLabel={formatResearchUpdatedAt(selectedAgent.updatedAt)}
+              />
+            </SlidingPanelOverlay>
+          ) : null}
         </main>
       </div>
       {isMounted && unsavedChangesBanner

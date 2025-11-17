@@ -8,21 +8,52 @@ type Props = {
   background?: string;
 };
 
+type ScriptWithLoaded = HTMLScriptElement & { __loaded?: boolean };
+
+type PDFPageProxyLike = {
+  getViewport(options: { scale: number }): { width: number; height: number };
+  render(options: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }): { promise: Promise<void> };
+};
+
+type PDFDocumentProxyLike = {
+  numPages: number;
+  getPage(pageNumber: number): Promise<PDFPageProxyLike>;
+  cleanup?: () => void;
+  destroy?: () => void;
+};
+
+type PDFDocumentLoadingTaskLike = {
+  promise: Promise<PDFDocumentProxyLike>;
+};
+
+type PDFJSLib = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(source: { url: string }): PDFDocumentLoadingTaskLike;
+};
+
+declare global {
+  interface ImportMeta {
+    hot?: {
+      dispose?(callback: () => void): void;
+    };
+  }
+}
+
 function loadScriptOnce(src: string) {
   return new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    const existing = document.querySelector<ScriptWithLoaded>(`script[src="${src}"]`);
     if (existing) {
-      if ((existing as any).__loaded) return resolve();
+      if (existing.__loaded) return resolve();
       existing.addEventListener("load", () => resolve());
       existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
       return;
     }
-    const s = document.createElement("script");
+    const s = document.createElement("script") as ScriptWithLoaded;
     s.src = src;
     s.async = true;
-    (s as any).__loaded = false;
+    s.__loaded = false;
     s.addEventListener("load", () => {
-      (s as any).__loaded = true;
+      s.__loaded = true;
       resolve();
     });
     s.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
@@ -47,7 +78,7 @@ function PDFJSViewerInner({ file, style, background }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null); // outer wrapper (React owns)
   const hostRef = useRef<HTMLDivElement | null>(null);  // inner host (we own)
   const renderTokenRef = useRef<symbol | null>(null);
-  const pdfRef = useRef<any>(null);
+  const pdfRef = useRef<PDFDocumentProxyLike | null>(null);
 
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errMsg, setErrMsg] = useState("");
@@ -65,7 +96,7 @@ function PDFJSViewerInner({ file, style, background }: Props) {
         await loadScriptOnce("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
 
         // 2) Configure worker
-        const pdfjsLib = (window as any).pdfjsLib;
+  const pdfjsLib = (window as Window & { pdfjsLib?: PDFJSLib }).pdfjsLib;
         if (!pdfjsLib) throw new Error("pdfjsLib not found");
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
 
@@ -115,10 +146,12 @@ function PDFJSViewerInner({ file, style, background }: Props) {
         setStatus("ready");
 
         // 6) Handle resize with token bump (cancel previous render set)
-        let t: any;
+        let resizeTimeout: number | undefined;
         const onResize = () => {
-          clearTimeout(t);
-          t = setTimeout(async () => {
+          if (resizeTimeout) {
+            window.clearTimeout(resizeTimeout);
+          }
+          resizeTimeout = window.setTimeout(async () => {
             if (!active) return;
             // Invalidate current renders by bumping token
             const newToken = Symbol("renderToken");
@@ -140,9 +173,10 @@ function PDFJSViewerInner({ file, style, background }: Props) {
         return () => {
           window.removeEventListener("resize", onResize);
         };
-      } catch (e: any) {
+      } catch (error) {
         if (!active) return;
-        setErrMsg(e?.message || String(e));
+        const message = error instanceof Error ? error.message : String(error);
+        setErrMsg(message);
         setStatus("error");
       }
     }
@@ -199,8 +233,8 @@ const PDFJSViewer = memo(PDFJSViewerInner, (prev, next) => prev.file === next.fi
 export default PDFJSViewer;
 
 // Optional: tame Fast Refresh in dev to avoid mid-render races
-if (typeof window !== "undefined" && (import.meta as any).hot) {
-  (import.meta as any).hot.dispose?.(() => {
+if (typeof window !== "undefined" && import.meta.hot) {
+  import.meta.hot.dispose?.(() => {
     // noop – effect cleanup in component will run
   });
 }

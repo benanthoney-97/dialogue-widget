@@ -18,6 +18,27 @@ type DocItem = {
   agent_id?: string | null;
 };
 
+type SubagentRow = {
+  id: string | number;
+  subagent_key: string;
+  assigned_document_url?: string | null;
+  assigned_storage_path?: string | null;
+  agent_map_agent_id?: string | null;
+};
+
+type SessionMessagePayload = {
+  type?: string;
+  payload?: {
+    subagent_key?: string | null;
+    key?: string | null;
+    id?: string | null;
+    storage_path?: string | null;
+    agent_map_agent_id?: string | null;
+    document_url?: string | null;
+    title?: string | null;
+  };
+};
+
 export default function SessionDocsPage() {
   const { session } = useParams() as { session?: string };
   const [docs, setDocs] = useState<DocItem[]>([]);
@@ -35,14 +56,14 @@ export default function SessionDocsPage() {
     (async () => {
       try {
         // If session looks like an agent id, fetch all subagents for that agent
-        let rows: any[] | null = null;
+        let rows: SubagentRow[] | null = null;
         if (session.startsWith("agent_")) {
           const { data } = await supabase
             .from("subagents")
             .select("id, subagent_key, assigned_document_url, assigned_storage_path, agent_map_agent_id")
             .eq("agent_map_agent_id", session)
             .order("created_at", { ascending: true });
-          rows = data as any[] | null;
+          rows = data as SubagentRow[] | null;
         } else {
           const { data: single } = await supabase
             .from("subagents")
@@ -55,9 +76,9 @@ export default function SessionDocsPage() {
               .select("id, subagent_key, assigned_document_url, assigned_storage_path, agent_map_agent_id")
               .eq("agent_map_agent_id", single.agent_map_agent_id)
               .order("created_at", { ascending: true });
-            rows = siblings as any[] | null;
+            rows = siblings as SubagentRow[] | null;
             if (!cancelled && siblings) {
-              const mapped = (siblings || []).map((r: any) => ({
+              const mapped = (siblings || []).map((r) => ({
                 id: String(r.id),
                 key: r.subagent_key,
                 title: r.subagent_key,
@@ -79,7 +100,7 @@ export default function SessionDocsPage() {
           setCurrentIdx(0);
           return;
         }
-        const mapped = rows.map((r: any) => ({
+        const mapped = rows.map((r) => ({
           id: String(r.id),
           key: r.subagent_key,
           title: r.subagent_key,
@@ -142,8 +163,8 @@ export default function SessionDocsPage() {
 
   // Listen for openDocument messages from external tools
   useEffect(() => {
-    async function handleMessage(e: MessageEvent | { data: any }) {
-      const msg = (e as any).data;
+    async function handleMessage(e: MessageEvent<SessionMessagePayload>) {
+      const msg = e.data;
       if (!msg || msg.type !== "elevenlabs.openDocument") return;
       const payload = msg.payload || {};
       const {
@@ -184,7 +205,7 @@ export default function SessionDocsPage() {
               .select("id, subagent_key, assigned_document_url, assigned_storage_path, agent_map_agent_id")
               .eq("agent_map_agent_id", single.agent_map_agent_id)
               .order("created_at", { ascending: true });
-            const mapped = (siblings || []).map((r: any) => ({
+            const mapped = (siblings || []).map((r) => ({
               id: String(r.id),
               key: r.subagent_key,
               title: r.subagent_key,
@@ -220,11 +241,11 @@ export default function SessionDocsPage() {
       });
     }
 
-    window.addEventListener("message", handleMessage as any);
+    window.addEventListener("message", handleMessage);
     const bc = new BroadcastChannel("elevenlabs");
-    bc.onmessage = (ev) => handleMessage({ data: ev.data } as any);
+    bc.onmessage = handleMessage;
     return () => {
-      window.removeEventListener("message", handleMessage as any);
+      window.removeEventListener("message", handleMessage);
       bc.close();
     };
   }, [docs, supabase]);

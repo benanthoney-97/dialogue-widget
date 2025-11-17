@@ -18,20 +18,16 @@ type TopbarProps = {
   titleHref?: string;
   subtitle?: string;
   rightSlot?: React.ReactNode;
-  cadence?: string;
-  onCadenceChange?: (value: string) => void;
   offsetLeft?: string | number;
-  hideCadenceControls?: boolean;
   centerSlot?: React.ReactNode;
-  cadenceLabel?: string;
   navLinks?: NavLink[];
   profileInitial?: string;
   onProfileClick?: () => void;
   leadingSlot?: React.ReactNode;
   hideProfileAvatar?: boolean;
+  hideAdminView?: boolean;
+  hideCadenceControls?: boolean;
 };
-
-const CADENCE_OPTIONS = ["Quarterly", "Monthly", "Weekly", "Daily"] as const;
 
 type ProfileDetails = {
   displayName: string | null;
@@ -58,17 +54,15 @@ export default function Topbar({
   subtitle,
   titleHref,
   rightSlot,
-  cadence = "Weekly",
-  onCadenceChange,
   offsetLeft,
-  hideCadenceControls = false,
   centerSlot,
-  cadenceLabel,
   navLinks,
   profileInitial,
   onProfileClick,
   leadingSlot,
   hideProfileAvatar = false,
+  hideAdminView = false,
+  hideCadenceControls = false,
 }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -218,7 +212,8 @@ export default function Topbar({
   }, [pathname]);
 
   const resolvedClientSlug = profileDetails.clientId ?? fallbackClientFromPath;
-  const canShowAdminView = Boolean(profileDetails.role && profileDetails.role !== "viewer" && resolvedClientSlug);
+  const canShowAdminView =
+    !hideAdminView && Boolean(profileDetails.role && profileDetails.role !== "viewer" && resolvedClientSlug);
   const profileHref = resolvedClientSlug ? `/client/${resolvedClientSlug}/settings` : null;
   const adminHref = resolvedClientSlug ? `/client/${resolvedClientSlug}/personas` : null;
 
@@ -469,40 +464,7 @@ export default function Topbar({
             flexShrink: 0,
           }}
         >
-          {hideCadenceControls ? null : (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-              {cadenceLabel ? (
-                <span className="topbar-cadence-label">{cadenceLabel}</span>
-              ) : null}
-              <div
-                role="tablist"
-                aria-label="Refresh cadence"
-                style={{
-                  display: "inline-flex",
-                  borderRadius: 12,
-                  background: "#f6f7f9",
-                  border: "1px solid #1e293b",
-                  padding: 4,
-                  gap: 4,
-                }}
-              >
-                {CADENCE_OPTIONS.map((option) => {
-                  const active = cadence === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      className={active ? "topbar-cadence-chip topbar-cadence-chip--active" : "topbar-cadence-chip"}
-                      aria-pressed={active}
-                      onClick={() => onCadenceChange?.(option)}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {rightSlot ?? defaultRightSlot}
             {canShowAdminView ? (

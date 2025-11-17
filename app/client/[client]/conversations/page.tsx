@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import QuestionnaireResults from "@/app/components/QuestionnaireResults";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
 import { exportTranscriptToPdf, type PdfTranscriptMessage, type TranscriptPdfPayload } from "@/app/lib/exportTranscriptPdf";
+import { supabase } from "@/app/lib/supabaseClient";
 
 // API response types
 type PersonaOption = {
@@ -28,6 +29,7 @@ type InsightsRow = {
 	transcript_summary?: string | null;
 	main_language?: string;
 	ownerEmail?: string | null;
+	call_summary_title?: string | null;
 };
 
 type TranscriptChatMessage = {
@@ -121,20 +123,19 @@ function StageAlert({ type, message }: StageAlertProps) {
 
 type InsightActionsProps = {
 	activeRow: InsightsRow | null;
-	copyStatus: string | null;
-	onCopyStatusChange: (status: string | null) => void;
 	transcriptText: string;
 	chatMessages: TranscriptChatMessage[];
+	clientSlug: string;
 };
 
 function InsightActions({
 	activeRow,
-	copyStatus,
-	onCopyStatusChange,
 	transcriptText,
 	chatMessages,
+	clientSlug,
 }: InsightActionsProps) {
 	if (!activeRow) return null;
+	const router = useRouter();
 	const handleDownloadTranscript = useCallback(async () => {
 		if (!transcriptText) return;
 		const pdfMessages: PdfTranscriptMessage[] = chatMessages
@@ -167,21 +168,57 @@ function InsightActions({
 			console.error("[InsightActions] Failed to download transcript", error);
 		}
 	}, [activeRow, chatMessages, transcriptText]);
-	const handleCopySummary = async () => {
-		if (!transcriptText) return;
+	const [moveStatus, setMoveStatus] = useState<string | null>(null);
+	const handleMoveToDevelopment = useCallback(async () => {
+		if (!activeRow) return;
 		try {
-			if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(transcriptText);
-				onCopyStatusChange("Transcript copied");
+			const { data: userData } = await supabase.auth.getUser();
+			const payload = {
+				type: "insights",
+				event_timestamp: activeRow.date ? new Date(activeRow.date).getTime() : Date.now(),
+				agent_id: activeRow.personaId,
+				conversation_id: activeRow.conversation_id,
+				status: activeRow.status,
+				transcript: activeRow.transcript,
+				body: {
+					sourceDocument: activeRow.sourceDocument,
+					lead: activeRow.lead,
+					engagementTime: activeRow.engagementTime,
+					ownerEmail: activeRow.ownerEmail,
+				},
+				transcript_summary: activeRow.transcript_summary,
+				main_language: activeRow.main_language,
+				call_summary_title:
+					activeRow.call_summary_title ?? activeRow.sourceDocument ?? "Dialogue session",
+				research_type: activeRow.status,
+				client_id: null,
+				development_status: "Pending",
+				created_by: userData?.user?.id ?? null,
+			};
+			const { error } = await supabase.from("development_ideas").insert([payload]);
+			if (error) {
+				throw error;
 			}
-		} catch {
-			onCopyStatusChange("Copy failed");
+				setMoveStatus("Moved to development");
+				if (clientSlug) {
+					void router.push(`/client/${clientSlug}/ideas`);
+				}
+		} catch (error) {
+			console.error("[InsightActions] Move to development failed", error);
+			setMoveStatus("Move failed");
 		} finally {
-			setTimeout(() => onCopyStatusChange(null), 1500);
+			setTimeout(() => setMoveStatus(null), 1500);
 		}
-	};
+	}, [activeRow]);
 	return (
 		<div className="insights-panel__actions">
+			<button
+				type="button"
+				className="insights-panel__action"
+				onClick={handleMoveToDevelopment}
+			>
+				Move to Development
+			</button>
 			<button
 				type="button"
 				className="insights-panel__action insights-panel__action--primary"
@@ -190,15 +227,9 @@ function InsightActions({
 			>
 				Download
 			</button>
-			<button
-				type="button"
-				className="insights-panel__action"
-				onClick={handleCopySummary}
-				disabled={!transcriptText}
-			>
-				Copy transcript
-			</button>
-			{copyStatus ? <span className="insights-panel__action-status">{copyStatus}</span> : null}
+			{moveStatus ? (
+				<span className="insights-panel__action-status">{moveStatus}</span>
+			) : null}
 		</div>
 	);
 }
@@ -227,7 +258,6 @@ export default function InsightsTable() {
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
 	const [activeRow, setActiveRow] = useState<InsightsRow | null>(null);
-	const [copyStatus, setCopyStatus] = useState<string | null>(null);
 	const pathname = usePathname();
 	const transcriptText = useMemo(
 		() => (activeRow && typeof activeRow.transcript === "string" ? activeRow.transcript : ""),
@@ -467,10 +497,6 @@ export default function InsightsTable() {
 		}
 	}, [page, totalPages]);
 
-	useEffect(() => {
-		setCopyStatus(null);
-	}, [activeRow]);
-
 	const topbarRightSlot = (
 		<>
 			<div className="insights-topbar-controls">
@@ -698,21 +724,20 @@ export default function InsightsTable() {
 								</tbody>
 							</table>
 							{activeRow && (
-								<SlidingPanelOverlay
-									open
-									title={activeRow.sourceDocument || "Playback details"}
-									onRequestClose={() => setActiveRow(null)}
-									onAfterClose={() => setActiveRow(null)}
-									actions={
-										<InsightActions
-											activeRow={activeRow}
-											copyStatus={copyStatus}
-											onCopyStatusChange={setCopyStatus}
-											transcriptText={transcriptText}
-											chatMessages={chatMessages}
-										/>
-									}
-								>
+									<SlidingPanelOverlay
+										open
+										title={activeRow.sourceDocument || "Playback details"}
+										onRequestClose={() => setActiveRow(null)}
+										onAfterClose={() => setActiveRow(null)}
+										actions={
+											<InsightActions
+												activeRow={activeRow}
+												transcriptText={transcriptText}
+												chatMessages={chatMessages}
+												clientSlug={clientSlug}
+											/>
+										}
+									>
 									<div className="insights-detail-panel">
 										<div className="insights-panel__meta-grid">
 											<article className="insights-panel__meta-card">
@@ -1511,13 +1536,6 @@ ease;
 				font-weight: 600;
 				border-radius: 12px;
 			}
-			.insights-panel__action--primary {
-				background: #073a70;
-				color: #ffffff;
-				box-shadow: 0 6px 16px rgba(6, 10, 20, 0.35);
-				border-radius: 12px;
-				border: none;
-			}
 			.insights-panel__wide-container {
 				width: min(1120px, 96vw);
 				max-width: 100%;
@@ -1567,6 +1585,12 @@ ease;
 				min-width: 0;
 				min-height: 44px;
 			}
+			.insights-panel__action.insights-panel__action--primary {
+				color: #0f172a;
+				border: 1px solid #073a70;
+				background: #ffffff;
+				box-shadow: none;
+			}
 			.insights-panel__action:disabled {
 				opacity: 0.4;
 				cursor: not-allowed;
@@ -1575,6 +1599,12 @@ ease;
 			.insights-panel__action:not(:disabled):focus-visible {
 				transform: translateY(-1px);
 				background: #111b2e;
+			}
+			.insights-panel__action--primary:not(:disabled):hover,
+			.insights-panel__action--primary:not(:disabled):focus-visible {
+				background: #ffffff;
+				color: #073a70;
+				transform: translateY(0);
 			}
 			.insights-panel__action-status {
 				font-size: 12px;

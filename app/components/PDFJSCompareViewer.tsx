@@ -10,21 +10,44 @@ type Props = {
   rightTitle?: string;
 };
 
+type ScriptWithLoaded = HTMLScriptElement & { __loaded?: boolean };
+
+type PDFPageProxyLike = {
+  getViewport(options: { scale: number }): { width: number; height: number };
+  render(options: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }): { promise: Promise<void> };
+};
+
+type PDFDocumentProxyLike = {
+  numPages: number;
+  getPage(pageNumber: number): Promise<PDFPageProxyLike>;
+  cleanup?: () => void;
+  destroy?: () => void;
+};
+
+type PDFDocumentLoadingTaskLike = {
+  promise: Promise<PDFDocumentProxyLike>;
+};
+
+type PDFJSLib = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(source: { url: string }): PDFDocumentLoadingTaskLike;
+};
+
 function loadScriptOnce(src: string) {
   return new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    const existing = document.querySelector<ScriptWithLoaded>(`script[src="${src}"]`);
     if (existing) {
-      if ((existing as any).__loaded) return resolve();
+      if (existing.__loaded) return resolve();
       existing.addEventListener("load", () => resolve());
       existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
       return;
     }
-    const s = document.createElement("script");
+    const s = document.createElement("script") as ScriptWithLoaded;
     s.src = src;
     s.async = true;
-    (s as any).__loaded = false;
+    s.__loaded = false;
     s.addEventListener("load", () => {
-      (s as any).__loaded = true;
+      s.__loaded = true;
       resolve();
     });
     s.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
@@ -50,8 +73,8 @@ export default function PDFJSCompareViewer({
   const leftHostRef = useRef<HTMLDivElement | null>(null);
   const rightHostRef = useRef<HTMLDivElement | null>(null);
 
-  const leftPdfRef = useRef<any>(null);
-  const rightPdfRef = useRef<any>(null);
+  const leftPdfRef = useRef<PDFDocumentProxyLike | null>(null);
+  const rightPdfRef = useRef<PDFDocumentProxyLike | null>(null);
 
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errMsg, setErrMsg] = useState("");
@@ -64,7 +87,7 @@ export default function PDFJSCompareViewer({
       try {
         setStatus("loading");
         await loadScriptOnce("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
-        const pdfjsLib = (window as any).pdfjsLib;
+  const pdfjsLib = (window as Window & { pdfjsLib?: PDFJSLib }).pdfjsLib;
         if (!pdfjsLib) throw new Error("pdfjsLib not found");
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
 
@@ -87,7 +110,7 @@ export default function PDFJSCompareViewer({
         const scaleFor = (el: HTMLElement) =>
           Math.max(0.8, Math.min(2.5, (el.clientWidth || 600) / 900));
 
-        async function renderAll(pdf: any, host: HTMLElement) {
+        async function renderAll(pdf: PDFDocumentProxyLike, host: HTMLElement) {
           const scale = scaleFor(host);
           for (let i = 1; i <= pdf.numPages; i++) {
             if (!active) return;
@@ -111,16 +134,18 @@ export default function PDFJSCompareViewer({
         if (!active) return;
         setStatus("ready");
 
-        let t: any;
+        let resizeTimeout: number | undefined;
         const onResize = () => {
-          clearTimeout(t);
-          t = setTimeout(async () => {
+          if (resizeTimeout) {
+            window.clearTimeout(resizeTimeout);
+          }
+          resizeTimeout = window.setTimeout(async () => {
             if (!active) return;
             safeRemoveAllChildren(leftHost);
             safeRemoveAllChildren(rightHost);
             await Promise.all([
-              renderAll(leftPdfRef.current, leftHost),
-              renderAll(rightPdfRef.current, rightHost),
+              leftPdfRef.current ? renderAll(leftPdfRef.current, leftHost) : Promise.resolve(),
+              rightPdfRef.current ? renderAll(rightPdfRef.current, rightHost) : Promise.resolve(),
             ]);
           }, 150);
         };
