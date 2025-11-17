@@ -55,20 +55,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
 
   const isPersonaDetailRoute = Boolean(personaSlug) && !isExploreRoute && !isChatRoute && !isInterviewRoute && !isQuestionnaireRoute;
 
-  const topbarNavLinks = useMemo(() => {
-    if (isExploreRoute) {
-      if (!clientSlug) {
-        return [{ label: "Explore", href: "/app/explore" }];
-      }
-      return [{ label: "Explore", href: `/app/${clientSlug}/explore` }];
-    }
-
-    if (isChatRoute || isInterviewRoute || isPersonaDetailRoute) {
-      return [];
-    }
-
-    return [];
-  }, [clientSlug, isChatRoute, isExploreRoute, isInterviewRoute, isPersonaDetailRoute]);
+  const topbarNavLinks = useMemo(() => [], []);
 
   const chipStyle: CSSProperties = {
     display: "inline-flex",
@@ -166,6 +153,13 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     transition: "transform 120ms ease, box-shadow 120ms ease",
   };
 
+  const personasNavIcon = (
+    <svg width={16} height={16} viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#22325a" stroke="#22325a" strokeWidth="0.6">
+      <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+      <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
+    </svg>
+  );
+
   const questionnaireChips = (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
       <Link href={chatHref} prefetch={false} style={chipStyle}>
@@ -216,6 +210,21 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
     ? questionnaireChips
     : undefined;
   const topbarTitleHref = clientSlug ? `/app/${clientSlug}/explore` : "/app/explore";
+  const showPersonasLeadingLink = isExploreRoute || isPersonaDetailRoute;
+  const exploreLeadingLink = showPersonasLeadingLink ? (
+    <Link
+      href={topbarTitleHref}
+      prefetch={false}
+      style={leadingLinkStyle}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <span aria-hidden="true" style={{ display: "inline-flex" }}>
+          {personasNavIcon}
+        </span>
+        <span>Personas</span>
+      </span>
+    </Link>
+  ) : null;
   const clientTitleElement = clientDisplayName
     ? topbarTitleHref
       ? (
@@ -261,6 +270,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
           {clientTitleElement}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             {historyTrigger}
+            {exploreLeadingLink}
             {interviewLeadingLink}
             {chatLeadingLink}
           </div>

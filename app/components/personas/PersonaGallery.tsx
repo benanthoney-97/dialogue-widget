@@ -48,8 +48,8 @@ export default function PersonaGallery({ clientSlug, personas, emptyMessage = "N
 
 const gridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 280px))",
-  gap: 20,
+  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 240px))",
+  gap: 16,
   width: "100%",
   justifyContent: "center",
   justifyItems: "center",
@@ -114,10 +114,10 @@ function renderPersonaCard(persona: PersonaSummary, clientSlug: string) {
         padding: 0,
         textAlign: "left",
         cursor: "pointer",
-    width: "100%",
-    maxWidth: 280,
-    display: "block",
-    margin: "0 auto",
+        width: "100%",
+        maxWidth: 240,
+        display: "block",
+        margin: "0 auto",
       }}
     >
       <article
@@ -128,18 +128,18 @@ function renderPersonaCard(persona: PersonaSummary, clientSlug: string) {
         backgroundSize: hasProfileImage ? "cover" : undefined,
         backgroundPosition: hasProfileImage ? "center" : undefined,
         backgroundRepeat: hasProfileImage ? "no-repeat" : undefined,
-        borderRadius: 18,
+        borderRadius: 16,
         border: hasProfileImage
           ? "1px solid rgba(15,23,42,0.22)"
           : "1px solid rgba(15,23,42,0.06)",
         boxShadow: baseBoxShadow,
         display: "flex",
         flexDirection: "column",
-        gap: 14,
-  padding: 18,
+        gap: 12,
+        padding: 14,
         position: "relative",
-  aspectRatio: "3 / 4",
-  minHeight: 240,
+        aspectRatio: "2.6 / 3.4",
+        minHeight: 210,
         overflow: "hidden",
         color: primaryTextColor,
         transform: "translateY(0)",

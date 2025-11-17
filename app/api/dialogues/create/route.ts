@@ -7,6 +7,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 );
 
+const PERSONA_IMAGES_BUCKET = "persona_images";
+
 type IncomingDoc = {
   temp_id: string;
   agent_name: string;
@@ -26,6 +28,20 @@ type CreateDialoguePayload = {
   briefingConversationId?: string | null;
   briefingEndedAt?: number | null;
   personaName?: string | null;
+  personaImage?: PersonaImagePayload;
+  personaTagline?: string | null;
+  personaDescription?: string | null;
+  personaGuidance?: string | null;
+  personaSetting?: string | null;
+  personaTone?: string | null;
+  personaVoice?: string | null;
+  personaLinks?: string[] | null;
+};
+
+type PersonaImagePayload = {
+  fileName?: string | null;
+  dataUrl?: string | null;
+  mimeType?: string | null;
 };
 
 function decodeSlug(rawSlug: string): string {
@@ -51,8 +67,26 @@ function safeFileName(name: string) {
 }
 
 function buildPublicUrl(path: string) {
+  return buildStoragePublicUrl("docs", path);
+}
+
+function buildStoragePublicUrl(bucket: string, path: string) {
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
-  return `${base}/storage/v1/object/public/docs/${encodeURIComponent(path)}`;
+  const encodedPath = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${base}/storage/v1/object/public/${bucket}/${encodedPath}`;
+}
+
+function getExtensionFromMime(mimeType: string | null | undefined): string {
+  if (!mimeType) return "png";
+  const candidate = mimeType.split(";")[0];
+  const parts = candidate.split("/");
+  if (parts.length === 2 && parts[1]) {
+    return parts[1];
+  }
+  return "png";
 }
 
 export async function POST(req: Request) {
@@ -67,7 +101,22 @@ export async function POST(req: Request) {
       briefingConversationId,
       briefingEndedAt,
       personaName,
+      personaImage,
+      personaTagline,
+      personaDescription,
+      personaGuidance,
+      personaSetting,
+      personaTone,
+      personaVoice,
+      personaLinks,
     } = body;
+    console.log("[CreateDialogue] payload", {
+      clientSlug,
+      personaName,
+      personaTagline,
+      personaGuidance,
+      personaLinksCount: Array.isArray(personaLinks) ? personaLinks.length : 0,
+    });
 
     if (!clientSlug) {
       return NextResponse.json({ error: 'Missing workspace identifier' }, { status: 400 });
@@ -149,16 +198,51 @@ export async function POST(req: Request) {
       primaryDoc?.agent_name ||
       (key ? `Persona ${key.slice(0, 6)}` : 'Persona');
 
+    const trimmedDescription = typeof personaDescription === "string" ? personaDescription.trim() : "";
+    const linkUrls =
+      Array.isArray(personaLinks)
+        ? Array.from(
+            new Set(
+              personaLinks
+                .map((link) => (typeof link === "string" ? link.trim() : ""))
+                .filter((link) => link.length > 0)
+            )
+          )
+        : [];
     const insertPayload: Record<string, unknown> = {
       agent_id: agentId,
       client_id: clientId,
       key,
       agent_name: derivedAgentName,
       created_at: nowIso,
-      description: purpose ?? null,
+      description: trimmedDescription.length > 0 ? trimmedDescription : purpose ?? null,
       audience_type: audienceType ?? null,
       briefing_conversation_id: briefingConversationId ?? null,
     };
+    const trimmedTagline = typeof personaTagline === "string" ? personaTagline.trim() : "";
+    if (trimmedTagline.length > 0) {
+      insertPayload.talk_label = trimmedTagline;
+      insertPayload.role_title = trimmedTagline;
+    }
+    const trimmedGuidance = typeof personaGuidance === "string" ? personaGuidance.trim() : "";
+    if (trimmedGuidance.length > 0) {
+      insertPayload.work_label = trimmedGuidance;
+    }
+    const trimmedSetting = typeof personaSetting === "string" ? personaSetting.trim() : "";
+    if (trimmedSetting.length > 0) {
+      insertPayload.region = trimmedSetting;
+    }
+    const trimmedTone = typeof personaTone === "string" ? personaTone.trim() : "";
+    if (trimmedTone.length > 0) {
+      insertPayload.author = trimmedTone;
+    }
+    const trimmedVoice = typeof personaVoice === "string" ? personaVoice.trim() : "";
+    if (trimmedVoice.length > 0) {
+      insertPayload.voice_id = trimmedVoice;
+    }
+    if (linkUrls.length > 0) {
+      insertPayload.url = linkUrls[0];
+    }
 
     if (ownerProfileId) {
       insertPayload.user_id = ownerProfileId;
@@ -182,6 +266,7 @@ export async function POST(req: Request) {
       mime_type: string | null;
       file_size: number | null;
       source: string | null;
+      link_urls?: unknown;
     }> = [];
 
     for (const doc of docsArray) {
@@ -235,8 +320,22 @@ export async function POST(req: Request) {
         mime_type: mimeType,
         file_size: doc.fileSize ?? buffer.byteLength,
         source: 'storage',
+        link_urls: null,
       });
     }
+
+      for (const linkUrl of linkUrls) {
+      documentsToInsert.push({
+        agent_id: agentId,
+        file_name: safeFileName(linkUrl || `link-${randomUUID()}`),
+        storage_path: null,
+        public_url: linkUrl,
+        mime_type: "text/uri-list",
+        file_size: null,
+        source: "external",
+        link_urls: [linkUrl],
+      });
+      }
 
     if (documentsToInsert.length > 0) {
       const preparedDocs = documentsToInsert.map((doc) => ({
@@ -245,6 +344,44 @@ export async function POST(req: Request) {
       const { error: docsError } = await supabaseAdmin.from('agent_documents').insert(preparedDocs);
       if (docsError) {
         throw new Error(docsError.message);
+      }
+    }
+
+    if (personaImage?.dataUrl && personaImage.dataUrl.trim().startsWith("data:")) {
+      const cleanedUrl = personaImage.dataUrl.trim();
+      const { buffer, mimeType: decodedMime } = decodeDataUrl(cleanedUrl);
+      const finalMime = decodedMime ?? personaImage.mimeType ?? "image/png";
+      const extension = getExtensionFromMime(finalMime);
+      const candidateName = personaImage.fileName?.trim();
+      const fileName =
+        candidateName && candidateName.length > 0
+          ? safeFileName(candidateName)
+          : safeFileName(`${randomUUID()}.${extension || "png"}`);
+      const storagePath = `clients/${clientId}/${agentId}/${fileName}`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(PERSONA_IMAGES_BUCKET)
+        .upload(storagePath, buffer, {
+          contentType: finalMime,
+          upsert: true,
+        });
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const { data: publicUrlData } = await supabaseAdmin.storage
+        .from(PERSONA_IMAGES_BUCKET)
+        .getPublicUrl(storagePath);
+      const profileImageUrl =
+        (publicUrlData as any)?.publicUrl ??
+        (publicUrlData as any)?.publicURL ??
+        buildStoragePublicUrl(PERSONA_IMAGES_BUCKET, storagePath);
+
+      const { error: profileImageError } = await supabaseAdmin
+        .from("agent_map")
+        .update({ profile_image: profileImageUrl })
+        .eq("agent_id", agentId);
+      if (profileImageError) {
+        throw new Error(profileImageError.message ?? "Failed to update persona image.");
       }
     }
 

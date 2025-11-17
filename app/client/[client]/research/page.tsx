@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "../../../components/Topbar";
 import { TOPBAR_HEIGHT } from "../../../components/topbarHeight";
@@ -100,6 +100,7 @@ const deriveTopSources = (articles: AgentResearchRecord["sourcedArticles"]) => {
 
 export default function ResearchPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [availableSources, setAvailableSources] = useState<ExternalSource[]>([]);
@@ -114,6 +115,7 @@ export default function ResearchPage() {
   const [promptSaveError, setPromptSaveError] = useState<string | null>(null);
   const overlayTitleId = "research-overlay-title";
   const overlayDescriptionId = "research-overlay-description";
+  const searchParams = useSearchParams();
 
   const knowledgeParagraphs = useMemo(() => {
     const text = selectedAgent?.knowledgeText;
@@ -131,6 +133,17 @@ export default function ResearchPage() {
     setIsPromptDirty(false);
     setPromptSaveError(null);
   }, [selectedAgent]);
+
+  useEffect(() => {
+    const agentIdFromParam = searchParams?.get("agentId") ?? null;
+    if (!agentIdFromParam) return;
+    if (!agentResearch.length) return;
+    if (selectedAgent && selectedAgent.agentId === agentIdFromParam) return;
+    const matched = agentResearch.find((record) => record.agentId === agentIdFromParam);
+    if (matched) {
+      setSelectedAgent(matched);
+    }
+  }, [agentResearch, searchParams, selectedAgent]);
 
   const handleClearPromptDraft = useCallback(() => {
     setPromptValue(selectedAgent?.watchlistQuery ?? "");
@@ -198,9 +211,23 @@ export default function ResearchPage() {
     console.log("[Research] promptValue changed", { promptValue, isPromptDirty });
   }, [promptValue, isPromptDirty]);
 
-  const closeOverlay = () => {
+  const handleCreatePersona = useCallback(() => {
+    if (clientSlug) {
+      router.push(`/client/${clientSlug}/upload`);
+      return;
+    }
+    router.push("/upload");
+  }, [clientSlug, router]);
+
+  const closeOverlay = useCallback(() => {
     setSelectedAgent(null);
-  };
+    if (!router) return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("agentId");
+    const search = params.toString();
+    const targetPath = `${pathname}${search ? `?${search}` : ""}`;
+    router.replace(targetPath, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     if (!clientSlug) return;
@@ -332,10 +359,12 @@ export default function ResearchPage() {
     if (!value) return "—";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "—";
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
     });
   }, []);
 
@@ -529,7 +558,17 @@ export default function ResearchPage() {
                               {agentResearchError}
                             </div>
                           ) : agentResearch.length === 0 ? (
-                            <div className="research-agent-state">No agent research runs yet.</div>
+                            <div className="research-agent-state research-agent-state--empty">
+                              <div className="research-empty-callout">
+                                <button
+                                  type="button"
+                                  className="research-empty-callout__button"
+                                  onClick={handleCreatePersona}
+                                >
+                                  Create first persona
+                                </button>
+                              </div>
+                            </div>
                           ) : (
                             <table>
                               <thead>
@@ -661,6 +700,12 @@ export default function ResearchPage() {
             descriptionId={overlayDescriptionId}
             actions={
               <div className="research-overlay__actions-stack">
+                <button
+                  type="button"
+                  className="research-overlay__actions-button"
+                >
+                  Add article
+                </button>
                 {selectedAgent.sourcedArticles.length > 0 ? (
                   <section className="research-overlay__sources" aria-label="Source articles">
                     <p className="research-overlay__sources-heading">Sourced articles</p>
@@ -1033,6 +1078,44 @@ export default function ResearchPage() {
           font-size: 13px;
           color: rgba(15, 23, 42, 0.7);
         }
+        .research-agent-state--empty {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 170px;
+        }
+        .research-empty-callout {
+          margin-bottom: 20px;
+          padding: 16px 20px;
+          border-radius: 16px;
+          background: transparent;
+          color: rgba(15, 23, 42, 0.9);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          align-items: center;
+          text-align: center;
+        }
+        .research-empty-callout__button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 12px 20px;
+          border-radius: 12px;
+          background: #0f172a;
+          color: #f8fafc;
+          font-weight: 700;
+          font-size: 15px;
+          border: none;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease,
+            color 0.18s ease;
+          font-family: inherit;
+        }
+        .research-empty-callout__button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 32px rgba(15, 23, 42, 0.24);
+        }
         .research-agent-state--error {
           color: #b91c1c;
         }
@@ -1064,7 +1147,7 @@ export default function ResearchPage() {
         }
         .research-overlay__refresh-note {
           font-size: 12px;
-          color: rgba(15, 23, 42, 0.55);
+          color: rgba(15, 23, 42, 0.68);
           font-family: var(--font-heading, var(--font-body, var(--font-sans)));
           text-transform: none;
           margin-left: 6px;
@@ -1221,6 +1304,20 @@ export default function ResearchPage() {
           flex-direction: column;
           gap: 16px;
           overflow: hidden;
+        }
+        .research-overlay__actions-button {
+          border: none;
+          border-radius: 10px;
+          background: #2563eb;
+          color: #fff;
+          font-weight: 600;
+          font-size: 13px;
+          padding: 10px 16px;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .research-overlay__actions-button:hover {
+          background: #1d4ed8;
         }
         .research-overlay__actions-placeholder {
           margin: 0;

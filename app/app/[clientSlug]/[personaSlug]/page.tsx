@@ -30,6 +30,7 @@ type PersonaRow = {
   location: string | null;
   customer_status: string | null;
   profile_image: string | null;
+  role_title: string | null;
 };
 
 type PersonaSummary = {
@@ -40,6 +41,7 @@ type PersonaSummary = {
   contentType: string | null;
   updatedAt: string | null;
   profileImage: string | null;
+  roleTitle: string | null;
 };
 
 type SuggestedQuestionRow = {
@@ -97,18 +99,19 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
     slugCounts.set(baseSlug, count + 1);
     const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
 
-    return {
-      id: row.agent_id,
-      slug,
-      name: row.agent_name?.trim().length ? row.agent_name.trim() : "Untitled persona",
-      description: row.description,
-      contentType: row.content_type?.trim().length ? row.content_type.trim() : null,
-      updatedAt: row.dialogue_created_date,
-      profileImage:
-        typeof row.profile_image === "string" && row.profile_image.trim().length > 0
-          ? row.profile_image.trim()
-          : null,
-    } satisfies PersonaSummary;
+      return {
+        id: row.agent_id,
+        slug,
+        name: row.agent_name?.trim().length ? row.agent_name.trim() : "Untitled persona",
+        description: row.description,
+        contentType: row.content_type?.trim().length ? row.content_type.trim() : null,
+        updatedAt: row.dialogue_created_date,
+        profileImage:
+          typeof row.profile_image === "string" && row.profile_image.trim().length > 0
+            ? row.profile_image.trim()
+            : null,
+        roleTitle: row.role_title?.trim().length ? row.role_title.trim() : null,
+      } satisfies PersonaSummary;
   });
 }
 
@@ -160,7 +163,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image"
+      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, role_title"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
@@ -446,7 +449,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                   fontFamily: BODY_FONT_STACK,
                 }}
               >
-                Wizard from Hogwarts school
+                {persona.roleTitle ?? "Role not available yet."}
               </p>
             </header>
             <div
@@ -539,28 +542,49 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
             }}
           />
 
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              borderRadius: 20,
-              color: "#0f172a",
-              fontFamily: BODY_FONT_STACK,
-            }}
-          >
-            <h2
+            <div
               style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 700,
-                fontFamily: HEADING_FONT_STACK,
+                gridColumn: "1 / -1",
+                borderRadius: 20,
+                color: "#0f172a",
+                fontFamily: BODY_FONT_STACK,
               }}
             >
-              Persona description
-            </h2>
-            <div style={{ marginTop: 12 }}>
-              <PersonaDescription text={descriptionText} />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="#22325A"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"
+                  />
+                </svg>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    fontFamily: HEADING_FONT_STACK,
+                  }}
+                >
+                  Description
+                </h2>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <PersonaDescription text={descriptionText} />
+              </div>
             </div>
-          </div>
 
           <div
             style={{
@@ -580,16 +604,34 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               fontFamily: BODY_FONT_STACK,
             }}
           >
-            <h2
+            <div
               style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 700,
-                fontFamily: HEADING_FONT_STACK,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              Suggested questions
-            </h2>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="#22325A"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.828zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69A1.73 1.73 0 0 0 2.31 4.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z" />
+              </svg>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 20,
+                  fontWeight: 700,
+                  fontFamily: HEADING_FONT_STACK,
+                }}
+              >
+                Suggested questions
+              </h2>
+            </div>
             <div
               style={{
                 display: "flex",

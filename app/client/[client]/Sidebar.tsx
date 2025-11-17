@@ -456,19 +456,6 @@ icon: (
             <div style={{ fontSize: 11, color: "#fda4af" }}>Profile unavailable</div>
           )}
         </div>
-        <div
-          style={{
-            display: collapsed ? "none" : "flex",
-            flexDirection: "column",
-            gap: 2,
-            color: "var(--accent-2, #7fb3ff)",
-            marginLeft: 4,
-            transition: "opacity 0.18s ease",
-          }}
-        >
-          <span style={{ fontSize: 12, lineHeight: 1, transform: menuOpen ? "rotate(180deg)" : "none" }}>⌃</span>
-          <span style={{ fontSize: 12, lineHeight: 1, transform: menuOpen ? "rotate(180deg)" : "none" }}>⌄</span>
-        </div>
         {menuOpen && (
           <div
             style={{

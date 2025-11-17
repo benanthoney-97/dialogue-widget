@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "@/app/components/Topbar";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
@@ -144,6 +145,7 @@ export default function InternalDataPage() {
   const [personaStage, setPersonaStage] = useState<"select" | "action">("select");
   const pathname = usePathname();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
+  const router = useRouter();
 
   useEffect(() => {
     let isActive = true;
@@ -242,8 +244,26 @@ export default function InternalDataPage() {
       if (loading) {
         return (
           <tr className="insights-table__row">
-            <td className="insights-table__cell" colSpan={4}>
+            <td className="insights-table__cell" colSpan={5}>
               Loading internal documents…
+            </td>
+          </tr>
+        );
+      }
+
+      if (rows.length === 0) {
+        return (
+          <tr className="insights-table__row">
+            <td className="insights-table__cell" colSpan={5}>
+              {showPersonaCreatePrompt ? (
+                <div className="internal-data-persona-callout">
+                  <button type="button" className="internal-data-callout-button" onClick={handleCreatePersona}>
+                    Create first persona
+                  </button>
+                </div>
+              ) : (
+                emptyTableMessage
+              )}
             </td>
           </tr>
         );
@@ -376,11 +396,18 @@ export default function InternalDataPage() {
     }
   }, [addModalType]);
 
-  useEffect(() => {
-    if (!personaSelectorOpen) {
-      setPersonaStage("select");
+  const handleCreatePersona = useCallback(() => {
+    if (clientSlug) {
+      router.push(`/client/${clientSlug}/upload`);
+      return;
     }
-  }, [personaSelectorOpen]);
+    router.push("/upload");
+  }, [clientSlug, router]);
+
+  const showPersonaCreatePrompt = useMemo(
+    () => personas.length === 0 && !personasLoading && !personasError && Boolean(clientSlug),
+    [personas.length, personasLoading, personasError, clientSlug]
+  );
 
   useEffect(() => {
     setSelectedPersona(null);
@@ -414,6 +441,11 @@ export default function InternalDataPage() {
       void fetchPersonas();
     }
   }, [personaSelectorOpen, clientId, fetchPersonas]);
+
+  useEffect(() => {
+    if (!clientId) return;
+    void fetchPersonas();
+  }, [clientId, fetchPersonas]);
 
   const modalActionLabel =
     addModalType === "files"
@@ -452,6 +484,27 @@ export default function InternalDataPage() {
     );
   };
 
+  const personaPrompt = useMemo(() => {
+    if (personas.length === 0) {
+      return null;
+    }
+    const names = personas
+      .map((persona) => (persona.agent_name?.trim().length ? persona.agent_name!.trim() : null))
+      .filter(Boolean) as string[];
+    if (names.length === 0) return null;
+    if (names.length === 1) {
+      return names[0];
+    }
+    if (names.length === 2) {
+      return `${names[0]} and ${names[1]}`;
+    }
+    return `${names[0]}, ${names[1]}, and others`;
+  }, [personas]);
+
+  const emptyTableMessage = personaPrompt
+    ? `No internal documents yet. Add documents for ${personaPrompt} to capture their knowledge.`
+    : "No internal documents found for this workspace.";
+
   return (
     <div className="internal-data-page">
       <Topbar
@@ -460,7 +513,7 @@ export default function InternalDataPage() {
         hideProfileAvatar
         hideCadenceControls
         rightSlot={
-          clientSlug ? (
+          clientSlug && personas.length > 0 ? (
             <div className="internal-data-topbar-menu-wrapper">
               <button
                 type="button"
@@ -486,17 +539,19 @@ export default function InternalDataPage() {
         <section className="internal-data-page__body">
           <div className={`insights-table-wrap ${loading ? "insights-table-wrap--busy" : ""}`}>
             <table className="insights-table">
-              <thead>
-                <tr className="insights-table__head-row">
-                  <th className="insights-table__head-cell document-column">Name</th>
-                  <th className="insights-table__head-cell">Created</th>
-                  <th className="insights-table__head-cell insights-table__head-cell--persona">
-                    Persona
-                  </th>
-                  <th className="insights-table__head-cell">Created by</th>
-                  <th className="insights-table__head-cell" aria-hidden="true" />
-                </tr>
-              </thead>
+              {((loading || rows.length > 0 || Boolean(error)) && (
+                <thead>
+                  <tr className="insights-table__head-row">
+                    <th className="insights-table__head-cell document-column">Name</th>
+                    <th className="insights-table__head-cell">Created</th>
+                    <th className="insights-table__head-cell insights-table__head-cell--persona">
+                      Persona
+                    </th>
+                    <th className="insights-table__head-cell">Created by</th>
+                    <th className="insights-table__head-cell" aria-hidden="true" />
+                  </tr>
+                </thead>
+              )) || null}
               <tbody>{renderRows()}</tbody>
             </table>
             <div className={`internal-data-table-overlay ${loading ? "internal-data-table-overlay--visible" : ""}`} aria-live="polite">
@@ -507,8 +562,6 @@ export default function InternalDataPage() {
             <div className="insights-empty" role="alert">
               {error}
             </div>
-          ) : !loading && rows.length === 0 ? (
-            <div className="insights-empty">No internal documents found for this workspace.</div>
           ) : null}
         </section>
       </main>
@@ -965,9 +1018,15 @@ export default function InternalDataPage() {
           outline: 3px solid rgba(59, 130, 246, 0.45);
           outline-offset: -1px;
         }
-        .insights-table__row:hover {
-          background: rgba(59, 130, 246, 0.08);
-        }
+			.insights-table__row:hover {
+				background: rgba(59, 130, 246, 0.08);
+			}
+			.insights-table__row--empty .insights-table__cell {
+				background: none;
+			}
+			.insights-table__row--empty:hover .insights-table__cell {
+				background: none !important;
+			}
         .document-column {
           width: 380px;
           max-width: 380px;
@@ -979,10 +1038,10 @@ export default function InternalDataPage() {
           font-size: 15px;
           vertical-align: middle;
         }
-        .insights-table-wrap--busy {
-          pointer-events: none;
-        }
-        .internal-data-table-overlay {
+			.insights-table-wrap--busy {
+				pointer-events: none;
+			}
+			.internal-data-table-overlay {
           position: absolute;
           top: 50%;
           left: 16px;
@@ -994,7 +1053,38 @@ export default function InternalDataPage() {
           z-index: 2;
           opacity: 0;
           transition: opacity 0.2s ease;
-        }
+			}
+			.internal-data-persona-callout {
+				margin-bottom: 20px;
+				padding: 16px 20px;
+				border-radius: 16px;
+				background: transparent;
+				color: rgba(15, 23, 42, 0.9);
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				align-items: center;
+				text-align: center;
+			}
+			.internal-data-callout-button {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 12px 20px;
+				border-radius: 12px;
+				background: #0f172a;
+				color: #f8fafc;
+				font-weight: 700;
+				font-size: 15px;
+				border: none;
+				cursor: pointer;
+				transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+				font-family: inherit;
+			}
+			.internal-data-callout-button:hover:not(:disabled) {
+				transform: translateY(-1px);
+				box-shadow: 0 16px 32px rgba(15, 23, 42, 0.24);
+			}
         .internal-data-table-overlay--visible {
           opacity: 1;
         }
@@ -1017,7 +1107,7 @@ export default function InternalDataPage() {
         .insights-table__cell--actions {
           text-align: center;
         }
-        .insights-table__cell--actions .insights-action-button {
+			.insights-table__cell--actions .insights-action-button {
           cursor: pointer;
         }
         .insights-table__cell--persona {

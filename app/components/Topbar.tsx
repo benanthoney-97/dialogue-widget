@@ -510,7 +510,7 @@ export default function Topbar({
                 type="button"
                 onClick={() => handleNavigate(adminHref)}
                 style={{
-                  border: "1px solid rgba(15, 23, 42, 0.14)",
+                  border: "none",
                   background: "transparent",
                   color: "#0f172a",
                   padding: "8px 16px",

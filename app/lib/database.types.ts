@@ -80,6 +80,7 @@ export type Database = {
           mime_type: string | null
           file_size: number | null
           source: string | null
+          link_urls: Json | null
           created_at: string
         }
         Insert: {
@@ -91,6 +92,7 @@ export type Database = {
           mime_type?: string | null
           file_size?: number | null
           source?: string | null
+          link_urls?: Json | null
           created_at?: string
         }
         Update: {
@@ -102,6 +104,7 @@ export type Database = {
           mime_type?: string | null
           file_size?: number | null
           source?: string | null
+          link_urls?: Json | null
           created_at?: string
         }
         Relationships: [

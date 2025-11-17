@@ -61,6 +61,21 @@ function stringByteLength(content: string): number {
   return content.length;
 }
 
+function extractMimeFromDataUrl(dataUrl: string | null): string | null {
+  if (!dataUrl) return null;
+  const match = dataUrl.match(/^data:(.*?);/);
+  return match ? match[1] : null;
+}
+
+function buildPersonaImageFileName(file: File | null, dataUrl: string | null): string {
+  if (file?.name && file.name.trim().length > 0) {
+    return file.name.trim();
+  }
+  const mime = extractMimeFromDataUrl(dataUrl) ?? "image/png";
+  const extension = mime.includes("/") ? mime.split("/").pop() : "png";
+  return `persona-image-${Date.now()}.${extension ?? "png"}`;
+}
+
 function buildTranscriptContent(
   messages: TranscriptMessage[],
   conversationId: string | null,
@@ -241,6 +256,7 @@ export default function UploadPage() {
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const personaImageInputRef = useRef<HTMLInputElement | null>(null);
+  const [personaImageFile, setPersonaImageFile] = useState<File | null>(null);
   const [tempId, setTempId] = useState<string | null>(null);
   const [createdDocs, setCreatedDocs] = useState<StagedDoc[]>([]);
   const [briefingConversationId, setBriefingConversationId] = useState<string | null>(null);
@@ -273,11 +289,13 @@ export default function UploadPage() {
   function loadPersonaImageFile(file: File | null) {
     if (!file) {
       setPersonaImagePreview(null);
+      setPersonaImageFile(null);
       return;
     }
     if (!file.type.startsWith("image/")) {
       return;
     }
+    setPersonaImageFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === "string" ? reader.result : null;
@@ -412,6 +430,7 @@ export default function UploadPage() {
   const canAddCurrentLink = !!linksUrl.trim() && isLinksUrlValid && !linksUrls.includes(linksUrl.trim());
   const [availableExternalSources, setAvailableExternalSources] = useState<ExternalSource[]>([]);
   const [selectedExternalSources, setSelectedExternalSources] = useState<string[]>([]);
+
   function handleAddLink() {
     const trimmed = linksUrl.trim();
     if (!trimmed || !isValidUrl(trimmed)) {
@@ -688,12 +707,6 @@ export default function UploadPage() {
 
     const docsAvailable = Array.isArray(createdDocs) && createdDocs.length > 0;
     const briefingAvailable = Boolean(briefingConversationId && briefingEndedAt);
-
-    if (!docsAvailable && !briefingAvailable) {
-      setNotification({ type: 'error', message: 'Please upload at least one document or complete a briefing before finalizing.' });
-      return;
-    }
-
     if (docsAvailable && !tempId) {
       setNotification({ type: 'error', message: 'Upload session expired. Please re-upload your documents.' });
       return;
@@ -723,8 +736,14 @@ export default function UploadPage() {
       }
     }
 
+    console.log("[Upload] Starting persona create flow", {
+      personaName: personaNameDisplay,
+      personaTagline: personaTagline.trim(),
+      linksCount: linksUrls.length,
+    });
     setFinalizing(true);
     try {
+      console.log("[Upload] Calling dialogues create API", { tempId, docsCount: docsPayload.length });
       const res = await fetch('/api/dialogues/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -737,11 +756,29 @@ export default function UploadPage() {
           briefingConversationId,
           briefingEndedAt,
           personaName: personaNameDisplay,
+          personaImage: personaImagePreview
+            ? {
+                fileName: buildPersonaImageFileName(personaImageFile, personaImagePreview),
+                dataUrl: personaImagePreview,
+                mimeType: personaImageFile?.type ?? extractMimeFromDataUrl(personaImagePreview),
+              }
+            : undefined,
+          personaTagline: personaTagline.trim() || null,
+          personaDescription: personaDescription.trim() || null,
+          personaGuidance: selectedGuidance ?? null,
+          personaSetting: selectedSetting ?? null,
+          personaTone: tone || null,
+          personaVoice: voice || null,
+          personaLinks: linksUrls,
         }),
       });
+      const payload = await res.json().catch(() => null);
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const msg = (body && (body.error || body.message)) || `Server error: ${res.status}`;
+        const msg =
+          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : `Server error: ${res.status}`;
+        console.error("[Upload] Dialogues API failure", { status: res.status, message: msg });
         setNotification({ type: 'error', message: `Failed to finalize: ${msg}` });
         setFinalizing(false);
         return;
@@ -753,9 +790,9 @@ export default function UploadPage() {
         sessionStorage.removeItem('temp-upload-purpose');
       }
       setFinalizing(false);
-      // navigate to documents or dialogues list
-  router.push(`/client/${clientSlug}/personas`);
+      router.push(`/client/${clientSlug}/personas`);
     } catch (e: any) {
+      console.error("[Upload] Failed to finalize", e);
       setNotification({ type: 'error', message: `Failed to finalize: ${e?.message ?? e}` });
       setFinalizing(false);
     }

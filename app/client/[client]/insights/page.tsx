@@ -54,8 +54,9 @@ function formatInsightsDate(value?: string): string {
 		hour12: true,
 	});
 }
+type FilterableStatus = "Interview" | "Chat";
 // Status options for the connected segmented control (kept here so length is available)
-const statusOptions = (['All','Questionnaire','Interview','Chat'] as const);
+const statusOptions = (['All','Interview','Chat'] as const);
 
 
 type StagePanelProps = {
@@ -210,8 +211,7 @@ export default function InsightsTable() {
 	});
 	// Multi-select status chips: when `allStatuses` is true we show everything.
 	const [allStatuses, setAllStatuses] = useState<boolean>(true);
-	const [selectedStatuses, setSelectedStatuses] = useState<Record<"Questionnaire" | "Interview" | "Chat", boolean>>({
-		Questionnaire: false,
+	const [selectedStatuses, setSelectedStatuses] = useState<Record<FilterableStatus, boolean>>({
 		Interview: false,
 		Chat: false,
 	});
@@ -264,7 +264,7 @@ export default function InsightsTable() {
 
 	const selectedStatusKeys = React.useMemo(() => {
 		if (allStatuses) return [];
-		return (Object.entries(selectedStatuses) as Array<["Questionnaire" | "Interview" | "Chat", boolean]>)
+		return (Object.entries(selectedStatuses) as Array<[FilterableStatus, boolean]>)
 			.filter(([, value]) => value)
 			.map(([key]) => key.toLowerCase());
 	}, [allStatuses, selectedStatuses]);
@@ -303,7 +303,7 @@ export default function InsightsTable() {
 		setPage(1);
 		setFilters({ personaId: "", search: "" });
 		setAllStatuses(true);
-		setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
+				setSelectedStatuses({ Interview: false, Chat: false });
 		setFiltersOpen(false);
 		setRows([]);
 		setTotalCount(0);
@@ -407,6 +407,10 @@ export default function InsightsTable() {
 		if (!filters.personaId) return null;
 		return personaOptions.find((option) => option.id === filters.personaId) ?? null;
 	}, [filters.personaId, personaOptions]);
+	const activePersonaOption = React.useMemo(() => {
+		if (!activeRow) return null;
+		return personaOptions.find((option) => option.id === activeRow.personaId) ?? null;
+	}, [activeRow, personaOptions]);
 
 	const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
 	const pageRangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -542,9 +546,10 @@ export default function InsightsTable() {
 						<div className="insights-status-group" role="tablist" aria-label="Research type">
 							{statusOptions.map((opt, idx) => {
 								const isAll = opt === 'All';
+								const statusKey = opt as FilterableStatus;
 								const isActive = isAll
 									? allStatuses
-									: selectedStatuses[opt as keyof typeof selectedStatuses];
+									: selectedStatuses[statusKey];
 								const chipClasses = [
 									'insights-status-chip',
 									isActive ? 'insights-status-chip--active' : '',
@@ -564,14 +569,14 @@ export default function InsightsTable() {
 											setPage(1);
 											if (isAll) {
 												setAllStatuses(true);
-												setSelectedStatuses({ Questionnaire: false, Interview: false, Chat: false });
+												setSelectedStatuses({ Interview: false, Chat: false });
 											} else {
 												setAllStatuses(false);
 												setSelectedStatuses((prev) => {
-													const next = { ...prev, [opt]: !prev[opt as keyof typeof prev] } as typeof prev;
-													if (!next.Questionnaire && !next.Interview && !next.Chat) {
+													const next = { ...prev, [statusKey]: !prev[statusKey] };
+													if (!next.Interview && !next.Chat) {
 														setAllStatuses(true);
-														return { Questionnaire: false, Interview: false, Chat: false };
+														return { Interview: false, Chat: false };
 													}
 													return next;
 												});
@@ -741,16 +746,42 @@ export default function InsightsTable() {
 										) : null}
 										{chatMessages.length > 0 ? (
 											<section className="insights-panel__summary">
-												<p className="insights-detail-heading">Transcript</p>
+												<span className="insights-panel__wide-label">Transcript</span>
 												<div className="insights-panel__chat" role="log" aria-label="Transcript conversation">
-													{chatMessages.map((message, index) => (
-														<div
-															key={`${message.role}-${index}`}
-															className={`insights-panel__chat-message insights-panel__chat-message--${message.role}`}
-														>
-															<span>{message.text}</span>
-														</div>
-													))}
+													{chatMessages.map((message, index) => {
+														const personaAuthorName =
+															activePersonaOption?.name?.trim() ||
+															activeRow?.sourceDocument?.trim() ||
+															"Persona";
+														const userAuthorName =
+															activeRow?.ownerEmail ??
+															activeRow?.lead?.value ??
+															"User";
+														return (
+															<div
+																key={`${message.role}-${index}`}
+																className={`insights-panel__chat-message insights-panel__chat-message--${message.role}`}
+															>
+																<div
+																	className={`insights-panel__chat-author insights-panel__chat-author--${message.role}`}
+																>
+																	{message.role === "persona" && activePersonaOption?.profile_image?.trim() ? (
+																		<img
+																			src={activePersonaOption.profile_image.trim()}
+																			alt={`${personaAuthorName} avatar`}
+																			className="insights-panel__chat-author-img"
+																		/>
+																	) : null}
+																	{message.role === "persona"
+																		? personaAuthorName
+																		: message.role === "user"
+																			? userAuthorName
+																			: "System"}
+																</div>
+																<span>{message.text}</span>
+															</div>
+														);
+													})}
 												</div>
 											</section>
 										) : null}
@@ -1300,7 +1331,7 @@ ease;
 				}
 				.insights-table__head-cell:last-child,
 				.insights-table__cell:last-child {
-					width: auto;
+					width: 25%;
 					text-align: right;
 					padding-right: 12px;
 				}
@@ -1381,6 +1412,8 @@ ease;
 				display: flex;
 				flex-direction: column;
 				gap: 12px;
+				flex: 1 1 auto;
+				min-height: 0;
 			}
 			.insights-detail-row {
 				display: flex;
@@ -1416,16 +1449,19 @@ ease;
 				min-height: 140px;
 				display: flex;
 				flex-direction: column;
+				flex: 1 1 auto;
 				gap: 12px;
+				min-height: 0;
 			}
 			.insights-panel__chat {
 				display: flex;
 				flex-direction: column;
 				gap: 8px;
-				max-height: 270px;
 				overflow-y: auto;
 				overflow-x: hidden;
 				padding-right: 4px;
+				flex: 1 1 auto;
+				min-height: 0;
 			}
 			.insights-panel__chat-message {
 				max-width: 76%;
@@ -1435,6 +1471,27 @@ ease;
 				line-height: 1.5;
 				word-break: break-word;
 				text-align: left;
+			}
+			.insights-panel__chat-author {
+				display: block;
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.2px;
+				margin-bottom: 4px;
+				color: rgba(15, 23, 42, 0.65);
+				text-align: left;
+			}
+			.insights-panel__chat-author--user {
+				color: #ffffff;
+				text-align: right;
+			}
+			.insights-panel__chat-author-img {
+				width: 18px;
+				height: 18px;
+				border-radius: 999px;
+				object-fit: cover;
+				margin-right: 6px;
+				vertical-align: middle;
 			}
 			.insights-panel__chat-message--persona {
 				align-self: flex-start;
