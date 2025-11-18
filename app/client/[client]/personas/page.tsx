@@ -598,8 +598,12 @@ export default function PersonasPage() {
   const [externalArticlesError, setExternalArticlesError] = useState<string | null>(null);
   const [externalArticlesLoading, setExternalArticlesLoading] = useState(false);
   const [personasViewLinkCopied, setPersonasViewLinkCopied] = useState(false);
+  const [chipEditingIndex, setChipEditingIndex] = useState<number | null>(null);
+  const [chipEditingValue, setChipEditingValue] = useState("");
+  const [chipEditDirty, setChipEditDirty] = useState(false);
   const personasViewCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [personaClockStates, setPersonaClockStates] = useState<Record<string, boolean>>({});
+  const [chipRowsExpanded, setChipRowsExpanded] = useState<Record<string, boolean>>({});
   const personasViewHref = useMemo(() => {
     if (resolvedClientSlug) return `/app/${resolvedClientSlug}/explore`;
     if (clientSlug) return `/app/${clientSlug}/explore`;
@@ -746,10 +750,16 @@ export default function PersonasPage() {
             item.agent_id === personaId ? { ...item, active_status: previousValue } : item
           )
         );
-      }
-    },
-    [personaClockStates, supabase]
-  );
+    }
+  },
+  [personaClockStates, supabase]
+);
+  const handleToggleChipRow = useCallback((personaId: string) => {
+    setChipRowsExpanded((prev) => ({
+      ...prev,
+      [personaId]: !prev[personaId],
+    }));
+  }, []);
   const modalPanelRef = useRef<HTMLDivElement | null>(null);
   const expandedCardRef = useRef<HTMLDivElement | null>(null);
   const quantUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -786,6 +796,11 @@ export default function PersonasPage() {
   const [editingTraits, setEditingTraits] = useState<string>("");
   const [isSavingTraits, setIsSavingTraits] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (activePersona) {
+      console.log("Active persona key traits:", activePersona.key_traits);
+    }
+  }, [activePersona]);
   const [scalarTraitValues, setScalarTraitValues] = useState<Record<PersonaScalarTraitKey, string>>(
     () => createScalarTraitValues()
   );
@@ -1509,9 +1524,17 @@ export default function PersonasPage() {
     ? normalizeTraitsInput(baselineKeyTraitsList.join(", "))
     : "";
   const normalizedEditingTraits = useMemo(() => normalizeTraitsInput(editingTraits), [editingTraits]);
+  const chipTraitsList = useMemo(() => {
+    if (!normalizedEditingTraits) return [];
+    return normalizedEditingTraits
+      .split(",")
+      .map((trait) => trait.trim())
+      .filter((trait) => trait.length > 0);
+  }, [normalizedEditingTraits]);
   const hasUnsavedKeyTraits = Boolean(
     activePersona && normalizedEditingTraits !== baselineKeyTraitsNormalized
   );
+  const hasUnsavedKeyTraitEdits = chipEditDirty;
   const scalarTraitsSourcePersona = useMemo(() => {
     if (activePersona) {
       return activePersona;
@@ -2979,6 +3002,85 @@ export default function PersonasPage() {
     setDescriptionError(null);
   }, [activePersona, baselinePersonaDescription]);
 
+  const persistPersonaKeyTraits = useCallback(
+    async (agentId: string, nextTraits: string[]) => {
+      if (isSavingTraits) return false;
+      setIsSavingTraits(true);
+      setTraitsError(null);
+      const normalizedTraits = nextTraits
+        .map((trait) => trait.trim())
+        .filter((trait) => trait.length > 0);
+      const { error } = await supabase.from("agent_map").update({ key_traits: normalizedTraits }).eq("agent_id", agentId);
+      if (error) {
+        setTraitsError("Unable to update key traits. Please try again.");
+        setIsSavingTraits(false);
+        return false;
+      }
+      const normalizedString = normalizeTraitsInput(normalizedTraits.join(", "));
+      setEditingTraits(normalizedString);
+      setActivePersona((prev) =>
+        prev && prev.agent_id === agentId ? { ...prev, key_traits: normalizedTraits } : prev
+      );
+      setPersonas((prev) =>
+        prev.map((persona) => (persona.agent_id === agentId ? { ...persona, key_traits: normalizedTraits } : persona))
+      );
+      setIsSavingTraits(false);
+      return true;
+    },
+    [isSavingTraits, supabase]
+  );
+
+  const handleStartChipEdit = useCallback((index: number, trait: string) => {
+    setChipEditingIndex(index);
+    setChipEditingValue(trait);
+    setChipEditDirty(true);
+  }, []);
+
+  const handleCancelChipEdit = useCallback(() => {
+    setChipEditingIndex(null);
+    setChipEditingValue("");
+    setChipEditDirty(false);
+  }, []);
+
+  const handleChipDelete = useCallback(
+    (index: number) => {
+      const traits = chipTraitsList;
+      if (index < 0 || index >= traits.length) return;
+      const nextTraits = [...traits];
+      nextTraits.splice(index, 1);
+      const nextString = normalizeTraitsInput(nextTraits.join(", "));
+      setEditingTraits(nextString);
+      setChipEditDirty(true);
+    },
+    [chipTraitsList]
+  );
+
+  const handleChipEditCommit = useCallback(async () => {
+    if (
+      chipEditingIndex === null ||
+      chipEditingIndex < 0 ||
+      !activePersona ||
+      !activePersona.agent_id
+    ) {
+      handleCancelChipEdit();
+      return;
+    }
+    const currentTraits = Array.isArray(activePersona.key_traits)
+      ? activePersona.key_traits.map((trait) => trait.trim())
+      : [];
+    const nextTraits = [...currentTraits];
+    const trimmedValue = chipEditingValue.trim();
+    if (trimmedValue.length === 0) {
+      nextTraits.splice(chipEditingIndex, 1);
+    } else if (chipEditingIndex < nextTraits.length) {
+      nextTraits[chipEditingIndex] = trimmedValue;
+    } else {
+      nextTraits[chipEditingIndex] = trimmedValue;
+    }
+    await persistPersonaKeyTraits(activePersona.agent_id, nextTraits);
+    handleCancelChipEdit();
+  }, [activePersona, chipEditingIndex, chipEditingValue, handleCancelChipEdit, persistPersonaKeyTraits]);
+
   const commitPersonaTraits = useCallback(async () => {
     if (!activePersona || isSavingTraits) return;
     const currentAgentId = activePersona.agent_id;
@@ -2994,29 +3096,7 @@ export default function PersonasPage() {
     }
 
     const nextTraits = normalizedNext.length > 0 ? normalizedNext.split(", ").map((trait) => trait.trim()) : [];
-
-    setIsSavingTraits(true);
-    setTraitsError(null);
-    const { error } = await supabase
-      .from("agent_map")
-      .update({ key_traits: nextTraits })
-      .eq("agent_id", currentAgentId);
-    if (error) {
-      setTraitsError("Unable to update key traits. Please try again.");
-      setIsSavingTraits(false);
-      return;
-    }
-
-    setEditingTraits(normalizedNext);
-    setActivePersona((prev) =>
-      prev && prev.agent_id === currentAgentId ? { ...prev, key_traits: nextTraits } : prev
-    );
-    setPersonas((prev) =>
-      prev.map((persona) =>
-        persona.agent_id === currentAgentId ? { ...persona, key_traits: nextTraits } : persona
-      )
-    );
-    setIsSavingTraits(false);
+    await persistPersonaKeyTraits(currentAgentId, nextTraits);
   }, [activePersona, baselineKeyTraitsNormalized, editingTraits, isSavingTraits]);
 
   const handleClearKeyTraits = useCallback(() => {
@@ -3358,6 +3438,7 @@ export default function PersonasPage() {
     hasUnsavedDescription ||
     hasUnsavedDescriptionInline ||
     hasUnsavedKeyTraits ||
+    hasUnsavedKeyTraitEdits ||
     hasUnsavedScalarTraits ||
     hasUnsavedAvatarDraft;
   const showUnsavedChangesBanner = canEdit && hasAnyUnsavedChanges;
@@ -3391,8 +3472,10 @@ export default function PersonasPage() {
       }
       setDescriptionInlineError(null);
     }
-    if (hasUnsavedKeyTraits) {
+    if (hasUnsavedKeyTraits || hasUnsavedKeyTraitEdits) {
       handleClearKeyTraits();
+      setChipEditDirty(false);
+      handleCancelChipEdit();
     }
     if (hasUnsavedScalarTraits) {
       setScalarTraitValues((prev) => {
@@ -3421,7 +3504,7 @@ export default function PersonasPage() {
     handleClearPersonaDescription,
     hasUnsavedDescriptionInline,
     descriptionEditingPersonaId,
-    hasUnsavedKeyTraits,
+    hasUnsavedKeyTraitEdits,
     handleClearKeyTraits,
     hasUnsavedScalarTraits,
     baselineScalarTraits,
@@ -3448,6 +3531,9 @@ export default function PersonasPage() {
         await handleSaveDescriptionEdit(persona);
       }
     }
+    if (hasUnsavedKeyTraitEdits) {
+      await handleChipEditCommit();
+    }
     if (hasUnsavedKeyTraits) {
       await commitPersonaTraits();
     }
@@ -3470,6 +3556,8 @@ export default function PersonasPage() {
     hasUnsavedDescriptionInline,
     descriptionEditingPersonaId,
     handleSaveDescriptionEdit,
+    hasUnsavedKeyTraitEdits,
+    handleChipEditCommit,
     hasUnsavedKeyTraits,
     commitPersonaTraits,
     hasUnsavedScalarTraits,
@@ -3794,6 +3882,7 @@ export default function PersonasPage() {
                       .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
                       .filter((trait): trait is string => trait.length > 0)
                   : [];
+                const isChipRowExpanded = chipRowsExpanded[persona.agent_id] ?? false;
                 const avatarDraft = avatarDrafts[persona.agent_id];
                 const profileImageUrl =
                   avatarDraft?.previewUrl ??
@@ -4194,8 +4283,87 @@ export default function PersonasPage() {
                           <div className="persona-expanded-track">
                             <div className="persona-expanded-block persona-expanded-block--description">
                               <div className="persona-expanded-block__header persona-expanded-block__header--description">
-                                <h4>Description</h4>
+                                <h4>Key Traits & Description</h4>
                               </div>
+                              {keyTraits.length > 0 ? (
+                                <div
+                                  className={`persona-description__chip-row${
+                                    isChipRowExpanded ? " persona-description__chip-row--expanded" : ""
+                                  }`}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-expanded={isChipRowExpanded}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleToggleChipRow(persona.agent_id);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      handleToggleChipRow(persona.agent_id);
+                                    }
+                                  }}
+                                >
+                                  {chipTraitsList.map((trait, index) =>
+                                    chipEditingIndex === index ? (
+                                      <input
+                                        key={`chip-input-${index}`}
+                                        className="persona-description__chip-input"
+                                        value={chipEditingValue}
+                                        autoFocus
+                                        onChange={(event) => setChipEditingValue(event.target.value)}
+                                        onBlur={(event) => {
+                                          event.stopPropagation();
+                                          void handleChipEditCommit();
+                                        }}
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter") {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            void handleChipEditCommit();
+                                          } else if (event.key === "Escape") {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            handleCancelChipEdit();
+                                          }
+                                        }}
+                                        onClick={(event) => event.stopPropagation()}
+                                      />
+                                    ) : (
+                                      <span
+                                        key={`${trait}-${index}`}
+                                        className="persona-description__chip persona-description__chip--editable"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleStartChipEdit(index, trait);
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            handleStartChipEdit(index, trait);
+                                          }
+                                        }}
+                                      >
+                                        {trait}
+                                        <span
+                                          aria-hidden="true"
+                                          className="persona-description__chip-close"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleChipDelete(index);
+                                          }}
+                                        >
+                                          ×
+                                        </span>
+                                      </span>
+                                    )
+                                  )}
+                                </div>
+                              ) : null}
                               <div
                                 className={`persona-description${
                                   isDescriptionEditing
@@ -4217,9 +4385,9 @@ export default function PersonasPage() {
                                       onKeyDown={(event) => event.stopPropagation()}
                                       onKeyUp={(event) => event.stopPropagation()}
                                       disabled={isSavingDescriptionInline}
-                                      rows={hasDescription ? 5 : 6}
-                                      placeholder="Add a description for this persona"
-                                    />
+                                    rows={hasDescription ? 5 : 6}
+                                    placeholder="Add a description for this persona"
+                                  />
                                     {descriptionInlineError ? (
                                       <p className="persona-inline-error">{descriptionInlineError}</p>
                                     ) : null}
@@ -6056,6 +6224,71 @@ export default function PersonasPage() {
             line-height: 1.6;
             margin: 0;
           }
+          .persona-description__chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+            margin-bottom: 6px;
+            max-height: calc(3 * 32px + 12px);
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            padding: 4px 0;
+          }
+          .persona-description__chip-row::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(248, 250, 252, 0.92));
+            pointer-events: none;
+          }
+          .persona-description__chip-row--expanded {
+            max-height: none;
+            overflow: visible;
+          }
+          .persona-description__chip-row--expanded::after {
+            display: none;
+          }
+          .persona-description__chip--editable {
+            background: rgba(43, 108, 176, 0.12);
+          }
+          .persona-description__chip-input {
+            border: 1px solid rgba(15, 23, 42, 0.35);
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-size: 13px;
+            font-family: inherit;
+            color: rgba(15, 23, 42, 0.9);
+            background: #fff;
+          }
+          .persona-description__chip {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.92);
+            color: #1f2a37;
+            font-weight: 600;
+            border: 1px dashed rgba(148, 163, 184, 0.8);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .persona-description__chip-close {
+            font-size: 11px;
+            color: rgba(15, 23, 42, 0.6);
+            margin-left: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .persona-description__chip-close:focus-visible,
+          .persona-description__chip-close:hover {
+            cursor: pointer;
+          }
           .persona-description--empty {
             color: rgba(30, 41, 59, 0.48);
             font-style: italic;
@@ -6325,6 +6558,7 @@ export default function PersonasPage() {
           .persona-card__body {
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
             gap: 8px;
             color: var(--muted);
             font-size: 14px;
@@ -6345,11 +6579,11 @@ export default function PersonasPage() {
           }
           .persona-card__title-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 16px;
             flex-wrap: wrap;
             justify-content: space-between;
-            flex: 1 1 auto;
+            flex: 0 0 auto;
           }
           .persona-card__title-left {
             display: flex;
@@ -6642,20 +6876,21 @@ export default function PersonasPage() {
           }
           .persona-card__role-container {
             margin-top: auto;
+            padding-right: 80px;
           }
           .persona-card__role-title {
             margin: 0;
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.35;
             color: #475569;
             font-family: var(--font-heading, var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif)));
             font-weight: 500;
             display: -webkit-box;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-height: calc(1.35em * 2);
+            min-height: calc(1.35em * 3);
           }
           .persona-card__footer {
             display: flex;
