@@ -42,6 +42,8 @@ function sanitizeRedirectPath(raw: string | null | undefined): string | null {
   }
 }
 
+const ONBOARDING_REDIRECT_KEY = "dialogue:onboardingRedirect";
+
 function AuthPageContent() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -81,6 +83,15 @@ function AuthPageContent() {
         const user = data?.session?.user ?? null;
         if (!user) {
           return;
+        }
+
+        if (typeof window !== "undefined") {
+          const pending = window.localStorage.getItem(ONBOARDING_REDIRECT_KEY);
+          if (pending) {
+            window.localStorage.removeItem(ONBOARDING_REDIRECT_KEY);
+            router.replace(pending);
+            return;
+          }
         }
 
         const redirectHint = sanitizeRedirectPath(searchParams?.get("redirectTo"));
@@ -181,6 +192,9 @@ function AuthPageContent() {
         setMode("login");
         setPassword("");
         setConfirmPassword("");
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(ONBOARDING_REDIRECT_KEY, "/welcome");
+        }
       } else {
         const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -188,6 +202,15 @@ function AuthPageContent() {
         if (!userId) {
           router.replace("/");
           return;
+        }
+        if (typeof window !== "undefined") {
+          const pending = window.localStorage.getItem(ONBOARDING_REDIRECT_KEY);
+          if (pending) {
+            window.localStorage.removeItem(ONBOARDING_REDIRECT_KEY);
+            router.replace(pending);
+            setFeedback({ type: "success", message: "Signed in successfully." });
+            return;
+          }
         }
         const redirectHint = sanitizeRedirectPath(searchParams?.get("redirectTo"));
         const destination = redirectHint ?? (await resolveDestinationForUser(supabase, userId));
@@ -435,7 +458,6 @@ function AuthPageContent() {
           font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.08em;
-          text-transform: uppercase;
           color: rgba(63, 96, 150, 0.72);
           font-family: ${HEADING_FONT_STACK};
         }

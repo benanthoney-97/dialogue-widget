@@ -52,14 +52,14 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone()
     url.searchParams.set('redirectTo', `${request.nextUrl.pathname}${request.nextUrl.search}`)
     url.pathname = '/auth'
-  console.log("[supabase middleware] redirecting due to missing session:", {
+  , {
       pathname: request.nextUrl.pathname,
       search: request.nextUrl.search,
       headers: {
         cookie: request.headers.get("cookie"),
         referer: request.headers.get("referer"),
       },
-    })
+    }
   return NextResponse.redirect(url)
   }
 

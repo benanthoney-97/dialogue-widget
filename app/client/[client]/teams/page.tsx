@@ -1241,7 +1241,7 @@ export default function TeamsPage() {
         }
         .teams-table__row {
           display: grid;
-          grid-template-columns: minmax(240px, 2fr) 120px 120px 120px 80px;
+          grid-template-columns: minmax(260px, 2fr) 140px 140px 140px 130px;
           gap: 12px;
           align-items: center;
           padding: 18px 20px;

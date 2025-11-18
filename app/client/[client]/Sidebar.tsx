@@ -20,9 +20,13 @@ export default function Sidebar() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileInitial, setProfileInitial] = useState("A");
+  const [profileTooltipName, setProfileTooltipName] = useState("Anonymous");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [hoveredNavHref, setHoveredNavHref] = useState<string | null>(null);
+  const profileDisplayName = profileName;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -72,19 +76,23 @@ export default function Sidebar() {
 
       const userMeta = (userData.user.user_metadata ?? {}) as { full_name?: string; name?: string };
       const fallbackName = userMeta.full_name ?? userMeta.name ?? userData.user.email ?? null;
+      const displayName = profileData?.display_name ?? null;
+      const roleValue = typeof profileData?.role === "string" ? profileData.role : null;
+      const tooltipName = displayName ?? fallbackName ?? "Anonymous";
+      const initialSource = displayName ?? userData.user.email ?? "A";
 
       if (profileError) {
         setProfileError(profileError.message ?? "Profile unavailable");
         setProfileRole(null);
-        setProfileName(fallbackName);
+        setProfileTooltipName(tooltipName);
+        setProfileInitial((fallbackName ?? "A").charAt(0).toUpperCase());
         return;
       }
-
-      const displayName = profileData?.display_name ?? null;
-      const roleValue = typeof profileData?.role === "string" ? profileData.role : null;
-      setProfileName(displayName ?? fallbackName);
+      setProfileName(displayName ?? null);
       setProfileRole(roleValue);
-      setProfileError(displayName ? null : "Profile unavailable");
+      setProfileError(null);
+      setProfileTooltipName(tooltipName);
+      setProfileInitial(initialSource.charAt(0).toUpperCase());
     }
 
     fetchProfileName();
@@ -139,6 +147,23 @@ export default function Sidebar() {
     ),
   };
 
+  const insightsNavItem: NavItem = {
+    label: "Insights",
+    href: `/client/${clientId}/insights`,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8 M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"
+          fill="#22325A"
+        />
+        <path
+          d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5 M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"
+          fill="#22325A"
+        />
+      </svg>
+    ),
+  };
+
   const navItems = [
     {
       label: "Personas",
@@ -162,7 +187,7 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Conversations",
+      label: "Interviews",
       href: `/client/${clientId}/conversations`,
       icon: (
         <svg
@@ -176,11 +201,12 @@ export default function Sidebar() {
         >
           <path
             fillRule="evenodd"
-            d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5"
+            d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.0.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5"
           />
         </svg>
       ),
     },
+    insightsNavItem,
     {
       label: "New Persona",
       href: `/client/${clientId}/upload`,
@@ -217,6 +243,8 @@ export default function Sidebar() {
     transition: "opacity 0.18s ease, max-width 0.18s ease",
   };
 
+  const navLeftPadding = collapsed ? 16 : 20;
+
   const teamItem = {
     label: "Team",
     href: `/client/${clientId}/teams`,
@@ -231,25 +259,6 @@ export default function Sidebar() {
         strokeWidth="0.6"
       >
         <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-      </svg>
-    ),
-  };
-
-  const feedbackItem = {
-    label: "Feedback",
-    href: `/client/${clientId}/feedback`,
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 16 16"
-        width="16"
-        height="16"
-        fill="#1a2a44"
-        aria-hidden="true"
-      >
-        <path fillRule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5zM3 3H2v1h1z" />
-        <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5M5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1z" />
-        <path fillRule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5zM2 7h1v1H2zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm1 .5H2v1h1z" />
       </svg>
     ),
   };
@@ -291,7 +300,7 @@ export default function Sidebar() {
 
   const buildNavItems: NavItem[] = [ideaItem, interviewsItem];
   const testNavItems: NavItem[] = [];
-  const launchNavItems: NavItem[] = [teamItem, feedbackItem, liveHelpItem];
+  const launchNavItems: NavItem[] = [teamItem, liveHelpItem];
   const allNavItems: NavItem[] = [
     ...visibleNavItems,
     ...buildNavItems,
@@ -321,30 +330,43 @@ export default function Sidebar() {
     </div>
   );
 
+  const sharedNavStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    textDecoration: "none",
+    cursor: "pointer",
+    transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+  };
+
   const renderSecondaryNavItem = (item: NavItem) => {
     const active = activeNavHref === item.href;
     const secondaryBorderRadius = collapsed ? 12 : "0 12px 12px 0";
+    const hovered = hoveredNavHref === item.href;
     return (
       <Link
         key={item.href}
         href={item.href}
         style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          padding: collapsed ? "10px 8px" : "4px 12px",
+          ...sharedNavStyle,
+          padding: "10px 8px",
+          paddingLeft: navLeftPadding,
           color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-          background: active ? `rgba(var(--accent-rgb, 43,108,176), 0.12)` : "none",
+          background: active
+            ? `rgba(var(--accent-rgb, 43,108,176), 0.12)`
+            : hovered
+            ? `rgba(var(--accent-rgb, 43,108,176), 0.08)`
+            : "none",
           borderRadius: secondaryBorderRadius,
           fontWeight: 600,
           fontSize: 13,
-          textDecoration: "none",
-          transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
           justifyContent: collapsed ? "center" : "flex-start",
           gap: collapsed ? 0 : 8,
         }}
         title={item.label}
         aria-label={item.label}
+        onMouseEnter={() => setHoveredNavHref(item.href)}
+        onMouseLeave={() => setHoveredNavHref(null)}
       >
         <span
           aria-hidden="true"
@@ -397,7 +419,9 @@ export default function Sidebar() {
           gap: 12,
         }}
       >
-        <div
+        <Link
+          href={`/client/${clientId}/personas`}
+          className="sidebar-brand-link"
           style={{
             display: collapsed ? "none" : "block",
             fontSize: collapsed ? 20 : 24,
@@ -407,10 +431,11 @@ export default function Sidebar() {
             fontFamily: "inherit",
             textShadow: "0 2px 8px rgba(10,22,40,0.06)",
             transition: "transform 0.18s ease, opacity 0.18s ease",
+            textDecoration: "none",
           }}
         >
           Dialogue
-        </div>
+        </Link>
         <button
           type="button"
           onClick={handleToggleCollapsed}
@@ -446,6 +471,7 @@ export default function Sidebar() {
       {renderHeading("Explore", 0)}
       {visibleNavItems.map((item) => {
         const active = activeNavHref === item.href;
+        const hovered = hoveredNavHref === item.href;
         const primaryBorderRadius = collapsed ? 10 : "0 10px 10px 0";
 
         return (
@@ -453,23 +479,26 @@ export default function Sidebar() {
             key={item.href}
             href={item.href}
             style={{
-              display: "flex",
-              alignItems: "center",
-              width: "100%",
-              padding: collapsed ? "10px 12px" : "4px 20px",
+              ...sharedNavStyle,
+                padding: "10px 12px",
+                paddingLeft: navLeftPadding,
               color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-              background: active ? `rgba(var(--accent-rgb, 43,108,176), 0.12)` : "none",
+              background: active
+                ? `rgba(var(--accent-rgb, 43,108,176), 0.12)`
+                : hovered
+                ? `rgba(var(--accent-rgb, 43,108,176), 0.08)`
+                : "none",
               borderRadius: primaryBorderRadius,
               fontWeight: 600,
               fontSize: 13,
-              textDecoration: "none",
-              transition: "background 0.18s, color 0.18s, padding 0.18s, margin 0.18s, gap 0.18s, justify-content 0.18s",
               justifyContent: collapsed ? "center" : "flex-start",
               gap: collapsed ? 0 : 8,
               marginRight: active && !collapsed ? 16 : 0,
             }}
             title={item.label}
             aria-label={item.label}
+            onMouseEnter={() => setHoveredNavHref(item.href)}
+            onMouseLeave={() => setHoveredNavHref(null)}
           >
             <span
               aria-hidden="true"
@@ -521,7 +550,7 @@ export default function Sidebar() {
         ref={menuRef}
         onClick={handleToggleMenu}
         aria-label="Profile menu"
-        title={profileName ?? "Anonymous"}
+        title={profileTooltipName}
       >
         <div
           style={{
@@ -539,12 +568,25 @@ export default function Sidebar() {
             boxShadow: "0 4px 14px rgba(var(--accent-rgb, 43,108,176),0.18)",
           }}
         >
-          {(profileName ?? "Anonymous").charAt(0) || "A"}
+          {profileInitial || "A"}
         </div>
         <div style={{ display: collapsed ? "none" : "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ fontWeight: 700, color: "var(--text, #052033)", marginBottom: 2, fontSize: 13 }}>
-            {profileName ?? "Anonymous"}
-          </div>
+          {profileDisplayName ? (
+            <div
+              title={profileDisplayName}
+              style={{
+                fontWeight: 700,
+                color: "var(--text, #052033)",
+                marginBottom: 2,
+                fontSize: 13,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {profileDisplayName}
+            </div>
+          ) : null}
           {profileError && (
             <div style={{ fontSize: 11, color: "#fda4af" }}>Profile unavailable</div>
           )}

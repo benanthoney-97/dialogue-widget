@@ -15,7 +15,25 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const STAGE_CHIPS = ["Basic Info", "Image", "Description", "Data", "Links", "Web Research"];
+const STAGE_CHIPS = ["Basic Info", "Image", "Description", "Documents", "Links", "Web Research"];
+const PERSONA_CATEGORIES = [
+  { value: "existing", label: "Existing customer" },
+  { value: "prospective", label: "Prospective customer" },
+] as const;
+const KEY_TRAIT_PLACEHOLDERS = [
+  "Age range",
+  "Location",
+  "Gender",
+  "No. employees",
+  "Company Turnover",
+] as const;
+const CUSTOM_KEY_TRAIT_PLACEHOLDER = "Custom trait";
+type KeyTrait = { id: string; placeholder: string; value: string };
+const DEFAULT_KEY_TRAITS: KeyTrait[] = KEY_TRAIT_PLACEHOLDERS.map((placeholder) => ({
+  id: placeholder.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  placeholder,
+  value: "",
+}));
 
 type StagedDoc = {
   temp_id: string;
@@ -406,6 +424,34 @@ export default function UploadPage() {
   const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
   const [personaTagline, setPersonaTagline] = useState<string>("");
+  const [personaCategory, setPersonaCategory] = useState<typeof PERSONA_CATEGORIES[number]["value"]>(
+    PERSONA_CATEGORIES[0].value
+  );
+  const [keyTraits, setKeyTraits] = useState<KeyTrait[]>(DEFAULT_KEY_TRAITS);
+  const [editingKeyTraitId, setEditingKeyTraitId] = useState<string | null>(null);
+
+  function handleKeyTraitChange(id: string, value: string) {
+    setKeyTraits((prev) =>
+      prev.map((trait) => (trait.id === id ? { ...trait, value } : trait))
+    );
+  }
+
+  function handleRemoveKeyTrait(id: string) {
+    setKeyTraits((prev) => prev.filter((trait) => trait.id !== id));
+    if (editingKeyTraitId === id) {
+      setEditingKeyTraitId(null);
+    }
+  }
+
+  function handleAddKeyTrait() {
+    const newTrait: KeyTrait = {
+      id: `custom-${Date.now()}`,
+      placeholder: CUSTOM_KEY_TRAIT_PLACEHOLDER,
+      value: "",
+    };
+    setKeyTraits((prev) => [...prev, newTrait]);
+    setEditingKeyTraitId(newTrait.id);
+  }
   // When a guidance card is selected we store its template here so it can be carried
   // forward even though the textarea remains visually empty.
   const [savedPurpose, setSavedPurpose] = useState<string | null>(null);
@@ -736,10 +782,15 @@ export default function UploadPage() {
       }
     }
 
+    const keyTraitsPayload = keyTraits
+      .map((trait) => trait.value.trim())
+      .filter((value) => value.length > 0);
+
     console.log("[Upload] Starting persona create flow", {
       personaName: personaNameDisplay,
       personaTagline: personaTagline.trim(),
       linksCount: linksUrls.length,
+      keyTraits: keyTraitsPayload,
     });
     setFinalizing(true);
     try {
@@ -765,11 +816,13 @@ export default function UploadPage() {
             : undefined,
           personaTagline: personaTagline.trim() || null,
           personaDescription: personaDescription.trim() || null,
+          customer_status: personaCategory,
           personaGuidance: selectedGuidance ?? null,
           personaSetting: selectedSetting ?? null,
           personaTone: tone || null,
           personaVoice: voice || null,
           personaLinks: linksUrls,
+          key_traits: keyTraitsPayload,
         }),
       });
       const payload = await res.json().catch(() => null);
@@ -889,12 +942,12 @@ export default function UploadPage() {
                     />
                   </label>
                   <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Role</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Persona title</span>
                     <input
                       type="text"
                       value={personaTagline}
                       onChange={(event) => setPersonaTagline(event.target.value)}
-                      placeholder="e.g. Senior Buyer, National Health Retailer"
+                      placeholder="e.g. Head of Procurement at Global Logistics Firm / Busy Parent of Two Young Children"
                       maxLength={120}
                       style={{
                         width: "100%",
@@ -910,6 +963,24 @@ export default function UploadPage() {
                       }}
                     />
                   </label>
+                  <div className="persona-category">
+                    <span className="persona-category__label">Persona category</span>
+                    <div className="persona-category__options">
+                      {PERSONA_CATEGORIES.map((category) => (
+                        <button
+                          key={category.value}
+                          type="button"
+                          className={`persona-category__option ${
+                            personaCategory === category.value ? "persona-category__option--active" : ""
+                          }`}
+                          onClick={() => setPersonaCategory(category.value)}
+                          aria-pressed={personaCategory === category.value}
+                        >
+                          {category.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </form>
               </StagePanel>
             )}
@@ -1023,11 +1094,67 @@ export default function UploadPage() {
                     }}
                   />
                 </label>
+                <div className="key-traits">
+                  <div className="key-traits__heading">Key traits</div>
+                  <div className="key-traits__chips">
+                        {keyTraits.map((trait) => (
+                          <div key={trait.id} className="key-traits__item">
+                            {editingKeyTraitId === trait.id ? (
+                              <>
+                                <label
+                                  className="key-traits__label sr-only"
+                                  htmlFor={`key-trait-${trait.id}`}
+                                >
+                                  {trait.placeholder}
+                                </label>
+                                <input
+                                  id={`key-trait-${trait.id}`}
+                                  className="key-traits__input"
+                                  value={trait.value}
+                                  placeholder={trait.placeholder}
+                                  onChange={(event) =>
+                                    handleKeyTraitChange(trait.id, event.target.value)
+                                  }
+                                  onBlur={() => setEditingKeyTraitId(null)}
+                                  autoFocus
+                                />
+                              </>
+                            ) : (
+                              <div className="key-traits__chip">
+                                <button
+                                  type="button"
+                                  className="key-traits__chip-label"
+                                  onClick={() => setEditingKeyTraitId(trait.id)}
+                                >
+                                  {trait.value || trait.placeholder}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="key-traits__chip-remove"
+                                  onClick={() => handleRemoveKeyTrait(trait.id)}
+                                  aria-label={`Remove ${trait.placeholder}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    <button
+                      type="button"
+                      className="key-traits__add"
+                      onClick={handleAddKeyTrait}
+                      aria-label="Add key trait"
+                    >
+                      New trait
+                    </button>
+                  </div>
+                </div>
               </StagePanel>
             )}
             {currentStep === 3 && (
               <StagePanel
-                heading={`Upload documents to ${personaNamePossessive} knowledge`}
+                heading={`Upload all documents for ${personaNamePossessive} persona`}
               >
               <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               {uploadMode === 'upload' ? (
@@ -1285,7 +1412,7 @@ export default function UploadPage() {
             </StagePanel>
           )}
             {currentStep === 4 && (
-              <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
+              <StagePanel heading={`Upload external links for ${personaNameDisplay} persona`}>
                 <div className="links-stage__url-input">
                 <div className="links-stage__url-wrapper">
                     <input
@@ -1360,50 +1487,55 @@ export default function UploadPage() {
               </StagePanel>
             )}
             {currentStep === 5 && (
-              <StagePanel
-                heading="Tell our AI agents where to research"
-              >
+            <StagePanel
+              heading="Pick the sources you use for your research"
+            >
                 <div className="web-research-sources">
                   {availableExternalSources.length === 0 ? (
                     <p className="web-research-sources__empty">Loading sources…</p>
                   ) : (
-                    <div className="web-research-sources-grid">
-                      {availableExternalSources.map((source) => {
-                        const active = selectedExternalSources.includes(source.name);
-                        const logoStyle = source.logoUrl
-                          ? undefined
-                          : {
-                              background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
-                            };
-                        return (
-                          <button
-                            type="button"
-                            key={source.id}
-                            className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
-                            onClick={() => handleExternalSourceToggle(source.name)}
-                            aria-pressed={active}
-                          >
-                            <div className="web-research-source-logo" style={logoStyle}>
-                              {source.logoUrl ? (
-                                <Image
-                                  src={source.logoUrl}
-                                  alt={source.name}
-                                  width={52}
-                                  height={52}
-                                  className="web-research-source-logo__image"
-                                  unoptimized
-                                />
-                              ) : (
-                                <span aria-hidden="true">{deriveInitials(source.name)}</span>
-                              )}
-                            </div>
-                            <span className="web-research-source-name">{source.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <>
+                      <div className="web-research-sources-grid">
+                        {availableExternalSources.map((source) => {
+                          const active = selectedExternalSources.includes(source.name);
+                          const logoStyle = source.logoUrl
+                            ? undefined
+                            : {
+                                background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
+                              };
+                          return (
+                            <button
+                              type="button"
+                              key={source.id}
+                              className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
+                              onClick={() => handleExternalSourceToggle(source.name)}
+                              aria-pressed={active}
+                            >
+                              <div className="web-research-source-logo" style={logoStyle}>
+                                {source.logoUrl ? (
+                                  <Image
+                                    src={source.logoUrl}
+                                    alt={source.name}
+                                    width={52}
+                                    height={52}
+                                    className="web-research-source-logo__image"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <span aria-hidden="true">{deriveInitials(source.name)}</span>
+                                )}
+                              </div>
+                              <span className="web-research-source-name">{source.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="web-research-note">
+                        This will guide our AI to research on this platform, but will not be exclusive to it.
+                      </p>
+                    </>
                   )}
-                </div>
+        </div>
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                   <button
                     type="button"
@@ -1437,6 +1569,26 @@ export default function UploadPage() {
                   <div className="upload-layout__resource-card__copy">
                     <p className="upload-layout__resource-card__name">{personaNameDisplay}</p>
                     <p className="upload-layout__resource-card__role">{personaRoleDisplay}</p>
+                    {keyTraits.some((trait) => trait.value.trim().length > 0) ? (
+                      <div className="upload-layout__resource-key-traits">
+                        {keyTraits
+                          .filter((trait) => trait.value.trim().length > 0)
+                          .slice(0, 3)
+                          .map((trait) => (
+                            <span
+                              key={trait.id}
+                              className="upload-layout__resource-key-trait"
+                            >
+                              {trait.value.trim()}
+                            </span>
+                          ))}
+                        {keyTraits.filter((trait) => trait.value.trim().length > 0).length > 3 ? (
+                          <span className="upload-layout__resource-key-trait upload-layout__resource-key-trait--overflow">
+                            +{keyTraits.filter((trait) => trait.value.trim().length > 0).length - 3}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1468,7 +1620,7 @@ export default function UploadPage() {
             <div className="upload-layout__resource-description">
               <h4>Persona description</h4>
             <div className="upload-layout__resource-description__body">
-              <p>
+              <p className="upload-layout__panel-body-text">
                 {personaDescription
                   ? personaDescription
                   : "This is a detailed description of your persona based on their pain points, intent signals, behavioural traits and more..."
@@ -1477,9 +1629,11 @@ export default function UploadPage() {
             </div>
           </div>
           <div className="upload-layout__internal-data">
-            <h4>Internal data</h4>
+            <h4>Documents</h4>
             {files.length === 0 ? (
-              <p className="upload-layout__internal-data__empty">No documents staged yet.</p>
+              <p className="upload-layout__internal-data__empty upload-layout__panel-body-text">
+                No documents staged yet.
+              </p>
             ) : (
               <div className="upload-layout__doc-card-list">
                 {files.map((file) => (
@@ -1497,16 +1651,18 @@ export default function UploadPage() {
             )}
           </div>
           <div className="upload-layout__knowledge-links">
-            <h4>Knowledge links</h4>
+            <h4>Links</h4>
             {linksUrls.length === 0 ? (
-              <p className="upload-layout__knowledge-links__empty">Add links to see them here.</p>
+              <p className="upload-layout__knowledge-links__empty upload-layout__panel-body-text">
+                Add links to see them here.
+              </p>
             ) : (
               <ul>
                 {linksUrls.map((url) => (
                   <li key={url}>
-                    <a href={url} target="_blank" rel="noreferrer">
-                      {url}
-                    </a>
+                <a href={url} target="_blank" rel="noreferrer" className="upload-layout__panel-body-text">
+                  {url}
+                </a>
                   </li>
                 ))}
               </ul>
@@ -1515,13 +1671,41 @@ export default function UploadPage() {
           <div className="upload-layout__target-sources">
             <h4>Target sources</h4>
             {selectedExternalSources.length === 0 ? (
-              <p className="upload-layout__target-sources__empty">Select sources after adding links so they show up here.</p>
+              <p className="upload-layout__target-sources__empty upload-layout__panel-body-text">
+                Select sources after adding links so they show up here.
+              </p>
             ) : (
-              <ul>
-                {selectedExternalSources.map((source) => (
-                  <li key={source}>{source}</li>
-                ))}
-              </ul>
+              <div className="upload-layout__target-sources-grid">
+                {selectedExternalSources.map((sourceName) => {
+                  const source = availableExternalSources.find((entry) => entry.name === sourceName);
+                  const logoStyle = source?.logoUrl
+                    ? undefined
+                    : {
+                        background: `linear-gradient(135deg, ${source?.accent ?? "#e5e7eb"} 0%, ${source?.accent ?? "#e5e7eb"} 60%, rgba(255,255,255,0.9) 100%)`,
+                      };
+                  const initials = source ? deriveInitials(source.name) : "";
+                  return (
+                    <div key={sourceName} className="upload-layout__target-source">
+                      <div className="upload-layout__target-source__logo" style={logoStyle}>
+                        {source?.logoUrl ? (
+                          <Image
+                            src={source.logoUrl}
+                            alt={source.name}
+                            width={32}
+                            height={32}
+                            unoptimized
+                          />
+                        ) : (
+                          <span aria-hidden="true">{initials}</span>
+                        )}
+                      </div>
+                      <span className="upload-layout__target-source__label">
+                        {source?.name ?? sourceName}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1534,6 +1718,7 @@ export default function UploadPage() {
             font-family: ${BODY_FONT_STACK};
             display: flex;
             flex-direction: row;
+            overflow: hidden;
           }
           .upload-layout__sidebar {
             width: var(--sidebar-width);
@@ -1544,9 +1729,10 @@ export default function UploadPage() {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding: 64px 24px 96px;
+            padding: 64px 24px 64px;
             min-height: 100dvh;
-            overflow-y: auto;
+            max-height: 100dvh;
+            overflow: hidden;
             gap: 32px;
             flex-wrap: wrap;
           }
@@ -1616,6 +1802,26 @@ export default function UploadPage() {
             color: rgba(15, 23, 42, 0.6);
             letter-spacing: 0.01em;
           }
+          .upload-layout__resource-key-traits {
+            margin-top: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+          .upload-layout__resource-key-trait {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.25);
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.75);
+            letter-spacing: 0.04em;
+            text-transform: none;
+          }
+          .upload-layout__resource-key-trait--overflow {
+            border-style: dashed;
+          }
           .upload-layout__resource-card__label {
             margin: 0;
             font-size: 12px;
@@ -1658,13 +1864,11 @@ export default function UploadPage() {
             justify-content: center;
             gap: 8px;
             cursor: pointer;
-            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+            transition: transform 0.2s ease, border-color 0.2s ease;
           }
           .upload-layout__resource-action:hover,
           .upload-layout__resource-action:focus-visible {
             transform: translateY(-2px);
-            box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
             border-color: rgba(59, 130, 246, 0.6);
             outline: none;
           }
@@ -1690,8 +1894,8 @@ export default function UploadPage() {
           }
           .upload-layout__resource-description p {
             margin: 0;
-            font-size: 14px;
-            color: #0f172a;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
             line-height: 1.5;
           }
           .upload-layout__internal-data {
@@ -1703,6 +1907,7 @@ export default function UploadPage() {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            min-height: 200px;
           }
           .upload-layout__internal-data h4 {
 margin: 0 0 6px;
@@ -1720,8 +1925,9 @@ margin: 0 0 6px;
           }
           .upload-layout__internal-data__empty {
             margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
+            font-size: 13px !important;
+            color: rgba(15, 23, 42, 0.7) !important;
+            line-height: 1.5 !important;
           }
           .upload-layout__knowledge-links {
             width: 100%;
@@ -1732,6 +1938,10 @@ margin: 0 0 6px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            max-height: 280px;
+            overflow: hidden;
+            box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
+            min-height: 200px;
           }
           .upload-layout__knowledge-links h4 {
             margin: 0 0 6px;
@@ -1751,6 +1961,14 @@ margin: 0 0 6px;
             display: flex;
             flex-direction: column;
             gap: 6px;
+            max-height: 210px;
+            overflow-y: auto;
+          }
+          .upload-layout__panel-body-text {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+            line-height: 1.5;
           }
           .upload-layout__knowledge-links li a {
             color: #0f172a;
@@ -1787,11 +2005,35 @@ margin: 0 0 6px;
             flex-direction: column;
             gap: 6px;
           }
-          .upload-layout__target-sources li {
+          .upload-layout__target-sources-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .upload-layout__target-source {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            background: rgba(255, 255, 255, 0.9);
+          }
+          .upload-layout__target-source__logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #0f172a;
+          }
+          .upload-layout__target-source__label {
             font-size: 13px;
             font-weight: 600;
             color: #0f172a;
-            word-break: break-all;
           }
           .upload-layout__doc-card {
             margin-top: 8px;
@@ -1803,6 +2045,7 @@ margin: 0 0 6px;
             width: 100%;
             border: 1px solid rgba(15, 23, 42, 0.12);
             background: rgba(248, 250, 252, 0.9);
+            min-width: 0;
           }
           .upload-layout__doc-card-list {
             display: flex;
@@ -1831,17 +2074,25 @@ margin: 0 0 6px;
             display: flex;
             flex-direction: column;
             gap: 4px;
+            flex: 1;
+            min-width: 0;
           }
           .upload-layout__doc-card__title {
             margin: 0;
             font-size: 14px;
             font-weight: 600;
             color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .upload-layout__doc-card__meta {
             margin: 0;
             font-size: 12px;
             color: rgba(15, 23, 42, 0.6);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .links-stage__url-input {
             display: flex;
@@ -1936,6 +2187,11 @@ margin: 0 0 6px;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 14px;
+          }
+          .web-research-note {
+            margin: 12px 0 0;
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.65);
           }
           .web-research-source-card {
             display: flex;
@@ -2079,6 +2335,157 @@ margin: 0 0 6px;
             flex-direction: column;
             gap: 18px;
             flex: 1;
+          }
+          .key-traits {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .key-traits__heading {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            letter-spacing: 0.02em;
+          }
+          .key-traits__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .key-traits__item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .key-traits__chip {
+            border: 1px dashed rgba(15, 23, 42, 0.3);
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.8);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            transition: border 0.18s ease, background 0.18s ease;
+          }
+          .key-traits__chip-label {
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: rgba(15, 23, 42, 0.85);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+          }
+          .key-traits__chip-remove {
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(15, 23, 42, 0.1);
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.18s ease;
+          }
+          .key-traits__chip-remove:hover,
+          .key-traits__chip-remove:focus-visible {
+            background: rgba(248, 113, 113, 0.2);
+            outline: none;
+          }
+          .key-traits__add {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px dashed rgba(15, 23, 42, 0.3);
+            background: rgba(248, 250, 252, 0.8);
+            color: rgba(15, 23, 42, 0.85);
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: border 0.18s ease, background 0.18s ease;
+          }
+          .key-traits__add:hover,
+          .key-traits__add:focus-visible {
+            border-color: rgba(37, 99, 235, 0.7);
+            background: rgba(37, 99, 235, 0.08);
+            outline: none;
+          }
+          .key-traits__label {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.75);
+          }
+          .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+            white-space: nowrap;
+          }
+          .key-traits__input {
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(37, 99, 235, 0.4);
+            background: rgba(255, 255, 255, 0.95);
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            min-width: 140px;
+            outline: none;
+            transition: border 0.18s ease, box-shadow 0.18s ease;
+          }
+          .key-traits__input:focus {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+          }
+          .persona-category {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .persona-category__label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            letter-spacing: 0.02em;
+          }
+          .persona-category__options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+          }
+          .persona-category__option {
+            padding: 10px 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 41, 59, 0.16);
+            background: rgba(255, 255, 255, 0.9);
+            color: #0f172a;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border 0.18s ease, background 0.18s ease, transform 0.18s ease;
+          }
+          .persona-category__option--active {
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
+          }
+          .persona-category__option:focus-visible,
+          .persona-category__option:focus {
+            outline: 2px solid rgba(59, 130, 246, 0.5);
+            outline-offset: 2px;
           }
           .persona-description-input-label {
             font-size: 13px;

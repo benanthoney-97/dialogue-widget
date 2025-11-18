@@ -263,33 +263,6 @@ const menuRef = useRef<HTMLDivElement | null>(null);
           >
             Share via email
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleGiveFeedback}
-            style={{
-              border: "none",
-              background: "transparent",
-              borderRadius: 12,
-              padding: "10px 12px",
-              textAlign: "left",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#0f172a",
-              cursor: "pointer",
-              transition: "background 0.18s ease, transform 0.18s ease",
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.background = "rgba(148,163,184,0.14)";
-              event.currentTarget.style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.background = "transparent";
-              event.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            Give feedback
-          </button>
         </div>
       ) : null}
       {status ? (

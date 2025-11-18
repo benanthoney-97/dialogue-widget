@@ -3491,6 +3491,8 @@ export default function PersonasPage() {
   isSavingAvatar ||
     isSavingDocuments;
 
+  const showEmptyState = !loading && !error && personas.length === 0;
+
   const unsavedChangesBanner = showUnsavedChangesBanner ? (
     <div
       className="persona-unsaved-banner persona-unsaved-banner--visible"
@@ -3546,7 +3548,7 @@ export default function PersonasPage() {
         className="personas-stage"
         style={{ "--stage-topbar-offset": "var(--sidebar-width)" } as React.CSSProperties}
       >
-        <Topbar
+      <Topbar
           title="Personas"
           offsetLeft="var(--stage-topbar-offset, 0px)"
           hideCadenceControls
@@ -3691,6 +3693,9 @@ export default function PersonasPage() {
             </div>
           }
         />
+        {showEmptyState ? (
+          <div className="personas-empty-overlay" aria-hidden="true" />
+        ) : null}
         <main
           className="stage-layout persona-root"
           data-expanded={expandedPersonaId ? "true" : "false"}
@@ -3698,9 +3703,39 @@ export default function PersonasPage() {
           <aside className="stage-layout__sidebar">
             <Sidebar />
           </aside>
-          <div ref={contentContainerRef} className="stage-layout__content">
-            <div className="stage-shell">
-              <StagePanel>
+
+          {showEmptyState ? (
+            <div
+              ref={contentContainerRef}
+              className="personas-empty personas-empty-full"
+            >
+              <div className="personas-empty-shell">
+                <div className="personas-empty-card">
+                  <h1 className="personas-empty-heading">Let's create your first persona</h1>
+                  <div className="personas-empty-video">
+                    <iframe
+                      src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                      title="Persona creation demo"
+                      aria-label="Demo video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  <StageButton
+                    type="button"
+                    variant="primary"
+                    className="personas-empty-button"
+                    onClick={handleCreateFirstPersona}
+                  >
+                    Create first persona
+                  </StageButton>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div ref={contentContainerRef} className="stage-layout__content">
+              <div className="stage-shell">
+                <StagePanel>
                 <section className="personas-section">
                   <div ref={personasGridScrollRef} className="personas-grid-scroll">
                     <div className="personas-grid">
@@ -3729,18 +3764,6 @@ export default function PersonasPage() {
                 }}
               >
                 {error}
-              </div>
-            )}
-            {!loading && !error && personas.length === 0 && (
-              <div className="personas-empty">
-                <StageButton
-                  type="button"
-                  variant="primary"
-                  className="personas-empty-button"
-                  onClick={handleCreateFirstPersona}
-                >
-                  Create first persona
-                </StageButton>
               </div>
             )}
             {!loading &&
@@ -3985,9 +4008,6 @@ export default function PersonasPage() {
                                     {persona.agent_name ?? "Untitled persona"}
                                   </h3>
                                 )}
-                                {!isExpanded && roleTitle ? (
-                                  <p className="persona-card__role-title">{roleTitle}</p>
-                                ) : null}
                                 {isExpanded ? (
                                   <div className="persona-completion persona-completion--inline">
                                     <span className="persona-completion__label">Completion</span>
@@ -4037,6 +4057,11 @@ export default function PersonasPage() {
                             </div>
                             {isExpanded && isScalarTraitsEditing ? null : null}
                           </div>
+                          {!isExpanded && roleTitle ? (
+                            <div className="persona-card__role-container">
+                              <p className="persona-card__role-title">{roleTitle}</p>
+                            </div>
+                          ) : null}
                           <div className="persona-card__title-right">
                             {isExpanded ? (
                               <div className="persona-title-actions persona-title-actions--inline">
@@ -4151,7 +4176,8 @@ export default function PersonasPage() {
                             ) : null}
                             {!isReady ? (
                               <span className="persona-status" aria-label={`Status: ${statusText}`}>
-                                {statusText}
+                                <span className="persona-status__spinner" aria-hidden="true" />
+                                <span>{statusText}</span>
                               </span>
                             ) : null}
                           </div>
@@ -4210,7 +4236,7 @@ export default function PersonasPage() {
                     >
                       <div className="persona-expanded-block__header">
                         <div className="persona-expanded-block__header-labels">
-                          <h4>Internal Data</h4>
+                          <h4>Docs & Links</h4>
                           {documentsUpdatedAt ? (
                             <span className="persona-updated-chip">
                               Updated {formatDate(documentsUpdatedAt)}
@@ -4347,7 +4373,7 @@ export default function PersonasPage() {
                             <div className="persona-expanded-block persona-expanded-block--external">
                               <div className="persona-expanded-block__header">
                                 <div className="persona-expanded-block__header-labels">
-                                  <h4>External Data</h4>
+                                  <h4>Supporting Research</h4>
                                   {externalUpdatedAt ? (
                                     <span className="persona-updated-chip">
                                       Updated {formatDate(externalUpdatedAt)}
@@ -4451,7 +4477,7 @@ export default function PersonasPage() {
                             }}
                           >
                             <div className="persona-completion persona-completion--inline persona-completion--collapsed">
-                              <span className="persona-completion__label">Completion</span>
+                              <span className="persona-completion__label">Completeness</span>
                               <span
                                 className={`persona-completion__value persona-completion__value--${completionVariant}`}
                               >
@@ -4480,7 +4506,9 @@ export default function PersonasPage() {
                   </div>
                 </section>
               </StagePanel>
-
+            </div>
+          </div>
+        )}
         <PersonasFullscreenModal
           open={!!activePersona}
           onCloseAction={handleClosePersona}
@@ -5378,7 +5406,7 @@ export default function PersonasPage() {
             overflow: visible;
           }
           .stage-shell {
-            width: min(1120px, 96%);
+            width: 100%;
             display: flex;
             flex-direction: column;
             gap: 32px;
@@ -5433,7 +5461,7 @@ export default function PersonasPage() {
           .personas-topbar-actions {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 20px;
           }
           .personas-toggle-button {
             min-width: 0;
@@ -5524,7 +5552,7 @@ export default function PersonasPage() {
           .stage-panel__body {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 12px;
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
@@ -5633,15 +5661,81 @@ export default function PersonasPage() {
           }
           .personas-empty {
             width: 100%;
+            min-height: calc(100dvh - 220px);
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
+          }
+          .personas-empty-full {
+            width: 100%;
+            height: 100%;
             min-height: calc(100dvh - 220px);
-            padding: 40px 0;
+            padding: 70px 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .personas-empty-shell {
+            width: 100%;
+            max-width: 700px;
+            padding: 0px 36px;
+            background: #e6f0ff;
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            position: relative;
+            z-index: 130;
+          }
+          .personas-empty-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 10, 30, 0.6);
+            z-index: 125;
+            pointer-events: none;
+          }
+          .personas-empty-card {
+            width: 100%;
+            height: 100%;
+            max-width: 660px;
+            border-radius: 18px;
+            padding: 38px 32px;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: space-between;
+            gap: 0;
+            background: transparent;
+            min-height: 420px;
+          }
+          .personas-empty-heading {
+            margin: 0 0 24px;
+            font-size: clamp(28px, 4vw, 38px);
+            text-align: center;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .personas-empty-video {
+            width: 100%;
+            max-width: 560px;
+            position: relative;
+            padding-top: 56.25%;
+            flex: 1;
+            margin: 0 auto 40px;
+          }
+          .personas-empty-video iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 14px;
           }
           .personas-empty-button {
-            padding: 8px 18px;
-            border-radius: 10px;
+            padding: 14px 28px;
+            border-radius: 14px;
             background: #0f172a;
             color: #f8fafc;
             font-weight: 600;
@@ -5649,6 +5743,9 @@ export default function PersonasPage() {
             cursor: pointer;
             width: auto;
             height: auto;
+            font-size: 17px;
+            align-self: center;
+            margin-top: 0px;
           }
           @media (max-width: 960px) {
             .personas-grid-scroll {
@@ -5665,6 +5762,7 @@ export default function PersonasPage() {
             display: flex;
             flex-direction: column;
             width: 100%;
+            position: relative;
           }
           .persona-card-button[aria-expanded="true"] {
             grid-column: 1 / -1;
@@ -5709,7 +5807,7 @@ export default function PersonasPage() {
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: 200px;
+  min-height: 240px;
   width: 100%;
   transition: transform 0.32s ease, box-shadow 0.32s ease, border-color 0.32s ease, background-color 0.32s ease;
   cursor: pointer;
@@ -6271,13 +6369,12 @@ export default function PersonasPage() {
           }
           .persona-card__avatar-floating {
             position: absolute;
-            top: 18px;
-            right: 20px;
-            width: 52px;
-            height: 52px;
-            border-radius: 16px;
+            top: 10px;
+            right: 12px;
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
             overflow: hidden;
-            border: 1px solid rgba(15, 23, 42, 0.12);
             background: rgba(248, 250, 252, 0.92);
             display: inline-flex;
             align-items: center;
@@ -6384,6 +6481,7 @@ export default function PersonasPage() {
             border-radius: 10px;
             padding: 4px 8px;
             padding-left: 0;
+            [add]
             transition: border-color 0.2s ease, background-color 0.2s ease;
           }
           .persona-card__title--editable:hover {
@@ -6541,13 +6639,23 @@ export default function PersonasPage() {
             margin: 0;
             color: var(--muted);
           }
+          .persona-card__role-container {
+            margin-top: auto;
+            padding-right: 130px;
+          }
           .persona-card__role-title {
-            margin: 4px 0 0;
+            margin: 0;
             font-size: 14px;
             line-height: 1.35;
             color: #475569;
             font-family: var(--font-heading, var(--font-body, var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif)));
             font-weight: 500;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: calc(1.35em * 2);
           }
           .persona-card__footer {
             display: flex;
@@ -6583,6 +6691,30 @@ export default function PersonasPage() {
             align-items: center;
             justify-content: center;
             white-space: nowrap;
+            gap: 6px;
+            z-index: 1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+          }
+          .persona-status__spinner {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            border: 2px solid rgba(15, 23, 42, 0.35);
+            border-top-color: #0f172a;
+            animation: persona-status-spin 0.9s linear infinite;
+            flex-shrink: 0;
+          }
+          @keyframes persona-status-spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
           }
           .persona-modal-container {
             display: flex;
@@ -9130,8 +9262,6 @@ export default function PersonasPage() {
           vertical-align: middle;
         }
         `}</style>
-            </div>
-          </div>
           {internalOverlayPersona ? (
             <SlidingPanelOverlay
               open
