@@ -6349,6 +6349,7 @@ export default function PersonasPage() {
             gap: 16px;
             flex-wrap: wrap;
             justify-content: space-between;
+            flex: 1 1 auto;
           }
           .persona-card__title-left {
             display: flex;
@@ -6641,7 +6642,6 @@ export default function PersonasPage() {
           }
           .persona-card__role-container {
             margin-top: auto;
-            padding-right: 130px;
           }
           .persona-card__role-title {
             margin: 0;
