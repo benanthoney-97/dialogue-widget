@@ -24,6 +24,7 @@ type PersonaRow = {
   location: string | null;
   customer_status: string | null;
   profile_image: string | null;
+  role_title: string | null;
   active_status: boolean | null;
 };
 
@@ -118,6 +119,7 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
         typeof row.profile_image === "string" && row.profile_image.trim().length > 0
           ? row.profile_image.trim()
           : null,
+      roleTitle: row.role_title?.trim().length ? row.role_title.trim() : null,
     } satisfies PersonaSummary;
   });
 }
@@ -171,7 +173,7 @@ export default async function ExplorePage({
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, active_status"
+      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, role_title, active_status"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });

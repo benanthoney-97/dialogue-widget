@@ -1154,7 +1154,7 @@ export default function UploadPage() {
             )}
             {currentStep === 3 && (
               <StagePanel
-                heading={`Upload all documents for ${personaNamePossessive} persona`}
+                heading={`Upload documents for ${personaNamePossessive} persona`}
               >
               <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               {uploadMode === 'upload' ? (
@@ -1412,7 +1412,7 @@ export default function UploadPage() {
             </StagePanel>
           )}
             {currentStep === 4 && (
-              <StagePanel heading={`Upload external links for ${personaNameDisplay} persona`}>
+              <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
                 <div className="links-stage__url-input">
                 <div className="links-stage__url-wrapper">
                     <input
@@ -1487,55 +1487,50 @@ export default function UploadPage() {
               </StagePanel>
             )}
             {currentStep === 5 && (
-            <StagePanel
-              heading="Pick the sources you use for your research"
-            >
+              <StagePanel
+                heading="Tell our AI agents where to research"
+              >
                 <div className="web-research-sources">
                   {availableExternalSources.length === 0 ? (
                     <p className="web-research-sources__empty">Loading sources…</p>
                   ) : (
-                    <>
-                      <div className="web-research-sources-grid">
-                        {availableExternalSources.map((source) => {
-                          const active = selectedExternalSources.includes(source.name);
-                          const logoStyle = source.logoUrl
-                            ? undefined
-                            : {
-                                background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
-                              };
-                          return (
-                            <button
-                              type="button"
-                              key={source.id}
-                              className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
-                              onClick={() => handleExternalSourceToggle(source.name)}
-                              aria-pressed={active}
-                            >
-                              <div className="web-research-source-logo" style={logoStyle}>
-                                {source.logoUrl ? (
-                                  <Image
-                                    src={source.logoUrl}
-                                    alt={source.name}
-                                    width={52}
-                                    height={52}
-                                    className="web-research-source-logo__image"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <span aria-hidden="true">{deriveInitials(source.name)}</span>
-                                )}
-                              </div>
-                              <span className="web-research-source-name">{source.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="web-research-note">
-                        This will guide our AI to research on this platform, but will not be exclusive to it.
-                      </p>
-                    </>
+                    <div className="web-research-sources-grid">
+                      {availableExternalSources.map((source) => {
+                        const active = selectedExternalSources.includes(source.name);
+                        const logoStyle = source.logoUrl
+                          ? undefined
+                          : {
+                              background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
+                            };
+                        return (
+                          <button
+                            type="button"
+                            key={source.id}
+                            className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
+                            onClick={() => handleExternalSourceToggle(source.name)}
+                            aria-pressed={active}
+                          >
+                            <div className="web-research-source-logo" style={logoStyle}>
+                              {source.logoUrl ? (
+                                <Image
+                                  src={source.logoUrl}
+                                  alt={source.name}
+                                  width={52}
+                                  height={52}
+                                  className="web-research-source-logo__image"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span aria-hidden="true">{deriveInitials(source.name)}</span>
+                              )}
+                            </div>
+                            <span className="web-research-source-name">{source.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-        </div>
+                </div>
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                   <button
                     type="button"
@@ -1629,7 +1624,7 @@ export default function UploadPage() {
             </div>
           </div>
           <div className="upload-layout__internal-data">
-            <h4>Documents</h4>
+            <h4>Internal data</h4>
             {files.length === 0 ? (
               <p className="upload-layout__internal-data__empty upload-layout__panel-body-text">
                 No documents staged yet.
@@ -1651,7 +1646,7 @@ export default function UploadPage() {
             )}
           </div>
           <div className="upload-layout__knowledge-links">
-            <h4>Links</h4>
+            <h4>Knowledge links</h4>
             {linksUrls.length === 0 ? (
               <p className="upload-layout__knowledge-links__empty upload-layout__panel-body-text">
                 Add links to see them here.
@@ -1660,9 +1655,9 @@ export default function UploadPage() {
               <ul>
                 {linksUrls.map((url) => (
                   <li key={url}>
-                <a href={url} target="_blank" rel="noreferrer" className="upload-layout__panel-body-text">
-                  {url}
-                </a>
+                    <a href={url} target="_blank" rel="noreferrer">
+                      {url}
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -1671,41 +1666,13 @@ export default function UploadPage() {
           <div className="upload-layout__target-sources">
             <h4>Target sources</h4>
             {selectedExternalSources.length === 0 ? (
-              <p className="upload-layout__target-sources__empty upload-layout__panel-body-text">
-                Select sources after adding links so they show up here.
-              </p>
+              <p className="upload-layout__target-sources__empty">Select sources after adding links so they show up here.</p>
             ) : (
-              <div className="upload-layout__target-sources-grid">
-                {selectedExternalSources.map((sourceName) => {
-                  const source = availableExternalSources.find((entry) => entry.name === sourceName);
-                  const logoStyle = source?.logoUrl
-                    ? undefined
-                    : {
-                        background: `linear-gradient(135deg, ${source?.accent ?? "#e5e7eb"} 0%, ${source?.accent ?? "#e5e7eb"} 60%, rgba(255,255,255,0.9) 100%)`,
-                      };
-                  const initials = source ? deriveInitials(source.name) : "";
-                  return (
-                    <div key={sourceName} className="upload-layout__target-source">
-                      <div className="upload-layout__target-source__logo" style={logoStyle}>
-                        {source?.logoUrl ? (
-                          <Image
-                            src={source.logoUrl}
-                            alt={source.name}
-                            width={32}
-                            height={32}
-                            unoptimized
-                          />
-                        ) : (
-                          <span aria-hidden="true">{initials}</span>
-                        )}
-                      </div>
-                      <span className="upload-layout__target-source__label">
-                        {source?.name ?? sourceName}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <ul>
+                {selectedExternalSources.map((source) => (
+                  <li key={source}>{source}</li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
@@ -1718,7 +1685,6 @@ export default function UploadPage() {
             font-family: ${BODY_FONT_STACK};
             display: flex;
             flex-direction: row;
-            overflow: hidden;
           }
           .upload-layout__sidebar {
             width: var(--sidebar-width);
@@ -1729,10 +1695,9 @@ export default function UploadPage() {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding: 64px 24px 64px;
+            padding: 64px 24px 96px;
             min-height: 100dvh;
-            max-height: 100dvh;
-            overflow: hidden;
+            overflow-y: auto;
             gap: 32px;
             flex-wrap: wrap;
           }
@@ -1894,8 +1859,8 @@ export default function UploadPage() {
           }
           .upload-layout__resource-description p {
             margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
+            font-size: 14px;
+            color: #0f172a;
             line-height: 1.5;
           }
           .upload-layout__internal-data {
@@ -1907,7 +1872,6 @@ export default function UploadPage() {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 200px;
           }
           .upload-layout__internal-data h4 {
 margin: 0 0 6px;
@@ -1919,15 +1883,15 @@ margin: 0 0 6px;
 
          
           .upload-layout__internal-data p {
-            margin: 0;
-            font-size: 13px;
-            color: #0f172a;
-          }
+               margin: 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.7);
+    line-height: 1.5;
+}
           .upload-layout__internal-data__empty {
             margin: 0;
-            font-size: 13px !important;
-            color: rgba(15, 23, 42, 0.7) !important;
-            line-height: 1.5 !important;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
           }
           .upload-layout__knowledge-links {
             width: 100%;
@@ -1938,10 +1902,7 @@ margin: 0 0 6px;
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 280px;
-            overflow: hidden;
-            box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
-            min-height: 200px;
+            min-height: 120px
           }
           .upload-layout__knowledge-links h4 {
             margin: 0 0 6px;
@@ -1961,17 +1922,15 @@ margin: 0 0 6px;
             display: flex;
             flex-direction: column;
             gap: 6px;
-            max-height: 210px;
-            overflow-y: auto;
           }
           .upload-layout__panel-body-text {
             margin: 0;
-            font-size: 13px;
+            font-size: 14px;
             color: rgba(15, 23, 42, 0.7);
             line-height: 1.5;
           }
           .upload-layout__knowledge-links li a {
-            color: #0f172a;
+            color: rgba(15, 23, 42, 0.7);
             text-decoration: underline;
             font-size: 13px;
             word-break: break-all;
@@ -2005,36 +1964,12 @@ margin: 0 0 6px;
             flex-direction: column;
             gap: 6px;
           }
-          .upload-layout__target-sources-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-          .upload-layout__target-source {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 12px;
-            border: 1px solid rgba(15, 23, 42, 0.15);
-            background: rgba(255, 255, 255, 0.9);
-          }
-          .upload-layout__target-source__logo {
-            width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 600;
-            color: #0f172a;
-          }
-          .upload-layout__target-source__label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #0f172a;
-          }
+          .upload-layout__target-sources li {
+          margin: 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.7);
+    line-height: 1.5;
+}
           .upload-layout__doc-card {
             margin-top: 8px;
             border-radius: 12px;
@@ -2187,11 +2122,6 @@ margin: 0 0 6px;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 14px;
-          }
-          .web-research-note {
-            margin: 12px 0 0;
-            font-size: 12px;
-            color: rgba(15, 23, 42, 0.65);
           }
           .web-research-source-card {
             display: flex;

@@ -264,10 +264,16 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
   const shouldShowLeadingControls =
     isExploreRoute || isChatRoute || isInterviewRoute || isPersonaDetailRoute;
 
+  const shouldShowClientTitleElement =
+    shouldShowLeadingControls &&
+    !isExploreRoute &&
+    !isPersonaDetailRoute &&
+    !isChatRoute &&
+    !isInterviewRoute;
   const topbarLeadingSlot = shouldShowLeadingControls
     ? (
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {clientTitleElement}
+          {shouldShowClientTitleElement ? clientTitleElement : null}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             {historyTrigger}
             {exploreLeadingLink}
@@ -295,7 +301,7 @@ export default function ClientPortalFrame({ clientDisplayName, children }: Clien
       }}
     >
       <Topbar
-        title={clientDisplayName}
+        title="Dialogue"
         titleHref={topbarTitleHref}
         hideCadenceControls
         offsetLeft={0}

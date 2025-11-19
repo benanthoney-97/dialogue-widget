@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
 import Sidebar from "../Sidebar";
 import Topbar from "@/app/components/Topbar";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
@@ -44,16 +43,6 @@ function getDocumentUrl(row: InternalDocumentRow | null): string | null {
   if (row.public_url) return row.public_url;
   if (row.storage_path) return buildPublicUrl(row.storage_path);
   return null;
-}
-
-function isValidUrl(value: string): boolean {
-  if (!value.trim()) return false;
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function isPdfUrl(url?: string | null): boolean {
@@ -106,17 +95,6 @@ const ADD_FILES_INPUT_ID = "internal-data-add-files-input";
 const ACCEPTED_FILE_LABELS = ["PDF", "DOCX", "TXT", "HTML"];
 const ACCEPTED_FILE_EXTENSIONS = ".pdf,.docx,.txt,.html";
 
-function getPersonaInitials(name?: string | null): string {
-  if (!name) return "";
-  const segments = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((segment) => segment[0]?.toUpperCase() ?? "");
-  if (segments.length === 0) return "";
-  if (segments.length === 1) return segments[0].slice(0, 2);
-  return (segments[0] + segments[1]).slice(0, 2);
-}
-
 export default function InternalDataPage() {
   const [rows, setRows] = useState<InternalDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,25 +105,15 @@ export default function InternalDataPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [addModalType, setAddModalType] = useState<"url" | "files" | null>(null);
   const [modalFiles, setModalFiles] = useState<File[]>([]);
-  const [modalLinksUrl, setModalLinksUrl] = useState("");
-  const [modalLinks, setModalLinks] = useState<string[]>([]);
   const modalFileInputRef = useRef<HTMLInputElement | null>(null);
   const [clientId, setClientId] = useState<number | null>(null);
-  const [personas, setPersonas] = useState<
-    Array<{ agent_id: string; agent_name: string | null; profile_image?: string | null }>
-  >([]);
+  const [personas, setPersonas] = useState<Array<{ agent_id: string; agent_name: string | null }>>([]);
   const [personasLoading, setPersonasLoading] = useState(false);
   const [personasError, setPersonasError] = useState<string | null>(null);
   const [personaSelectorOpen, setPersonaSelectorOpen] = useState(false);
-  const [selectedPersona, setSelectedPersona] = useState<{
-    agent_id: string;
-    agent_name: string | null;
-    profile_image?: string | null;
-  } | null>(null);
-  const [personaStage, setPersonaStage] = useState<"select" | "action">("select");
+  const [selectedPersona, setSelectedPersona] = useState<{ agent_id: string; agent_name: string | null } | null>(null);
   const pathname = usePathname();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
-  const router = useRouter();
 
   useEffect(() => {
     let isActive = true;
@@ -241,33 +209,15 @@ export default function InternalDataPage() {
   }, [clientSlug]);
 
   const renderRows = () => {
-      if (loading) {
-        return (
-          <tr className="insights-table__row">
-            <td className="insights-table__cell" colSpan={5}>
-              Loading internal documents…
-            </td>
-          </tr>
-        );
-      }
-
-      if (rows.length === 0) {
-        return (
-          <tr className="insights-table__row">
-            <td className="insights-table__cell" colSpan={5}>
-              {showPersonaCreatePrompt ? (
-                <div className="internal-data-persona-callout">
-                  <button type="button" className="internal-data-callout-button" onClick={handleCreatePersona}>
-                    Create first persona
-                  </button>
-                </div>
-              ) : (
-                emptyTableMessage
-              )}
-            </td>
-          </tr>
-        );
-      }
+    if (loading) {
+      return (
+        <tr className="insights-table__row">
+        <td className="insights-table__cell" colSpan={4}>
+            Loading internal documents…
+          </td>
+        </tr>
+      );
+    }
 
     return rows.map((row) => (
       <tr
@@ -363,51 +313,13 @@ export default function InternalDataPage() {
     }
   };
 
-  const modalLinksUrlTrimmed = modalLinksUrl.trim();
-  const isModalLinksUrlValid = isValidUrl(modalLinksUrlTrimmed);
-  const canAddModalLink =
-    modalLinksUrlTrimmed.length > 0 && isModalLinksUrlValid && !modalLinks.includes(modalLinksUrlTrimmed);
-
-  const handleAddModalLink = () => {
-    if (!canAddModalLink) return;
-    setModalLinks((prev) => [...prev, modalLinksUrlTrimmed]);
-    setModalLinksUrl("");
-  };
-
-  const handleRemoveModalLink = (target: string) => {
-    setModalLinks((prev) => prev.filter((url) => url !== target));
-  };
-
   const activeDocumentUrl = getDocumentUrl(activeRow);
 
   useEffect(() => {
     if (!addModalType) {
       setModalFiles([]);
-      setModalLinks([]);
-      setModalLinksUrl("");
-      return;
-    }
-    if (addModalType !== "files") {
-      setModalFiles([]);
-    }
-    if (addModalType !== "url") {
-      setModalLinks([]);
-      setModalLinksUrl("");
     }
   }, [addModalType]);
-
-  const handleCreatePersona = useCallback(() => {
-    if (clientSlug) {
-      router.push(`/client/${clientSlug}/upload`);
-      return;
-    }
-    router.push("/upload");
-  }, [clientSlug, router]);
-
-  const showPersonaCreatePrompt = useMemo(
-    () => personas.length === 0 && !personasLoading && !personasError && Boolean(clientSlug),
-    [personas.length, personasLoading, personasError, clientSlug]
-  );
 
   useEffect(() => {
     setSelectedPersona(null);
@@ -420,15 +332,13 @@ export default function InternalDataPage() {
     try {
       const { data, error } = await supabase
         .from("agent_map")
-        .select("agent_id, agent_name, profile_image")
+        .select("agent_id, agent_name")
         .eq("client_id", clientId)
         .order("agent_name", { ascending: true });
       if (error) {
         throw error;
       }
-      setPersonas((data ?? []) as Array<
-        { agent_id: string; agent_name: string | null; profile_image?: string | null }
-      >);
+      setPersonas((data ?? []) as Array<{ agent_id: string; agent_name: string | null }>);
     } catch (personaError: any) {
       setPersonasError(personaError?.message ?? "Failed to load personas");
     } finally {
@@ -442,20 +352,12 @@ export default function InternalDataPage() {
     }
   }, [personaSelectorOpen, clientId, fetchPersonas]);
 
-  useEffect(() => {
-    if (!clientId) return;
-    void fetchPersonas();
-  }, [clientId, fetchPersonas]);
-
   const modalActionLabel =
     addModalType === "files"
       ? modalFiles.length > 1
         ? "Add files"
         : "Add file"
-      : modalLinks.length > 1
-      ? "Add URLs"
-      : "Add URL";
-  const isModalActionDisabled = addModalType === "url" && modalLinks.length === 0;
+      : "Continue";
 
   const renderDocumentPreview = () => {
     if (!activeRow) {
@@ -484,27 +386,6 @@ export default function InternalDataPage() {
     );
   };
 
-  const personaPrompt = useMemo(() => {
-    if (personas.length === 0) {
-      return null;
-    }
-    const names = personas
-      .map((persona) => (persona.agent_name?.trim().length ? persona.agent_name!.trim() : null))
-      .filter(Boolean) as string[];
-    if (names.length === 0) return null;
-    if (names.length === 1) {
-      return names[0];
-    }
-    if (names.length === 2) {
-      return `${names[0]} and ${names[1]}`;
-    }
-    return `${names[0]}, ${names[1]}, and others`;
-  }, [personas]);
-
-  const emptyTableMessage = personaPrompt
-    ? `No internal documents yet. Add documents for ${personaPrompt} to capture their knowledge.`
-    : "No internal documents found for this workspace.";
-
   return (
     <div className="internal-data-page">
       <Topbar
@@ -513,7 +394,7 @@ export default function InternalDataPage() {
         hideProfileAvatar
         hideCadenceControls
         rightSlot={
-          clientSlug && personas.length > 0 ? (
+          clientSlug ? (
             <div className="internal-data-topbar-menu-wrapper">
               <button
                 type="button"
@@ -528,6 +409,11 @@ export default function InternalDataPage() {
                 </span>
                 Add knowledge
               </button>
+              {selectedPersona ? (
+                <span className="internal-data-topbar-persona-hint">
+                  Adding to {selectedPersona.agent_name ?? selectedPersona.agent_id}
+                </span>
+              ) : null}
             </div>
           ) : null
         }
@@ -537,31 +423,28 @@ export default function InternalDataPage() {
           <Sidebar />
         </aside>
         <section className="internal-data-page__body">
-          <div className={`insights-table-wrap ${loading ? "insights-table-wrap--busy" : ""}`}>
+          <div className="insights-table-wrap">
             <table className="insights-table">
-              {((loading || rows.length > 0 || Boolean(error)) && (
-                <thead>
-                  <tr className="insights-table__head-row">
-                    <th className="insights-table__head-cell document-column">Name</th>
-                    <th className="insights-table__head-cell">Created</th>
-                    <th className="insights-table__head-cell insights-table__head-cell--persona">
-                      Persona
-                    </th>
-                    <th className="insights-table__head-cell">Created by</th>
-                    <th className="insights-table__head-cell" aria-hidden="true" />
-                  </tr>
-                </thead>
-              )) || null}
+              <thead>
+                <tr className="insights-table__head-row">
+                  <th className="insights-table__head-cell document-column">Name</th>
+                  <th className="insights-table__head-cell">Created</th>
+                  <th className="insights-table__head-cell insights-table__head-cell--persona">
+                    Persona
+                  </th>
+                  <th className="insights-table__head-cell">Created by</th>
+                  <th className="insights-table__head-cell" aria-hidden="true" />
+                </tr>
+              </thead>
               <tbody>{renderRows()}</tbody>
             </table>
-            <div className={`internal-data-table-overlay ${loading ? "internal-data-table-overlay--visible" : ""}`} aria-live="polite">
-              <div className="internal-data-loading-bubble">Loading internal documents…</div>
-            </div>
           </div>
           {error ? (
             <div className="insights-empty" role="alert">
               {error}
             </div>
+          ) : !loading && rows.length === 0 ? (
+            <div className="insights-empty">No internal documents found for this workspace.</div>
           ) : null}
         </section>
       </main>
@@ -633,63 +516,26 @@ export default function InternalDataPage() {
         </div>
       )}
       {personaSelectorOpen && (
-        <div
-          className="internal-data-persona-modal"
-          role="presentation"
-          onClick={(event) => {
-            if (event.currentTarget === event.target) {
-              setPersonaSelectorOpen(false);
-            }
-          }}
-        >
-      <div className="internal-data-persona-modal__dialog">
+        <div className="internal-data-persona-modal">
+          <div className="internal-data-persona-modal__dialog">
             <div className="internal-data-persona-modal__header">
-              {personaStage === "action" ? (
-                <button
-                  type="button"
-                  className="internal-data-persona-modal__back-arrow"
-                  onClick={() => setPersonaStage("select")}
-                  aria-label="Back to persona selection"
-                >
-                  ←
-                </button>
-              ) : (
-                <span className="internal-data-persona-modal__back-arrow-placeholder" />
-              )}
-              <h3>
-                {personaStage === "select"
-                  ? "Select a persona"
-                  : `Add to ${selectedPersona?.agent_name ?? selectedPersona?.agent_id}'s knowledge base`}
-              </h3>
-              <div className="internal-data-persona-modal__header-right">
-                {personaStage === "action" && selectedPersona ? (
-                  <span className="internal-data-persona-modal__avatar internal-data-persona-modal__header-avatar">
-                    {selectedPersona.profile_image?.trim().length ? (
-                      <img
-                        src={selectedPersona.profile_image.trim()}
-                        alt={selectedPersona.agent_name ?? selectedPersona.agent_id}
-                      />
-                    ) : (
-                      <span className="internal-data-persona-modal__initials">
-                        {getPersonaInitials(selectedPersona.agent_name ?? selectedPersona.agent_id)}
-                      </span>
-                    )}
-                  </span>
-                ) : null}
-              </div>
+              <h3>Select a persona</h3>
+              <button
+                type="button"
+                className="internal-data-persona-modal__close"
+                onClick={() => setPersonaSelectorOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
             </div>
-        <div
-          className={`internal-data-persona-modal__content ${
-            personaStage === "action" ? "internal-data-persona-modal__content--center" : ""
-          }`}
-        >
-          {personasLoading ? (
-            <p className="internal-data-persona-modal__status">Loading personas…</p>
-          ) : personasError ? (
-            <p className="internal-data-persona-modal__status">{personasError}</p>
-          ) : personas.length === 0 ? (
-            <p className="internal-data-persona-modal__status">No personas found.</p>
-          ) : personaStage === "select" ? (
+            {personasLoading ? (
+              <p className="internal-data-persona-modal__status">Loading personas…</p>
+            ) : personasError ? (
+              <p className="internal-data-persona-modal__status">{personasError}</p>
+            ) : personas.length === 0 ? (
+              <p className="internal-data-persona-modal__status">No personas found.</p>
+            ) : (
               <ul className="internal-data-persona-modal__list">
                 {personas.map((persona) => (
                   <li key={persona.agent_id}>
@@ -697,137 +543,25 @@ export default function InternalDataPage() {
                       type="button"
                       onClick={() => {
                         setSelectedPersona(persona);
-                        setPersonaStage("action");
+                        setPersonaSelectorOpen(false);
+                        setAddModalType(null);
+                        setModalFiles([]);
                       }}
                     >
-                      <span className="internal-data-persona-modal__persona">
-                        <span className="internal-data-persona-modal__avatar">
-                          {typeof persona.profile_image === "string" &&
-                          persona.profile_image.trim().length > 0 ? (
-                            <img
-                              src={persona.profile_image.trim()}
-                              alt={persona.agent_name || persona.agent_id}
-                            />
-                          ) : (
-                            <span className="internal-data-persona-modal__initials">
-                              {getPersonaInitials(persona.agent_name ?? persona.agent_id)}
-                            </span>
-                          )}
-                        </span>
-                        <span>{persona.agent_name || persona.agent_id}</span>
-                      </span>
+                      {persona.agent_name || persona.agent_id}
                     </button>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <>
-                <div className="internal-data-persona-modal__action">
-                  <div className="internal-data-persona-modal__action-buttons">
-                    <button
-                      type="button"
-                      className="internal-data-persona-modal__action-btn"
-                      onClick={() => {
-                        setPersonaSelectorOpen(false);
-                        setAddModalType("files");
-                        setModalFiles([]);
-                      }}
-                    >
-                      <span className="internal-data-persona-modal__action-icon" aria-hidden="true">
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"
-                            fill="#ffffff"
-                          />
-                          <path
-                            d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zM9.5 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"
-                            fill="#ffffff"
-                          />
-                        </svg>
-                      </span>
-                      Add files
-                    </button>
-                    <button
-                      type="button"
-                      className="internal-data-persona-modal__action-btn"
-                      onClick={() => {
-                        setPersonaSelectorOpen(false);
-                        setAddModalType("url");
-                      }}
-                    >
-                      <span className="internal-data-persona-modal__action-icon" aria-hidden="true">
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z"
-                            fill="#ffffff"
-                          />
-                          <path
-                            d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z"
-                            fill="#ffffff"
-                          />
-                        </svg>
-                      </span>
-                      Add URL
-                    </button>
-                  </div>
-                </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </div>
       )}
 
       {addModalType && (
-        <div
-          className="internal-data-add-modal"
-          role="presentation"
-          onClick={(event) => {
-            if (event.currentTarget === event.target) {
-              setAddModalType(null);
-            }
-          }}
-        >
+        <div className="internal-data-add-modal">
           <div className="internal-data-add-modal__dialog">
-            <div className="internal-data-add-modal__header">
-              <button
-                type="button"
-                className="internal-data-add-modal__back-arrow"
-                aria-label="Back to persona selection"
-                onClick={() => {
-                  setAddModalType(null);
-                  setPersonaStage("action");
-                  setPersonaSelectorOpen(true);
-                }}
-              >
-                ←
-              </button>
-              <h3 className="internal-data-add-modal__title">
-                {addModalType === "url"
-                  ? `Add URL to ${selectedPersona?.agent_name ?? selectedPersona?.agent_id}'s knowledge base`
-                  : `Add files to ${selectedPersona?.agent_name ?? selectedPersona?.agent_id}'s knowledge base`}
-              </h3>
-              {selectedPersona?.profile_image ? (
-                <span className="internal-data-persona-modal__avatar internal-data-add-modal__header-avatar">
-                  <img
-                    src={selectedPersona.profile_image.trim()}
-                    alt={selectedPersona.agent_name ?? selectedPersona.agent_id}
-                  />
-                </span>
-              ) : null}
-            </div>
+            <h3>{addModalType === "url" ? "Add URL" : "Add Files"}</h3>
             {addModalType === "files" ? (
               <label
                 htmlFor={ADD_FILES_INPUT_ID}
@@ -887,60 +621,13 @@ export default function InternalDataPage() {
                 )}
               </label>
             ) : (
-              <div className="internal-data-add-modal__links">
-                <div className="internal-data-add-modal__links-input">
-                  <input
-                    type="url"
-                    placeholder="https://"
-                    value={modalLinksUrl}
-                    onChange={(event) => setModalLinksUrl(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleAddModalLink();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="internal-data-add-modal__links-add"
-                    onClick={handleAddModalLink}
-                    disabled={!canAddModalLink}
-                  >
-                    Add
-                  </button>
-                </div>
-                {modalLinks.length > 0 ? (
-                  <div className="internal-data-add-modal__links-list">
-                    {modalLinks.map((link) => (
-                      <div className="internal-data-add-modal__link-chip" key={link}>
-                        <span>{link}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${link}`}
-                          onClick={() => handleRemoveModalLink(link)}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="internal-data-add-modal__links-empty">
-                    Paste one or more links to include them in the knowledge base.
-                  </p>
-                )}
-              </div>
+              <p>We can wire the form in here when ready.</p>
             )}
-              <div
-                className="internal-data-add-modal__actions"
-                onClick={(event) => event.stopPropagation()}
-              >
+            <div className="internal-data-add-modal__actions">
               <button
                 type="button"
                 className="insights-action-button insights-action-button--secondary"
                 onClick={() => setAddModalType(null)}
-                disabled={isModalActionDisabled}
               >
                 {modalActionLabel}
               </button>
@@ -982,7 +669,6 @@ export default function InternalDataPage() {
           overflow: hidden;
           overflow-x: auto;
           overflow-y: auto;
-          position: relative;
         }
         .insights-table {
           width: 100%;
@@ -990,6 +676,7 @@ export default function InternalDataPage() {
           border-spacing: 0 10px;
           font-size: 15px;
           background: transparent;
+          font-family: ${BODY_FONT_STACK};
         }
         .insights-table__head-cell {
           text-align: left;
@@ -1018,15 +705,7 @@ export default function InternalDataPage() {
           outline: 3px solid rgba(59, 130, 246, 0.45);
           outline-offset: -1px;
         }
-			.insights-table__row:hover {
-				background: rgba(59, 130, 246, 0.08);
-			}
-			.insights-table__row--empty .insights-table__cell {
-				background: none;
-			}
-			.insights-table__row--empty:hover .insights-table__cell {
-				background: none !important;
-			}
+
         .document-column {
           width: 380px;
           max-width: 380px;
@@ -1038,76 +717,10 @@ export default function InternalDataPage() {
           font-size: 15px;
           vertical-align: middle;
         }
-			.insights-table-wrap--busy {
-				pointer-events: none;
-			}
-			.internal-data-table-overlay {
-          position: absolute;
-          top: 50%;
-          left: 16px;
-          right: 16px;
-          transform: translateY(-50%);
-          display: flex;
-          justify-content: center;
-          pointer-events: none;
-          z-index: 2;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-			}
-			.internal-data-persona-callout {
-				margin-bottom: 20px;
-				padding: 16px 20px;
-				border-radius: 16px;
-				background: transparent;
-				color: rgba(15, 23, 42, 0.9);
-				display: flex;
-				flex-direction: column;
-				gap: 12px;
-				align-items: center;
-				text-align: center;
-			}
-			.internal-data-callout-button {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				padding: 12px 20px;
-				border-radius: 12px;
-				background: #0f172a;
-				color: #f8fafc;
-				font-weight: 700;
-				font-size: 15px;
-				border: none;
-				cursor: pointer;
-				transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
-				font-family: inherit;
-			}
-			.internal-data-callout-button:hover:not(:disabled) {
-				transform: translateY(-1px);
-				box-shadow: 0 16px 32px rgba(15, 23, 42, 0.24);
-			}
-        .internal-data-table-overlay--visible {
-          opacity: 1;
-        }
-        .internal-data-loading-bubble {
-          width: 100%;
-          border-radius: 12px;
-          padding: 12px 18px;
-          font-weight: 600;
-          font-size: 14px;
-          text-align: center;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 12px;
-          color: #0f172a;
-          background: transparent;
-          border: none;
-          box-shadow: none;
-        }
         .insights-table__cell--actions {
           text-align: center;
         }
-			.insights-table__cell--actions .insights-action-button {
+        .insights-table__cell--actions .insights-action-button {
           cursor: pointer;
         }
         .insights-table__cell--persona {
@@ -1214,123 +827,18 @@ export default function InternalDataPage() {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          max-height: 520px;
-          min-height: 420px;
         }
         .internal-data-persona-modal__header {
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
-        .internal-data-persona-modal__header-right {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
-          min-width: 36px;
-        }
-        .internal-data-persona-modal__header h3 {
-          flex: 1;
-          text-align: center;
-          margin: 0;
-        }
-        .internal-data-persona-modal__back-arrow,
-        .internal-data-persona-modal__back-arrow-placeholder {
-          width: 36px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          border: 1px solid transparent;
-          background: transparent;
-          font-size: 18px;
-          cursor: pointer;
-        }
-        .internal-data-persona-modal__back-arrow {
-          border-color: rgba(15, 23, 42, 0.2);
-        }
-        .internal-data-persona-modal__persona {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .internal-data-persona-modal__avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: #d9e1ff;
-          border: 1px solid rgba(15, 23, 42, 0.1);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          font-size: 13px;
-          font-weight: 600;
-          color: #0f172a;
-        }
-        .internal-data-persona-modal__avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .internal-data-persona-modal__initials {
-          display: block;
-          width: 100%;
-          text-align: center;
-        }
-        .internal-data-persona-modal__header-avatar {
-          flex-shrink: 0;
-        }
-        .internal-data-persona-modal__content {
-          flex: 1;
-          overflow-y: auto;
-          padding-right: 4px;
-        }
-        .internal-data-persona-modal__content--center {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .internal-data-persona-modal__action {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          width: 100%;
-          align-items: stretch;
-        }
-        .internal-data-persona-modal__action-buttons {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-          width: 100%;
-          justify-content: space-between;
-        }
-        .internal-data-persona-modal__action-btn {
-          flex: 1;
-          border-radius: 12px;
-          border: none;
-          background: #0f172a;
-          color: #fff;
-          font-weight: 600;
-          cursor: pointer;
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          aspect-ratio: 1 / 1;
-        }
-        }
-        .internal-data-persona-modal__back {
+        .internal-data-persona-modal__close {
           border: none;
           background: transparent;
-          color: rgba(15, 23, 42, 0.65);
-          font-weight: 400;
-          padding: 0;
-          text-decoration: none;
+          font-size: 20px;
+          line-height: 1;
           cursor: pointer;
-          align-self: flex-start;
         }
         .internal-data-persona-modal__status {
           margin: 0;
@@ -1478,26 +986,6 @@ export default function InternalDataPage() {
           flex-direction: column;
           gap: 16px;
         }
-        .internal-data-add-modal__title {
-          text-align: center;
-        }
-        .internal-data-add-modal__header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .internal-data-add-modal__back-arrow {
-          border: none;
-          background: transparent;
-          font-size: 20px;
-          line-height: 1;
-          cursor: pointer;
-        }
-        .internal-data-add-modal__header h3 {
-          flex: 1;
-          text-align: center;
-          margin: 0;
-        }
         .internal-data-add-modal__actions {
           display: flex;
           justify-content: flex-end;
@@ -1509,7 +997,7 @@ export default function InternalDataPage() {
           min-height: 200px;
           border-radius: 18px;
           border: 2px dashed #2d406b;
-          background: #0f172a;
+          background: #0d1a40;
           padding: 28px 20px;
           color: #f5f6fb;
           display: flex;
@@ -1591,74 +1079,6 @@ export default function InternalDataPage() {
         .internal-data-add-modal__more {
           font-size: 13px;
           color: rgba(248, 250, 252, 0.85);
-        }
-        .internal-data-add-modal__links {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          margin-top: 12px;
-        }
-        .internal-data-add-modal__links-input {
-          display: flex;
-          gap: 8px;
-        }
-        .internal-data-add-modal__links-input input {
-          flex: 1;
-          border-radius: 12px;
-          border: 1px solid rgba(148, 163, 184, 0.4);
-          background: rgba(15, 23, 42, 0.6);
-          color: #fff;
-          padding: 12px 14px;
-          font-size: 15px;
-        }
-        .internal-data-add-modal__links-input input::placeholder {
-          color: rgba(248, 250, 252, 0.7);
-        }
-        .internal-data-add-modal__links-add {
-          border: none;
-          border-radius: 12px;
-          padding: 0 16px;
-          background: #0f172a;
-          color: #fff;
-          font-weight: 600;
-          cursor: pointer;
-          min-width: 100px;
-        }
-        .internal-data-add-modal__links-add:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-        .internal-data-add-modal__links-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          max-height: 180px;
-          overflow-y: auto;
-        }
-        .internal-data-add-modal__link-chip {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 10px 14px;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          font-size: 14px;
-          color: #0f172a;
-        }
-        .internal-data-add-modal__link-chip button {
-          border: none;
-          background: transparent;
-          color: #0f172a;
-          font-size: 18px;
-          line-height: 1;
-          cursor: pointer;
-        }
-        .internal-data-add-modal__links-empty {
-          margin: 0;
-          font-size: 14px;
-          color: rgba(248, 250, 252, 0.75);
         }
         .internal-data-add-modal__actions .insights-action-button--secondary {
           background: #0f172a;

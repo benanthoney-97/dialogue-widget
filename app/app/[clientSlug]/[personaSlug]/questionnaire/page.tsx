@@ -77,7 +77,6 @@ export default async function QuestionnairePage({
           alignItems: "center",
           justifyContent: "center",
           minHeight: "60vh",
-          fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
           color: "#b91c1c",
         }}
       >

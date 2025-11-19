@@ -90,7 +90,6 @@ export default async function ChatPage({
           alignItems: "center",
           justifyContent: "center",
           minHeight: "60vh",
-          fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
           color: "#b91c1c",
         }}
       >
@@ -124,7 +123,6 @@ export default async function ChatPage({
   return (
     <div
       style={{
-        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
         color: "#0f172a",
         display: "flex",
         flexDirection: "column",

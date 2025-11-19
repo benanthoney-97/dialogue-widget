@@ -1,7 +1,10 @@
 import { jsPDF } from 'jspdf';
 import { docMap } from '@/app/lib/docMap';
+import type { Database } from './database.types';
 
-export async function generateConversationPdf(row: any) {
+type DialogueRow = Database['public']['Tables']['dialogues']['Row'];
+
+export async function generateConversationPdf(row: DialogueRow) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

@@ -195,6 +195,10 @@ export function useResearchOverlayState(clientSlug: string | null) {
               rawSourcedArticleCount !== null
                 ? Math.max(rawSourcedArticleCount, sourcedArticles.length)
                 : sourcedArticles.length;
+            const currentJobStatus =
+              typeof record.current_job_status === "string" && record.current_job_status.trim().length > 0
+                ? record.current_job_status.trim().toLowerCase()
+                : null;
             return {
               agentId,
               personaName,
@@ -203,6 +207,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
               sourcedArticles,
               sourcedArticlesCount,
               watchlistQuery,
+              currentJobStatus,
             } satisfies AgentResearchRecord;
           })
           .filter((item): item is AgentResearchRecord => item !== null)

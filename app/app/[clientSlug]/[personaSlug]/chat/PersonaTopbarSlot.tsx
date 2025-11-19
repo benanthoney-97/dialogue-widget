@@ -84,7 +84,6 @@ export default function PersonaTopbarSlot({
         padding: "6px 12px",
         borderRadius: 999,
         color: "#0f172a",
-        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
         fontWeight: 600,
         position: "relative",
       }}

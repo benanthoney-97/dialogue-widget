@@ -80,7 +80,6 @@ export default async function InterviewPage({
           alignItems: "center",
           justifyContent: "center",
           minHeight: "60vh",
-          fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
           color: "#b91c1c",
         }}
       >
@@ -115,7 +114,6 @@ export default async function InterviewPage({
     <div
       style={{
         minHeight: "100vh",
-        fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
         color: "#0f172a",
         paddingBottom: 48,
       }}

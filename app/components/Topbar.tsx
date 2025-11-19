@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
-import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
+import { BODY_FONT_STACK } from "@/app/lib/fontStacks";
 import { TOPBAR_HEIGHT } from "./topbarHeight";
 
 type NavLink = {
@@ -217,6 +217,7 @@ export default function Topbar({
   const profileHref = resolvedClientSlug ? `/client/${resolvedClientSlug}/settings` : null;
   const adminHref = resolvedClientSlug ? `/client/${resolvedClientSlug}/personas` : null;
 
+  const hideCadenceAttribute = hideCadenceControls ? "true" : "false";
   const closeMenu = () => setMenuOpen(false);
 
   const handleProfileButtonClick = () => {
@@ -255,7 +256,6 @@ export default function Topbar({
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: BODY_FONT_STACK,
     transition: "background 0.18s ease, color 0.18s ease",
   };
 
@@ -263,6 +263,7 @@ export default function Topbar({
 
   return (
     <header
+      data-hide-cadence={hideCadenceAttribute}
       style={{
         position: "fixed",
         top: 0,
@@ -306,6 +307,61 @@ export default function Topbar({
               flexShrink: 0,
             }}
           >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: subtitle ? 4 : 0 }}>
+              {titleHref ? (
+                <Link
+                  href={titleHref}
+                  prefetch={false}
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    display: "inline-flex",
+                  }}
+                >
+                  <h1
+                    style={{
+                      margin: 0,
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color: "#052033",
+                    }}
+                  >
+                    {title}
+                  </h1>
+                </Link>
+              ) : (
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#052033",
+                  }}
+                >
+                  {title}
+                </h1>
+              )}
+              {subtitle ? (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14,
+                      color: "rgba(15, 23, 42, 0.72)",
+                      maxWidth: 560,
+                    }}
+                  >
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
             {leadingSlot ? (
               <div
                 style={{
@@ -313,62 +369,13 @@ export default function Topbar({
                   alignItems: "center",
                   justifyContent: "center",
                   height: "100%",
+                  gap: 10,
                 }}
               >
                 {leadingSlot}
               </div>
-            ) : (
-              <>
-                {titleHref ? (
-                  <Link
-                    href={titleHref}
-                    prefetch={false}
-                    style={{
-                      textDecoration: "none",
-                      color: "inherit",
-                      display: "inline-flex",
-                    }}
-                  >
-                    <h1
-                      style={{
-                        margin: 0,
-                        fontSize: 18,
-                        fontWeight: 800,
-                        color: "#052033",
-                        fontFamily: HEADING_FONT_STACK,
-                      }}
-                    >
-                      {title}
-                    </h1>
-                  </Link>
-                ) : (
-                  <h1
-                    style={{
-                      margin: 0,
-                      fontSize: 18,
-                      fontWeight: 800,
-                      color: "#052033",
-                      fontFamily: HEADING_FONT_STACK,
-                    }}
-                  >
-                    {title}
-                  </h1>
-                )}
-                {subtitle ? (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 14,
-                      color: "rgba(15, 23, 42, 0.72)",
-                      maxWidth: 560,
-                      fontFamily: BODY_FONT_STACK,
-                    }}
-                  >
-                    {subtitle}
-                  </p>
-                ) : null}
-              </>
-            )}
+            ) : null}
+          </div>
           </div>
           {/* Admin view button moved to right-hand controls */}
         </div>
@@ -382,7 +389,6 @@ export default function Topbar({
             fontSize: 13,
             fontWeight: 600,
             color: "#0f172a",
-            fontFamily: BODY_FONT_STACK,
             flexShrink: 0,
           }}
         >
@@ -479,7 +485,6 @@ export default function Topbar({
                   borderRadius: 999,
                   fontSize: 13,
                   fontWeight: 700,
-                  fontFamily: BODY_FONT_STACK,
                   cursor: "pointer",
                   transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease",
                 }}
@@ -527,7 +532,6 @@ export default function Topbar({
                   textTransform: "uppercase",
                   boxShadow: menuOpen ? "0 10px 24px rgba(10,22,40,0.24)" : "0 6px 18px rgba(10,22,40,0.18)",
                   cursor: "pointer",
-                  fontFamily: HEADING_FONT_STACK,
                   transition: "background 0.18s ease, box-shadow 0.18s ease",
                 }}
               >

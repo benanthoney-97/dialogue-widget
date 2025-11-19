@@ -11,6 +11,7 @@ export type AgentResearchRecord = {
   sourcedArticles: Array<{ title: string; url: string }>;
   sourcedArticlesCount: number;
   watchlistQuery: string | null;
+  currentJobStatus?: string | null;
 };
 
 type ResearchOverlayTab = "research" | "prompt";

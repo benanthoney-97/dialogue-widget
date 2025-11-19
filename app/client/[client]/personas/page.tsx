@@ -4283,87 +4283,8 @@ export default function PersonasPage() {
                           <div className="persona-expanded-track">
                             <div className="persona-expanded-block persona-expanded-block--description">
                               <div className="persona-expanded-block__header persona-expanded-block__header--description">
-                                <h4>Key Traits & Description</h4>
+                                <h4>Description</h4>
                               </div>
-                              {keyTraits.length > 0 ? (
-                                <div
-                                  className={`persona-description__chip-row${
-                                    isChipRowExpanded ? " persona-description__chip-row--expanded" : ""
-                                  }`}
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-expanded={isChipRowExpanded}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleToggleChipRow(persona.agent_id);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      handleToggleChipRow(persona.agent_id);
-                                    }
-                                  }}
-                                >
-                                  {chipTraitsList.map((trait, index) =>
-                                    chipEditingIndex === index ? (
-                                      <input
-                                        key={`chip-input-${index}`}
-                                        className="persona-description__chip-input"
-                                        value={chipEditingValue}
-                                        autoFocus
-                                        onChange={(event) => setChipEditingValue(event.target.value)}
-                                        onBlur={(event) => {
-                                          event.stopPropagation();
-                                          void handleChipEditCommit();
-                                        }}
-                                        onKeyDown={(event) => {
-                                          if (event.key === "Enter") {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            void handleChipEditCommit();
-                                          } else if (event.key === "Escape") {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            handleCancelChipEdit();
-                                          }
-                                        }}
-                                        onClick={(event) => event.stopPropagation()}
-                                      />
-                                    ) : (
-                                      <span
-                                        key={`${trait}-${index}`}
-                                        className="persona-description__chip persona-description__chip--editable"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          handleStartChipEdit(index, trait);
-                                        }}
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(event) => {
-                                          if (event.key === "Enter" || event.key === " ") {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            handleStartChipEdit(index, trait);
-                                          }
-                                        }}
-                                      >
-                                        {trait}
-                                        <span
-                                          aria-hidden="true"
-                                          className="persona-description__chip-close"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            handleChipDelete(index);
-                                          }}
-                                        >
-                                          ×
-                                        </span>
-                                      </span>
-                                    )
-                                  )}
-                                </div>
-                              ) : null}
                               <div
                                 className={`persona-description${
                                   isDescriptionEditing
@@ -4385,9 +4306,9 @@ export default function PersonasPage() {
                                       onKeyDown={(event) => event.stopPropagation()}
                                       onKeyUp={(event) => event.stopPropagation()}
                                       disabled={isSavingDescriptionInline}
-                                    rows={hasDescription ? 5 : 6}
-                                    placeholder="Add a description for this persona"
-                                  />
+                                      rows={hasDescription ? 5 : 6}
+                                      placeholder="Add a description for this persona"
+                                    />
                                     {descriptionInlineError ? (
                                       <p className="persona-inline-error">{descriptionInlineError}</p>
                                     ) : null}
@@ -4396,21 +4317,21 @@ export default function PersonasPage() {
                                   <p>{descriptionText}</p>
                                 )}
                               </div>
-                          </div>
-                    <div
-                      className={`persona-expanded-block${
-                        isDocumentsEditing ? " persona-expanded-block--documents" : ""
-                      }`}
-                    >
-                      <div className="persona-expanded-block__header">
-                        <div className="persona-expanded-block__header-labels">
-                          <h4>Docs & Links</h4>
-                          {documentsUpdatedAt ? (
-                            <span className="persona-updated-chip">
-                              Updated {formatDate(documentsUpdatedAt)}
-                            </span>
-                          ) : null}
-                        </div>
+                            </div>
+                            <div
+                              className={`persona-expanded-block${
+                                isDocumentsEditing ? " persona-expanded-block--documents" : ""
+                              }`}
+                            >
+                              <div className="persona-expanded-block__header">
+                                <div className="persona-expanded-block__header-labels">
+                                  <h4>Docs & Links</h4>
+                                  {documentsUpdatedAt ? (
+                                    <span className="persona-updated-chip">
+                                      Updated {formatDate(documentsUpdatedAt)}
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <button
                                   type="button"
                                   className="persona-expanded-manage"
@@ -4419,22 +4340,22 @@ export default function PersonasPage() {
                                     openInternalOverlay(persona.agent_id);
                                   }}
                                 >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            fill="#22325A"
-                            xmlns="http://www.w3.org/2000/svg"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0z"
-                            />
-                          </svg>
-                          <span className="sr-only">Manage documents</span>
-                        </button>
-                      </div>
+                                  <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 16 16"
+                                    fill="#22325A"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    aria-hidden="true"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0z"
+                                    />
+                                  </svg>
+                                  <span className="sr-only">Manage documents</span>
+                                </button>
+                              </div>
                               {isDocumentsEditing ? (
                                 <>
                                   {documentsActionError ? (
@@ -4448,19 +4369,19 @@ export default function PersonasPage() {
                                     <div className="persona-edit-documents--empty">No data sources added yet.</div>
                                   ) : (
                                     <div className="persona-edit-documents persona-edit-documents--inline" role="list">
-                                    {documents.map((doc) => {
-                                      const metaParts: string[] = [];
-                                      const title =
-                                        doc.file_name && doc.file_name.trim().length > 0
-                                          ? doc.file_name.trim()
-                                          : "Untitled document";
-                                      if (typeof doc.file_size === "number" && doc.file_size > 0) {
-                                        metaParts.push(formatBytes(doc.file_size));
-                                      }
-                                      const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
-                                      if (createdLabel && createdLabel !== "—") {
-                                        metaParts.push(`Added ${createdLabel}`);
-                                      }
+                                      {documents.map((doc) => {
+                                        const metaParts: string[] = [];
+                                        const title =
+                                          doc.file_name && doc.file_name.trim().length > 0
+                                            ? doc.file_name.trim()
+                                            : "Untitled document";
+                                        if (typeof doc.file_size === "number" && doc.file_size > 0) {
+                                          metaParts.push(formatBytes(doc.file_size));
+                                        }
+                                        const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
+                                        if (createdLabel && createdLabel !== "—") {
+                                          metaParts.push(`Added ${createdLabel}`);
+                                        }
                                         const displayTitle =
                                           title.length > DOCUMENT_TITLE_MAX_CHARS
                                             ? `${title.slice(0, DOCUMENT_TITLE_MAX_CHARS).trimEnd()}…`
@@ -4468,9 +4389,13 @@ export default function PersonasPage() {
                                         return (
                                           <div key={doc.id} className="persona-edit-document-card" role="listitem">
                                             <div className="persona-edit-document-meta">
-                                              <strong className="persona-edit-document-title" title={title}>{displayTitle}</strong>
+                                              <strong className="persona-edit-document-title" title={title}>
+                                                {displayTitle}
+                                              </strong>
                                               {metaParts.length > 0 ? (
-                                                <span className="persona-edit-document-details">{metaParts.join(" · ")}</span>
+                                                <span className="persona-edit-document-details">
+                                                  {metaParts.join(" · ")}
+                                                </span>
                                               ) : null}
                                             </div>
                                             <div className="persona-edit-document-actions">
@@ -4496,48 +4421,52 @@ export default function PersonasPage() {
                                     </span>
                                   ) : null}
                                 </>
-                                ) : (
-                                  <ul className="persona-expanded-list">
-                                    {documents.length > 0 ? (
-                                      documents.map((doc) => {
-                                        const metaParts: string[] = [];
-                                        const title = doc.file_name && doc.file_name.trim().length > 0 ? doc.file_name.trim() : "Untitled document";
-                                        if (typeof doc.file_size === "number" && doc.file_size > 0) {
-                                          const sizeInKb = doc.file_size / 1024;
-                                          const sizeLabel = sizeInKb >= 1024
+                              ) : (
+                                <ul className="persona-expanded-list">
+                                  {documents.length > 0 ? (
+                                    documents.map((doc) => {
+                                      const metaParts: string[] = [];
+                                      const title =
+                                        doc.file_name && doc.file_name.trim().length > 0
+                                          ? doc.file_name.trim()
+                                          : "Untitled document";
+                                      if (typeof doc.file_size === "number" && doc.file_size > 0) {
+                                        const sizeInKb = doc.file_size / 1024;
+                                        const sizeLabel =
+                                          sizeInKb >= 1024
                                             ? `${(sizeInKb / 1024).toFixed(1)} MB`
                                             : `${Math.max(sizeInKb, 1).toFixed(0)} KB`;
-                                          metaParts.push(sizeLabel);
-                                        }
-                                        const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
-                                          if (createdLabel && createdLabel !== "—") {
-                                            metaParts.push(`Added ${createdLabel}`);
-                                          }
-                                        return (
-                                          <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
-                                            <div className="persona-expanded-list-item persona-expanded-list-item--document">
-                                              <span className="persona-doc-title">{title}</span>
-                                              {metaParts.length > 0 ? (
-                                                <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
-                                              ) : null}
-                                            </div>
-                                          </li>
-                                        );
-                                      })
-                                    ) : (
-                                      <li>
-                                        <div className="persona-expanded-list-item">
-                                          {documentsLoading
-                                            ? "Loading data sources…"
-                                            : documentsError
-                                              ? "Unable to load data sources."
-                                              : "No data sources added yet."}
-                                        </div>
-                                      </li>
-                                    )}
+                                        metaParts.push(sizeLabel);
+                                      }
+                                      const createdLabel = doc.created_at ? formatDate(doc.created_at) : null;
+                                      if (createdLabel && createdLabel !== "—") {
+                                        metaParts.push(`Added ${createdLabel}`);
+                                      }
+                                      return (
+                                        <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
+                                          <div className="persona-expanded-list-item persona-expanded-list-item--document">
+                                            <span className="persona-doc-title">{title}</span>
+                                            {metaParts.length > 0 ? (
+                                              <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
+                                            ) : null}
+                                          </div>
+                                        </li>
+                                      );
+                                    })
+                                  ) : (
+                                    <li>
+                                      <div className="persona-expanded-list-item">
+                                        {documentsLoading
+                                          ? "Loading data sources…"
+                                          : documentsError
+                                            ? "Unable to load data sources."
+                                            : "No data sources added yet."}
+                                      </div>
+                                    </li>
+                                  )}
                                 </ul>
                               )}
-                              </div>
+                            </div>
                             <div className="persona-expanded-block persona-expanded-block--external">
                               <div className="persona-expanded-block__header">
                                 <div className="persona-expanded-block__header-labels">
@@ -4620,7 +4549,6 @@ export default function PersonasPage() {
                             </div>
                           </div>
                         </div>
-
                       </div>
                     </div>
                     <div

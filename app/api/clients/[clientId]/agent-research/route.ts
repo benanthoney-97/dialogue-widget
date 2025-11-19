@@ -16,6 +16,7 @@ type PersonaExternalKnowledgeRow = {
   sourced_articles?: unknown;
   knowledge_text?: string | null;
   updated_at?: string | null;
+  current_job_status?: string | null;
 };
 
 type PersonaWatchlistRow = {
@@ -97,7 +98,7 @@ export async function GET(
 
     const { data: knowledgeRows, error: knowledgeError } = await supabaseAdmin
       .from("persona_external_knowledge")
-      .select("agent_id, sourced_articles, knowledge_text, updated_at")
+      .select("agent_id, sourced_articles, knowledge_text, updated_at, current_job_status")
       .in("agent_id", agentIds);
 
     if (knowledgeError) {
@@ -137,6 +138,7 @@ export async function GET(
       watchlistByAgent.set(String(row.agent_id), row);
     }
 
+    console.log("[AgentResearch] knowledgeRows:", knowledgeRows);
     const formatted = agentIds.map((agentId) => {
       const personaName = agentMap.get(agentId)?.name?.trim() || "Unnamed agent";
       const row = knowledgeByAgent.get(agentId);
@@ -150,6 +152,10 @@ export async function GET(
             : null,
         updated_at: row?.updated_at ?? null,
         sourced_articles: normalizeArticles(row?.sourced_articles),
+        current_job_status:
+          row && typeof row.current_job_status === "string" && row.current_job_status.trim().length > 0
+            ? row.current_job_status.trim().toLowerCase()
+            : null,
         watchlist_query:
           watchlistRow && typeof watchlistRow.query === "string" && watchlistRow.query.trim().length > 0
             ? watchlistRow.query.trim()

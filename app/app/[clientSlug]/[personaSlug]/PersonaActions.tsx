@@ -9,6 +9,7 @@ type PersonaActionsProps = {
   clientSlug: string;
   personaSlug: string;
   personaName: string;
+  personaId: string;
   clientId: number;
 };
 
@@ -19,7 +20,7 @@ type PersonaAction = {
   onClick?: () => void;
 };
 
-export default function PersonaActions({ clientSlug, personaSlug, personaName, clientId }: PersonaActionsProps) {
+export default function PersonaActions({ clientSlug, personaSlug, personaName, personaId, clientId }: PersonaActionsProps) {
   const [isSimulatePanelOpen, setIsSimulatePanelOpen] = useState(false);
 
   const actions: PersonaAction[] = [
@@ -118,12 +119,12 @@ export default function PersonaActions({ clientSlug, personaSlug, personaName, c
 
       <SlidingPanelOverlay
         open={isSimulatePanelOpen}
-        title={`Simulate ${personaName}`}
+        title={`Simulate research with ${personaName}`}
         description={`Prepare and run a simulated interview with ${personaName}.`}
         onRequestClose={() => setIsSimulatePanelOpen(false)}
         onAfterClose={() => setIsSimulatePanelOpen(false)}
       >
-        <SimulateOverlayContent clientId={clientId} personaName={personaName} />
+  <SimulateOverlayContent clientId={clientId} personaName={personaName} personaId={personaId} />
       </SlidingPanelOverlay>
     </>
   );

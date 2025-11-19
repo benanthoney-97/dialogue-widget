@@ -6,14 +6,22 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export async function insertContactRequest({ agent_id, name, user_email, phone, conversation_id }: { agent_id: string, name: string, user_email: string, phone: string, conversation_id?: string }) {
-  const row: Record<string, any> = {
+type ContactRequestPayload = {
+  agent_id: string;
+  name: string;
+  user_email: string;
+  phone: string;
+  conversation_id?: string;
+};
+
+export async function insertContactRequest({ agent_id, name, user_email, phone, conversation_id }: ContactRequestPayload) {
+  const row: ContactRequestPayload = {
     agent_id,
     name,
     user_email,
     phone,
   };
-  if (conversation_id !== undefined && conversation_id !== null) {
+  if (conversation_id) {
     row.conversation_id = conversation_id;
   }
   return supabase.from('contact_requests').insert([row]);

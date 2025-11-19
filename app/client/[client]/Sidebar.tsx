@@ -282,23 +282,7 @@ export default function Sidebar() {
     ),
   };
 
-  const ideaItem = {
-    label: "Opportunities",
-    href: `/client/${clientId}/ideas`,
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="#22325a"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1"/>
-      </svg>
-    ),
-  };
-
-  const buildNavItems: NavItem[] = [ideaItem, interviewsItem];
+  const buildNavItems: NavItem[] = [];
   const testNavItems: NavItem[] = [];
   const launchNavItems: NavItem[] = [teamItem, liveHelpItem];
   const allNavItems: NavItem[] = [
@@ -480,8 +464,8 @@ export default function Sidebar() {
             href={item.href}
             style={{
               ...sharedNavStyle,
-                padding: "10px 12px",
-                paddingLeft: navLeftPadding,
+              padding: "10px 12px",
+              paddingLeft: navLeftPadding,
               color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
               background: active
                 ? `rgba(var(--accent-rgb, 43,108,176), 0.12)`
@@ -516,14 +500,20 @@ export default function Sidebar() {
           </Link>
         );
       })}
-        {renderHeading("Refine", sectionHeadingMarginTop)}
-  {buildNavItems.map(renderSecondaryNavItem)}
-  {renderHeading("Test", sectionHeadingMarginTop)}
-  {testNavItems.map(renderSecondaryNavItem)}
-      {renderHeading("Launch", sectionHeadingMarginTop)}
+      {buildNavItems.length > 0 && (
+        <div style={{ marginTop: sectionHeadingMarginTop }}>
+          {buildNavItems.map(renderSecondaryNavItem)}
+        </div>
+      )}
+      {testNavItems.length > 0 && (
+        <div style={{ marginTop: sectionHeadingMarginTop }}>
+          {testNavItems.map(renderSecondaryNavItem)}
+        </div>
+      )}
       <div style={{ flex: 1 }} />
       <div
         style={{
+          marginTop: sectionHeadingMarginTop,
           width: "100%",
           display: "flex",
           flexDirection: "column",

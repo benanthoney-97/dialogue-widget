@@ -32,7 +32,8 @@ type InsightsRow = {
   sourceDocument: string;
   lead: { value: string; source: string };
   engagementTime: string;
-  status: "Questionnaire" | "Interview" | "Chat";
+  status: "Simulation" | "Interview" | "Chat";
+  dialogueStatus?: string | null;
   date: string;
   briefReport: string;
   conversation_id: string;
@@ -81,7 +82,8 @@ function normalizeStatuses(rawStatuses: string | null): string[] {
   return rawStatuses
     .split(",")
     .map((item) => item.trim().toLowerCase())
-    .filter((item) => item === "questionnaire" || item === "interview" || item === "chat");
+    .map((item) => (item === "questionnaire" ? "simulation" : item))
+    .filter((item) => item === "simulation" || item === "interview" || item === "chat");
 }
 
 function normalizeSearch(rawSearch: string | null): string | null {
@@ -96,11 +98,17 @@ function normalizePersona(rawPersonaId: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function determineStatus(researchType: string | null | undefined): "Questionnaire" | "Interview" | "Chat" {
+function normalizeDialogueStatus(rawStatus: string | null | undefined): string | null {
+  if (!rawStatus) return null;
+  const trimmed = rawStatus.trim();
+  return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+}
+
+function determineStatus(researchType: string | null | undefined): "Simulation" | "Interview" | "Chat" {
   const normalized = typeof researchType === "string" ? researchType.trim().toLowerCase() : "";
   if (normalized === "interview") return "Interview";
   if (normalized === "chat") return "Chat";
-  return "Questionnaire";
+  return "Simulation";
 }
 
 function formatDuration(seconds: number | null | undefined): string {
@@ -170,7 +178,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
     const baseQuery = supabaseAdmin
       .from("dialogues")
       .select(
-        "id, conversation_id, agent_id, user_id, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type, call_summary_title",
+        "id, conversation_id, agent_id, user_id, status, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type, call_summary_title",
         { count: "exact" }
       )
       .eq("client_id", clientRow.id)
@@ -182,10 +190,13 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
     }
 
     if (statuses.length > 0) {
-      baseQuery.in(
-        "research_type",
-        statuses.map((status) => (status === "questionnaire" ? "questionnaire" : status === "interview" ? "interview" : "chat"))
-      );
+      const researchTypes = statuses.flatMap((status) => {
+        if (status === "interview") return ["interview"];
+        if (status === "chat") return ["chat"];
+        return ["questionnaire", "simulation"];
+      });
+      const uniqueResearchTypes = Array.from(new Set(researchTypes));
+      baseQuery.in("research_type", uniqueResearchTypes);
     }
 
     if (search) {
@@ -243,6 +254,7 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
         lead: { value: "", source: "none" },
         engagementTime: formatDuration(dialogue.call_duration_secs),
         status: determineStatus(dialogue.research_type),
+        dialogueStatus: normalizeDialogueStatus(dialogue.status ?? null),
         date: dialogue.received_at || "",
         briefReport: "",
         conversation_id: dialogue.conversation_id ?? "",

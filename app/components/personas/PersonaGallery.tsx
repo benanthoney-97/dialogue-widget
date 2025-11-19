@@ -12,6 +12,7 @@ export type PersonaSummary = {
   updatedAt: string | null;
   attributes: Array<{ label: string; value: string }>;
   profileImage: string | null;
+  roleTitle: string | null;
   painPoints: string[];
 };
 
@@ -53,7 +54,6 @@ const gridStyle: CSSProperties = {
   width: "100%",
   justifyContent: "center",
   justifyItems: "center",
-  fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
   flex: 1,
   minHeight: "100%",
   alignContent: "start",
@@ -82,7 +82,21 @@ const emptyStateStyle: CSSProperties = {
   color: "#475569",
   textAlign: "center",
   fontSize: 16,
-  fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
+};
+
+const CHIPS_PER_ROW = 3;
+const MAX_CHIP_ROWS = 3;
+const MAX_KEY_TRAITS_VISIBLE = CHIPS_PER_ROW * MAX_CHIP_ROWS;
+const CHIP_ROW_GAP = 6;
+
+const overlayGradientStyle: CSSProperties = {
+  position: "absolute",
+  inset: "auto 0 0 0",
+  height: 140,
+  background: "linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.85) 100%)",
+  borderRadius: "0 0 16px 16px",
+  pointerEvents: "none",
+  zIndex: 0,
 };
 
 function renderPersonaCard(persona: PersonaSummary, clientSlug: string) {
@@ -162,65 +176,160 @@ function renderPersonaCard(persona: PersonaSummary, clientSlug: string) {
           (event.currentTarget as HTMLElement).style.boxShadow = baseBoxShadow;
         }}
       >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 20,
-            fontWeight: 700,
-            lineHeight: 1.3,
-            color: primaryTextColor,
-          }}
-        >
-          {persona.name}
-        </h2>
-        {persona.contentType ? (
-          <span
-            style={{
-              alignSelf: "flex-start",
-              background: badgeBackground,
-              borderRadius: 999,
-              color: badgeTextColor,
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              padding: "4px 10px",
-              textTransform: "uppercase",
-            }}
-          >
-            {persona.contentType}
-          </span>
-        ) : null}
-      </div>
-      {persona.attributes.length > 0 ? (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginTop: "auto",
-          }}
-        >
-          {persona.attributes.map((attribute) => (
-            <span
-              key={`${persona.id}-${attribute.label}`}
+        <div style={overlayGradientStyle} />
+        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <h2
               style={{
-                background: attributeChipBackground,
-                borderRadius: 999,
-                padding: "6px 12px",
-                fontSize: 13,
-                fontWeight: 500,
-                color: attributeChipText,
-                border: hasProfileImage
-                  ? "1px solid rgba(248,250,252,0.25)"
-                  : "1px solid rgba(148,163,184,0.35)",
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 700,
+                lineHeight: 1.3,
+                color: primaryTextColor,
               }}
             >
-              {attribute.value}
-            </span>
-          ))}
+              {persona.name}
+            </h2>
+            {persona.roleTitle ? (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: hasProfileImage ? "rgba(248,250,252,0.72)" : "#475569",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {persona.roleTitle}
+              </p>
+            ) : null}
+            {persona.contentType ? (
+              <span
+                style={{
+                  alignSelf: "flex-start",
+                  background: badgeBackground,
+                  borderRadius: 999,
+                  color: badgeTextColor,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  padding: "4px 10px",
+                  textTransform: "uppercase",
+                }}
+              >
+                {persona.contentType}
+              </span>
+            ) : null}
+          </div>
+          {(persona.attributes.length > 0 || persona.keyTraits.length > 0) ? (
+            <div
+              style={{
+                marginTop: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {persona.attributes.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  {persona.attributes.map((attribute) => (
+                    <span
+                      key={`${persona.id}-${attribute.label}`}
+                      style={{
+                        background: attributeChipBackground,
+                        borderRadius: 999,
+                        padding: "6px 12px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: attributeChipText,
+                        border: hasProfileImage
+                          ? "1px solid rgba(248,250,252,0.25)"
+                          : "1px solid rgba(148,163,184,0.35)",
+                      }}
+                    >
+                      {attribute.value}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {persona.keyTraits.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    marginBottom: 2,
+                  }}
+                >
+                  {(() => {
+                    const traitCount = persona.keyTraits.length;
+                    const extraTraitCount = Math.max(traitCount - MAX_KEY_TRAITS_VISIBLE, 0);
+                    const visibleLimit = extraTraitCount > 0
+                      ? MAX_KEY_TRAITS_VISIBLE - 1
+                      : Math.min(traitCount, MAX_KEY_TRAITS_VISIBLE);
+                    const traitEntries = persona.keyTraits.slice(0, visibleLimit);
+                    const rows: string[][] = [];
+                    for (let i = 0; i < traitEntries.length; i += CHIPS_PER_ROW) {
+                      rows.push(traitEntries.slice(i, i + CHIPS_PER_ROW));
+                    }
+
+                    if (extraTraitCount > 0) {
+                      const overflowChip = `+${extraTraitCount}`;
+                      if (rows.length === 0) {
+                        rows.push([overflowChip]);
+                      } else {
+                        const lastRow = rows[rows.length - 1];
+                        if (lastRow.length < CHIPS_PER_ROW) {
+                          lastRow.push(overflowChip);
+                        } else if (rows.length < MAX_CHIP_ROWS) {
+                          rows.push([overflowChip]);
+                        } else {
+                          lastRow[lastRow.length - 1] = overflowChip;
+                        }
+                      }
+                    }
+
+                    return rows.map((row, rowIndex) => (
+                      <div
+                        key={`traits-row-${persona.id}-${rowIndex}`}
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: CHIP_ROW_GAP,
+                        }}
+                      >
+                        {row.map((chip, chipIndex) => (
+                          <span
+                            key={`${persona.id}-trait-${rowIndex}-${chipIndex}-${chip}`}
+                            style={{
+                              borderRadius: 999,
+                              padding: "3px 10px",
+                              fontSize: 10,
+                              lineHeight: 1.2,
+                              fontWeight: 500,
+                              background: hasProfileImage ? "rgba(248,250,252,0.18)" : "rgba(15,23,42,0.05)",
+                              color: hasProfileImage ? "#f8fafc" : "#0f172a",
+                              border: hasProfileImage ? "1px solid rgba(248,250,252,0.25)" : "1px solid rgba(148,163,184,0.35)",
+                              textTransform: "none",
+                            }}
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      ) : null}
       </article>
     </button>
   );

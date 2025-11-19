@@ -3,7 +3,7 @@ import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 import PersonaDescription from "@/app/components/personas/PersonaDescription";
 import PersonaActionsMenu from "@/app/components/personas/PersonaActionsMenu";
-import PersonaActions from "./PersonaActions";
+import PersonaActions from "@/app/app/[clientSlug]/[personaSlug]/PersonaActions";
 import { slugify } from "@/app/lib/jump";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
@@ -409,7 +409,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
                 >
                   {persona.name}
                 </h1>
-                <PersonaActionsMenu personaName={persona.name} personaId={persona.id} />
+                <PersonaActionsMenu personaName={persona.name} />
               </div>
               <p
                 style={{
@@ -461,6 +461,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               clientSlug={clientSlug}
               personaSlug={persona.slug}
               personaName={persona.name}
+              personaId={persona.id}
               clientId={clientId}
             />
           </div>

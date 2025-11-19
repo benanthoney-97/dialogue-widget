@@ -66,7 +66,6 @@ export default function PersonaFeedbackMenu({ personaName, personaId }: PersonaF
       await navigator.clipboard.writeText(window.location.href);
       setStatus({ message: "Persona link copied", tone: "positive" });
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("[PersonaFeedbackMenu] Failed to copy link", error);
       setStatus({ message: "Unable to copy link. Try again.", tone: "warning" });
     }
@@ -104,7 +103,6 @@ export default function PersonaFeedbackMenu({ personaName, personaId }: PersonaF
       if (!isMounted) return;
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.error("[PersonaFeedbackMenu] Failed to resolve client_id", error);
         setClientId(null);
         return;
@@ -152,7 +150,6 @@ export default function PersonaFeedbackMenu({ personaName, personaId }: PersonaF
       setShowFeedbackModal(false);
       return true;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("[PersonaFeedbackMenu] Failed to submit feedback", error);
       setStatus({ message: "Couldn't save feedback. Please try again.", tone: "warning" });
       return false;
@@ -409,7 +406,7 @@ function FeedbackModal({ onClose, onSubmit, isSubmitting }: FeedbackModalProps) 
             fontFamily: "'Cooper Light BT', 'CooperBT', Cooper, serif",
           }}
         >
-          If you're experiencing any problems or have suggestions for improvement, please share your thoughts with us. The more specific information you provide, the better we can help.
+          If you are experiencing any problems or have suggestions for improvement, please share your thoughts with us. The more specific information you provide, the better we can help.
         </p>
         <form
           onSubmit={async (event) => {

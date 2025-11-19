@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { BODY_FONT_STACK } from "@/app/lib/fontStacks";
 
 type SimulateOverlayContentProps = {
   clientId: number | null;
   personaName: string;
+  personaId: string | null;
 };
 
 type PersonaOption = {
@@ -29,7 +32,7 @@ const interviewTypes = [
     ),
   },
   {
-    label: "Solution",
+    label: "Ideation",
     description: "Stress-test your idea, which parts of the concept land, and what feels valuable.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -52,9 +55,25 @@ const interviewTypes = [
       </svg>
     ),
   },
+  {
+    label: "Final validation",
+    description: "Pressure-test the final assumptions with scenarios that mirror how the idea would ship.",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M6.5 11.5 4 9l-.707.707L6.5 13.5l6.707-6.707L12.5 5l-6 6.5z"
+          fill="currentColor"
+        />
+        <path
+          d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14Zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16Z"
+          fill="currentColor"
+        />
+      </svg>
+    ),
+  },
 ];
 
-export default function SimulateOverlayContent({ clientId, personaName }: SimulateOverlayContentProps) {
+export default function SimulateOverlayContent({ clientId, personaName, personaId }: SimulateOverlayContentProps) {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
@@ -62,9 +81,15 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
   const [runError, setRunError] = useState<string | null>(null);
   const [questionInput, setQuestionInput] = useState("");
   const [savedQuestions, setSavedQuestions] = useState<string[]>([]);
-  const runTimerRef = useRef<number | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [objectiveInput, setObjectiveInput] = useState("");
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const router = useRouter();
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const canRun = selectedTypes.length > 0 && selectedPersonas.length > 0;
+  const objectiveTrimmed = objectiveInput.trim();
+  const canRun = selectedTypes.length > 0 && selectedPersonas.length > 0 && objectiveTrimmed.length > 0;
 
   useEffect(() => {
     let active = true;
@@ -84,10 +109,20 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
         if (!active) return;
         const options = data ?? [];
         setPersonas(options);
-        setSelectedPersonas((prev) =>
-          prev.filter((item) => options.some((persona) => persona.agent_id === item))
-        );
-      } catch (err) {
+        setSelectedPersonas((prev) => {
+          const filtered = prev.filter((item) => options.some((persona) => personaKey(persona) === item));
+          if (personaId) {
+            const target = options.find((persona) => persona.agent_id === personaId);
+            if (target) {
+              const targetKey = personaKey(target);
+              if (!filtered.includes(targetKey)) {
+                return [...filtered, targetKey];
+              }
+            }
+          }
+          return filtered;
+        });
+      } catch {
         if (!active) return;
         setPersonas([]);
         setSelectedPersonas([]);
@@ -97,33 +132,101 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
     return () => {
       active = false;
     };
-  }, [clientId]);
+  }, [clientId, personaId]);
 
-  useEffect(() => {
-    return () => {
-      if (runTimerRef.current !== null) {
-        window.clearTimeout(runTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleRun = () => {
+  const handleRun = async () => {
     if (!canRun) {
-      setRunError("Pick at least one type and persona to run a simulation.");
+      const missingFields: string[] = [];
+      if (selectedTypes.length === 0) missingFields.push("research stage");
+      if (objectiveTrimmed.length === 0) missingFields.push("objective");
+      if (selectedPersonas.length === 0) missingFields.push("persona selection");
+      const message = missingFields.length
+        ? `Complete the ${missingFields.join(" and ")} before running a simulation.`
+        : "Fill out the required fields before running a simulation.";
+      setRunError(message);
       setRunStatus("error");
       return;
     }
 
-    if (runTimerRef.current !== null) {
-      window.clearTimeout(runTimerRef.current);
+    if (!clientId) {
+      setRunError("Missing client information.");
+      setRunStatus("error");
+      return;
+    }
+
+    const agentIds = personas
+      .filter((persona) => {
+        const key = personaKey(persona);
+        return selectedPersonas.includes(key) && Boolean(persona.agent_id);
+      })
+      .map((persona) => persona.agent_id ?? "")
+      .filter(Boolean);
+
+    if (agentIds.length === 0) {
+      setRunStatus("error");
+      setRunError("No agent configured for the selected personas.");
+      return;
     }
 
     setRunError(null);
     setRunStatus("running");
 
-    runTimerRef.current = window.setTimeout(() => {
-      setRunStatus("success");
-    }, 1200);
+    const runInterviews = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken) {
+          console.error("[SimulateOverlayContent] Missing access token");
+          setRunStatus("error");
+          setRunError("Unable to authenticate before running interviews.");
+          setIsStarting(false);
+          return;
+        }
+
+        if (redirectTimeoutRef.current) {
+          clearTimeout(redirectTimeoutRef.current);
+        }
+        setIsStarting(true);
+        redirectTimeoutRef.current = setTimeout(() => {
+          if (clientId) {
+            router.push(`/client/${clientId}/conversations`);
+          }
+        }, 3000);
+
+        const response = await fetch(`/api/clients/${clientId}/run-interviews`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            ideaId: null,
+            agentIds,
+            interviewTypes: selectedTypes,
+            ideaTitle: `Simulated research with ${personaName}`,
+            ideaDescription: objectiveTrimmed,
+          }),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message =
+            payload?.error ??
+            payload?.details ??
+            "Unexpected error while running interviews.";
+          console.error("[SimulateOverlayContent] run interviews error", message);
+        }
+        setRunStatus("success");
+      } catch (error) {
+        console.error("[SimulateOverlayContent] Failed to run interviews", error);
+        setRunStatus("error");
+        setRunError("Unable to reach the interviews service.");
+        setIsStarting(false);
+      }
+    };
+
+    void runInterviews();
   };
 
   const toggleType = (type: string) => {
@@ -137,59 +240,82 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
   const personaKey = (persona: PersonaOption) => persona.agent_id ?? persona.agent_name ?? "unknown";
 
   const interviewCount = selectedTypes.length * selectedPersonas.length;
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleUploadClick = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleUploadChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+    }
+    // Reset to allow same file re-selection
+    event.target.value = "";
+  };
 
   return (
     <div className="simulate-overlay">
-      <section className="simulate-overlay__section">
-        <div className="simulate-overlay__section-row">
-          <h4 className="simulate-overlay__section-title">Interview objective</h4>
-        </div>
-        <textarea
-          className="simulate-overlay__objective"
-          placeholder="Describe what you’re trying to learn from this simulated interview."
-          rows={3}
-        />
-      </section>
-      <section className="simulate-overlay__section">
-        <div className="simulate-overlay__section-row">
-          <h4 className="simulate-overlay__section-title">Interview questions</h4>
-        </div>
-        <div className="simulate-overlay__questions-row">
-          <input
-            type="text"
-            className="simulate-overlay__questions-input"
-            placeholder="Type a question and click add"
-            value={questionInput}
-            onChange={(event) => setQuestionInput(event.target.value)}
-          />
-          <button
-            type="button"
-            className="simulate-overlay__add-button"
-            onClick={() => {
-              const trimmed = questionInput.trim();
-              if (!trimmed) return;
-              setSavedQuestions((prev) => [...prev, trimmed]);
-              setQuestionInput("");
-            }}
-            disabled={questionInput.trim().length === 0}
-          >
-            Add question
-          </button>
-        </div>
-        {savedQuestions.length > 0 ? (
-          <div className="simulate-overlay__question-list">
-            {savedQuestions.map((question, index) => (
-              <p key={`${question}-${index}`} className="simulate-overlay__question-item">
-                {index + 1}. {question}
-              </p>
-            ))}
+      <div className="simulate-overlay__main">
+        <section className="simulate-overlay__section">
+          <h4 className="simulate-overlay__section-title">
+            Select personas
+            <span className="simulate-overlay__section-required" aria-hidden="true">
+              *
+            </span>
+          </h4>
+          {personas.length === 0 ? (
+            <p className="simulate-overlay__placeholder">No personas configured for this workspace yet.</p>
+          ) : (
+            <div className="simulate-overlay__persona-row">
+              {personas.map((persona) => {
+                const key = personaKey(persona);
+                const isSelected = selectedPersonas.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`simulate-overlay__persona-chip${isSelected ? " simulate-overlay__persona-chip--selected" : ""}`}
+                    onClick={() => togglePersona(key)}
+                  >
+                    {persona.profile_image ? (
+                      <Image
+                        src={persona.profile_image}
+                        alt={persona.agent_name ?? "Persona"}
+                        width={28}
+                        height={28}
+                        unoptimized
+                        className="simulate-overlay__persona-avatar"
+                      />
+                    ) : null}
+                    <span>
+                      {persona.agent_name ?? "Unnamed persona"}
+                      {persona.role_title ? (
+                        <small className="simulate-overlay__persona-role">{persona.role_title}</small>
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+        <section className="simulate-overlay__section">
+          <div className="simulate-overlay__section-row">
+            <h4 className="simulate-overlay__section-title">
+              Research Stage
+              <span className="simulate-overlay__section-required" aria-hidden="true">
+                *
+              </span>
+            </h4>
           </div>
-        ) : null}
-      </section>
-      <section className="simulate-overlay__section">
-        <div className="simulate-overlay__section-row">
-          <h4 className="simulate-overlay__section-title">Interview types</h4>
-        </div>
         <div className="simulate-overlay__grid">
           {interviewTypes.map((type) => (
             <div
@@ -208,44 +334,125 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           ))}
         </div>
       </section>
-
       <section className="simulate-overlay__section">
-        <h4 className="simulate-overlay__section-title">Select personas</h4>
-        {personas.length === 0 ? (
-          <p className="simulate-overlay__placeholder">No personas configured for this workspace yet.</p>
-        ) : (
-          <div className="simulate-overlay__persona-row">
-            {personas.map((persona) => {
-              const key = personaKey(persona);
-              const isSelected = selectedPersonas.includes(key);
-              return (
+        <div className="simulate-overlay__section-row">
+          <h4 className="simulate-overlay__section-title">
+            Interview objective
+            <span className="simulate-overlay__section-required" aria-hidden="true">
+              *
+            </span>
+          </h4>
+        </div>
+        <textarea
+          className="simulate-overlay__objective"
+          placeholder="Describe what you’re trying to learn from this simulated interview."
+          rows={3}
+          value={objectiveInput}
+          onChange={(event) => setObjectiveInput(event.target.value)}
+        />
+      </section>
+      <section className="simulate-overlay__section">
+        <div className="simulate-overlay__section-row">
+          <h4 className="simulate-overlay__section-title">
+            Interview questions
+            <span className="simulate-overlay__section-optional">(Optional)</span>
+          </h4>
+        </div>
+        <div className="simulate-overlay__questions-row">
+          <input
+            type="text"
+            className="simulate-overlay__questions-input"
+            placeholder="Type a question and click add"
+            value={questionInput}
+            onChange={(event) => setQuestionInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              const trimmed = questionInput.trim();
+              if (!trimmed) return;
+              setSavedQuestions((prev) => [...prev, trimmed]);
+              setQuestionInput("");
+            }}
+          />
+          <button
+            type="button"
+            className="simulate-overlay__add-button"
+            onClick={() => {
+              const trimmed = questionInput.trim();
+              if (!trimmed) return;
+              setSavedQuestions((prev) => [...prev, trimmed]);
+              setQuestionInput("");
+            }}
+            disabled={questionInput.trim().length === 0}
+          >
+            Add question
+          </button>
+        </div>
+        {savedQuestions.length > 0 ? (
+          <div className="simulate-overlay__question-list">
+            {savedQuestions.map((question, index) => (
+              <div key={`${question}-${index}`} className="simulate-overlay__question-item">
+                <span>
+                  {index + 1}. {question}
+                </span>
                 <button
-                  key={key}
                   type="button"
-                  className={`simulate-overlay__persona-chip${isSelected ? " simulate-overlay__persona-chip--selected" : ""}`}
-                  onClick={() => togglePersona(key)}
+                  className="simulate-overlay__question-remove"
+                  onClick={() => {
+                    setSavedQuestions((prev) => prev.filter((_, idx) => idx !== index));
+                  }}
                 >
-                  {persona.profile_image ? (
-                    <img
-                      src={persona.profile_image}
-                      alt={persona.agent_name ?? "Persona"}
-                      className="simulate-overlay__persona-avatar"
-                    />
-                  ) : null}
-                  <span>
-                    {persona.agent_name ?? "Unnamed persona"}
-                    {persona.role_title ? (
-                      <small className="simulate-overlay__persona-role">{persona.role_title}</small>
-                    ) : null}
-                  </span>
+                  Remove
                 </button>
-              );
-            })}
+              </div>
+            ))}
           </div>
-        )}
+        ) : null}
       </section>
 
-      <div className="simulate-overlay__footer">
+      <section className="simulate-overlay__section">
+        <div className="simulate-overlay__section-row">
+          <h4 className="simulate-overlay__section-title">
+            Documents for discussion
+            <span className="simulate-overlay__section-optional">(Optional)</span>
+          </h4>
+        </div>
+        <div className="simulate-overlay__upload-card">
+          <div className="simulate-overlay__upload-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M12 3v12m0 0 4-4m-4 4-4-4m4 4v5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <rect x="4" y="17" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </div>
+          <div className="simulate-overlay__upload-content">
+            <p className="simulate-overlay__upload-title">Attach documents</p>
+            <p className="simulate-overlay__upload-description">
+              Share documents for in-depth discussion and automated feedabck from personas.
+            </p>
+            <button type="button" className="simulate-overlay__upload-button" onClick={handleUploadClick}>
+              {uploadedFileName ? "Change file" : "Upload file"}
+            </button>
+            {uploadedFileName ? (
+              <p className="simulate-overlay__upload-filename">Selected: {uploadedFileName}</p>
+            ) : null}
+          </div>
+          <input
+            ref={uploadInputRef}
+            type="file"
+            className="simulate-overlay__upload-input"
+            onChange={handleUploadChange}
+          />
+        </div>
+  </section>
+      </div>
+
+  <div className="simulate-overlay__footer">
         <p className="simulate-overlay__count" role="status" aria-live="polite">
           Interview count: {interviewCount}
         </p>
@@ -253,9 +460,9 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           type="button"
           className="simulate-overlay__run-button"
           onClick={handleRun}
-          disabled={runStatus === "running"}
+          disabled={runStatus === "running" || isStarting || !canRun}
         >
-          Run interviews
+          {isStarting ? "Starting interviews" : "Run interviews"}
         </button>
         {runStatus === "running" && <p className="simulate-overlay__run-status">Scheduling simulations…</p>}
         {runStatus === "success" && <p className="simulate-overlay__run-status">Simulations queued for {personaName}.</p>}
@@ -269,7 +476,17 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           font-family: ${BODY_FONT_STACK};
           display: flex;
           flex-direction: column;
+          min-height: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
+        .simulate-overlay__main {
+          display: flex;
+          flex-direction: column;
           gap: 18px;
+          overflow-y: auto;
+          padding-right: 4px;
+          flex: 1;
         }
         .simulate-overlay__section {
           display: flex;
@@ -287,6 +504,17 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           font-size: 12px;
           letter-spacing: 0.08em;
           color: rgba(15, 23, 42, 0.6);
+        }
+        .simulate-overlay__section-required {
+          margin-left: 6px;
+          color: #dc2626;
+          font-size: 12px;
+        }
+        .simulate-overlay__section-optional {
+          margin-left: 6px;
+          color: rgba(15, 23, 42, 0.6);
+          font-size: 11px;
+          font-weight: 400;
         }
         .simulate-overlay__objective {
           font-family: inherit;
@@ -333,15 +561,40 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           flex-direction: column;
           gap: 6px;
           margin-top: 10px;
+          max-height: 180px;
+          overflow-y: auto;
+          padding-right: 4px;
         }
         .simulate-overlay__question-item {
-          margin: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: 13px;
           color: rgba(15, 23, 42, 0.7);
+          gap: 12px;
+        }
+        .simulate-overlay__question-item span {
+          flex: 1;
+        }
+        .simulate-overlay__question-remove {
+          border: none;
+          background: transparent;
+          color: rgba(15, 23, 42, 0.4);
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 6px;
+          transition: color 0.2s ease, background 0.2s ease;
+          text-transform: none;
+        }
+        .simulate-overlay__question-remove:hover {
+          color: rgba(15, 23, 42, 0.8);
+          background: rgba(0, 0, 0, 0.05);
         }
         .simulate-overlay__grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 12px;
         }
         .simulate-overlay__grid-item {
@@ -386,6 +639,70 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
+        }
+        .simulate-overlay__upload-card {
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          padding: 14px;
+          border-radius: 12px;
+          border: 1px dashed rgba(15, 23, 42, 0.2);
+          background: #f8fafc;
+          position: relative;
+        }
+        .simulate-overlay__upload-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(15, 23, 42, 0.08);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(15, 23, 42, 0.7);
+        }
+        .simulate-overlay__upload-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .simulate-overlay__upload-title {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .simulate-overlay__upload-description {
+          margin: 0;
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .simulate-overlay__upload-button {
+          align-self: flex-start;
+          margin-top: 6px;
+          border-radius: 8px;
+          border: none;
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          background: #0f172a;
+          color: #fff;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .simulate-overlay__upload-button:hover {
+          background: #0b1220;
+        }
+        .simulate-overlay__upload-input {
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .simulate-overlay__upload-filename {
+          margin: 0;
+          font-size: 12px;
+          color: #0f172a;
+          font-weight: 500;
         }
         .simulate-overlay__persona-chip {
           border: 1px solid rgba(15, 23, 42, 0.15);
@@ -438,6 +755,8 @@ export default function SimulateOverlayContent({ clientId, personaName }: Simula
           align-items: center;
           gap: 12px;
           margin-top: 6px;
+          flex-shrink: 0;
+          justify-content: flex-end;
         }
         .simulate-overlay__count {
           margin: 0;

@@ -9,7 +9,6 @@ import {
   type CSSProperties,
 } from "react";
 import Image from "next/image";
-import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import { createClient } from "@supabase/supabase-js";
 import { useConversation } from "@elevenlabs/react";
 import {
@@ -72,8 +71,8 @@ type PdfJsLib = typeof import("pdfjs-dist");
 
 const MIN_TEXTAREA_HEIGHT = 46;
 const MAX_TEXTAREA_HEIGHT = 200;
-const bodyFontStyle: CSSProperties = { fontFamily: BODY_FONT_STACK };
-const headingFontStyle: CSSProperties = { fontFamily: HEADING_FONT_STACK };
+const bodyFontStyle: CSSProperties = {};
+const headingFontStyle: CSSProperties = {};
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -1318,7 +1317,6 @@ export default function DialogueText({
                   resize: "none",
                   border: "none",
                   outline: "none",
-                  fontFamily: BODY_FONT_STACK,
                   fontSize: 14,
                   lineHeight: 1.5,
                   color: "#e2e8f0",

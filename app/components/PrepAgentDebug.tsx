@@ -1125,10 +1125,8 @@ export default function PrepAgentDebug(props: Props) {
   }
 
   const connected = String(status) === "connected";
-  // prefer talk label from agent_map if present
-  const effectiveTalkLabel = (agentMap?.talk_label || talkLabel)?.trim()
-    ? (agentMap?.talk_label || talkLabel)!.trim()
-    : "Talk";
+  // keep the button text intentionally fixed
+  const effectiveTalkLabel = "Start Interview";
   const talkBackground = theme?.background || buttonColor;
   const talkTextColor = theme?.text_color || buttonTextColor;
   const talkIdleAriaLabel = `Connect and ${effectiveTalkLabel}`;
@@ -1406,7 +1404,6 @@ export default function PrepAgentDebug(props: Props) {
     margin: isPanelExpanded ? `${containerTopOffset}px 0 0` : `${containerTopOffset}px auto 0`,
   // position context for absolutely positioned right-hand elements (document card)
   position: "relative",
-    fontFamily: '"Cooper Light BT", "Cooper Lt BT", "Cooper", serif',
     fontWeight: 500,
     letterSpacing: "0.02em",
     color: "#eef3ff",

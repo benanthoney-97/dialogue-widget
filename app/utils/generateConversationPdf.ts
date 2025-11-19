@@ -1,6 +1,9 @@
 import { docMap } from "@/app/lib/docMap";
+import { Database } from "@/app/lib/database.types";
 
-export async function generateConversationPdf(row: any) {
+export async function generateConversationPdf(
+  row: Database["public"]["Tables"]["dialogues"]["Row"],
+) {
   const jsPDF = (await import('jspdf')).jsPDF;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -111,7 +114,7 @@ export async function generateConversationPdf(row: any) {
       'pipeline_intent_reasoning',
       'competitive_comparison_summary',
     ];
-    const allEmpty = myBriefings.every(([key, value]) => {
+  const allEmpty = myBriefings.every(([, value]) => {
       if (value == null) return true;
       if (typeof value === 'string' && value.trim() === '') return true;
       if (Array.isArray(value) && value.length === 0) return true;
