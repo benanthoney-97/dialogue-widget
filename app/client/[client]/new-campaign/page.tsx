@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -7,6 +6,7 @@ import Sidebar from "../Sidebar";
 import PurposeCard from "../../../components/PurposeCard";
 import ExecutiveAgent from "@/app/components/BriefingAgent";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
+import { supabase } from "@/app/lib/supabaseClient";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -15,11 +15,97 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const STAGE_CHIPS = ["Basic Info", "Image", "Description", "Documents", "Links", "Web Research"];
-const PERSONA_CATEGORIES = [
-  { value: "existing", label: "Existing customer" },
-  { value: "prospective", label: "Prospective customer" },
+const STAGE_CHIPS = ["Basic Info", "Personas", "Objective", "Questions", "Output", "Documents"];
+const OUTPUT_OPTIONS = [
+  {
+      id: "text",
+      title: "Text Response",
+      description:
+        "Rich qualitative insight or narrative feedback generated from the interview.",
+    },
+    {
+      id: "yesno",
+      title: "Yes/No",
+      description: "A quick binary verdict to validate assumptions or direction.",
+    },
+    {
+      id: "number",
+      title: "Number",
+      description:
+        "A measurable score or estimate to quantify confidence, impact, or preference.",
+    },
+  ] as const;
+type OutputOptionId = (typeof OUTPUT_OPTIONS)[number]["id"];
+const OUTPUT_PLACEHOLDER_MAP: Record<OutputOptionId, string> = {
+  text: "text output",
+  yesno: "Yes/No output",
+  number: "numerical output",
+};
+type PersonaCardData = {
+  id: string;
+  name: string;
+  title: string;
+  image?: string | null;
+};
+const DEFAULT_PERSONA_OPTIONS: PersonaCardData[] = [
+  { id: "bella", name: "Bella Thomas", title: "Single Mum of 2" },
+  { id: "jane", name: "Jane Doe", title: "Head of Procurement" },
 ] as const;
+type AgentMapRow = {
+  agent_id?: string | null;
+  agent_name?: string | null;
+  work_label?: string | null;
+  talk_label?: string | null;
+  background_image?: string | null;
+  persona_image?: string | null;
+  key?: string | null;
+};
+const MAX_OUTPUTS = 3;
+const renderOutputIcon = (optionId: string) => {
+  if (optionId === "yesno") {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        fill="#0a2540"
+        className="bi bi-signpost-split-fill"
+        viewBox="0 0 16 16"
+      >
+        <path d="M7 16h2V6h5a1 1 0 0 0 .8-.4l.975-1.3a.5.5 0 0 0 0-.6L14.8 2.4A1 1 0 0 0 14 2H9v-.586a1 1 0 0 0-2 0V7H2a1 1 0 0 0-.8.4L.225 8.7a.5.5 0 0 0 0 .6l.975 1.3a1 1 0 0 0 .8.4h5z" />
+      </svg>
+    );
+  }
+  if (optionId === "number") {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        fill="#0a2540"
+        className="bi bi-123"
+        viewBox="0 0 16 16"
+      >
+        <path d="M2.873 11.297V4.142H1.699L0 5.379v1.137l1.64-1.18h.06v5.961zm3.213-5.09v-.63c0-.618.44-1.169 1.196-1.169.676 0 1.174.44 1.174 1.106 0 .624-.42 1.101-.807 1.526L4.99 10.553v.744h4.78v-.99H6.643v-.069L8.41 8.252c.65-.724 1.237-1.332 1.237-2.27C9.646 4.849 8.723 4 7.308 4c-1.573 0-2.36 1.064-2.36 2.15v.057zm6.559 1.883h.786c.823 0 1.374.481 1.379 1.179.01.707-.55 1.216-1.421 1.21-.77-.005-1.326-.419-1.379-.953h-1.095c.042 1.053.938 1.918 2.464 1.918 1.478 0 2.642-.839 2.62-2.144-.02-1.143-.922-1.651-1.551-1.714v-.063c.535-.09 1.347-.66 1.326-1.678-.026-1.053-.933-1.855-2.359-1.845-1.5.005-2.317.88-2.348 1.898h1.116c.032-.498.498-.944 1.206-.944.703 0 1.206.435 1.206 1.07.005.64-.504 1.106-1.2 1.106h-.75z" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="#0a2540"
+      className="bi bi-justify"
+      viewBox="0 0 16 16"
+    >
+      <path
+        fillRule="evenodd"
+        d="M2 12.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"
+      />
+    </svg>
+  );
+};
 const KEY_TRAIT_PLACEHOLDERS = [
   "Age range",
   "Location",
@@ -129,18 +215,6 @@ function fileKey(file: File): string {
   return `${file.name}::${file.size}::${file.lastModified}`;
 }
 
-function isValidUrl(value: string): boolean {
-  if (!value.trim()) {
-    return false;
-  }
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function formatFileSize(bytes: number): string {
   if (!bytes) return "";
   const kb = bytes / 1024;
@@ -164,40 +238,6 @@ function mergeFileLists(existing: File[], additions: File[]): File[] {
   existing.forEach(file => map.set(fileKey(file), file));
   additions.forEach(file => map.set(fileKey(file), file));
   return Array.from(map.values());
-}
-
-type ExternalSource = {
-  id: string;
-  name: string;
-  accent: string;
-  logoUrl: string | null;
-};
-
-function deriveInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment[0]?.toUpperCase() ?? "")
-    .join("")
-    .slice(0, 2) || "WS";
-}
-
-function deriveAccent(name: string): string {
-  const palette = [
-    "#2563eb",
-    "#0ea5e9",
-    "#10b981",
-    "#f97316",
-    "#6366f1",
-    "#dc2626",
-    "#7c3aed",
-    "#14b8a6",
-    "#f59e0b",
-  ];
-  if (!name) return palette[0];
-  const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return palette[hash % palette.length];
 }
 
 type StagePanelProps = {
@@ -279,7 +319,6 @@ export default function UploadPage() {
   const [createdDocs, setCreatedDocs] = useState<StagedDoc[]>([]);
   const [briefingConversationId, setBriefingConversationId] = useState<string | null>(null);
   const [briefingEndedAt, setBriefingEndedAt] = useState<number | null>(null);
-  const [briefingComplete, setBriefingComplete] = useState<boolean>(false);
   const [briefingTranscript, setBriefingTranscript] = useState<TranscriptMessage[]>([]);
   const [purposeText, setPurposeText] = useState<string>('');
   const [purposeSaving, setPurposeSaving] = useState<boolean>(false);
@@ -363,6 +402,81 @@ export default function UploadPage() {
     }
   }
   const clientSlug = getClientSlug(pathname);
+  const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!clientSlug) {
+      setResolvedClientId(null);
+      return;
+    }
+    let active = true;
+    async function fetchClientId() {
+      try {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("slug", clientSlug)
+          .maybeSingle();
+        if (!active) return;
+        if (error) {
+          console.warn("Client slug lookup failed", error);
+          setResolvedClientId(null);
+          return;
+        }
+        setResolvedClientId(data?.id ?? null);
+      } catch (err) {
+        console.error("Failed to resolve client id", err);
+        setResolvedClientId(null);
+      }
+    }
+    fetchClientId();
+    return () => {
+      active = false;
+    };
+  }, [clientSlug]);
+  useEffect(() => {
+    const lookupId = resolvedClientId;
+    if (!lookupId) {
+      setPersonaCards(DEFAULT_PERSONA_OPTIONS);
+      return;
+    }
+    let isActive = true;
+    async function loadPersonas() {
+      try {
+        const { data } = await supabase
+          .from<AgentMapRow>("agent_map")
+          .select(
+            "agent_id, agent_name, work_label, talk_label, background_image, persona_image, key"
+          )
+          .eq("client_id", lookupId)
+          .order("agent_name", { ascending: true });
+        if (!isActive) return;
+        if (data && data.length > 0) {
+          const fetched = data
+            .map((row, index) => {
+              const id =
+                row.agent_id ??
+                row.key ??
+                (row.agent_name ? row.agent_name.toLowerCase().replace(/\s+/g, "-") : `persona-${index}`);
+              const name = row.agent_name ?? row.key ?? `Persona ${index + 1}`;
+              const title = row.work_label ?? row.talk_label ?? "Persona";
+              return { id, name, title, image: row.background_image ?? row.persona_image };
+            })
+            .filter((card) => Boolean(card.id));
+          if (fetched.length > 0) {
+            setPersonaCards(fetched);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("[new-campaign] failed to load personas", error);
+      }
+      setPersonaCards(DEFAULT_PERSONA_OPTIONS);
+    }
+    loadPersonas();
+    return () => {
+      isActive = false;
+    };
+  }, [clientSlug]);
   async function stageFiles() {
     setSubmitted(true);
     setNotification(null);
@@ -388,7 +502,7 @@ export default function UploadPage() {
         setTempId(groupTempId);
         setCreatedDocs(stagedDocs);
         setInternalPanelExpanded(false);
-        setCurrentStep(4);
+        await handleFinalize();
       } else if (uploadMode === 'url' && fileUrl.trim()) {
         const groupTempId = uuidv4();
         const stagedDoc: StagedDoc = {
@@ -404,7 +518,7 @@ export default function UploadPage() {
         setTempId(groupTempId);
         setCreatedDocs([stagedDoc]);
         setInternalPanelExpanded(false);
-        setCurrentStep(4);
+        await handleFinalize();
       } else {
         setNotification({ type: 'error', message: 'Please add at least one file or URL before continuing.' });
       }
@@ -421,14 +535,11 @@ export default function UploadPage() {
     await stageFiles();
   }
 
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic info, 1: Persona image, 2: Description, 3: Data, 4: Links, 5: Briefing, 6: Confirm
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic Info, 1: Personas, 2: Objective, 3: Questions, 4: Output, 5: Documents
   const [personaName, setPersonaName] = useState<string>("");
   const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
   const [personaTagline, setPersonaTagline] = useState<string>("");
-  const [personaCategory, setPersonaCategory] = useState<typeof PERSONA_CATEGORIES[number]["value"]>(
-    PERSONA_CATEGORIES[0].value
-  );
   const [keyTraits, setKeyTraits] = useState<KeyTrait[]>(DEFAULT_KEY_TRAITS);
   const [editingKeyTraitId, setEditingKeyTraitId] = useState<string | null>(null);
 
@@ -474,24 +585,17 @@ export default function UploadPage() {
   const canContinueFromBriefing = hasBriefing || canSkipBriefing;
   const [linksUrl, setLinksUrl] = useState<string>("");
   const [linksUrls, setLinksUrls] = useState<string[]>([]);
+  const [personaCards, setPersonaCards] = useState<PersonaCardData[]>(DEFAULT_PERSONA_OPTIONS);
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([
+    DEFAULT_PERSONA_OPTIONS[0].id,
+  ]);
   useEffect(() => {
     setKnowledgePanelExpanded(linksUrls.length > 0);
   }, [linksUrls.length]);
-  useEffect(() => {
-    if (currentStep === 4) {
-      setTargetPanelExpanded(linksUrls.length > 0);
-      setTargetPanelCompleted(false);
-      setKnowledgePanelCompleted(false);
-    }
-  }, [linksUrls.length, currentStep]);
-  const isLinksUrlValid = isValidUrl(linksUrl);
-  const canAddCurrentLink = !!linksUrl.trim() && isLinksUrlValid && !linksUrls.includes(linksUrl.trim());
-  const [availableExternalSources, setAvailableExternalSources] = useState<ExternalSource[]>([]);
-  const [selectedExternalSources, setSelectedExternalSources] = useState<string[]>([]);
-
+  const canAddCurrentLink = !!linksUrl.trim() && !linksUrls.includes(linksUrl.trim());
   function handleAddLink() {
     const trimmed = linksUrl.trim();
-    if (!trimmed || !isValidUrl(trimmed)) {
+    if (!trimmed) {
       return;
     }
     setLinksUrls((prev) => [...prev, trimmed]);
@@ -503,57 +607,86 @@ export default function UploadPage() {
   function stageLinks() {
     if (linksUrls.length === 0) return;
     setKnowledgePanelExpanded(false);
-    setTargetPanelExpanded(false);
     setKnowledgePanelCompleted(true);
-    setTargetPanelCompleted(true);
-    setCurrentStep(5);
+    setCurrentStep(4);
   }
-  const handleExternalSourceToggle = useCallback(
-    async (sourceName: string) => {
-      if (!clientSlug) return;
-      const previous = selectedExternalSources;
-      const isActive = previous.includes(sourceName);
-      const nextSources = isActive
-        ? previous.filter((name) => name !== sourceName)
-        : [...previous, sourceName];
-
-      setSelectedExternalSources(nextSources);
-
-      try {
-        const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ target_sources: nextSources }),
-        });
-
-        if (!response.ok) {
-          const errorDetail = await response.text().catch(() => null);
-          console.error(
-            "[Upload] Failed to update target sources",
-            response.status,
-            errorDetail
-          );
-          setSelectedExternalSources(previous);
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          priority?: { target_sources?: string[] | null } | null;
-        };
-
-        if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
-          setSelectedExternalSources(payload.priority.target_sources);
-        }
-      } catch (error) {
-        console.error("[Upload] Unexpected error updating target sources", error);
-        setSelectedExternalSources(previous);
+  useEffect(() => {
+    if (personaCards.length === 0) {
+      setSelectedPersonaIds([]);
+      return;
+    }
+    setSelectedPersonaIds((prev) => {
+      const available = new Set(personaCards.map((card) => card.id));
+      const filtered = prev.filter((id) => available.has(id));
+      if (filtered.length > 0) {
+        return filtered;
       }
-    },
-    [clientSlug, selectedExternalSources]
-  );
+      return [personaCards[0].id];
+    });
+  }, [personaCards]);
+  const [outputDescription, setOutputDescription] = useState<string>("");
+  const [selectedOutputType, setSelectedOutputType] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return window.sessionStorage.getItem("selectedOutputType");
+    }
+    return null;
+  });
+  const [savedOutputs, setSavedOutputs] = useState<{ type: OutputOptionId; description: string }[]>([]);
   const canSkipUpload = isDescribeMode;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedOutputType) {
+      window.sessionStorage.setItem("selectedOutputType", selectedOutputType);
+    } else {
+      window.sessionStorage.removeItem("selectedOutputType");
+    }
+  }, [selectedOutputType]);
+  const selectedOutputOption = selectedOutputType
+    ? OUTPUT_OPTIONS.find((option) => option.id === selectedOutputType) ?? null
+    : null;
+  const [editingOutputIndex, setEditingOutputIndex] = useState<number | null>(null);
+  const hasReachedOutputLimit = savedOutputs.length >= MAX_OUTPUTS;
+  const canAddMoreOutputs = editingOutputIndex !== null || !hasReachedOutputLimit;
+  function resetOutputSelection() {
+    setSelectedOutputType(null);
+    setOutputDescription("");
+  }
+
+  function editSavedOutput(index: number) {
+    const entry = savedOutputs[index];
+    setSelectedOutputType(entry.type);
+    setOutputDescription(entry.description);
+    setEditingOutputIndex(index);
+  }
+
+  function commitOutput(advance = false) {
+    if (!selectedOutputOption) {
+      if (advance) {
+        setCurrentStep(5);
+      }
+      return;
+    }
+    const trimmedDescription = outputDescription.trim();
+    setSavedOutputs((prev) => {
+      if (editingOutputIndex !== null) {
+        const updated = [...prev];
+        updated[editingOutputIndex] = {
+          type: selectedOutputOption.id,
+          description: trimmedDescription,
+        };
+        return updated;
+      }
+      if (!canAddMoreOutputs) {
+        return prev;
+      }
+      return [...prev, { type: selectedOutputOption.id, description: trimmedDescription }];
+    });
+    resetOutputSelection();
+    setEditingOutputIndex(null);
+    if (advance) {
+      setCurrentStep(5);
+    }
+  }
   const personaNameTrimmed = personaName.trim();
   const personaTaglineTrimmed = personaTagline.trim();
   const personaNameDisplay = personaNameTrimmed || "Your persona";
@@ -562,24 +695,15 @@ export default function UploadPage() {
   const personaNameFormId = "persona-name-form";
   const personaImageInputId = "persona-image-upload";
   const [personaDescription, setPersonaDescription] = useState<string>("");
-  const [painPoints, setPainPoints] = useState<string>("");
-  const [jobsToBeDone, setJobsToBeDone] = useState<string>("");
-  const [activeResourceDetail, setActiveResourceDetail] = useState<
-    "description" | "painPoints" | "jobs" | ""
-  >("");
+  const [activeResourceDetail, setActiveResourceDetail] = useState<"description" | "">("");
   const personaDescriptionHasContent = Boolean(personaDescription.trim());
-  const painPointsHaveContent = Boolean(painPoints.trim());
-  const jobsHaveContent = Boolean(jobsToBeDone.trim());
   const internalDataHasContent = files.length > 0;
   const knowledgeLinksHaveContent = linksUrls.length > 0;
-  const targetSourcesHaveContent = selectedExternalSources.length > 0;
   const [knowledgePanelExpanded, setKnowledgePanelExpanded] = useState(false);
   const [knowledgePanelCompleted, setKnowledgePanelCompleted] = useState(false);
-  const [targetPanelExpanded, setTargetPanelExpanded] = useState(false);
-  const [targetPanelCompleted, setTargetPanelCompleted] = useState(false);
   const joinClasses = (...classes: (string | false | undefined)[]) =>
     classes.filter(Boolean).join(" ");
-  const toggleResourceDetail = (panel: "description" | "painPoints" | "jobs") => {
+  const toggleResourceDetail = (panel: "description") => {
     setActiveResourceDetail((prev) => (prev === panel ? "" : panel));
   };
   const toggleKnowledgePanel = () => {
@@ -595,22 +719,6 @@ export default function UploadPage() {
     personaDescriptionHasContent
       ? "upload-layout__resource-description--completed"
       : "upload-layout__resource-description--empty"
-  );
-  const painPointsPanelClass = joinClasses(
-    "upload-layout__resource-description",
-    activeResourceDetail === "painPoints"
-      ? "upload-layout__resource-description--active"
-      : "upload-layout__resource-description--collapsed",
-    painPointsHaveContent
-      ? "upload-layout__resource-description--completed"
-      : "upload-layout__resource-description--empty"
-  );
-  const jobsPanelClass = joinClasses(
-    "upload-layout__resource-description",
-    activeResourceDetail === "jobs"
-      ? "upload-layout__resource-description--active"
-      : "upload-layout__resource-description--collapsed",
-    jobsHaveContent ? "upload-layout__resource-description--completed" : "upload-layout__resource-description--empty"
   );
   const [internalPanelExpanded, setInternalPanelExpanded] = useState(false);
   useEffect(() => {
@@ -631,17 +739,6 @@ export default function UploadPage() {
       : knowledgeLinksHaveContent
       ? "upload-layout__knowledge-links--filled"
       : "upload-layout__knowledge-links--empty"
-  );
-  const targetSourcesPanelClass = joinClasses(
-    "upload-layout__target-sources",
-    targetPanelExpanded
-      ? "upload-layout__target-sources--expanded"
-      : "upload-layout__target-sources--collapsed",
-    targetPanelCompleted
-      ? "upload-layout__target-sources--completed"
-      : targetSourcesHaveContent
-      ? "upload-layout__target-sources--filled"
-      : "upload-layout__target-sources--empty"
   );
   const personaRoleDisplay = personaTaglineTrimmed || "Their role";
   const [personaImagePreview, setPersonaImagePreview] = useState<string | null>(null);
@@ -667,110 +764,10 @@ export default function UploadPage() {
   }, [clientSlug]);
 
   useEffect(() => {
-    if (currentStep === 4) {
-      if (briefingConversationId && briefingEndedAt) {
-        setBriefingComplete(true);
-      } else {
-        setBriefingComplete(false);
-      }
-    }
-  }, [currentStep, briefingConversationId, briefingEndedAt]);
-
-  useEffect(() => {
-    if (selectedGuidance === 'Describe persona' && currentStep === 2) {
+    if (selectedGuidance === 'Describe persona' && currentStep === 1) {
       setCurrentStep(4);
     }
   }, [selectedGuidance, currentStep]);
-
-  useEffect(() => {
-    if (!clientSlug) {
-      setSelectedExternalSources([]);
-      return;
-    }
-    let isMounted = true;
-    const controller = new AbortController();
-
-    async function fetchResearchPriorities() {
-      try {
-        const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          console.error("[Upload] Failed to load research priorities", response.status);
-          return;
-        }
-        const payload = (await response.json()) as {
-          priority?: { target_sources?: string[] | null } | null;
-        };
-
-        if (!isMounted) return;
-
-        const sources = payload.priority?.target_sources;
-        if (Array.isArray(sources)) {
-          setSelectedExternalSources(sources);
-        } else {
-          setSelectedExternalSources([]);
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error("[Upload] Unexpected error loading research priorities", error);
-      }
-    }
-
-    void fetchResearchPriorities();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [clientSlug]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    async function fetchExternalSources() {
-      try {
-        const response = await fetch("/api/external-sources", {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          console.error("[Upload] Failed to load external sources", response.status);
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          sources?: Array<{ id: string; name?: string | null; logo?: string | null }>;
-        };
-
-        if (!isMounted) return;
-
-        const normalized = (payload.sources ?? []).map((source) => {
-          const name = source.name?.trim() ?? "";
-          const safeName = name.length > 0 ? name : "Unknown source";
-          const rawLogo = typeof source.logo === "string" ? source.logo.trim() : "";
-          return {
-            id: source.id,
-            name: safeName,
-            accent: deriveAccent(safeName),
-            logoUrl: rawLogo.length > 0 ? rawLogo : null,
-          } satisfies ExternalSource;
-        });
-
-        setAvailableExternalSources(normalized);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error("[Upload] Unexpected error loading external sources", error);
-      }
-    }
-
-    void fetchExternalSources();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, []);
 
   useEffect(() => {
     if (hasHydratedFromParams.current) return;
@@ -918,9 +915,6 @@ export default function UploadPage() {
             : undefined,
           personaTagline: personaTagline.trim() || null,
           personaDescription: personaDescription.trim() || null,
-          painPoints: painPoints.trim() || null,
-          jobsToBeDone: jobsToBeDone.trim() || null,
-          customer_status: personaCategory,
           personaGuidance: selectedGuidance ?? null,
           personaSetting: selectedSetting ?? null,
           personaTone: tone || null,
@@ -984,7 +978,7 @@ export default function UploadPage() {
             {currentStep === 0 && (
               <StagePanel
                 footer={
-                <div className="stage-button-row stage-button-row--with-back">
+                  <div className="stage-button-row stage-button-row--with-back">
                     <span className="stage-button-note">
                       Don't worry, you can edit these later
                     </span>
@@ -997,100 +991,124 @@ export default function UploadPage() {
                     >
                       Continue
                     </StageButton>
-                </div>
-              }
-            >
-              <form
-                  id={personaNameFormId}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const nextName = personaName.trim();
-                    if (!nextName) {
-                      setPersonaNameTouched(true);
-                      return;
-                    }
-                    setPersonaName(nextName);
-                    setPersonaNameTouched(false);
-                    setCurrentStep(1);
-                  }}
-                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
-                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Persona name</span>
-                    <input
-                      type="text"
-                      value={personaName}
-                      onChange={(event) => {
-                        setPersonaName(event.target.value);
-                        if (!personaNameTouched) {
-                          setPersonaNameTouched(true);
-                        }
-                      }}
-                      onBlur={() => setPersonaNameTouched(true)}
-                      placeholder="e.g. Jane Doe"
-                      maxLength={120}
-                      style={{
-                        width: "100%",
-                        padding: "14px 16px",
-                        borderRadius: 12,
-                        border: personaNameTouched && !personaNameTrimmed
-                          ? "2px solid rgba(220, 38, 38, 0.65)"
-                          : "2px solid rgba(30, 41, 59, 0.18)",
-                        fontSize: 14,
-                        fontWeight: 500,
-                        color: "#0f172a",
-                        background: "rgba(255,255,255,0.9)",
-                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
-                        transition: "border 0.18s ease, box-shadow 0.18s ease",
-                      }}
-                    />
-                  </label>
-                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Persona title</span>
-                    <input
-                      type="text"
-                      value={personaTagline}
-                      onChange={(event) => setPersonaTagline(event.target.value)}
-                      placeholder="e.g. Head of Procurement at Global Logistics Firm / Busy Parent of Two Young Children"
-                      maxLength={120}
-                      style={{
-                        width: "100%",
-                        padding: "14px 16px",
-                        borderRadius: 12,
-                        border: "2px solid rgba(30, 41, 59, 0.18)",
-                        fontSize: 14,
-                        fontWeight: 500,
-                        color: "#0f172a",
-                        background: "rgba(255,255,255,0.9)",
-                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
-                        transition: "border 0.18s ease, box-shadow 0.18s ease",
-                      }}
-                    />
-                  </label>
-                  <div className="persona-category">
-                    <span className="persona-category__label">Persona category</span>
-                    <div className="persona-category__options">
-                      {PERSONA_CATEGORIES.map((category) => (
-                        <button
-                          key={category.value}
-                          type="button"
-                          className={`persona-category__option ${
-                            personaCategory === category.value ? "persona-category__option--active" : ""
-                          }`}
-                          onClick={() => setPersonaCategory(category.value)}
-                          aria-pressed={personaCategory === category.value}
-                        >
-                          {category.label}
-                        </button>
-                      ))}
-                    </div>
                   </div>
-                </form>
+                }
+              >
+                <>
+                  <form
+                    id={personaNameFormId}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const nextName = personaName.trim();
+                      if (!nextName) {
+                        setPersonaNameTouched(true);
+                        return;
+                      }
+                      setPersonaName(nextName);
+                      setPersonaNameTouched(false);
+                      setCurrentStep(1);
+                    }}
+                    style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                  >
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Campaign name</span>
+                      <input
+                        type="text"
+                        value={personaName}
+                        onChange={(event) => {
+                          setPersonaName(event.target.value);
+                          if (!personaNameTouched) {
+                            setPersonaNameTouched(true);
+                          }
+                        }}
+                        onBlur={() => setPersonaNameTouched(true)}
+                        placeholder="New Customer Interview Campaign"
+                        maxLength={120}
+                        style={{
+                          width: "100%",
+                          padding: "14px 16px",
+                          borderRadius: 12,
+                          border: personaNameTouched && !personaNameTrimmed
+                            ? "2px solid rgba(220, 38, 38, 0.65)"
+                            : "2px solid rgba(30, 41, 59, 0.18)",
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: "#0f172a",
+                          background: "rgba(255,255,255,0.9)",
+                          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                          transition: "border 0.18s ease, box-shadow 0.18s ease",
+                        }}
+                      />
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Campaign description</span>
+                      <input
+                        type="text"
+                        value={personaTagline}
+                        onChange={(event) => setPersonaTagline(event.target.value)}
+                        placeholder="Summarize the campaign’s goal, audience, or key focus in a sentence"
+                        maxLength={120}
+                        style={{
+                          width: "100%",
+                          padding: "14px 16px",
+                          borderRadius: 12,
+                          border: "2px solid rgba(30, 41, 59, 0.18)",
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: "#0f172a",
+                          background: "rgba(255,255,255,0.9)",
+                          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                          transition: "border 0.18s ease, box-shadow 0.18s ease",
+                        }}
+                      />
+                    </label>
+                  </form>
+                  <label
+                    className="image-stage-placeholder image-stage-placeholder--basic-info"
+                    htmlFor={personaImageInputId}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handlePersonaImageDrop}
+                    aria-label="Upload persona image"
+                    style={{ marginTop: 16 }}
+                  >
+                    <input
+                      id={personaImageInputId}
+                      ref={personaImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePersonaImageInput}
+                        style={{ display: "none" }}
+                      />
+                    <div className="image-stage-placeholder__icon" aria-hidden="true">
+                      {personaImagePreview ? (
+                        <img src={personaImagePreview} alt="Persona preview" />
+                      ) : (
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 16 16"
+                          fill="#22325a"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" />
+                          <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="image-stage-placeholder__copy">
+                      <p className="image-stage-placeholder__title">
+                        {personaImagePreview ? "Change image" : "Click or drop an image"}
+                      </p>
+                      <p className="image-stage-placeholder__hint">PNG, JPG, or GIF up to 5MB</p>
+                    </div>
+                  </label>
+                </>
               </StagePanel>
             )}
             {currentStep === 1 && (
               <StagePanel
-                heading="Persona image"
+                heading="Add personas to this campaign"
+                subheading="Each persona will get a unique link to simplify tracking"
                 footer={
                   <div className="stage-button-row stage-button-row--with-back">
                     <button
@@ -1112,44 +1130,41 @@ export default function UploadPage() {
                   </div>
                 }
               >
-                <label
-                  className="image-stage-placeholder"
-                  htmlFor={personaImageInputId}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={handlePersonaImageDrop}
-                  aria-label="Upload persona image"
-                >
-                  <input
-                    id={personaImageInputId}
-                    ref={personaImageInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePersonaImageInput}
-                    style={{ display: "none" }}
-                  />
-                  <div className="image-stage-placeholder__icon" aria-hidden="true">
-                    {personaImagePreview ? (
-                      <img src={personaImagePreview} alt="Persona preview" />
-                    ) : (
-                      <svg
-                        width="22"
-                        height="22"
-                        viewBox="0 0 16 16"
-                        fill="#22325a"
-                        xmlns="http://www.w3.org/2000/svg"
+                <div className="personas-stage__grid" role="list">
+                  {personaCards.map((persona) => {
+                    const isSelected = selectedPersonaIds.includes(persona.id);
+                    return (
+                      <button
+                        key={persona.id}
+                        type="button"
+                        role="listitem"
+                        className={`personas-stage__card${isSelected ? " personas-stage__card--active" : ""}`}
+                        onClick={() => {
+                          setSelectedPersonaIds((prev) =>
+                            prev.includes(persona.id)
+                              ? prev.filter((id) => id !== persona.id)
+                              : [...prev, persona.id]
+                          );
+                        }}
+                        aria-pressed={isSelected}
                       >
-                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" />
-                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="image-stage-placeholder__copy">
-                    <p className="image-stage-placeholder__title">
-                      {personaImagePreview ? "Change image" : "Click or drop an image"}
-                    </p>
-                    <p className="image-stage-placeholder__hint">PNG, JPG, or GIF up to 5MB</p>
-                  </div>
-                </label>
+                        <div
+                          className="personas-stage__card-image"
+                          aria-hidden="true"
+                          style={
+                            persona.image
+                              ? { backgroundImage: `url(${persona.image})`, backgroundSize: "cover" }
+                              : undefined
+                          }
+                        />
+                        <div>
+                          <p className="personas-stage__card-name">{persona.name}</p>
+                          <p className="personas-stage__card-title">{persona.title}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </StagePanel>
             )}
             {currentStep === 2 && (
@@ -1177,131 +1192,13 @@ export default function UploadPage() {
                 }
               >
                 <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <span className="persona-description-input-label">Persona description</span>
+                  <span className="persona-description-input-label">Campaign objective</span>
                   <textarea
                     value={personaDescription}
                     onChange={(event) => setPersonaDescription(event.target.value)}
                     onFocus={() => setActiveResourceDetail("description")}
                     onBlur={() => setActiveResourceDetail("")}
-                    placeholder="Describe pain points, intent signals, behavioural traits, and more context."
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      minHeight: 80,
-                      borderRadius: 12,
-                      border: "1px solid rgba(30, 41, 59, 0.18)",
-                      padding: "14px 16px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "#0f172a",
-                      background: "rgba(255,255,255,0.9)",
-                      boxShadow: "inset 0 1px 3px rgba(15, 23, 42, 0.08)",
-                      resize: "vertical",
-                    }}
-                  />
-                </label>
-                <div className="key-traits">
-                  <div className="key-traits__heading">Key traits</div>
-                  <div className="key-traits__chips">
-                        {keyTraits.map((trait) => (
-                          <div key={trait.id} className="key-traits__item">
-                            {editingKeyTraitId === trait.id ? (
-                              <>
-                                <label
-                                  className="key-traits__label sr-only"
-                                  htmlFor={`key-trait-${trait.id}`}
-                                >
-                                  {trait.placeholder}
-                                </label>
-                                <input
-                                  id={`key-trait-${trait.id}`}
-                                  className="key-traits__input"
-                                  value={trait.value}
-                                  placeholder={trait.placeholder}
-                                  onChange={(event) =>
-                                    handleKeyTraitChange(trait.id, event.target.value)
-                                  }
-                                  onBlur={() => setEditingKeyTraitId(null)}
-                                  autoFocus
-                                />
-                              </>
-                            ) : (
-                              <div className="key-traits__chip">
-                                <button
-                                  type="button"
-                                  className="key-traits__chip-label"
-                                  onClick={() => setEditingKeyTraitId(trait.id)}
-                                >
-                                  {trait.value || trait.placeholder}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="key-traits__chip-remove"
-                                  onClick={() => handleRemoveKeyTrait(trait.id)}
-                                  aria-label={`Remove ${trait.placeholder}`}
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                    <button
-                      type="button"
-                      className="key-traits__add"
-                      onClick={handleAddKeyTrait}
-                      aria-label="Add key trait"
-                    >
-                      New trait
-                    </button>
-                  </div>
-                </div>
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    marginTop: 20,
-                  }}
-                >
-                  <span className="persona-description-input-label">Pain Points</span>
-                  <textarea
-                    value={painPoints}
-                    onChange={(event) => setPainPoints(event.target.value)}
-                    onFocus={() => setActiveResourceDetail("painPoints")}
-                    onBlur={() => setActiveResourceDetail("")}
-                    placeholder="List 2-3 key pain points that drive this persona's decisions."
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      minHeight: 80,
-                      borderRadius: 12,
-                      border: "1px solid rgba(30, 41, 59, 0.18)",
-                      padding: "14px 16px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "#0f172a",
-                      background: "rgba(255,255,255,0.9)",
-                      boxShadow: "inset 0 1px 3px rgba(15, 23, 42, 0.08)",
-                      resize: "vertical",
-                    }}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    marginTop: 16,
-                  }}
-                >
-                  <span className="persona-description-input-label">Jobs To Be Done</span>
-                  <textarea
-                    value={jobsToBeDone}
-                    onChange={(event) => setJobsToBeDone(event.target.value)}
-                    onFocus={() => setActiveResourceDetail("jobs")}
-                    onBlur={() => setActiveResourceDetail("")}
-                    placeholder="Describe the key outcomes this persona is trying to achieve."
+                    placeholder="Summarize the campaign’s goal, desired impact, and target audience."
                     rows={3}
                     style={{
                       width: "100%",
@@ -1321,271 +1218,12 @@ export default function UploadPage() {
               </StagePanel>
             )}
             {currentStep === 3 && (
-              <StagePanel
-                heading={`Upload documents for ${personaNamePossessive} persona`}
-              >
-              <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-              {uploadMode === 'upload' ? (
-                <label
-                  htmlFor="file-upload"
-                  className="image-stage-placeholder data-upload-placeholder"
-                  style={{
-                    minHeight: files.length > 0 ? 218 : 186,
-                  }}
-                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      const dropped = Array.from(e.dataTransfer.files);
-                      setFiles(prev => mergeFileLists(prev, dropped));
-                      setNotification(null);
-                      e.dataTransfer.clearData();
-                    }
-                  }}
-                >
-                  <input
-                    id="file-upload"
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.txt,.html"
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                  />
-                  {files.length === 0 ? (
-                    <>
-                      <div className="data-upload-placeholder__heading">Drag & drop files here</div>
-                      <div className="data-upload-placeholder__subheading">
-                        or <span className="data-upload-placeholder__link">click to select from computer</span>
-                      </div>
-                      <div className="data-upload-placeholder__types">
-                        {['PDF', 'TXT', 'DOCX', 'HTML'].map((type) => (
-                          <span key={type} className="data-upload-placeholder__chip">
-                            {type}
-                          </span>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                    <ul style={{ color: '#a3c0ff', fontSize: 15, paddingLeft: 0, margin: 0, width: '100%', display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'center' }}>
-                      {files.map((file, idx) => (
-                        <li
-                          key={idx}
-                          style={{
-                            marginBottom: 6,
-                            flexGrow: 0,
-                            flexShrink: 0,
-                            flexBasis: '130px',
-                            width: '130px',
-                            maxWidth: '130px',
-                            boxSizing: 'border-box',
-                            height: 186,
-                            borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                            paddingTop: 8,
-                            listStyle: 'none',
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: 'relative',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                              height: '100%',
-                              padding: '30px 12px 24px',
-                              borderRadius: 10,
-                              background: 'rgba(255,255,255,0.02)',
-                              border: '1px solid #1e293b',
-                            }}
-                          >
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
-                              <div style={{ width: 36, height: 36, flex: '0 0 36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6 }}>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                  <path d="M14 2v6h6" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                </svg>
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div
-                                  title={file.name}
-                                  style={{
-                                    maxWidth: '100%',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 12,
-                                    color: '#1e293b',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
-                                </div>
-                                <div style={{ fontSize: 12, color: '#1e293b', marginTop: 4, textAlign: 'left' }}>{file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}</div>
-                              </div>
-                            </div>
-
-                            {/* Circular X remove button in top-right of the card */}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveFile(idx)}
-                              aria-label="Remove file"
-                              title="Remove"
-                              style={{
-                                position: 'absolute',
-                                top: -12,
-                                right: -12,
-                                width: 30,
-                                height: 30,
-                                borderRadius: '50%',
-                                background: '#1e293b',
-                                border: '1px solid rgba(255,255,255,0.04)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#9fb3ff',
-                                cursor: 'pointer',
-                                padding: 0,
-                                zIndex: 5,
-                                boxShadow: '0 6px 16px rgba(2,6,23,0.45)'
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                                <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                              </svg>
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                      <li
-                        style={{
-                          listStyle: 'none',
-                          marginBottom: 6,
-                          flexGrow: 0,
-                          flexShrink: 0,
-                          flexBasis: '130px',
-                          width: '130px',
-                          maxWidth: '130px',
-                          boxSizing: 'border-box',
-                          height: 186,
-                          paddingTop: 8,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: 'relative',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            gap: 12,
-                            height: '100%',
-                            padding: '30px 12px 24px',
-                            borderRadius: 10,
-                            background: 'rgba(255,255,255,0.02)',
-                            border: '1px dashed #1e293b',
-                            color: '#1e293b',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textAlign: 'center',
-                          }}
-                        >
-                          Click to add more documents
-                        </div>
-                      </li>
-                    </ul>
-                    </>
-                  )}
-                </label>
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px dashed #2d406b',
-                    background: '#22325a',
-                    borderRadius: 12,
-                    padding: 0,
-                    marginBottom: 22,
-                    color: '#a3c0ff',
-                    fontSize: 16,
-                    fontWeight: 600,
-                    minHeight: 186,
-                    width: '100%',
-                    textAlign: 'center',
-                  }}
-                >
-                  <input
-                    type="url"
-                    value={fileUrl}
-                    onChange={e => {
-                      setFileUrl(e.target.value);
-                      setNotification(null); // Clear notification on new URL
-                    }}
-                    placeholder="Paste file URL here..."
-                    style={{
-                      width: '80%',
-                      padding: '12px 14px',
-                      borderRadius: 8,
-                      border: '1px solid #2d406b',
-                      fontSize: 15,
-                      color: '#a3c0ff',
-                      background: '#192447',
-                      marginBottom: 0,
-                    }}
-                  />
-                </div>
-              )}
-              {/* Uploading message and notification below the button */}
-              {submitted && !notification && (
-                <StageAlert type="info" message="Stay on the page while document is uploading." />
-              )}
-              {notification && <StageAlert type={notification.type} message={notification.message} />}
-              </form>
-              <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
-                <button
-                  type="button"
-                  className="stage-back"
-                  onClick={() => setCurrentStep(2)}
-                  style={{ width: "25%" }}
-                >
-                  Back
-                </button>
-                <div className="stage-button-row__group">
-                  <StageButton
-                    type="button"
-                    variant="ghost"
-                    className="stage-button--outline"
-                    onClick={() => setCurrentStep(4)}
-                  >
-                    Skip
-                  </StageButton>
-                  <StageButton
-                    type="button"
-                    variant="primary"
-                    onClick={() => stageFiles()}
-                    disabled={
-                      (uploadMode === "upload" && (files.length === 0 || submitted)) ||
-                      (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
-                    }
-                  >
-                    Continue
-                  </StageButton>
-                </div>
-              </div>
-            </StagePanel>
-          )}
-            {currentStep === 4 && (
-              <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
+              <StagePanel heading={`Add critical questions for ${personaNameDisplay}`}>
                 <div className="links-stage__url-input">
-                <div className="links-stage__url-wrapper">
+                  <div className="links-stage__url-wrapper">
                     <input
-                      type="url"
-                      placeholder="https://"
+                      type="text"
+                      placeholder="Type a critical question"
                       value={linksUrl}
                       onChange={(event) => setLinksUrl(event.target.value)}
                       onKeyDown={(event) => {
@@ -1601,7 +1239,7 @@ export default function UploadPage() {
                         className="links-stage__add-link"
                         onClick={handleAddLink}
                       >
-                        Add link
+                        Save question
                       </button>
                     )}
                   </div>
@@ -1628,82 +1266,7 @@ export default function UploadPage() {
                   <button
                     type="button"
                     className="stage-back"
-                    onClick={() => setCurrentStep(3)}
-                    style={{ width: '25%' }}
-                  >
-                    Back
-                  </button>
-                <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
-                  <StageButton
-                    type="button"
-                    variant="ghost"
-                    className="stage-button--outline"
-                    onClick={() => setCurrentStep(5)}
-                  >
-                    Skip
-                  </StageButton>
-                  <StageButton
-                    type="button"
-                    variant="primary"
-                    onClick={() => stageLinks()}
-                    disabled={linksUrls.length === 0}
-                  >
-                    Continue
-                  </StageButton>
-                </div>
-                </div>
-              </StagePanel>
-            )}
-            {currentStep === 5 && (
-              <StagePanel
-                heading="Tell our AI agents where to research"
-              >
-                <div className="web-research-sources">
-                  {availableExternalSources.length === 0 ? (
-                    <p className="web-research-sources__empty">Loading sources…</p>
-                  ) : (
-                    <div className="web-research-sources-grid">
-                      {availableExternalSources.map((source) => {
-                        const active = selectedExternalSources.includes(source.name);
-                        const logoStyle = source.logoUrl
-                          ? undefined
-                          : {
-                              background: `linear-gradient(135deg, ${source.accent} 0%, ${source.accent} 60%, rgba(255,255,255,0.9) 100%)`,
-                            };
-                        return (
-                          <button
-                            type="button"
-                            key={source.id}
-                            className={`web-research-source-card${active ? " web-research-source-card--active" : ""}`}
-                            onClick={() => handleExternalSourceToggle(source.name)}
-                            aria-pressed={active}
-                          >
-                            <div className="web-research-source-logo" style={logoStyle}>
-                              {source.logoUrl ? (
-                                <Image
-                                  src={source.logoUrl}
-                                  alt={source.name}
-                                  width={52}
-                                  height={52}
-                                  className="web-research-source-logo__image"
-                                  unoptimized
-                                />
-                              ) : (
-                                <span aria-hidden="true">{deriveInitials(source.name)}</span>
-                              )}
-                            </div>
-                            <span className="web-research-source-name">{source.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
-                  <button
-                    type="button"
-                    className="stage-back"
-                    onClick={() => setCurrentStep(4)}
+                    onClick={() => setCurrentStep(2)}
                     style={{ width: '25%' }}
                   >
                     Back
@@ -1711,12 +1274,465 @@ export default function UploadPage() {
                   <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
                     <StageButton
                       type="button"
-                      variant="primary"
-                      width="full"
-                      onClick={handleFinalize}
+                      variant="ghost"
+                      className="stage-button--outline"
+                      onClick={() => setCurrentStep(4)}
                       disabled={finalizing}
                     >
-                      {finalizing ? 'Creating…' : 'Create Persona'}
+                      Skip
+                    </StageButton>
+                    <StageButton
+                      type="button"
+                      variant="primary"
+                      onClick={() => stageLinks()}
+                      disabled={linksUrls.length === 0 || finalizing}
+                    >
+                      Continue
+                    </StageButton>
+                  </div>
+                </div>
+              </StagePanel>
+            )}
+            {currentStep === 4 && (
+              <StagePanel heading="Define your campaign outputs">
+                <div className="output-stage-content">
+                  {!selectedOutputOption ? (
+                    canAddMoreOutputs ? (
+                      <div className="output-stage-cards">
+                        {OUTPUT_OPTIONS.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            className={`output-stage-card${selectedOutputType === option.id ? " output-stage-card--active" : ""}`}
+                            onClick={() => setSelectedOutputType(option.id)}
+                            disabled={!canAddMoreOutputs}
+                          >
+                            <div className="output-stage-card__icon" aria-hidden="true">
+                              {renderOutputIcon(option.id)}
+                            </div>
+                            <h5>{option.title}</h5>
+                            <p>{option.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="output-stage-limit">
+                        <p>
+                          You’ve reached the maximum of {MAX_OUTPUTS} outputs for this campaign.
+                          Review or finalize the existing entries before continuing.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="output-stage-input">
+                      <div className="output-stage-selected">
+                        <div className="output-stage-card__icon" aria-hidden="true">
+                          {renderOutputIcon(selectedOutputOption.id)}
+                        </div>
+                        <div className="output-stage-selected__text">
+                          <h5>{selectedOutputOption.title}</h5>
+                          <p>{selectedOutputOption.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="output-stage-input__change"
+                          onClick={resetOutputSelection}
+                        >
+                          Choose a different output
+                        </button>
+                      </div>
+                      <label className="output-stage-input__label">
+                        <span className="output-stage-input__label-text">
+                          Output description
+                        </span>
+                        <textarea
+                          className="output-stage-input__textarea"
+                          value={outputDescription}
+                          onChange={(event) => setOutputDescription(event.target.value)}
+                          placeholder={
+                            selectedOutputOption
+                              ? `Describe the ${OUTPUT_PLACEHOLDER_MAP[selectedOutputOption.id]} you want from individual campaign interviews`
+                              : "Describe the text / Yes/No / numerical output you want from individual campaign interviews"
+                          }
+                          rows={4}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+                {savedOutputs.length > 0 && (
+                  <div className="output-stage-saved">
+                    <p className="output-stage-saved__title">Added outputs</p>
+                    <ul className="output-stage-saved__list">
+                      {savedOutputs.map((entry, idx) => {
+                        const option = OUTPUT_OPTIONS.find((opt) => opt.id === entry.type);
+                        return (
+                          <li key={`${entry.type}-${idx}`} className="output-stage-saved__item">
+                            <button
+                              type="button"
+                              className="output-stage-saved__entry"
+                              onClick={() => editSavedOutput(idx)}
+                            >
+                              <span className="output-stage-saved__badge">
+                                {option?.title ?? entry.type}
+                              </span>
+                              <span className="output-stage-saved__description">
+                                {entry.description || "No description provided"}
+                              </span>
+                              <span className="output-stage-saved__hint">Edit</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="stage-back"
+                    onClick={() => setCurrentStep(3)}
+                    style={{ width: '25%' }}
+                  >
+                    Back
+                  </button>
+                  <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
+                    <StageButton
+                      type="button"
+                      variant="ghost"
+                      className="stage-button--outline"
+                      onClick={() => commitOutput()}
+                      disabled={!selectedOutputOption || !canAddMoreOutputs}
+                    >
+                      Add another output
+                    </StageButton>
+                    <StageButton type="button" variant="primary" onClick={() => commitOutput(true)}>
+                      Continue
+                    </StageButton>
+                  </div>
+                </div>
+              </StagePanel>
+            )}
+            {currentStep === 5 && (
+              <StagePanel heading={`Upload documents for ${personaNamePossessive} persona`}>
+                <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+                  {uploadMode === "upload" ? (
+                    <label
+                      htmlFor="file-upload"
+                      className="image-stage-placeholder data-upload-placeholder"
+                      style={{
+                        minHeight: files.length > 0 ? 218 : 186,
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          const dropped = Array.from(e.dataTransfer.files);
+                          setFiles((prev) => mergeFileLists(prev, dropped));
+                          setNotification(null);
+                          e.dataTransfer.clearData();
+                        }
+                      }}
+                    >
+                      <input
+                        id="file-upload"
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.txt,.html"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                      />
+                      {files.length === 0 ? (
+                        <>
+                          <div className="data-upload-placeholder__heading">Drag & drop files here</div>
+                          <div className="data-upload-placeholder__subheading">
+                            or <span className="data-upload-placeholder__link">click to select from computer</span>
+                          </div>
+                          <div className="data-upload-placeholder__types">
+                            {["PDF", "TXT", "DOCX", "HTML"].map((type) => (
+                              <span key={type} className="data-upload-placeholder__chip">
+                                {type}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ul
+                            style={{
+                              color: "#a3c0ff",
+                              fontSize: 15,
+                              paddingLeft: 0,
+                              margin: 0,
+                              width: "100%",
+                              display: "flex",
+                              gap: 12,
+                              overflowX: "auto",
+                              alignItems: "center",
+                            }}
+                          >
+                            {files.map((file, idx) => (
+                              <li
+                                key={idx}
+                                style={{
+                                  marginBottom: 6,
+                                  flexGrow: 0,
+                                  flexShrink: 0,
+                                  flexBasis: "130px",
+                                  width: "130px",
+                                  maxWidth: "130px",
+                                  boxSizing: "border-box",
+                                  height: 186,
+                                  borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                  paddingTop: 8,
+                                  listStyle: "none",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    position: "relative",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    justifyContent: "space-between",
+                                    gap: 12,
+                                    height: "100%",
+                                    padding: "30px 12px 24px",
+                                    borderRadius: 10,
+                                    background: "rgba(255,255,255,0.02)",
+                                    border: "1px solid #1e293b",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      alignItems: "flex-start",
+                                      gap: 12,
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        width: 36,
+                                        height: 36,
+                                        flex: "0 0 36px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        borderRadius: 6,
+                                      }}
+                                    >
+                                      <svg
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                        focusable="false"
+                                      >
+                                        <path
+                                          d="M6 6L18 18M6 18L18 6"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          fill="none"
+                                        />
+                                      </svg>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div
+                                        title={file.name}
+                                        style={{
+                                          maxWidth: "100%",
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap",
+                                          fontSize: 12,
+                                          color: "#1e293b",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
+                                      </div>
+                                      <div
+                                        style={{
+                                          fontSize: 12,
+                                          color: "#1e293b",
+                                          marginTop: 4,
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        {file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveFile(idx)}
+                                    aria-label="Remove file"
+                                    title="Remove"
+                                    style={{
+                                      position: "absolute",
+                                      top: -12,
+                                      right: -12,
+                                      width: 30,
+                                      height: 30,
+                                      borderRadius: "50%",
+                                      background: "#1e293b",
+                                      border: "1px solid rgba(255,255,255,0.04)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "#9fb3ff",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                      zIndex: 5,
+                                      boxShadow: "0 6px 16px rgba(2,6,23,0.45)",
+                                    }}
+                                  >
+                                    <svg
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 24 24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      aria-hidden="true"
+                                      focusable="false"
+                                    >
+                                      <path
+                                        d="M6 6L18 18M6 18L18 6"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        fill="none"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                            <li
+                              style={{
+                                listStyle: "none",
+                                marginBottom: 6,
+                                flexGrow: 0,
+                                flexShrink: 0,
+                                flexBasis: "130px",
+                                width: "130px",
+                                maxWidth: "130px",
+                                boxSizing: "border-box",
+                                height: 186,
+                                paddingTop: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: "relative",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  gap: 12,
+                                  height: "100%",
+                                  padding: "30px 12px 24px",
+                                  borderRadius: 10,
+                                  background: "rgba(255,255,255,0.02)",
+                                  border: "1px dashed #1e293b",
+                                  color: "#1e293b",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  textAlign: "center",
+                                }}
+                              >
+                                Click to add more documents
+                              </div>
+                            </li>
+                          </ul>
+                        </>
+                      )}
+                    </label>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px dashed #2d406b",
+                        background: "#22325a",
+                        borderRadius: 12,
+                        padding: 0,
+                        marginBottom: 22,
+                        color: "#a3c0ff",
+                        fontSize: 16,
+                        fontWeight: 600,
+                        minHeight: 186,
+                        width: "100%",
+                        textAlign: "center",
+                      }}
+                    >
+                      <input
+                        type="url"
+                        value={fileUrl}
+                        onChange={(e) => {
+                          setFileUrl(e.target.value);
+                          setNotification(null); // Clear notification on new URL
+                        }}
+                        placeholder="Paste file URL here..."
+                        style={{
+                          width: "80%",
+                          padding: "12px 14px",
+                          borderRadius: 8,
+                          border: "1px solid #2d406b",
+                          fontSize: 15,
+                          color: "#a3c0ff",
+                          background: "#192447",
+                          marginBottom: 0,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {submitted && !notification && (
+                    <StageAlert type="info" message="Stay on the page while document is uploading." />
+                  )}
+                  {notification && <StageAlert type={notification.type} message={notification.message} />}
+                </form>
+                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="stage-back"
+                    onClick={() => setCurrentStep(4)}
+                    style={{ width: "25%" }}
+                  >
+                    Back
+                  </button>
+                  <div className="stage-button-row__group">
+                    <StageButton
+                      type="button"
+                      variant="ghost"
+                      className="stage-button--outline"
+                      onClick={() => void handleFinalize()}
+                      disabled={finalizing}
+                    >
+                      Skip
+                    </StageButton>
+                    <StageButton
+                      type="button"
+                      variant="primary"
+                      onClick={() => stageFiles()}
+                      disabled={
+                        finalizing ||
+                        (uploadMode === "upload" && (files.length === 0 || submitted)) ||
+                        (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
+                      }
+                    >
+                      {finalizing ? "Creating…" : "Continue"}
                     </StageButton>
                   </div>
                 </div>
@@ -1725,228 +1741,40 @@ export default function UploadPage() {
           </div>
           <div className="upload-layout__separator" aria-hidden="true" />
           <div className="upload-layout__side-panel">
+            <div className="upload-layout__resource-tabs" role="tablist" aria-label="Launch options">
+              {["Link", "QR Code", "Phone call"].map((tab) => (
+                <button key={tab} type="button" className="upload-layout__resource-tab">
+                  {tab}
+                </button>
+              ))}
+            </div>
             <div className="upload-layout__resource-card" aria-label="Resource placeholder card">
-              <div className="upload-layout__resource-card__top">
-                <div className="upload-layout__resource-card__image" style={resourceImageStyle} />
-                <div className="upload-layout__resource-card__stack">
-                  <div className="upload-layout__resource-card__copy">
-                    <p className="upload-layout__resource-card__name">{personaNameDisplay}</p>
-                    <p className="upload-layout__resource-card__role">{personaRoleDisplay}</p>
-                    {keyTraits.some((trait) => trait.value.trim().length > 0) ? (
-                      <div className="upload-layout__resource-key-traits">
-                        {keyTraits
-                          .filter((trait) => trait.value.trim().length > 0)
-                          .slice(0, 3)
-                          .map((trait) => (
-                            <span
-                              key={trait.id}
-                              className="upload-layout__resource-key-trait"
-                            >
-                              {trait.value.trim()}
-                            </span>
-                          ))}
-                        {keyTraits.filter((trait) => trait.value.trim().length > 0).length > 3 ? (
-                          <span className="upload-layout__resource-key-trait upload-layout__resource-key-trait--overflow">
-                            +{keyTraits.filter((trait) => trait.value.trim().length > 0).length - 3}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+              <div className="upload-layout__resource-card__image" style={resourceImageStyle}>
+                <div className="upload-layout__resource-card__image-overlay">
+                  <p className="upload-layout__resource-card__image-title">{personaNameDisplay}</p>
+                  <p className="upload-layout__resource-card__image-description">
+                    {personaDescription || "Add a campaign summary so outputs stay focused."}
+                  </p>
                 </div>
               </div>
-              <div className="upload-layout__resource-actions-row">
-                <button type="button" className="upload-layout__resource-action">
-                  <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="16" cy="12" r="7" fill="#7dd3fc" />
-                    <rect x="9" y="18" width="14" height="7" rx="3.5" fill="#38bdf8" />
-                    <path d="M16 25L12 29H20L16 25Z" fill="#0ea5e9" />
-                  </svg>
-                  <span>Chat</span>
-                </button>
-                <button type="button" className="upload-layout__resource-action">
-                  <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="12" y="4" width="8" height="18" rx="4" fill="#e9d5ff" />
-                    <path
-                      d="M10 14C10 18.4183 13.5817 22 18 22C22.4183 22 26 18.4183 26 14"
-                      stroke="#c084fc"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <rect x="14" y="23" width="4" height="5" rx="1.6" fill="#a855f7" />
-                    <rect x="10" y="28" width="12" height="2" rx="1" fill="#7c3aed" />
-                  </svg>
-                  <span>Interview</span>
-                </button>
-              </div>
-            </div>
-            <div
-              className={descriptionPanelClass}
-              role="button"
-              tabIndex={0}
-              onClick={() => toggleResourceDetail("description")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  toggleResourceDetail("description");
-                }
-              }}
-            >
-              <div className="upload-layout__resource-description__header">
-                <h4>Persona description</h4>
-                {personaDescriptionHasContent && (
-                  <span className="upload-layout__resource-check" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </div>
-            <div className="upload-layout__resource-description__body">
-              <p className="upload-layout__panel-body-text">{personaDescription}</p>
-            </div>
-            </div>
-            <div
-              className={painPointsPanelClass}
-              role="button"
-              tabIndex={0}
-              onClick={() => toggleResourceDetail("painPoints")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  toggleResourceDetail("painPoints");
-                }
-              }}
-            >
-              <div className="upload-layout__resource-description__header">
-                <h4>Pain Points</h4>
-                {painPointsHaveContent && (
-                  <span className="upload-layout__resource-check" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </div>
-              <div className="upload-layout__resource-description__body">
-                <p className="upload-layout__panel-body-text">{painPoints}</p>
-              </div>
-            </div>
-            <div
-              className={jobsPanelClass}
-              role="button"
-              tabIndex={0}
-              onClick={() => toggleResourceDetail("jobs")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  toggleResourceDetail("jobs");
-                }
-              }}
-            >
-              <div className="upload-layout__resource-description__header">
-                <h4>Jobs To Be Done</h4>
-                {jobsHaveContent && (
-                  <span className="upload-layout__resource-check" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </div>
-              <div className="upload-layout__resource-description__body">
-                <p className="upload-layout__panel-body-text">{jobsToBeDone}</p>
-              </div>
-            </div>
-          <div className={internalDataPanelClass}>
-            <div className="upload-layout__resource-description__header">
-              <h4>Internal data</h4>
-              {internalDataHasContent && (
-                <span className="upload-layout__resource-check" aria-hidden="true">
-                  ✓
-                </span>
-              )}
-            </div>
-            <div className="upload-layout__internal-data__body">
-              {files.length === 0 ? null : (
-                <div className="upload-layout__doc-card-list">
-                  {files.map((file) => (
-                    <div className="upload-layout__doc-card" key={fileKey(file)}>
-                      <div className="upload-layout__doc-card__icon" aria-hidden="true" />
-                      <div className="upload-layout__doc-card__copy">
-                        <p className="upload-layout__doc-card__title">{file.name}</p>
-                        <p className="upload-layout__doc-card__meta">
-                          {normalizeFileType(file)}
-                          {file.size ? ` · ${formatFileSize(file.size)}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-            <div
-              className={knowledgeLinksPanelClass}
-              role="button"
-              tabIndex={0}
-              aria-expanded={knowledgePanelExpanded}
-              aria-disabled={!knowledgeLinksHaveContent}
-              onClick={toggleKnowledgePanel}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  toggleKnowledgePanel();
-                }
-              }}
-            >
-              <div className="upload-layout__resource-description__header">
-                <h4>Knowledge links</h4>
-                {knowledgeLinksHaveContent && (
-                  <span className="upload-layout__resource-check" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </div>
-              <div className="upload-layout__resource-description__body">
-                {linksUrls.length === 0 ? null : (
-                  <ul>
-                    {linksUrls.map((url) => (
-                      <li key={url}>
-                        <a href={url} target="_blank" rel="noreferrer">
-                          {url}
-                        </a>
-                      </li>
+              {keyTraits.some((trait) => trait.value.trim().length > 0) ? (
+                <div className="upload-layout__resource-key-traits upload-layout__resource-key-traits--bottom">
+                  {keyTraits
+                    .filter((trait) => trait.value.trim().length > 0)
+                    .slice(0, 3)
+                    .map((trait) => (
+                      <span key={trait.id} className="upload-layout__resource-key-trait">
+                        {trait.value.trim()}
+                      </span>
                     ))}
-                  </ul>
-                )}
-              </div>
+                  {keyTraits.filter((trait) => trait.value.trim().length > 0).length > 3 ? (
+                    <span className="upload-layout__resource-key-trait upload-layout__resource-key-trait--overflow">
+                      +{keyTraits.filter((trait) => trait.value.trim().length > 0).length - 3}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-          <div
-            className={targetSourcesPanelClass}
-            role="button"
-            tabIndex={0}
-            aria-expanded={targetPanelExpanded}
-            onClick={() => setTargetPanelExpanded((prev) => !prev)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                setTargetPanelExpanded((prev) => !prev);
-              }
-            }}
-          >
-            <div className="upload-layout__resource-description__header">
-              <h4>Target sources</h4>
-              {selectedExternalSources.length > 0 && (
-                <span className="upload-layout__resource-check" aria-hidden="true">
-                  ✓
-                </span>
-              )}
-            </div>
-            <div className="upload-layout__resource-description__body">
-              {selectedExternalSources.length === 0 ? null : (
-                <ul>
-                  {selectedExternalSources.map((source) => (
-                    <li key={source}>{source}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
         </div>
       </div>
         <style>{`
@@ -1994,39 +1822,71 @@ export default function UploadPage() {
             top: 64px;
             padding-bottom: 16px;
           }
+          .upload-layout__resource-tabs {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 12px;
+          }
+          .upload-layout__resource-tab {
+            flex: 1;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: #fff;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #0f172a;
+            cursor: pointer;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .upload-layout__resource-tab:hover,
+          .upload-layout__resource-tab:focus-visible {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+            transform: translateY(-2px);
+          }
           .upload-layout__resource-card {
             display: flex;
             flex-direction: column;
-            width: min(320px, 80vw);
+            width: 100%;
             padding: 8px;
             gap: 12px;
           }
-          .upload-layout__resource-card__top {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-          }
-          .upload-layout__resource-card__stack {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            flex: 1;
-            min-height: 20px;
-          }
-          .upload-layout__resource-actions-row {
-            display: flex;
-            gap: 12px;
-            width: 100%;
-            justify-content: flex-start;
-            margin-top: 6px;
-          }
           .upload-layout__resource-card__image {
-            width: 110px;
-            height: 160px;
+            width: 100%;
+            height: 360px;
             border-radius: 16px;
             background: linear-gradient(180deg, #e2e8f0 0%, #cbd5f5 45%, #bae6fd 100%);
             box-shadow: 0 18px 30px rgba(15, 23, 42, 0.15);
             border: 1px solid rgba(15, 23, 42, 0.08);
+            position: relative;
+          }
+          .upload-layout__resource-key-traits--bottom {
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+          .upload-layout__resource-card__image-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 16px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.9) 100%);
+            color: #fff;
+            text-shadow: 0 2px 8px rgba(15, 23, 42, 0.75);
+          }
+          .upload-layout__resource-card__image-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+          }
+          .upload-layout__resource-card__image-description {
+            margin: 2px 0 0;
+            font-size: 11px;
+            line-height: 1.4;
           }
           .upload-layout__resource-card__copy {
             display: flex;
@@ -2066,49 +1926,6 @@ export default function UploadPage() {
             text-transform: uppercase;
             color: rgba(15, 23, 42, 0.6);
           }
-          .upload-layout__resource-card__name {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 700;
-            color: #0f172a;
-          }
-          .upload-layout__resource-card__role {
-            margin: 0;
-            font-size: 14px;
-            color: rgba(15, 23, 42, 0.6);
-            letter-spacing: 0.01em;
-          }
-          .upload-layout__resource-actions {
-            display: flex;
-            gap: 12px;
-            width: 100%;
-            justify-content: flex-start;
-            align-items: flex-end;
-          }
-          .upload-layout__resource-action {
-            min-width: 120px;
-            border-radius: 999px;
-            border: 1px solid rgba(15, 23, 42, 0.2);
-            background: #fff;
-            color: #0f172a;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            font-size: 12px;
-            padding: 10px 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            cursor: pointer;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-          }
-          .upload-layout__resource-action:hover,
-          .upload-layout__resource-action:focus-visible {
-            transform: translateY(-2px);
-            border-color: rgba(59, 130, 246, 0.6);
-            outline: none;
-          }
           .upload-layout__resource-description {
             width: 100%;
             border-radius: 16px;
@@ -2124,54 +1941,6 @@ export default function UploadPage() {
             border-color: rgba(59, 130, 246, 0.6);
             background: rgba(59, 130, 246, 0.08);
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-          }
-          .upload-layout__resource-description--completed {
-            border-color: rgba(59, 130, 246, 0.5);
-            background: rgba(59, 130, 246, 0.08);
-            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
-          }
-          .upload-layout__internal-data {
-            width: 100%;
-            border-radius: 16px;
-            padding: 14px 16px;
-            border: 1px solid rgba(15, 23, 42, 0.1);
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            position: relative;
-          }
-          .upload-layout__internal-data--collapsed .upload-layout__internal-data__body {
-            max-height: 0;
-            overflow: hidden;
-          }
-          .upload-layout__internal-data--expanded .upload-layout__internal-data__body {
-            max-height: 200px;
-          }
-          .upload-layout__internal-data__body {
-            transition: max-height 0.28s ease;
-          }
-          .upload-layout__data--completed {
-            border-color: rgba(59, 130, 246, 0.5) !important;
-            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
-            background: rgba(59, 130, 246, 0.04) !important;
-          }
-          .upload-layout__internal-data h4 {
-            margin: 0 0 0px;
-            font-size: 14px;
-            letter-spacing: 0.08em;
-            color: rgba(15, 23, 42, 0.6);
-          }
-          .upload-layout__internal-data p {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
-            line-height: 1.5;
-          }
-          .upload-layout__internal-data__empty {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
           }
           .upload-layout__resource-description h4 {
             margin: 0 0 0px;
@@ -2213,8 +1982,7 @@ export default function UploadPage() {
           }
           .upload-layout__resource-description--empty,
           .upload-layout__internal-data--empty,
-          .upload-layout__knowledge-links--empty,
-          .upload-layout__target-sources--empty {
+          .upload-layout__knowledge-links--empty {
             min-height: 40px;
             justify-content: center;
             align-items: flex-start;
@@ -2226,56 +1994,19 @@ export default function UploadPage() {
             color: #0f172a;
             line-height: 1.5;
           }
-          .upload-layout__knowledge-links {
-            width: 100%;
-            border-radius: 16px;
-            padding: 14px 16px;
-            border: 1px solid rgba(15, 23, 42, 0.1);
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-          }
-          .upload-layout__knowledge-links h4 {
-            margin: 0 0 0px;
-            font-size: 14px;
-            letter-spacing: 0.08em;
-            color: rgba(15, 23, 42, 0.6);
-          }
-          .upload-layout__knowledge-links__empty {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
-          }
-          .upload-layout__knowledge-links--collapsed .upload-layout__resource-description__body {
-            max-height: 0;
-            overflow: hidden;
-          }
-          .upload-layout__knowledge-links--expanded .upload-layout__resource-description__body {
-            max-height: 150px;
-          }
-          .upload-layout__knowledge-links--completed {
-            border-color: rgba(59, 130, 246, 0.5) !important;
-            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
-            background: rgba(59, 130, 246, 0.04) !important;
-          }
           .upload-layout__knowledge-links--filled {
             min-height: 40px;
           }
-          .upload-layout__knowledge-links .upload-layout__resource-description__header,
-          .upload-layout__target-sources .upload-layout__resource-description__header {
+          .upload-layout__knowledge-links .upload-layout__resource-description__header {
             justify-content: space-between;
             align-items: center;
             width: 100%;
           }
-          .upload-layout__knowledge-links .upload-layout__resource-description__header h4,
-          .upload-layout__target-sources .upload-layout__resource-description__header h4 {
+          .upload-layout__knowledge-links .upload-layout__resource-description__header h4 {
             flex: 1;
             min-width: 0;
           }
-          .upload-layout__knowledge-links .upload-layout__resource-check,
-          .upload-layout__target-sources .upload-layout__resource-check {
+          .upload-layout__knowledge-links .upload-layout__resource-check {
             margin-left: auto;
           }
           .upload-layout__knowledge-links ul {
@@ -2298,57 +2029,6 @@ export default function UploadPage() {
             font-size: 13px;
             word-break: break-all;
           }
-          .upload-layout__target-sources {
-            width: 100%;
-            border-radius: 16px;
-            padding: 14px 16px;
-            border: 1px solid rgba(15, 23, 42, 0.1);
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-          }
-          .upload-layout__target-sources h4 {
-            margin: 0 0 0px;
-            font-size: 14px;
-            letter-spacing: 0.08em;
-            color: rgba(15, 23, 42, 0.6);
-          }
-          .upload-layout__target-sources__empty {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.7);
-          }
-          .upload-layout__target-sources--collapsed .upload-layout__resource-description__body {
-            max-height: 0;
-            overflow: hidden;
-          }
-          .upload-layout__target-sources--expanded .upload-layout__resource-description__body {
-            max-height: 150px;
-          }
-          .upload-layout__target-sources--filled {
-            min-height: 40px;
-          }
-          .upload-layout__target-sources--completed {
-            border-color: rgba(59, 130, 246, 0.5) !important;
-            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
-            background: rgba(59, 130, 246, 0.04) !important;
-          }
-          .upload-layout__target-sources ul {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-          }
-          .upload-layout__target-sources li {
-          margin: 0;
-    font-size: 13px;
-    color: rgba(15, 23, 42, 0.7);
-    line-height: 1.5;
-}
           .upload-layout__doc-card {
             margin-top: 8px;
             border-radius: 12px;
@@ -2486,70 +2166,262 @@ export default function UploadPage() {
             font-size: 13px;
             color: rgba(15, 23, 42, 0.6);
           }
-          .web-research-sources {
-            margin-top: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-          .web-research-sources__empty {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(15, 23, 42, 0.65);
-          }
-          .web-research-sources-grid {
+          .personas-stage__grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 14px;
+            gap: 12px;
+            margin-top: 12px;
           }
-          .web-research-source-card {
+          .personas-stage__card {
             display: flex;
-            flex-direction: column;
             align-items: center;
             gap: 10px;
-            border-radius: 18px;
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            padding: 14px 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
             background: #fff;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
-            color: #0f172a;
-          }
-          .web-research-source-card:hover,
-          .web-research-source-card:focus-visible {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            text-align: left;
+            width: 100%;
+            min-height: 60px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: #fff;
             outline: none;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
           }
-          .web-research-source-card--active {
-            border-color: rgba(59, 130, 246, 0.3);
-            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.15);
+          .personas-stage__card:hover,
+          .personas-stage__card:focus-visible {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+          }
+          .personas-stage__card--active {
+            border-color: rgba(59, 130, 246, 0.8);
             background: rgba(59, 130, 246, 0.08);
           }
-          .web-research-source-logo {
-            width: 52px;
-            height: 52px;
+          .personas-stage__card-image {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #38bdf8, #6366f1);
+          }
+          .personas-stage__card-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+          }
+          .personas-stage__card-title {
+            margin: 0;
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.6);
+          }
+          .output-stage-summary {
             border-radius: 14px;
-            background: rgba(15, 23, 42, 0.04);
+            padding: 18px 16px;
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+          }
+          .output-stage-summary p {
+            margin: 0 0 12px;
+            color: #0f172a;
+            font-size: 14px;
+          }
+          .output-stage-question-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .output-stage-question-item {
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.05);
+            font-size: 14px;
+            color: #0f172a;
+          }
+          .output-stage-cards {
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+          }
+          .output-stage-card {
+            flex: 1;
+            min-width: 180px;
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid rgba(30, 41, 59, 0.08);
+            background: #fff;
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          .output-stage-card__icon {
+            margin: 0 auto 8px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            color: #1e293b;
           }
-          .web-research-source-logo__image {
-            width: 48px;
-            height: 48px;
+          .output-stage-card h5 {
+            margin: 0 0 6px;
+            font-size: 15px;
+            color: #111827;
+          }
+          .output-stage-card p {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.75);
+          }
+          .output-stage-card--active {
+            border-color: rgba(59, 130, 246, 0.7);
+            box-shadow: 0 12px 20px rgba(59, 130, 246, 0.2);
+            background: rgba(59, 130, 246, 0.08);
+          }
+          .output-stage-card:not(.output-stage-card--active):hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 24px rgba(15, 23, 42, 0.15);
+          }
+          .output-stage-content {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .output-stage-input {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .output-stage-selected {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(30, 41, 59, 0.15);
+            background: rgba(59, 130, 246, 0.08);
+            padding: 12px 16px;
+          }
+          .output-stage-selected__text {
+            flex: 1;
+            text-align: left;
+          }
+          .output-stage-input__change {
+            border: 1px solid rgba(15, 23, 42, 0.25);
             border-radius: 10px;
-            object-fit: contain;
-          }
-          .web-research-source-name {
+            padding: 6px 12px;
             font-size: 13px;
             font-weight: 600;
-            text-align: center;
             color: #0f172a;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+            white-space: nowrap;
+          }
+          .output-stage-input__change:hover {
+            border-color: rgba(15, 23, 42, 0.55);
+            background: rgba(15, 23, 42, 0.04);
+          }
+          .output-stage-input__label {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .output-stage-input__label-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.65);
+          }
+          .output-stage-input__textarea {
+            width: 100%;
+            min-height: 140px;
+            border-radius: 14px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            padding: 14px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.95);
+            resize: vertical;
+            box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
+            font-family: inherit;
+          }
+          .output-stage-input__textarea:focus {
+            outline: none;
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+          .output-stage-limit {
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            background: rgba(229, 231, 235, 0.7);
+            padding: 16px;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.7);
+          }
+          .output-stage-saved {
+            border: 1px dashed rgba(15, 23, 42, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            background: rgba(226, 232, 240, 0.5);
+          }
+          .output-stage-saved__title {
+            margin: 0;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #0f172a;
+          }
+          .output-stage-saved__list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .output-stage-saved__item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.75);
+          }
+          .output-stage-saved__entry {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            width: 100%;
+            border: none;
+            background: transparent;
+            padding: 0;
+            text-align: left;
+            cursor: pointer;
+          }
+          .output-stage-saved__badge {
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+            color: #0f172a;
+          }
+          .output-stage-saved__description {
+            margin: 0;
+            line-height: 1.4;
+          }
+          .output-stage-saved__hint {
+            font-size: 11px;
+            color: rgba(15, 23, 42, 0.45);
           }
           .stage-shell {
             width: min(760px, 92%);
@@ -2925,6 +2797,11 @@ export default function UploadPage() {
             text-align: center;
             padding: 18px 12px;
             box-sizing: border-box;
+          }
+          .image-stage-placeholder--basic-info {
+            margin: 16px 0 0 0;
+            max-width: none;
+            justify-content: flex-start;
           }
           .data-upload-placeholder__heading {
             font-size: 16px;

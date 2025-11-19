@@ -36,6 +36,9 @@ type CreateDialoguePayload = {
   personaTone?: string | null;
   personaVoice?: string | null;
   personaLinks?: string[] | null;
+  painPoints?: string | null;
+  jobsToBeDone?: string | null;
+  customerStatus?: string | null;
 };
 
 type PersonaImagePayload = {
@@ -100,16 +103,19 @@ export async function POST(req: Request) {
       audienceType,
       briefingConversationId,
       briefingEndedAt,
-      personaName,
-      personaImage,
-      personaTagline,
-      personaDescription,
-      personaGuidance,
-      personaSetting,
-      personaTone,
-      personaVoice,
-      personaLinks,
-    } = body;
+    personaName,
+    personaImage,
+    personaTagline,
+    personaDescription,
+    personaGuidance,
+    personaSetting,
+    personaTone,
+    personaVoice,
+    personaLinks,
+    painPoints,
+    jobsToBeDone,
+    customerStatus,
+  } = body;
     console.log("[CreateDialogue] payload", {
       clientSlug,
       personaName,
@@ -231,6 +237,18 @@ export async function POST(req: Request) {
     const trimmedSetting = typeof personaSetting === "string" ? personaSetting.trim() : "";
     if (trimmedSetting.length > 0) {
       insertPayload.region = trimmedSetting;
+    }
+    const trimmedCustomerStatus = typeof customerStatus === "string" ? customerStatus.trim() : "";
+    if (trimmedCustomerStatus.length > 0) {
+      insertPayload.customer_status = trimmedCustomerStatus;
+    }
+    const trimmedPainPoints = typeof painPoints === "string" ? painPoints.trim() : "";
+    if (trimmedPainPoints.length > 0) {
+      insertPayload.key_pain_points = trimmedPainPoints;
+    }
+    const trimmedJobs = typeof jobsToBeDone === "string" ? jobsToBeDone.trim() : "";
+    if (trimmedJobs.length > 0) {
+      insertPayload.jobs_to_be_done = trimmedJobs;
     }
     const trimmedTone = typeof personaTone === "string" ? personaTone.trim() : "";
     if (trimmedTone.length > 0) {

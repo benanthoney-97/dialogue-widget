@@ -18,7 +18,6 @@ export default function Sidebar() {
   const clientId = getClientIdFromPath(pathname);
   const router = useRouter();
   const [profileName, setProfileName] = useState<string | null>(null);
-  const [profileRole, setProfileRole] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileInitial, setProfileInitial] = useState("A");
   const [profileTooltipName, setProfileTooltipName] = useState("Anonymous");
@@ -50,8 +49,7 @@ export default function Sidebar() {
     let isMounted = true;
 
     async function fetchProfileName() {
-      setProfileName(null);
-      setProfileRole(null);
+  setProfileName(null);
       setProfileError(null);
 
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -61,7 +59,6 @@ export default function Sidebar() {
         const message = userError?.message ?? "Profile unavailable";
         setProfileError(message);
         setProfileName(null);
-        setProfileRole(null);
         return;
       }
 
@@ -74,22 +71,19 @@ export default function Sidebar() {
 
       if (!isMounted) return;
 
-      const userMeta = (userData.user.user_metadata ?? {}) as { full_name?: string; name?: string };
-      const fallbackName = userMeta.full_name ?? userMeta.name ?? userData.user.email ?? null;
-      const displayName = profileData?.display_name ?? null;
-      const roleValue = typeof profileData?.role === "string" ? profileData.role : null;
-      const tooltipName = displayName ?? fallbackName ?? "Anonymous";
+  const userMeta = (userData.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const fallbackName = userMeta.full_name ?? userMeta.name ?? userData.user.email ?? null;
+  const displayName = profileData?.display_name ?? null;
+  const tooltipName = displayName ?? fallbackName ?? "Anonymous";
       const initialSource = displayName ?? userData.user.email ?? "A";
 
       if (profileError) {
         setProfileError(profileError.message ?? "Profile unavailable");
-        setProfileRole(null);
         setProfileTooltipName(tooltipName);
         setProfileInitial((fallbackName ?? "A").charAt(0).toUpperCase());
         return;
       }
       setProfileName(displayName ?? null);
-      setProfileRole(roleValue);
       setProfileError(null);
       setProfileTooltipName(tooltipName);
       setProfileInitial(initialSource.charAt(0).toUpperCase());
@@ -134,23 +128,13 @@ export default function Sidebar() {
     router.replace("/auth");
   };
 
-  const interviewsItem = {
-    label: "Interviews",
-    href: `/client/${clientId}/interviews`,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#22325A">
-        <path
-          fillRule="evenodd"
-          d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5m14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5"
-        />
-      </svg>
-    ),
-  };
+  const hasClientContext = Boolean(clientId);
+  const clientBasePath = clientId ? `/client/${clientId}` : "/client";
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       label: "Personas",
-      href: `/client/${clientId}/personas`,
+      href: `${clientBasePath}/personas`,
       icon: (
         <svg
           width="16"
@@ -171,7 +155,7 @@ export default function Sidebar() {
     },
     {
       label: "Interviews",
-      href: `/client/${clientId}/conversations`,
+      href: `${clientBasePath}/conversations`,
       icon: (
         <svg
           width="16"
@@ -191,7 +175,7 @@ export default function Sidebar() {
     },
     {
       label: "New Persona",
-      href: `/client/${clientId}/upload`,
+      href: `${clientBasePath}/upload`,
       icon: (
         <svg
           width="16"
@@ -212,9 +196,7 @@ export default function Sidebar() {
     },
   ];
 
-  const visibleNavItems = profileRole === "viewer"
-    ? navItems.filter((item) => item.label !== "New Persona")
-    : navItems;
+  const visibleNavItems = navItems;
 
   const labelVisibilityStyle: React.CSSProperties = {
     opacity: collapsed ? 0 : 1,
@@ -265,7 +247,7 @@ export default function Sidebar() {
   };
 
   const buildNavItems: NavItem[] = [];
-  const launchNavItems: NavItem[] = [teamItem, liveHelpItem];
+  const launchNavItems: NavItem[] = hasClientContext ? [teamItem, liveHelpItem] : [];
   const newCampaignIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -303,17 +285,17 @@ export default function Sidebar() {
   const customerNavItems: NavItem[] = [
     {
       label: "Campaigns",
-      href: `/client/${clientId}/campaigns`,
+      href: `${clientBasePath}/campaigns`,
       icon: campaignIcon,
     },
     {
       label: "Results",
-      href: `/client/${clientId}/responses`,
+      href: `${clientBasePath}/results`,
       icon: responsesIcon,
     },
     {
       label: "New Campaign",
-      href: `/client/${clientId}/campaigns/new`,
+      href: `${clientBasePath}/new-campaign`,
       icon: newCampaignIcon,
     },
   ];

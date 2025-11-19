@@ -201,8 +201,23 @@ export async function PATCH(
     }
 
     if (mutationError) {
-      console.error("[Research] Failed to persist client research priorities", mutationError);
-      return NextResponse.json({ error: "Unable to update research priorities" }, { status: 500 });
+      const detail =
+        mutationError instanceof Error
+          ? mutationError.message
+          : typeof mutationError === "object" && mutationError !== null
+          ? JSON.stringify(mutationError)
+          : String(mutationError);
+      console.error(
+        "[Research] Failed to persist client research priorities",
+        detail
+      );
+      return NextResponse.json(
+        {
+          error: "Unable to update research priorities",
+          details: detail,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ priority: payloadRow });
