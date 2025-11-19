@@ -116,6 +116,38 @@ export function useResearchOverlayState(clientSlug: string | null) {
     [selectedAgent]
   );
 
+  const addArticleToAgent = useCallback(
+    (agentId: string, article: { title: string | null; url: string | null }) => {
+      const normalizedUrl = article.url?.trim();
+      if (!normalizedUrl) return;
+      const normalizedTitle =
+        typeof article.title === "string" && article.title.trim().length > 0
+          ? article.title.trim()
+          : "Untitled article";
+      setAgentResearch((prev) =>
+        prev.map((record) => {
+          if (record.agentId !== agentId) return record;
+          const updatedSourced = record.sourcedArticles.filter((item) => item.url !== normalizedUrl);
+          const newAdded = [...record.addedArticles, { title: normalizedTitle, url: normalizedUrl }];
+          const uniqueAdded = newAdded.filter(
+            (item, index) => newAdded.findIndex((candidate) => candidate.url === item.url) === index
+          );
+          return { ...record, sourcedArticles: updatedSourced, addedArticles: uniqueAdded };
+        })
+      );
+      setSelectedAgent((prev) => {
+        if (!prev || prev.agentId !== agentId) return prev;
+        const updatedSourced = prev.sourcedArticles.filter((item) => item.url !== normalizedUrl);
+        const newAdded = [...prev.addedArticles, { title: normalizedTitle, url: normalizedUrl }];
+        const uniqueAdded = newAdded.filter(
+          (item, index) => newAdded.findIndex((candidate) => candidate.url === item.url) === index
+        );
+        return { ...prev, sourcedArticles: updatedSourced, addedArticles: uniqueAdded };
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     if (!clientSlug) {
       setAgentResearch([]);
@@ -150,6 +182,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
             updated_at?: string | null;
             sourced_articles?: Array<{ title?: string | null; url?: string | null }>;
             sourced_articles_count?: number | null;
+            added_articles?: Array<{ title?: string | null; url?: string | null }>;
             watchlist_query?: string | null;
           }>;
         };
@@ -183,6 +216,18 @@ export function useResearchOverlayState(clientSlug: string | null) {
                     }))
                     .filter((article) => article.url.length > 0)
                 : [];
+            const addedArticles =
+              Array.isArray(record.added_articles) && record.added_articles.length > 0
+                ? record.added_articles
+                    .map((article) => ({
+                      title:
+                        typeof article?.title === "string" && article.title.trim().length > 0
+                          ? article.title.trim()
+                          : "Untitled article",
+                      url: typeof article?.url === "string" ? article.url : "",
+                    }))
+                    .filter((article) => article.url.length > 0)
+                : [];
             const watchlistQuery =
               typeof record.watchlist_query === "string" && record.watchlist_query.trim().length > 0
                 ? record.watchlist_query.trim()
@@ -205,6 +250,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
               knowledgeText,
               updatedAt,
               sourcedArticles,
+              addedArticles,
               sourcedArticlesCount,
               watchlistQuery,
               currentJobStatus,
@@ -253,6 +299,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
     handlePromptSave,
     handleClearPrompt,
     handleRemoveSourcedArticle,
+    addArticleToAgent,
     setSelectedAgent,
   };
 }

@@ -16,6 +16,11 @@ function getClientSlug(pathname: string | null): string {
   const match = pathname.match(/^\/client\/([^\/]+)/);
   return match ? match[1] : "";
 }
+function getClientIdFromPath(pathname: string | null): string {
+  if (!pathname) return "";
+  const match = pathname.match(/^\/client\/([^\/]+)/);
+  return match ? match[1] : "";
+}
 
 type ExternalSource = {
   id: string;
@@ -94,6 +99,7 @@ export default function ResearchPage() {
   const pathname = usePathname();
   const router = useRouter();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
+  const clientIdFromPath = useMemo(() => getClientIdFromPath(pathname), [pathname]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [availableSources, setAvailableSources] = useState<ExternalSource[]>([]);
   const [activeView, setActiveView] = useState<"agent" | "sources">("agent");
@@ -111,6 +117,7 @@ export default function ResearchPage() {
     handlePromptSave,
     handleClearPrompt,
     handleRemoveSourcedArticle,
+    addArticleToAgent,
     setSelectedAgent,
   } = useResearchOverlayState(clientSlug);
   const overlayTitleId = "research-overlay-title";
@@ -156,6 +163,29 @@ export default function ResearchPage() {
   const handlePromptSaveCurrent = useCallback(() => {
     void handlePromptSave(promptValue);
   }, [handlePromptSave, promptValue]);
+  const handleAddResearchArticle = useCallback(
+    async (article: AgentResearchRecord["sourcedArticles"][number]) => {
+      const agentId = selectedAgent?.agentId;
+      const targetClientId = clientIdFromPath || clientSlug;
+      const articleUrl = article?.url?.trim();
+      if (!agentId || !targetClientId || !articleUrl) return;
+      try {
+        const response = await fetch(`/api/clients/${targetClientId}/agent-research`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId, article: { title: article.title, url: articleUrl } }),
+        });
+        if (!response.ok) {
+          console.error("[Research] Failed to add research", response.status, await response.text());
+          return;
+        }
+        addArticleToAgent(agentId, { title: article.title, url: articleUrl });
+      } catch (error) {
+        console.error("[Research] Failed to add research", error);
+      }
+    },
+    [addArticleToAgent, clientIdFromPath, clientSlug, selectedAgent]
+  );
 
   useEffect(() => {
     if (!clientSlug) return;
@@ -331,6 +361,7 @@ export default function ResearchPage() {
             updated_at?: string | null;
             sourced_articles?: Array<{ title?: string | null; url?: string | null }>;
             sourced_articles_count?: number | null;
+            added_articles?: Array<{ title?: string | null; url?: string | null }>;
             watchlist_query?: string | null;
           }>;
         };
@@ -365,6 +396,18 @@ export default function ResearchPage() {
                         }))
                         .filter((article) => article.url.length > 0)
                     : [];
+                const addedArticles =
+                  Array.isArray(record.added_articles) && record.added_articles.length > 0
+                    ? record.added_articles
+                        .map((article) => ({
+                          title:
+                            typeof article?.title === "string" && article.title.trim().length > 0
+                              ? article.title.trim()
+                              : "Untitled article",
+                          url: typeof article?.url === "string" ? article.url : "",
+                        }))
+                        .filter((article) => article.url.length > 0)
+                    : [];
                 const watchlistQuery =
                   typeof record.watchlist_query === "string" && record.watchlist_query.trim().length > 0
                     ? record.watchlist_query.trim()
@@ -383,6 +426,7 @@ export default function ResearchPage() {
                   knowledgeText,
                   updatedAt,
                   sourcedArticles,
+                  addedArticles,
                   sourcedArticlesCount,
                   watchlistQuery,
                 } satisfies AgentResearchRecord;
@@ -641,9 +685,9 @@ export default function ResearchPage() {
               onPromptSave={handlePromptSaveCurrent}
               onClearPrompt={handleClearPrompt}
               onRemoveArticle={handleRemoveSourcedArticle}
+              onAddArticle={handleAddResearchArticle}
               overlayTitleId={overlayTitleId}
               overlayDescriptionId={overlayDescriptionId}
-              lastUpdatedLabel={formatUpdatedAt(selectedAgent.updatedAt)}
             />
           </SlidingPanelOverlay>
         ) : null}

@@ -135,6 +135,36 @@ function formatResearchUpdatedAt(value: string | null): string {
   });
 }
 
+function formatRelativeTime(value: string | null): string | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return null;
+  const now = Date.now();
+  const diffMillis = now - parsed;
+  const diffSeconds = Math.round(diffMillis / 1000);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const divisions: Array<[number, Intl.RelativeTimeFormatUnit]> = [
+    [60, "second"],
+    [60, "minute"],
+    [24, "hour"],
+    [7, "day"],
+    [4.34524, "week"],
+    [12, "month"],
+    [Number.POSITIVE_INFINITY, "year"],
+  ];
+  let valueToFormat = diffSeconds;
+  let unit: Intl.RelativeTimeFormatUnit = "second";
+  for (const [divisor, nextUnit] of divisions) {
+    if (Math.abs(valueToFormat) < divisor) {
+      unit = nextUnit as Intl.RelativeTimeFormatUnit;
+      break;
+    }
+    valueToFormat /= divisor;
+  }
+  const rounded = Math.trunc(valueToFormat);
+  return rtf.format(-rounded, unit);
+}
+
 function determineColumns(width: number): number {
   if (width <= 680) return 1;
   if (width <= 960) return 2;
@@ -171,6 +201,7 @@ type ExternalArticle = {
 type PersonaExternalKnowledgeRow = {
   agent_id: string;
   sourced_articles?: ExternalArticle[] | null;
+  added_articles?: ExternalArticle[] | null;
   knowledge_text?: string | null;
   updated_at?: string | null;
 };
@@ -501,11 +532,6 @@ const PERSONA_ACTION_MODAL_OPTIONS: PersonaActionsOption[] = [
     description: "Send this persona to teammates.",
   },
   {
-    key: "feedback",
-    label: "Provide feedback",
-    description: "Let us know how this persona performs.",
-  },
-  {
     key: "delete",
     label: "Delete persona",
     description: "Remove this persona from your workspace.",
@@ -592,16 +618,28 @@ export default function PersonasPage() {
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [resolvedClientSlug, setResolvedClientSlug] = useState<string | null>(null);
-  const [personaExternalArticles, setPersonaExternalArticles] = useState<Record<string, ExternalArticle[]>>({});
+  const [personaExternalAddedArticles, setPersonaExternalAddedArticles] = useState<Record<string, ExternalArticle[]>>({});
   const [personaExternalUpdatedAt, setPersonaExternalUpdatedAt] = useState<Record<string, string | null>>({});
   const [personaExternalKnowledgeText, setPersonaExternalKnowledgeText] = useState<Record<string, string | null>>({});
   const [externalArticlesError, setExternalArticlesError] = useState<string | null>(null);
   const [externalArticlesLoading, setExternalArticlesLoading] = useState(false);
   const [personasViewLinkCopied, setPersonasViewLinkCopied] = useState(false);
+  const personaSlugLookup = useMemo(() => {
+    const slugMap = new Map<string, string>();
+    personas.forEach((row) => {
+      const slug = buildPersonaSlug(row);
+      if (slug) {
+        slugMap.set(row.agent_id, slug);
+      }
+    });
+    return slugMap;
+  }, [personas]);
   const [chipEditingIndex, setChipEditingIndex] = useState<number | null>(null);
   const [chipEditingValue, setChipEditingValue] = useState("");
   const [chipEditDirty, setChipEditDirty] = useState(false);
   const personasViewCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [personaShareLinkCopied, setPersonaShareLinkCopied] = useState(false);
+  const personaShareCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [personaClockStates, setPersonaClockStates] = useState<Record<string, boolean>>({});
   const [chipRowsExpanded, setChipRowsExpanded] = useState<Record<string, boolean>>({});
   const personasViewHref = useMemo(() => {
@@ -656,9 +694,62 @@ export default function PersonasPage() {
       }
     };
   }, []);
+  useEffect(() => {
+    return () => {
+      if (personaShareCopyTimeoutRef.current) {
+        clearTimeout(personaShareCopyTimeoutRef.current);
+      }
+    };
+  }, []);
+  const copyPersonaShareHref = useCallback(
+    async (persona: PersonaRow) => {
+      if (typeof window === "undefined") return;
+      const personaSlug = personaSlugLookup.get(persona.agent_id) ?? null;
+      const targetClientSlug = resolvedClientSlug ?? clientSlug ?? null;
+      if (!personaSlug || !targetClientSlug) return;
+      const personaPath = `/app/${encodeURIComponent(targetClientSlug)}/${encodeURIComponent(personaSlug)}`;
+      const absoluteHref = new URL(personaPath, window.location.origin).toString();
+      try {
+        let copied = false;
+        if (navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(absoluteHref);
+            copied = true;
+          } catch (error) {
+            console.warn("Navigator clipboard copy failed, attempting fallback", error);
+          }
+        }
+        if (!copied) {
+          const fallbackInput = document.createElement("textarea");
+          fallbackInput.value = absoluteHref;
+          fallbackInput.setAttribute("readonly", "");
+          fallbackInput.style.position = "absolute";
+          fallbackInput.style.left = "-9999px";
+          document.body.appendChild(fallbackInput);
+          fallbackInput.select();
+          copied = document.execCommand("copy");
+          document.body.removeChild(fallbackInput);
+        }
+        if (copied) {
+          setPersonaShareLinkCopied(true);
+          if (personaShareCopyTimeoutRef.current) {
+            clearTimeout(personaShareCopyTimeoutRef.current);
+          }
+          personaShareCopyTimeoutRef.current = setTimeout(() => {
+            setPersonaShareLinkCopied(false);
+            personaShareCopyTimeoutRef.current = null;
+          }, 1800);
+        }
+      } catch (error) {
+        console.error("[personas] Failed to copy persona share link", error);
+      }
+    },
+    [clientSlug, personaSlugLookup, resolvedClientSlug]
+  );
   const {
     agentResearch,
     agentResearchLoading,
+    agentResearchError,
     selectedAgent,
     selectAgentById,
     promptValue,
@@ -669,6 +760,7 @@ export default function PersonasPage() {
     handlePromptSave,
     handleClearPrompt,
     handleRemoveSourcedArticle,
+    addArticleToAgent,
     setSelectedAgent,
   } = useResearchOverlayState(clientSlug);
   const overlayTitleId = "research-overlay-title";
@@ -687,9 +779,43 @@ export default function PersonasPage() {
   const handlePromptSaveCurrent = useCallback(() => {
     void handlePromptSave(promptValue);
   }, [handlePromptSave, promptValue]);
+  const handleAddResearchArticle = useCallback(
+    async (article: ExternalArticle) => {
+      if (!selectedAgent) return;
+      const agentId = selectedAgent.agentId;
+      const targetClientId = resolvedClientId ?? clientIdFromPath ?? null;
+      const articleUrl = article.url?.trim() ?? "";
+      if (!agentId || !targetClientId || !articleUrl) return;
+      try {
+        const response = await fetch(`/api/clients/${targetClientId}/agent-research`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId, article: { title: article.title, url: articleUrl } }),
+        });
+        if (!response.ok) {
+          console.error("[personas] Failed to add research", response.status, await response.text());
+          return;
+        }
+        addArticleToAgent(agentId, { title: article.title, url: articleUrl });
+      } catch (error) {
+        console.error("[personas] Failed to add research", error);
+      }
+    },
+    [clientIdFromPath, handleRemoveSourcedArticle, resolvedClientId, selectedAgent]
+  );
+  const personaPreviewHref = useMemo(() => {
+    if (!selectedAgent) return null;
+    const personaSlug = personaSlugLookup.get(selectedAgent.agentId);
+    const targetClientSlug = resolvedClientSlug ?? clientSlug ?? null;
+    if (!personaSlug || !targetClientSlug) return null;
+    return `/app/${encodeURIComponent(targetClientSlug)}/${encodeURIComponent(personaSlug)}`;
+  }, [clientSlug, personaSlugLookup, resolvedClientSlug, selectedAgent]);
   const [internalOverlayPersonaId, setInternalOverlayPersonaId] = useState<string | null>(null);
   const internalOverlayTitleId = "internal-knowledge-overlay-title";
   const internalOverlayDescriptionId = "internal-knowledge-overlay-description";
+  const [descriptionOverlayPersonaId, setDescriptionOverlayPersonaId] = useState<string | null>(null);
+  const descriptionOverlayTitleId = "description-overlay-title";
+  const descriptionOverlayDescriptionId = "description-overlay-description";
   const openInternalOverlay = useCallback((personaId: string) => {
     setInternalOverlayPersonaId(personaId);
   }, []);
@@ -709,6 +835,64 @@ export default function PersonasPage() {
     [internalOverlayDocuments]
   );
   const internalOverlayLastUpdatedLabel = formatDate(internalOverlayLastUpdated);
+  const descriptionOverlayPersona = useMemo(
+    () =>
+      descriptionOverlayPersonaId
+        ? personas.find((persona) => persona.agent_id === descriptionOverlayPersonaId) ?? null
+        : null,
+    [descriptionOverlayPersonaId, personas]
+  );
+  const closeDescriptionOverlay = useCallback(() => {
+    setDescriptionOverlayPersonaId(null);
+  }, []);
+  const [descriptionOverlayDraft, setDescriptionOverlayDraft] = useState("");
+  const [descriptionOverlayError, setDescriptionOverlayError] = useState<string | null>(null);
+  const [descriptionOverlayTraits, setDescriptionOverlayTraits] = useState("");
+  const [descriptionOverlayChipEditingIndex, setDescriptionOverlayChipEditingIndex] = useState<number | null>(null);
+  const [descriptionOverlayChipEditingValue, setDescriptionOverlayChipEditingValue] = useState("");
+  const [descriptionOverlayTraitsError, setDescriptionOverlayTraitsError] = useState<string | null>(null);
+  const [isSavingDescriptionOverlay, setIsSavingDescriptionOverlay] = useState(false);
+  const [isSavingDescriptionOverlayTraits, setIsSavingDescriptionOverlayTraits] = useState(false);
+
+  useEffect(() => {
+    if (descriptionOverlayPersona) {
+      setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
+      setDescriptionOverlayError(null);
+      setIsSavingDescriptionOverlay(false);
+      const initialTraits = Array.isArray(descriptionOverlayPersona.key_traits)
+        ? descriptionOverlayPersona.key_traits
+            .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
+            .filter((trait) => trait.length > 0)
+        : [];
+      const normalizedTraits = normalizeTraitsInput(initialTraits.join(", "));
+      setDescriptionOverlayTraits(normalizedTraits);
+      setDescriptionOverlayChipEditingIndex(null);
+      setDescriptionOverlayChipEditingValue("");
+      setDescriptionOverlayTraitsError(null);
+      setIsSavingDescriptionOverlayTraits(false);
+    } else {
+      setDescriptionOverlayDraft("");
+      setDescriptionOverlayError(null);
+      setIsSavingDescriptionOverlay(false);
+      setDescriptionOverlayTraits("");
+      setDescriptionOverlayChipEditingIndex(null);
+      setDescriptionOverlayChipEditingValue("");
+      setDescriptionOverlayTraitsError(null);
+      setIsSavingDescriptionOverlayTraits(false);
+    }
+  }, [descriptionOverlayPersona]);
+
+  const descriptionOverlayNormalizedTraits = useMemo(
+    () => normalizeTraitsInput(descriptionOverlayTraits),
+    [descriptionOverlayTraits]
+  );
+  const descriptionOverlayTraitList = useMemo(() => {
+    if (!descriptionOverlayNormalizedTraits) return [];
+    return descriptionOverlayNormalizedTraits
+      .split(",")
+      .map((trait) => trait.trim())
+      .filter((trait) => trait.length > 0);
+  }, [descriptionOverlayNormalizedTraits]);
   const handleCreateFirstPersona = useCallback(() => {
     if (clientSlug) {
       router.push(`/client/${clientSlug}/upload`);
@@ -1746,17 +1930,6 @@ export default function PersonasPage() {
     ensureDefaultScalarTraitMeta,
   ]);
 
-  const personaSlugLookup = useMemo(() => {
-    const slugMap = new Map<string, string>();
-    personas.forEach((row) => {
-      const slug = buildPersonaSlug(row);
-      if (slug) {
-        slugMap.set(row.agent_id, slug);
-      }
-    });
-    return slugMap;
-  }, [personas]);
-
   const miniOptions = useMemo(() => {
     if (!selectedOption) {
       return [];
@@ -1812,7 +1985,7 @@ export default function PersonasPage() {
       setPersonaDocuments({});
       setDocumentsLoading(false);
       setExternalArticlesError(null);
-      setPersonaExternalArticles({});
+      setPersonaExternalAddedArticles({});
       setPersonaExternalUpdatedAt({});
       setPersonaExternalKnowledgeText({});
       setExternalArticlesLoading(false);
@@ -1935,18 +2108,18 @@ export default function PersonasPage() {
 
               const { data: externalData, error: externalFetchError } = await supabase
                 .from("persona_external_knowledge")
-                .select("agent_id, sourced_articles, knowledge_text, updated_at")
+                .select("agent_id, sourced_articles, added_articles, knowledge_text, updated_at")
                 .in("agent_id", agentIds);
 
               if (externalFetchError) {
                 setExternalArticlesError("Unable to load external data sources.");
-                setPersonaExternalArticles({});
+                setPersonaExternalAddedArticles({});
               } else {
-                const groupedExternal = ((externalData as PersonaExternalKnowledgeRow[]) ?? []).reduce(
+                const groupedAdded = ((externalData as PersonaExternalKnowledgeRow[]) ?? []).reduce(
                   (acc, row) => {
                     if (!row.agent_id) return acc;
-                    const rawArticles: unknown[] = Array.isArray(row.sourced_articles)
-                      ? row.sourced_articles
+                    const rawArticles: unknown[] = Array.isArray(row.added_articles)
+                      ? row.added_articles
                       : [];
                     const cleanedArticles: ExternalArticle[] = rawArticles
                       .map((article): ExternalArticle | null => {
@@ -1990,7 +2163,7 @@ export default function PersonasPage() {
                   },
                   {} as Record<string, string | null>
                 );
-                setPersonaExternalArticles(groupedExternal);
+                setPersonaExternalAddedArticles(groupedAdded);
                 setPersonaExternalUpdatedAt(groupedUpdated);
                 setPersonaExternalKnowledgeText(groupedKnowledge);
               }
@@ -2437,6 +2610,53 @@ export default function PersonasPage() {
     [canEdit, descriptionDraft, descriptionEditingPersonaId, isSavingDescriptionInline, supabase]
   );
 
+  const handleSaveDescriptionOverlay = useCallback(async () => {
+    if (!canEdit || !descriptionOverlayPersona || isSavingDescriptionOverlay) {
+      return;
+    }
+    const previous = descriptionOverlayPersona.description ?? "";
+    if (descriptionOverlayDraft === previous) {
+      setDescriptionOverlayError(null);
+      return;
+    }
+
+    setIsSavingDescriptionOverlay(true);
+    setDescriptionOverlayError(null);
+
+    const { error } = await supabase
+      .from("agent_map")
+      .update({ description: descriptionOverlayDraft })
+      .eq("agent_id", descriptionOverlayPersona.agent_id);
+
+    if (error) {
+      setDescriptionOverlayError("Unable to update description. Please try again.");
+      setIsSavingDescriptionOverlay(false);
+      return;
+    }
+
+    setPersonas((prev) =>
+      prev.map((item) =>
+        item.agent_id === descriptionOverlayPersona.agent_id ? { ...item, description: descriptionOverlayDraft } : item
+      )
+    );
+    setActivePersona((prev) =>
+      prev && prev.agent_id === descriptionOverlayPersona.agent_id
+        ? { ...prev, description: descriptionOverlayDraft }
+        : prev
+    );
+
+    setIsSavingDescriptionOverlay(false);
+    setDescriptionOverlayError(null);
+  }, [
+    canEdit,
+    descriptionOverlayPersona,
+    descriptionOverlayDraft,
+    isSavingDescriptionOverlay,
+    supabase,
+    setActivePersona,
+    setPersonas,
+  ]);
+
   const handleConfirmDeletePersona = useCallback(async () => {
     if (!personaPendingDelete || !canEdit) return;
     const agentId = personaPendingDelete.agent_id;
@@ -2465,7 +2685,7 @@ export default function PersonasPage() {
         delete next[agentId];
         return next;
       });
-      setPersonaExternalArticles((previous) => {
+      setPersonaExternalAddedArticles((previous) => {
         const next = { ...previous };
         delete next[agentId];
         return next;
@@ -2508,7 +2728,7 @@ export default function PersonasPage() {
     setPersonaPendingDelete,
     setExpandedPersonaId,
     setPersonaDocuments,
-    setPersonaExternalArticles,
+        setPersonaExternalAddedArticles,
     setPersonaExternalKnowledgeText,
     setPersonaExternalUpdatedAt,
     setPersonas,
@@ -2542,10 +2762,14 @@ export default function PersonasPage() {
         setPersonaActionsModalView("confirm-delete");
         return;
       }
+      if (option === "share") {
+        void copyPersonaShareHref(personaActionsModalPersona);
+        return;
+      }
       setPersonaActionsModalPersona(null);
       setPersonaActionsModalView("options");
     },
-    [personaActionsModalPersona]
+    [personaActionsModalPersona, copyPersonaShareHref]
   );
 
   const handleQuantUploadClick = () => {
@@ -3030,6 +3254,36 @@ export default function PersonasPage() {
     [isSavingTraits, supabase]
   );
 
+  const persistDescriptionOverlayKeyTraits = useCallback(
+    async (agentId: string, nextTraits: string[]) => {
+      if (isSavingDescriptionOverlayTraits || !descriptionOverlayPersona) return false;
+      setIsSavingDescriptionOverlayTraits(true);
+      setDescriptionOverlayTraitsError(null);
+      const normalizedTraits = nextTraits
+        .map((trait) => trait.trim())
+        .filter((trait) => trait.length > 0);
+      const { error } = await supabase.from("agent_map").update({ key_traits: normalizedTraits }).eq("agent_id", agentId);
+      if (error) {
+        setDescriptionOverlayTraitsError("Unable to update key traits. Please try again.");
+        setIsSavingDescriptionOverlayTraits(false);
+        return false;
+      }
+      const normalizedString = normalizeTraitsInput(normalizedTraits.join(", "));
+      setDescriptionOverlayTraits(normalizedString);
+      setPersonas((prev) =>
+        prev.map((persona) =>
+          persona.agent_id === agentId ? { ...persona, key_traits: normalizedTraits } : persona
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === agentId ? { ...prev, key_traits: normalizedTraits } : prev
+      );
+      setIsSavingDescriptionOverlayTraits(false);
+      return true;
+    },
+    [descriptionOverlayPersona, isSavingDescriptionOverlayTraits, supabase]
+  );
+
   const handleStartChipEdit = useCallback((index: number, trait: string) => {
     setChipEditingIndex(index);
     setChipEditingValue(trait);
@@ -3080,6 +3334,75 @@ export default function PersonasPage() {
     await persistPersonaKeyTraits(activePersona.agent_id, nextTraits);
     handleCancelChipEdit();
   }, [activePersona, chipEditingIndex, chipEditingValue, handleCancelChipEdit, persistPersonaKeyTraits]);
+
+  const handleAddKeyTrait = useCallback(() => {
+    setChipEditingIndex(chipTraitsList.length);
+    setChipEditingValue("");
+    setChipEditDirty(true);
+  }, [chipTraitsList.length]);
+
+  const handleDescriptionOverlayStartEdit = useCallback((index: number, trait: string) => {
+    setDescriptionOverlayChipEditingIndex(index);
+    setDescriptionOverlayChipEditingValue(trait);
+  }, []);
+
+  const handleDescriptionOverlayCancelEdit = useCallback(() => {
+    setDescriptionOverlayChipEditingIndex(null);
+    setDescriptionOverlayChipEditingValue("");
+  }, []);
+
+  const handleDescriptionOverlayDelete = useCallback(
+    (index: number) => {
+      const traits = descriptionOverlayTraitList;
+      if (index < 0 || index >= traits.length) return;
+      const nextTraits = [...traits];
+      nextTraits.splice(index, 1);
+      const nextString = normalizeTraitsInput(nextTraits.join(", "));
+      setDescriptionOverlayTraits(nextString);
+      setDescriptionOverlayChipEditingIndex(null);
+      setDescriptionOverlayChipEditingValue("");
+    },
+    [descriptionOverlayTraitList]
+  );
+
+  const handleDescriptionOverlayAddTrait = useCallback(() => {
+    setDescriptionOverlayChipEditingIndex(descriptionOverlayTraitList.length);
+    setDescriptionOverlayChipEditingValue("");
+  }, [descriptionOverlayTraitList.length]);
+
+  const handleDescriptionOverlayChipCommit = useCallback(async () => {
+    if (
+      descriptionOverlayChipEditingIndex === null ||
+      descriptionOverlayChipEditingIndex < 0 ||
+      !descriptionOverlayPersona ||
+      !descriptionOverlayPersona.agent_id
+    ) {
+      handleDescriptionOverlayCancelEdit();
+      return;
+    }
+    const currentTraits = Array.isArray(descriptionOverlayPersona.key_traits)
+      ? descriptionOverlayPersona.key_traits.map((trait) => trait.trim())
+      : [];
+    const nextTraits = [...currentTraits];
+    const trimmedValue = descriptionOverlayChipEditingValue.trim();
+    if (trimmedValue.length === 0) {
+      if (descriptionOverlayChipEditingIndex < nextTraits.length) {
+        nextTraits.splice(descriptionOverlayChipEditingIndex, 1);
+      }
+    } else if (descriptionOverlayChipEditingIndex < nextTraits.length) {
+      nextTraits[descriptionOverlayChipEditingIndex] = trimmedValue;
+    } else {
+      nextTraits[descriptionOverlayChipEditingIndex] = trimmedValue;
+    }
+    await persistDescriptionOverlayKeyTraits(descriptionOverlayPersona.agent_id, nextTraits);
+    handleDescriptionOverlayCancelEdit();
+  }, [
+    descriptionOverlayChipEditingIndex,
+    descriptionOverlayChipEditingValue,
+    descriptionOverlayPersona,
+    handleDescriptionOverlayCancelEdit,
+    persistDescriptionOverlayKeyTraits,
+  ]);
 
   const commitPersonaTraits = useCallback(async () => {
     if (!activePersona || isSavingTraits) return;
@@ -3920,9 +4243,10 @@ export default function PersonasPage() {
                   });
                   return latest;
                 })();
-                const externalArticles = personaExternalArticles[persona.agent_id] ?? [];
+                const externalArticles = personaExternalAddedArticles[persona.agent_id] ?? [];
                 const externalKnowledgeText = personaExternalKnowledgeText[persona.agent_id] ?? null;
                 const externalUpdatedAt = personaExternalUpdatedAt[persona.agent_id] ?? null;
+                const externalUpdatedRelative = externalUpdatedAt ? formatRelativeTime(externalUpdatedAt) : null;
                 const hasDescription =
                   typeof persona.description === "string" && persona.description.trim().length > 0;
                 const descriptionText = hasDescription
@@ -4283,41 +4607,59 @@ export default function PersonasPage() {
                           <div className="persona-expanded-track">
                             <div className="persona-expanded-block persona-expanded-block--description">
                               <div className="persona-expanded-block__header persona-expanded-block__header--description">
-                                <h4>Description</h4>
-                              </div>
-                              <div
-                                className={`persona-description${
-                                  isDescriptionEditing
-                                    ? " persona-description--editing"
-                                    : hasDescription
-                                      ? ""
-                                      : " persona-description--empty"
-                                }`}
-                                style={isDescriptionEditing && canEdit ? { height: "100%" } : undefined}
-                              >
-                                {isDescriptionEditing && canEdit ? (
-                                  <>
-                                    <textarea
-                                      className="persona-description__input"
-                                      value={descriptionDraft}
-                                      onChange={(event) => setDescriptionDraft(event.target.value)}
-                                      onClick={(event) => event.stopPropagation()}
-                                      onFocus={(event) => event.stopPropagation()}
-                                      onKeyDown={(event) => event.stopPropagation()}
-                                      onKeyUp={(event) => event.stopPropagation()}
-                                      disabled={isSavingDescriptionInline}
-                                      rows={hasDescription ? 5 : 6}
-                                      placeholder="Add a description for this persona"
+                                <div className="persona-expanded-block__header-labels">
+                                  <h4>Key Info</h4>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="persona-expanded-manage"
+                                  aria-label="Open description details"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (persona.agent_id) {
+                                      setDescriptionOverlayPersonaId(persona.agent_id);
+                                    }
+                                  }}
+                                >
+                                  <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 16 16"
+                                    fill="#22325A"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    aria-hidden="true"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0z"
                                     />
-                                    {descriptionInlineError ? (
-                                      <p className="persona-inline-error">{descriptionInlineError}</p>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  <p>{descriptionText}</p>
-                                )}
+                                  </svg>
+                                  <span className="sr-only">Open description details</span>
+                                </button>
                               </div>
+                            <div
+                              className={`persona-description${
+                                isDescriptionEditing
+                                  ? " persona-description--editing"
+                                  : hasDescription
+                                    ? ""
+                                    : " persona-description--empty"
+                              }`}
+                              style={isDescriptionEditing && canEdit ? { height: "100%" } : undefined}
+                            >
+                              {keyTraits.length > 0 ? (
+                                <div className="persona-description__traits">
+                                  {keyTraits.map((trait) => (
+                                    <span key={trait} className="persona-description__trait-chip">
+                                      {trait}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <p className="persona-description__heading">Persona description</p>
+                              <p>{descriptionText}</p>
                             </div>
+                          </div>
                             <div
                               className={`persona-expanded-block${
                                 isDocumentsEditing ? " persona-expanded-block--documents" : ""
@@ -4326,11 +4668,6 @@ export default function PersonasPage() {
                               <div className="persona-expanded-block__header">
                                 <div className="persona-expanded-block__header-labels">
                                   <h4>Docs & Links</h4>
-                                  {documentsUpdatedAt ? (
-                                    <span className="persona-updated-chip">
-                                      Updated {formatDate(documentsUpdatedAt)}
-                                    </span>
-                                  ) : null}
                                 </div>
                                 <button
                                   type="button"
@@ -4453,30 +4790,30 @@ export default function PersonasPage() {
                                         </li>
                                       );
                                     })
-                                  ) : (
-                                    <li>
-                                      <div className="persona-expanded-list-item">
-                                        {documentsLoading
-                                          ? "Loading data sources…"
-                                          : documentsError
-                                            ? "Unable to load data sources."
-                                            : "No data sources added yet."}
-                                      </div>
-                                    </li>
-                                  )}
-                                </ul>
-                              )}
-                            </div>
+                                ) : (
+                                  <li>
+                                    <div className="persona-expanded-list-item">
+                                      {documentsLoading
+                                        ? "Loading data sources…"
+                                        : documentsError
+                                          ? "Unable to load data sources."
+                                          : "No data sources added yet."}
+                                    </div>
+                                  </li>
+                                )}
+                              </ul>
+                            )}
+                            {documentsUpdatedAt ? (
+                              <span className="persona-expanded-block__updated-flag">
+                                Updated {formatDate(documentsUpdatedAt)}
+                              </span>
+                            ) : null}
+                          </div>
                             <div className="persona-expanded-block persona-expanded-block--external">
                               <div className="persona-expanded-block__header">
                                 <div className="persona-expanded-block__header-labels">
                                   <h4>Supporting Research</h4>
-                                  {externalUpdatedAt ? (
-                                    <span className="persona-updated-chip">
-                                      Updated {formatDate(externalUpdatedAt)}
-                                    </span>
-                                  ) : null}
-                                </div>
+                                  </div>
                                 <button
                                   type="button"
                                   className="persona-expanded-external-manage"
@@ -4502,7 +4839,8 @@ export default function PersonasPage() {
                                   <span className="sr-only">Manage external sources</span>
                                 </button>
                               </div>
-                              <ul className="persona-expanded-list">
+                              <div className="persona-expanded-block__list-wrapper">
+                                <ul className="persona-expanded-list">
                                 {externalArticles.length > 0 ? (
                                   externalArticles.map((article, index) => {
                                     const displayTitle = article.title || article.url || "Untitled source";
@@ -4545,7 +4883,28 @@ export default function PersonasPage() {
                                     </div>
                                   </li>
                                 )}
-                              </ul>
+                                </ul>
+                                {externalUpdatedAt ? (
+                                  <span className="persona-expanded-block__updated-flag">
+                                    Updated {formatDate(externalUpdatedAt)}
+                                  </span>
+                                ) : null}
+                                {personaResearchRecord?.currentJobStatus === "pending" && (
+                                      <div className="persona-expanded-block__overlay">
+                                        <span
+                                          aria-hidden="true"
+                                          className="persona-research-spinner"
+                                        />
+                                        <span>Researching</span>
+                                        {externalUpdatedAt ? (
+                                          <span className="persona-expanded-block__overlay-note">
+                                            Started {formatDate(externalUpdatedAt)}
+                                            {externalUpdatedRelative ? ` · ${externalUpdatedRelative}` : ""}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -4768,28 +5127,89 @@ export default function PersonasPage() {
 
                                   </div>
                                   <div className="persona-edit-key-traits">
-                                    <textarea
-                                      id="persona-edit-key-traits-input"
-                                      value={editingTraits}
-                                      onChange={(event) => {
-                                        setEditingTraits(event.target.value);
-                                        setTraitsError(null);
-                                      }}
-                                      onKeyDown={(event) => {
-                                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                                          event.preventDefault();
-                                          void commitPersonaTraits();
-                                        } else if (event.key === "Escape") {
-                                          event.preventDefault();
-                                          handleClearKeyTraits();
-                                          (event.currentTarget as HTMLTextAreaElement).blur();
-                                        }
-                                      }}
-                                      placeholder="Enter key traits separated by commas"
-                                      rows={2}
-                                      disabled={isSavingTraits}
-                                      aria-label="Key traits"
-                                    />
+                                    <div className="persona-edit-key-traits__chips">
+                                      {chipTraitsList.map((trait, index) => (
+                                        <div key={`persona-key-trait-${index}`} className="persona-edit-key-trait">
+                                          {chipEditingIndex === index ? (
+                                            <input
+                                              id={`persona-edit-key-trait-${index}`}
+                                              className="persona-edit-key-trait__input"
+                                              value={chipEditingValue}
+                                              placeholder="Add key trait"
+                                              autoFocus
+                                              onChange={(event) => {
+                                                setChipEditingValue(event.target.value);
+                                                setChipEditDirty(true);
+                                              }}
+                                              onBlur={() => {
+                                                void handleChipEditCommit();
+                                              }}
+                                              onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                  event.preventDefault();
+                                                  void handleChipEditCommit();
+                                                } else if (event.key === "Escape") {
+                                                  event.preventDefault();
+                                                  handleCancelChipEdit();
+                                                }
+                                              }}
+                                            />
+                                          ) : (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="persona-edit-key-trait__label"
+                                                onClick={() => handleStartChipEdit(index, trait)}
+                                              >
+                                                {trait}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="persona-edit-key-trait__remove"
+                                                aria-label={`Remove ${trait}`}
+                                                onClick={() => handleChipDelete(index)}
+                                              >
+                                                ×
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                      {chipEditingIndex === chipTraitsList.length && (
+                                        <div className="persona-edit-key-trait">
+                                          <input
+                                            id="persona-edit-key-trait-new"
+                                            className="persona-edit-key-trait__input"
+                                            value={chipEditingValue}
+                                            placeholder="Add key trait"
+                                            onChange={(event) => {
+                                              setChipEditingValue(event.target.value);
+                                              setChipEditDirty(true);
+                                            }}
+                                            onBlur={() => {
+                                              void handleChipEditCommit();
+                                            }}
+                                            onKeyDown={(event) => {
+                                              if (event.key === "Enter") {
+                                                event.preventDefault();
+                                                void handleChipEditCommit();
+                                              } else if (event.key === "Escape") {
+                                                event.preventDefault();
+                                                handleCancelChipEdit();
+                                              }
+                                            }}
+                                            autoFocus
+                                          />
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="persona-edit-key-traits__add"
+                                        onClick={handleAddKeyTrait}
+                                      >
+                                        Add trait
+                                      </button>
+                                    </div>
                                     {isSavingTraits ? (
                                       <span className="persona-edit-status">Saving…</span>
                                     ) : traitsError ? (
@@ -5401,6 +5821,11 @@ export default function PersonasPage() {
                                 ) : null}
                               </button>
                             ))}
+                            {personaShareLinkCopied ? (
+                              <p className="persona-actions-modal-share-status" role="status">
+                                Persona link copied to clipboard.
+                              </p>
+                            ) : null}
                           </div>
                         </>
                       )}
@@ -6113,6 +6538,18 @@ export default function PersonasPage() {
             max-height: 100%;
             overflow: hidden;
             height: 100%;
+            position: relative;
+          }
+          .persona-expanded-block--overlay {
+            border: none;
+            background: transparent;
+            padding-left: 0;
+          }
+          .persona-expanded-block__list-wrapper {
+            position: relative;
+            flex: 1 1 auto;
+            overflow: auto;
+            padding-right: 4px;
           }
           .persona-expanded-block--description {
             flex-basis: min(420px, calc(100% - 32px));
@@ -6130,6 +6567,50 @@ export default function PersonasPage() {
             justify-content: space-between;
             gap: 12px;
           }
+          .persona-expanded-block__overlay {
+            position: absolute;
+            bottom: 14px;
+            right: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.85);
+            font-weight: 500;
+            color: #fff;
+            z-index: 2;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.35);
+            pointer-events: none;
+          }
+          .persona-expanded-block__overlay-note {
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.7);
+            font-weight: 500;
+          }
+          .persona-expanded-block__updated-flag {
+            position: absolute;
+            bottom: 12px;
+            right: 14px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+            opacity: 0;
+            transform: translateY(2px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            pointer-events: none;
+          }
+          .persona-expanded-block--external:hover .persona-expanded-block__updated-flag,
+          .persona-expanded-block--external:focus-within .persona-expanded-block__updated-flag,
+          .persona-expanded-block--documents:hover .persona-expanded-block__updated-flag,
+          .persona-expanded-block--documents:focus-within .persona-expanded-block__updated-flag {
+            opacity: 1;
+            transform: translateY(0);
+          }
           .persona-updated-chip {
             display: inline-flex;
             align-items: center;
@@ -6142,15 +6623,98 @@ export default function PersonasPage() {
             color: rgba(15, 23, 42, 0.55);
             white-space: nowrap;
           }
+          .persona-research-spinner {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid rgba(15, 23, 42, 0.25);
+            border-top-color: #0f172a;
+            animation: persona-research-spinner 1s linear infinite;
+            display: inline-block;
+          }
+          @keyframes persona-research-spinner {
+            to {
+              transform: rotate(360deg);
+            }
+          }
           .persona-description {
             flex: 1 1 auto;
             min-height: 0;
             display: flex;
+            flex-direction: column;
             align-items: flex-start;
             color: rgba(30, 41, 59, 0.78);
             font-size: 14px;
             line-height: 1.6;
             margin: 0;
+            max-height: 360px;
+            overflow: hidden;
+          }
+          .persona-description-overlay {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+          }
+          .persona-description-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .persona-description-section__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+          }
+          .persona-description-section__reset {
+            background: transparent;
+            border: none;
+            color: rgba(15, 23, 42, 0.65);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 0;
+            cursor: pointer;
+          }
+          .persona-description-section__reset:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+          .persona-description__heading {
+            margin: 0 0 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.65);
+            letter-spacing: 0.3px;
+          }
+          .persona-description__traits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+          }
+          .persona-description__trait-chip {
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .persona-description__traits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+          }
+          .persona-description__trait-chip {
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
           }
           .persona-description__chip-row {
             display: flex;
@@ -6205,6 +6769,37 @@ export default function PersonasPage() {
             align-items: center;
             gap: 6px;
           }
+          .persona-description__input {
+            width: 100%;
+            flex: 1;
+            min-height: 160px;
+            max-height: 220px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.35);
+            padding: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.5;
+            background: #f8fafc;
+            box-sizing: border-box;
+            resize: vertical;
+            overflow-y: auto;
+          }
+          .persona-description__input {
+            width: 100%;
+            min-height: 160px;
+            max-height: 220px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.35);
+            padding: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.5;
+            background: #f8fafc;
+            box-sizing: border-box;
+            resize: vertical;
+            overflow-y: auto;
+          }
           .persona-description__chip-close {
             font-size: 11px;
             color: rgba(15, 23, 42, 0.6);
@@ -6231,6 +6826,18 @@ export default function PersonasPage() {
             margin: 0;
             word-break: break-word;
           }
+          .persona-description-section__heading {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.65);
+            letter-spacing: 0.3px;
+          }
+          .persona-description-section__empty {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(15, 23, 42, 0.6);
+          }
           .persona-description__input {
             width: 100%;
             min-height: 100%;
@@ -6244,6 +6851,9 @@ export default function PersonasPage() {
             color: rgba(15, 23, 42, 0.92);
             background: rgba(30, 41, 59, 0.06);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          }
+          .persona-description__input--overlay {
+            min-height: 140px;
           }
           .persona-description__input:focus {
             outline: none;
@@ -7757,8 +8367,7 @@ export default function PersonasPage() {
             gap: 8px;
             padding: 6px 12px;
             border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            background: transparent;
+            background: rgba(59, 130, 246, 0.08);
             color: #1d4ed8;
             font-size: 12px;
             font-weight: 600;
@@ -7865,6 +8474,11 @@ export default function PersonasPage() {
           }
           .persona-actions-modal-option--danger .persona-actions-modal-option-description {
             color: #b91c1c;
+          }
+          .persona-actions-modal-share-status {
+            margin-top: 12px;
+            font-size: 12px;
+            color: rgba(15, 23, 42, 0.7);
           }
           .persona-actions-confirm {
             display: flex;
@@ -8104,32 +8718,80 @@ export default function PersonasPage() {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            margin-top: 16px;
             width: 100%;
           }
-          .persona-edit-key-traits label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: rgba(226, 232, 240, 0.75);
+          .persona-edit-key-traits__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
           }
-          .persona-edit-key-traits textarea {
-            border-radius: 12px;
-            border: 1px solid rgba(43, 108, 176, 0.35);
+          .persona-edit-key-trait {
+            border: 1px dashed rgba(15, 23, 42, 0.3);
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.8);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            transition: border 0.18s ease, background 0.18s ease;
+          }
+          .persona-edit-key-trait__label {
             background: transparent;
-            color: #052033;
-            padding: 10px 14px;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: rgba(15, 23, 42, 0.85);
             font-size: 13px;
-            line-height: 1.5;
-            resize: vertical;
-            min-height: 56px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
           }
-          .persona-edit-key-traits textarea::placeholder {
-            color: rgba(203, 213, 245, 0.55);
+          .persona-edit-key-trait__remove {
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(15, 23, 42, 0.1);
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.18s ease;
           }
-          .persona-edit-key-traits textarea:focus-visible {
-            outline: 2px solid rgba(43, 108, 176, 0.6);
-            outline-offset: 3px;
+          .persona-edit-key-trait__remove:hover,
+          .persona-edit-key-trait__remove:focus-visible {
+            background: rgba(248, 113, 113, 0.3);
+            outline: none;
+          }
+          .persona-edit-key-trait__input {
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.85);
+            min-width: 80px;
+          }
+          .persona-edit-key-trait__input:focus-visible {
+            outline: none;
+          }
+          .persona-edit-key-traits__add {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px dashed rgba(15, 23, 42, 0.3);
+            background: rgba(248, 250, 252, 0.8);
+            color: rgba(15, 23, 42, 0.85);
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: border 0.18s ease, background 0.18s ease;
           }
           .persona-edit-static-traits {
             display: flex;
@@ -9448,13 +10110,23 @@ export default function PersonasPage() {
               open
               onRequestClose={closeResearchOverlay}
               title={
-                <div className="research-overlay__header-content">
-                  <span>{selectedAgent.personaName}</span>
-                  <p className="research-overlay__updated">
+                <div className="research-overlay__title">
+                  <div>{`Supporting Research for ${selectedAgent.personaName}`}</div>
+                  <p className="research-overlay__updated research-overlay__updated--title">
                     Last updated{" "}
                     <strong>{formatResearchUpdatedAt(selectedAgent.updatedAt)}</strong>{" "}
                     <span className="research-overlay__refresh-note">(refreshes weekly)</span>
                   </p>
+                  {personaPreviewHref ? (
+                    <a
+                      className="research-overlay__preview-link"
+                      href={personaPreviewHref}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {personaPreviewHref}
+                    </a>
+                  ) : null}
                 </div>
               }
               titleId={overlayTitleId}
@@ -9472,10 +10144,198 @@ export default function PersonasPage() {
                 onPromptSave={handlePromptSaveCurrent}
                 onClearPrompt={handleClearPrompt}
                 onRemoveArticle={handleRemoveSourcedArticle}
+                onAddArticle={handleAddResearchArticle}
                 overlayTitleId={overlayTitleId}
                 overlayDescriptionId={overlayDescriptionId}
-                lastUpdatedLabel={formatResearchUpdatedAt(selectedAgent.updatedAt)}
               />
+            </SlidingPanelOverlay>
+          ) : null}
+          {descriptionOverlayPersona ? (
+            <SlidingPanelOverlay
+              open
+              onRequestClose={closeDescriptionOverlay}
+              title={<div className="persona-expanded-block__header-labels">{descriptionOverlayPersona.agent_name}</div>}
+              titleId={descriptionOverlayTitleId}
+              descriptionId={descriptionOverlayDescriptionId}
+            >
+            <section className="persona-expanded-block persona-expanded-block--description persona-expanded-block--overlay">
+                <div className="persona-description-overlay">
+                  <div className="persona-description-section">
+                    <p className="persona-description-section__heading">Key traits</p>
+                    {canEdit ? (
+                      <div className="persona-edit-key-traits">
+                        <div className="persona-edit-key-traits__chips">
+                          {descriptionOverlayTraitList.map((trait, index) => (
+                            <div
+                              key={`description-overlay-trait-${trait}-${index}`}
+                              className="persona-edit-key-trait"
+                            >
+                              {descriptionOverlayChipEditingIndex === index ? (
+                                <input
+                                  id={`description-overlay-trait-${index}`}
+                                  className="persona-edit-key-trait__input"
+                                  value={descriptionOverlayChipEditingValue}
+                                  placeholder="Add key trait"
+                                  autoFocus
+                                  onChange={(event) => {
+                                    setDescriptionOverlayChipEditingValue(event.target.value);
+                                  }}
+                                  onBlur={() => {
+                                    void handleDescriptionOverlayChipCommit();
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                      event.preventDefault();
+                                      void handleDescriptionOverlayChipCommit();
+                                    } else if (event.key === "Escape") {
+                                      event.preventDefault();
+                                      handleDescriptionOverlayCancelEdit();
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="persona-edit-key-trait__label"
+                                    onClick={() => handleDescriptionOverlayStartEdit(index, trait)}
+                                  >
+                                    {trait}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="persona-edit-key-trait__remove"
+                                    aria-label={`Remove ${trait}`}
+                                    onClick={() => handleDescriptionOverlayDelete(index)}
+                                  >
+                                    ×
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                          {descriptionOverlayChipEditingIndex === descriptionOverlayTraitList.length && (
+                            <div className="persona-edit-key-trait">
+                              <input
+                                id="description-overlay-trait-new"
+                                className="persona-edit-key-trait__input"
+                                value={descriptionOverlayChipEditingValue}
+                                placeholder="Add key trait"
+                                autoFocus
+                                onChange={(event) => {
+                                  setDescriptionOverlayChipEditingValue(event.target.value);
+                                }}
+                                onBlur={() => {
+                                  void handleDescriptionOverlayChipCommit();
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    void handleDescriptionOverlayChipCommit();
+                                  } else if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    handleDescriptionOverlayCancelEdit();
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className="persona-edit-key-traits__add"
+                            onClick={handleDescriptionOverlayAddTrait}
+                          >
+                            Add trait
+                          </button>
+                        </div>
+                        {descriptionOverlayTraitList.length === 0 ? (
+                          <p className="persona-description-section__empty">No key traits added yet.</p>
+                        ) : null}
+                        {isSavingDescriptionOverlayTraits ? (
+                          <span className="persona-edit-status">Saving…</span>
+                        ) : descriptionOverlayTraitsError ? (
+                          <span className="persona-edit-error persona-edit-error--inline">
+                            {descriptionOverlayTraitsError}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : descriptionOverlayTraitList.length > 0 ? (
+                      <div className="persona-description__traits">
+                        {descriptionOverlayTraitList.map((trait) => (
+                          <span key={trait} className="persona-description__trait-chip">
+                            {trait}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="persona-description-section__empty">No key traits added yet.</p>
+                    )}
+                  </div>
+                  <div className="persona-description-section">
+                    <p className="persona-description-section__heading">Persona description</p>
+                    {canEdit ? (
+                      <>
+                        <textarea
+                          className="persona-description__input persona-description__input--overlay"
+                          value={descriptionOverlayDraft}
+                          placeholder={
+                            descriptionOverlayPersona.description && descriptionOverlayPersona.description.trim().length > 0
+                              ? undefined
+                              : "No description provided yet."
+                          }
+                          onChange={(event) => {
+                            setDescriptionOverlayDraft(event.target.value);
+                            setDescriptionOverlayError(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                              event.preventDefault();
+                              void handleSaveDescriptionOverlay();
+                            } else if (event.key === "Escape") {
+                              event.preventDefault();
+                              setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
+                              setDescriptionOverlayError(null);
+                              (event.currentTarget as HTMLTextAreaElement).blur();
+                            }
+                          }}
+                          disabled={isSavingDescriptionOverlay}
+                        />
+                        {descriptionOverlayError ? (
+                          <p className="persona-edit-error">{descriptionOverlayError}</p>
+                        ) : null}
+                        <div className="persona-description-section__actions">
+                          <PillButton
+                            type="button"
+                            onClick={() => {
+                              void handleSaveDescriptionOverlay();
+                            }}
+                            disabled={isSavingDescriptionOverlay}
+                          >
+                            {isSavingDescriptionOverlay ? "Saving…" : "Save description"}
+                          </PillButton>
+                          <button
+                            type="button"
+                            className="persona-description-section__reset"
+                            onClick={() => {
+                              setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
+                              setDescriptionOverlayError(null);
+                            }}
+                            disabled={isSavingDescriptionOverlay}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <p>
+                        {descriptionOverlayPersona.description && descriptionOverlayPersona.description.trim().length > 0
+                          ? descriptionOverlayPersona.description
+                          : "No description provided yet."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
             </SlidingPanelOverlay>
           ) : null}
         </main>

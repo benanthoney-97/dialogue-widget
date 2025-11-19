@@ -147,23 +147,6 @@ export default function Sidebar() {
     ),
   };
 
-  const insightsNavItem: NavItem = {
-    label: "Insights",
-    href: `/client/${clientId}/insights`,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8 M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"
-          fill="#22325A"
-        />
-        <path
-          d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5 M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"
-          fill="#22325A"
-        />
-      </svg>
-    ),
-  };
-
   const navItems = [
     {
       label: "Personas",
@@ -206,7 +189,6 @@ export default function Sidebar() {
         </svg>
       ),
     },
-    insightsNavItem,
     {
       label: "New Persona",
       href: `/client/${clientId}/upload`,
@@ -283,12 +265,62 @@ export default function Sidebar() {
   };
 
   const buildNavItems: NavItem[] = [];
-  const testNavItems: NavItem[] = [];
   const launchNavItems: NavItem[] = [teamItem, liveHelpItem];
+  const newCampaignIcon = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="#0A2342"
+      viewBox="0 0 16 16"
+    >
+      <path d="M10.067.87a2.89 2.89 0 0 0-4.134 0l-.622.638-.89-.011a2.89 2.89 0 0 0-2.924 2.924l.01.89-.636.622a2.89 2.89 0 0 0 0 4.134l.637.622-.011.89a2.89 2.89 0 0 0 2.924 2.924l.89-.01.622.636a2.89 2.89 0 0 0 4.134 0l.622-.637.89.011a2.89 2.89 0 0 0 2.924-2.924l-.01-.89.636-.622a2.89 2.89 0 0 0 0-4.134l-.637-.622.011-.89a2.89 2.89 0 0 0-2.924-2.924l-.89.01zM8.5 6v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 1 0"/>
+    </svg>
+  );
+  const responsesIcon = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="#091F5B"
+      viewBox="0 0 16 16"
+    >
+      <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+  const campaignIcon = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="#142B4A"
+      className="bi bi-megaphone"
+      viewBox="0 0 16 16"
+    >
+      <path d="M13 2.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0v-.214c-2.162-1.241-4.49-1.843-6.912-2.083l.405 2.712A1 1 0 0 1 5.51 15.1h-.548a1 1 0 0 1-.916-.599l-1.85-3.49-.202-.003A2.014 2.014 0 0 1 0 9V7a2.02 2.02 0 0 1 1.992-2.013 75 75 0 0 0 2.483-.075c3.043-.154 6.148-.849 8.525-2.199zm1 0v11a.5.5 0 0 0 1 0v-11a.5.5 0 0 0-1 0m-1 1.35c-2.344 1.205-5.209 1.842-8 2.033v4.233q.27.015.537.036c2.568.189 5.093.744 7.463 1.993zm-9 6.215v-4.13a95 95 0 0 1-1.992.052A1.02 1.02 0 0 0 1 7v2c0 .55.448 1.002 1.006 1.009A61 61 0 0 1 4 10.065m-.657.975 1.609 3.037.01.024h.548l-.002-.014-.443-2.966a68 68 0 0 0-1.722-.082z"/>
+    </svg>
+  );
+  const customerNavItems: NavItem[] = [
+    {
+      label: "Campaigns",
+      href: `/client/${clientId}/campaigns`,
+      icon: campaignIcon,
+    },
+    {
+      label: "Results",
+      href: `/client/${clientId}/responses`,
+      icon: responsesIcon,
+    },
+    {
+      label: "New Campaign",
+      href: `/client/${clientId}/campaigns/new`,
+      icon: newCampaignIcon,
+    },
+  ];
   const allNavItems: NavItem[] = [
     ...visibleNavItems,
     ...buildNavItems,
-    ...testNavItems,
+    ...customerNavItems,
     ...launchNavItems,
   ];
   const pathMatches = (href: string) => Boolean(pathname && pathname.startsWith(href));
@@ -321,6 +353,56 @@ export default function Sidebar() {
     textDecoration: "none",
     cursor: "pointer",
     transition: "background 0.18s, color 0.18s, padding 0.18s, gap 0.18s, justify-content 0.18s",
+  };
+
+  const renderPrimaryNavItem = (item: NavItem) => {
+    const active = activeNavHref === item.href;
+    const hovered = hoveredNavHref === item.href;
+    const primaryBorderRadius = collapsed ? 10 : "0 10px 10px 0";
+    const gapSize = collapsed ? 0 : item.icon ? 8 : 0;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        style={{
+          ...sharedNavStyle,
+          padding: "10px 12px",
+          paddingLeft: navLeftPadding,
+          color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+          background: active
+            ? `rgba(var(--accent-rgb, 43,108,176), 0.12)`
+            : hovered
+            ? `rgba(var(--accent-rgb, 43,108,176), 0.08)`
+            : "none",
+          borderRadius: primaryBorderRadius,
+          fontWeight: 600,
+          fontSize: 13,
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: gapSize,
+          marginRight: active && !collapsed ? 16 : 0,
+        }}
+        title={item.label}
+        aria-label={item.label}
+        onMouseEnter={() => setHoveredNavHref(item.href)}
+        onMouseLeave={() => setHoveredNavHref(null)}
+      >
+        {item.icon && (
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: 20,
+              display: "flex",
+              alignItems: "center",
+              color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
+              transition: "color 0.18s ease",
+            }}
+          >
+            {item.icon}
+          </span>
+        )}
+        <span style={labelVisibilityStyle}>{item.label}</span>
+      </Link>
+    );
   };
 
   const renderSecondaryNavItem = (item: NavItem) => {
@@ -453,63 +535,14 @@ export default function Sidebar() {
         </button>
       </div>
       {renderHeading("Explore", 0)}
-      {visibleNavItems.map((item) => {
-        const active = activeNavHref === item.href;
-        const hovered = hoveredNavHref === item.href;
-        const primaryBorderRadius = collapsed ? 10 : "0 10px 10px 0";
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              ...sharedNavStyle,
-              padding: "10px 12px",
-              paddingLeft: navLeftPadding,
-              color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-              background: active
-                ? `rgba(var(--accent-rgb, 43,108,176), 0.12)`
-                : hovered
-                ? `rgba(var(--accent-rgb, 43,108,176), 0.08)`
-                : "none",
-              borderRadius: primaryBorderRadius,
-              fontWeight: 600,
-              fontSize: 13,
-              justifyContent: collapsed ? "center" : "flex-start",
-              gap: collapsed ? 0 : 8,
-              marginRight: active && !collapsed ? 16 : 0,
-            }}
-            title={item.label}
-            aria-label={item.label}
-            onMouseEnter={() => setHoveredNavHref(item.href)}
-            onMouseLeave={() => setHoveredNavHref(null)}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                fontSize: 20,
-                display: "flex",
-                alignItems: "center",
-                color: active ? "var(--text, #052033)" : "var(--accent-2, #7fb3ff)",
-                transition: "color 0.18s ease",
-              }}
-            >
-              {item.icon}
-            </span>
-            <span style={labelVisibilityStyle}>{item.label}</span>
-          </Link>
-        );
-      })}
+      {visibleNavItems.map(renderPrimaryNavItem)}
       {buildNavItems.length > 0 && (
         <div style={{ marginTop: sectionHeadingMarginTop }}>
           {buildNavItems.map(renderSecondaryNavItem)}
         </div>
       )}
-      {testNavItems.length > 0 && (
-        <div style={{ marginTop: sectionHeadingMarginTop }}>
-          {testNavItems.map(renderSecondaryNavItem)}
-        </div>
-      )}
+      {renderHeading("Customers", sectionHeadingMarginTop)}
+      {customerNavItems.map(renderPrimaryNavItem)}
       <div style={{ flex: 1 }} />
       <div
         style={{

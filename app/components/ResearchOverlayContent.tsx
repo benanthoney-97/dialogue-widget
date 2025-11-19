@@ -9,6 +9,7 @@ export type AgentResearchRecord = {
   knowledgeText: string | null;
   updatedAt: string | null;
   sourcedArticles: Array<{ title: string; url: string }>;
+  addedArticles: Array<{ title: string; url: string }>;
   sourcedArticlesCount: number;
   watchlistQuery: string | null;
   currentJobStatus?: string | null;
@@ -28,9 +29,9 @@ type ResearchOverlayContentProps = {
   onPromptSave: () => void;
   onClearPrompt: () => void;
   onRemoveArticle: (url: string) => void;
+  onAddArticle: (article: { title: string | null; url: string | null }) => void;
   overlayTitleId: string;
   overlayDescriptionId: string;
-  lastUpdatedLabel: string;
 };
 
 export default function ResearchOverlayContent({
@@ -45,21 +46,14 @@ export default function ResearchOverlayContent({
   onPromptSave,
   onClearPrompt,
   onRemoveArticle,
+  onAddArticle,
   overlayTitleId,
   overlayDescriptionId,
-  lastUpdatedLabel,
 }: ResearchOverlayContentProps) {
   if (!agent) return null;
 
   return (
     <>
-      <div className="research-overlay__header-content">
-        <span>{agent.personaName}</span>
-        <p className="research-overlay__updated">
-          Last updated <strong>{lastUpdatedLabel}</strong>{" "}
-          <span className="research-overlay__refresh-note">(refreshes weekly)</span>
-        </p>
-      </div>
       <div className="research-overlay__tabs">
         <button
           type="button"
@@ -76,25 +70,34 @@ export default function ResearchOverlayContent({
           Prompt
         </button>
       </div>
+      <div className="research-overlay__metadata">
+        <p className="research-overlay__updated">
+        </p>
+      </div>
       <div id={overlayDescriptionId} className="research-overlay__body">
         {activeTab === "research" ? (
           <div className="research-overlay__content">
             <div className="research-overlay__actions-stack">
               <p className="research-overlay__sources-heading">New articles</p>
-              <p className="research-overlay__actions-placeholder">
-                New articles will appear here once they are queued for evaluation.
-              </p>
-            </div>
-            <div className="research-overlay__main" role="group" aria-labelledby={overlayTitleId}>
-              <section className="research-overlay__snapshot-panel" aria-label="Knowledge snapshot">
-                <p className="research-overlay__snapshot-heading">Added knowledge</p>
-                {agent.sourcedArticles.length > 0 ? (
-                  <ul className="research-overlay__sources-list">
-                    {agent.sourcedArticles.map((article) => (
-                      <li key={article.url} className="research-overlay__knowledge-item">
+              {agent.sourcedArticles.length > 0 ? (
+                <ul className="research-overlay__sources-list">
+                  {agent.sourcedArticles.map((article) => (
+                    <li key={article.url} className="research-overlay__knowledge-item">
+                      <div className="research-overlay__knowledge-controls">
                         <button
                           type="button"
-                          className="research-overlay__knowledge-close"
+                          className="research-overlay__knowledge-button research-overlay__knowledge-back"
+                          aria-label="Add research"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onAddArticle(article);
+                          }}
+                        >
+                          Add research
+                        </button>
+                        <button
+                          type="button"
+                          className="research-overlay__knowledge-button research-overlay__knowledge-close"
                           aria-label="Remove sourced article"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -102,16 +105,40 @@ export default function ResearchOverlayContent({
                             onRemoveArticle(article.url);
                           }}
                         >
-                          ×
+                          Remove
                         </button>
+                      </div>
+                      <a href={article.url} target="_blank" rel="noreferrer">
+                        {article.title}
+                      </a>
+                      <p className="research-overlay__source-url">{article.url}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="research-overlay__actions-placeholder">
+                  New articles will appear here once they are queued for evaluation.
+                </p>
+              )}
+            </div>
+            <div className="research-overlay__main" role="group" aria-labelledby={overlayTitleId}>
+              <section className="research-overlay__snapshot-panel" aria-label="Knowledge snapshot">
+                <p className="research-overlay__snapshot-heading">Added Research</p>
+                {agent.addedArticles.length > 0 ? (
+                  <ul className="research-overlay__sources-list">
+                    {agent.addedArticles.map((article) => (
+                      <li key={article.url} className="research-overlay__knowledge-item">
                         <a href={article.url} target="_blank" rel="noreferrer">
                           {article.title}
                         </a>
+                        <p className="research-overlay__source-url">{article.url}</p>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="research-overlay__actions-placeholder">No knowledge yet.</p>
+                  <p className="research-overlay__actions-placeholder">
+                    Knowledge sources show here once they’re incorporated into the agent’s understanding.
+                  </p>
                 )}
               </section>
             </div>
@@ -165,29 +192,33 @@ export default function ResearchOverlayContent({
         )}
       </div>
       <style jsx global>{`
-        .research-overlay__header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+        .research-overlay__updated,
+        .research-overlay__updated strong,
+        .research-overlay__refresh-note {
+          font-size: 10px;
+          font-weight: 400;
+          letter-spacing: 0.2px;
+          color: rgba(15, 23, 42, 0.7);
+          font-family: ${BODY_FONT_STACK};
         }
-        .research-overlay__header-content {
+        .research-overlay__title {
           display: flex;
           flex-direction: column;
           gap: 4px;
         }
-        .research-overlay__updated {
-          margin: 0;
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.68);
+        .research-overlay__preview-link {
+          font-size: 10px;
+          font-weight: 400;
+          letter-spacing: 0.2px;
+          color: rgba(15, 23, 42, 0.7);
           font-family: ${BODY_FONT_STACK};
+          display: block;
+          margin-top: 2px;
+          word-break: break-all;
         }
-        .research-overlay__refresh-note {
-          font-size: 12px;
-          color: rgba(15, 23, 42, 0.68);
-          font-family: ${BODY_FONT_STACK};
-          text-transform: none;
-          margin-left: 6px;
+        .research-overlay__preview-link:hover,
+        .research-overlay__preview-link:focus-visible {
+          text-decoration: underline;
         }
         .research-overlay__tabs {
           display: flex;
@@ -282,7 +313,7 @@ export default function ResearchOverlayContent({
         }
         .research-overlay__actions-placeholder {
           margin: 0;
-          font-size: 14px;
+          font-size: 12px;
           color: rgba(15, 23, 42, 0.72);
         }
         .research-overlay__sources-list {
@@ -299,26 +330,49 @@ export default function ResearchOverlayContent({
           padding: 10px 12px;
           background: rgba(255, 255, 255, 0.9);
           position: relative;
+          font-size: 12px;
         }
-        .research-overlay__knowledge-close {
+        .research-overlay__knowledge-controls {
           position: absolute;
-          top: 6px;
+          bottom: 6px;
           right: 6px;
-          width: 24px;
-          height: 24px;
+          display: flex;
+          gap: 6px;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.2s ease;
+        }
+        .research-overlay__knowledge-item:hover .research-overlay__knowledge-controls {
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .research-overlay__knowledge-button {
+          min-width: 60px;
+          height: 28px;
           border: none;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.08);
-          color: #0f172a;
-          font-size: 14px;
+          font-size: 10px;
+          letter-spacing: 0.04em;
           line-height: 1;
-          display: none;
           cursor: pointer;
-        }
-        .research-overlay__knowledge-item:hover .research-overlay__knowledge-close {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
+          padding: 0 10px;
+        }
+        .research-overlay__knowledge-close {
+          background: rgba(15, 23, 42, 0.2);
+          color: #0f172a;
+        }
+        .research-overlay__knowledge-back {
+          background: rgba(16, 185, 129, 0.32);
+          color: #064e3b;
+        }
+        .research-overlay__source-url {
+          margin: 4px 0 0;
+          font-size: 10px;
+          color: rgba(15, 23, 42, 0.6);
+          word-break: break-all;
         }
         .research-overlay__prompt-panel {
           width: 100%;

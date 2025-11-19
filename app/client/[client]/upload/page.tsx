@@ -541,6 +541,11 @@ export default function UploadPage() {
   const personaNameFormId = "persona-name-form";
   const personaImageInputId = "persona-image-upload";
   const [personaDescription, setPersonaDescription] = useState<string>("");
+  const [painPoints, setPainPoints] = useState<string>("");
+  const [jobsToBeDone, setJobsToBeDone] = useState<string>("");
+  const [activeResourceDetail, setActiveResourceDetail] = useState<
+    "description" | "painPoints" | "jobs" | ""
+  >("");
   const personaRoleDisplay = personaTaglineTrimmed || "Their role";
   const [personaImagePreview, setPersonaImagePreview] = useState<string | null>(null);
   const resourceImageStyle = personaImagePreview
@@ -816,6 +821,8 @@ export default function UploadPage() {
             : undefined,
           personaTagline: personaTagline.trim() || null,
           personaDescription: personaDescription.trim() || null,
+          painPoints: painPoints.trim() || null,
+          jobsToBeDone: jobsToBeDone.trim() || null,
           customer_status: personaCategory,
           personaGuidance: selectedGuidance ?? null,
           personaSetting: selectedSetting ?? null,
@@ -1077,11 +1084,13 @@ export default function UploadPage() {
                   <textarea
                     value={personaDescription}
                     onChange={(event) => setPersonaDescription(event.target.value)}
+                    onFocus={() => setActiveResourceDetail("description")}
+                    onBlur={() => setActiveResourceDetail("")}
                     placeholder="Describe pain points, intent signals, behavioural traits, and more context."
-                    rows={5}
+                    rows={3}
                     style={{
                       width: "100%",
-                      minHeight: 120,
+                      minHeight: 80,
                       borderRadius: 12,
                       border: "1px solid rgba(30, 41, 59, 0.18)",
                       padding: "14px 16px",
@@ -1150,6 +1159,68 @@ export default function UploadPage() {
                     </button>
                   </div>
                 </div>
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    marginTop: 20,
+                  }}
+                >
+                  <span className="persona-description-input-label">Pain Points</span>
+                  <textarea
+                    value={painPoints}
+                    onChange={(event) => setPainPoints(event.target.value)}
+                    onFocus={() => setActiveResourceDetail("painPoints")}
+                    onBlur={() => setActiveResourceDetail("")}
+                    placeholder="List 2-3 key pain points that drive this persona's decisions."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      minHeight: 80,
+                      borderRadius: 12,
+                      border: "1px solid rgba(30, 41, 59, 0.18)",
+                      padding: "14px 16px",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: "#0f172a",
+                      background: "rgba(255,255,255,0.9)",
+                      boxShadow: "inset 0 1px 3px rgba(15, 23, 42, 0.08)",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    marginTop: 16,
+                  }}
+                >
+                  <span className="persona-description-input-label">Jobs To Be Done</span>
+                  <textarea
+                    value={jobsToBeDone}
+                    onChange={(event) => setJobsToBeDone(event.target.value)}
+                    onFocus={() => setActiveResourceDetail("jobs")}
+                    onBlur={() => setActiveResourceDetail("")}
+                    placeholder="Describe the key outcomes this persona is trying to achieve."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      minHeight: 80,
+                      borderRadius: 12,
+                      border: "1px solid rgba(30, 41, 59, 0.18)",
+                      padding: "14px 16px",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: "#0f172a",
+                      background: "rgba(255,255,255,0.9)",
+                      boxShadow: "inset 0 1px 3px rgba(15, 23, 42, 0.08)",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
               </StagePanel>
             )}
             {currentStep === 3 && (
@@ -1612,17 +1683,51 @@ export default function UploadPage() {
                 </button>
               </div>
             </div>
-            <div className="upload-layout__resource-description">
+            <div
+              className={`upload-layout__resource-description${
+                activeResourceDetail === "description" ? " upload-layout__resource-description--active" : ""
+              }`}
+            >
               <h4>Persona description</h4>
-            <div className="upload-layout__resource-description__body">
-              <p className="upload-layout__panel-body-text">
-                {personaDescription
-                  ? personaDescription
-                  : "This is a detailed description of your persona based on their pain points, intent signals, behavioural traits and more..."
-                }
-              </p>
+              <div className="upload-layout__resource-description__body">
+                <p className="upload-layout__panel-body-text">
+                  {personaDescription
+                    ? personaDescription
+                    : "This is a detailed description of your persona based on their pain points, intent signals, behavioural traits and more..."
+                  }
+                </p>
+              </div>
             </div>
-          </div>
+            <div
+              className={`upload-layout__resource-description${
+                activeResourceDetail === "painPoints" ? " upload-layout__resource-description--active" : ""
+              }`}
+            >
+              <h4>Pain Points</h4>
+              <div className="upload-layout__resource-description__body">
+                <p className="upload-layout__panel-body-text">
+                  {painPoints
+                    ? painPoints
+                    : "Outline 2-3 key frustrations or blockers this persona frequently runs into."
+                  }
+                </p>
+              </div>
+            </div>
+            <div
+              className={`upload-layout__resource-description${
+                activeResourceDetail === "jobs" ? " upload-layout__resource-description--active" : ""
+              }`}
+            >
+              <h4>Jobs To Be Done</h4>
+              <div className="upload-layout__resource-description__body">
+                <p className="upload-layout__panel-body-text">
+                  {jobsToBeDone
+                    ? jobsToBeDone
+                    : "Summarize the goals or outcomes this persona is striving to accomplish."
+                  }
+                </p>
+              </div>
+            </div>
           <div className="upload-layout__internal-data">
             <h4>Internal data</h4>
             {files.length === 0 ? (
@@ -1846,6 +1951,11 @@ export default function UploadPage() {
             display: flex;
             flex-direction: column;
             gap: 8px;
+          }
+          .upload-layout__resource-description--active {
+            border-color: rgba(59, 130, 246, 0.6);
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
           }
           .upload-layout__resource-description h4 {
             margin: 0 0 6px;

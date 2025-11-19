@@ -1172,8 +1172,8 @@ export default function InsightsTable() {
 				font-size: 13px;
 				border-radius: 999px;
 				color: rgba(30, 41, 59, 0.72);
-				width: 100px;
-				max-width: 100px;
+				width: 84px;
+				max-width: 84px;
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
@@ -1201,6 +1201,8 @@ export default function InsightsTable() {
 				font-size: 13px;
 				font-weight: 600;
 				line-height: 1;
+				width: 110px;
+				text-align: center;
 			}
 			.insights-status-badge--simulation {
 				background: rgba(255, 215, 186, 0.8);
