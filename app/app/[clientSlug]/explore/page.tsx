@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import PersonaGallery, { type PersonaSummary } from "@/app/components/personas/PersonaGallery";
+import { type PersonaSummary } from "@/app/components/personas/PersonaGallery";
+import ExplorePersonaGrid from "./ExplorePersonaGrid";
 import { slugify } from "@/app/lib/jump";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +121,10 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
           ? row.profile_image.trim()
           : null,
       roleTitle: row.role_title?.trim().length ? row.role_title.trim() : null,
+      customerStatus:
+        typeof row.customer_status === "string" && row.customer_status.trim().length > 0
+          ? row.customer_status.trim()
+          : null,
     } satisfies PersonaSummary;
   });
 }
@@ -186,6 +191,7 @@ export default async function ExplorePage({
   const summaries = mapPersonasToSummaries(readyPersonas);
 
   const scrollAnchorOffset = 96;
+  const exploreContentMaxWidth = "1100px";
 
   return (
     <div
@@ -215,13 +221,26 @@ export default async function ExplorePage({
             flex: 1,
             minHeight: 0,
             display: "flex",
+            flexDirection: "column",
+            gap: 12,
           }}
         >
-          <PersonaGallery
-            clientSlug={clientSlug}
-            personas={summaries}
-            errorMessage={error ? "Unable to load personas right now. Please try again." : null}
-          />
+          <div
+            style={{
+              width: "100%",
+              maxWidth: exploreContentMaxWidth,
+              margin: "0 auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <ExplorePersonaGrid
+              clientSlug={clientSlug}
+              personas={summaries}
+              errorMessage={error ? "Unable to load personas right now. Please try again." : null}
+            />
+          </div>
         </div>
       </div>
     </div>

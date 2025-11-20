@@ -2048,7 +2048,7 @@ export default function PersonasPage() {
         const { data, error: personaError } = await supabase
           .from("agent_map")
           .select(
-            "agent_id, agent_name, role_title, audience_type, content_type, description, status, dialogue_created_date, key, age, gender, location, customer_status, key_pain_points, intent_signals, key_traits, profile_image, voice_id, active_status"
+            "agent_id, agent_name, role_title, audience_type, content_type, description, status, dialogue_created_date, key, age, gender, location, customer_status, key_pain_points, jobs_to_be_done, key_traits, profile_image, voice_id, active_status"
           )
           .eq("client_id", client.id)
           .order("created_at", { ascending: false });

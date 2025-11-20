@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "../Sidebar";
 import { supabase } from "@/app/lib/supabaseClient";
@@ -62,12 +62,6 @@ function StagePanel({ heading, subheading, leading, trailing, footer, children }
 export default function TeamsPage() {
   const pathname = usePathname();
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("viewer");
-  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
-  const [inviteFeedback, setInviteFeedback] = useState<
-    { type: "success" | "error"; message: string }
-  >();
 	const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<
     Array<{
@@ -112,7 +106,6 @@ export default function TeamsPage() {
   const totalActive = members.length;
   const totalPending = pendingInvites.filter((invite) => invite.status === "pending").length;
   const totalAdmins = members.filter((member) => member.role === "admin").length;
-  const showRoleSelect = inviteEmail.trim().length > 0;
 
   const formatDate = useCallback((value: string | null | undefined) => {
     if (!value) return "";
@@ -338,7 +331,6 @@ export default function TeamsPage() {
     };
   }, [clientSlug, refreshToken, formatDate, formatExpiry, profileReady, profileRole, profileLoadError]);
   const canManageTeam = profileReady && !profileLoadError && profileRole !== "viewer";
-  const canInviteMembers = canManageTeam && profileRole === "admin";
   const handleRequestRemoveMember = useCallback(
     (member: { id: string; name: string; email: string }) => {
       if (!canManageTeam) return;
@@ -548,94 +540,6 @@ export default function TeamsPage() {
     return () => document.removeEventListener("keydown", handleKeydown);
   }, [invitePendingRevocation, handleCancelRevokeInvite]);
 
-  const handleInviteSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!inviteEmail.trim()) return;
-    if (!canInviteMembers) {
-      setInviteFeedback({ type: "error", message: "Only admins can invite new team members." });
-      return;
-    }
-    setIsSubmittingInvite(true);
-    setInviteFeedback(undefined);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const accessToken = session?.access_token;
-      if (!accessToken) {
-        setInviteFeedback({ type: "error", message: "You need to be signed in to send invites." });
-        return;
-      }
-
-      console.log("Invite teammate", {
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        clientSlug,
-        userId: session.user?.id,
-      });
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/invite-teammate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            email: inviteEmail.trim(),
-            role: inviteRole,
-          }),
-        }
-      );
-
-      console.log("Invite teammate response", {
-        status: response.status,
-        ok: response.ok,
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Unable to send invite. Please try again.";
-        const responseText = await response.text();
-        console.error("Invite teammate error response", {
-          status: response.status,
-          body: responseText,
-        });
-        if (responseText) {
-          try {
-            const parsed = JSON.parse(responseText);
-            if (typeof parsed?.error === "string") {
-              errorMessage = parsed.error;
-            } else {
-              errorMessage = responseText;
-            }
-          } catch {
-            errorMessage = responseText;
-          }
-        }
-        setInviteFeedback({
-          type: "error",
-          message: errorMessage,
-        });
-        return;
-      }
-
-      setInviteFeedback({ type: "success", message: "Invite sent." });
-      setInviteEmail("");
-      setInviteRole("viewer");
-      setRefreshToken((token) => token + 1);
-      console.log("Invite teammate success");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to send invite. Please try again.";
-      setInviteFeedback({ type: "error", message });
-      console.error("Invite teammate exception", error);
-    } finally {
-      setIsSubmittingInvite(false);
-    }
-  };
-
   return (
     <main className="stage-layout teams-root">
       <aside className="stage-layout__sidebar">
@@ -659,11 +563,6 @@ export default function TeamsPage() {
                     Ask an admin if you need access to manage team members.
                   </div>
                 ) : null}
-                {canManageTeam && !canInviteMembers ? (
-                  <div className="teams-feedback teams-feedback--info" role="status">
-                    Only admins can invite new team members.
-                  </div>
-                ) : null}
                 <header className="teams-table__header teams-table__header--summary">
                   <div>
                     <h3>Team members{workspaceName ? ` · ${workspaceName}` : ""}</h3>
@@ -672,45 +571,7 @@ export default function TeamsPage() {
                     </p>
                   </div>
                 </header>
-                {canInviteMembers ? (
-                  <form className="teams-invite" onSubmit={handleInviteSubmit}>
-                    <div className="teams-invite__input">
-                      <input
-                        type="email"
-                        placeholder="Enter teammate email"
-                        value={inviteEmail}
-                        onChange={(event) => setInviteEmail(event.target.value)}
-                        required
-                        autoComplete="off"
-                      />
-                      {showRoleSelect ? (
-                        <select
-                          value={inviteRole}
-                          onChange={(event) => setInviteRole(event.target.value)}
-                          className="teams-invite__role"
-                          aria-label="Permission level"
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="owner">Owner</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                      ) : null}
-                    </div>
-                    <button type="submit" className="teams-invite__submit" disabled={isSubmittingInvite}>
-                      {isSubmittingInvite ? "Sending…" : "Invite"}
-                    </button>
-                  </form>
-                ) : null}
-
                 <div className="teams-table">
-                  {canManageTeam && inviteFeedback ? (
-                    <div
-                      className={`teams-feedback teams-feedback--${inviteFeedback.type}`}
-                      role="status"
-                    >
-                      {inviteFeedback.message}
-                    </div>
-                  ) : null}
                   {teamError ? (
                     <div className="teams-feedback teams-feedback--error" role="alert">
                       {teamError}
@@ -1116,68 +977,6 @@ export default function TeamsPage() {
         .stage-panel__footer {
           margin-top: 12px;
         }
-        .teams-invite {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 12px;
-          align-items: center;
-          padding: 16px 18px;
-          border-radius: 16px;
-          border: 1px solid rgba(37, 99, 235, 0.16);
-          background: rgba(59, 130, 246, 0.08);
-        }
-        .teams-invite__input {
-          position: relative;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .teams-invite__input input {
-          width: 100%;
-          padding: 12px 14px;
-          border-radius: 12px;
-          border: 1px solid rgba(30, 64, 175, 0.22);
-          background: rgba(255, 255, 255, 0.95);
-          color: #0f172a;
-          font-size: 14px;
-          transition: border 0.18s ease, box-shadow 0.18s ease;
-        }
-        .teams-invite__input input:focus {
-          border-color: rgba(30, 64, 175, 0.55);
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
-          outline: none;
-        }
-        .teams-invite__role {
-          min-width: 140px;
-          padding: 12px 12px;
-          border-radius: 12px;
-          border: 1px solid rgba(30, 64, 175, 0.22);
-          background: rgba(15, 23, 42, 0.88);
-          color: #f8fafc;
-          font-weight: 600;
-          font-size: 13px;
-          transition: opacity 0.18s ease;
-        }
-        .teams-invite__submit {
-          padding: 12px 20px;
-          border-radius: 12px;
-          border: none;
-          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-          color: #f8fafc;
-          font-weight: 700;
-          font-size: 14px;
-          cursor: pointer;
-          box-shadow: 0 12px 28px rgba(29, 78, 216, 0.22);
-          transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-        }
-        .teams-invite__submit:disabled {
-          opacity: 0.65;
-          cursor: wait;
-        }
-        .teams-invite__submit:not(:disabled):hover {
-          transform: translateY(-1px);
-          box-shadow: 0 16px 36px rgba(29, 78, 216, 0.28);
-        }
         .teams-table {
           display: flex;
           flex-direction: column;
@@ -1572,9 +1371,6 @@ export default function TeamsPage() {
           .stage-panel__titles h2 {
             font-size: 20px;
           }
-          .teams-invite {
-            grid-template-columns: 1fr;
-          }
           .teams-table__row,
           .teams-table__row--head {
             grid-template-columns: 1fr;
@@ -1607,9 +1403,6 @@ export default function TeamsPage() {
           .teams-invite-actions {
             width: 100%;
             flex-direction: row;
-          }
-          .teams-invite__submit {
-            width: 100%;
           }
           .teams-invite-actions {
             justify-content: flex-start;

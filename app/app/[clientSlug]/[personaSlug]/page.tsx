@@ -6,6 +6,32 @@ import PersonaActionsMenu from "@/app/components/personas/PersonaActionsMenu";
 import PersonaActions from "@/app/app/[clientSlug]/[personaSlug]/PersonaActions";
 import { slugify } from "@/app/lib/jump";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
+const painPointIcon = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="#0a2540"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+  >
+    <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a6 6 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.902-1.414.707s.512-1.22.707-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.767 2.375-.72a6 6 0 0 1 1.013.16l3.134-3.133a3 3 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146" />
+  </svg>
+);
+
+const jobIcon = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="#0a2540"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+  >
+    <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v1.384l7.614 2.03a1.5 1.5 0 0 0 .772 0L16 5.884V4.5A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5" />
+    <path d="M0 12.5A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5V6.85L8.129 8.947a.5.5 0 0 1-.258 0L0 6.85z" />
+  </svg>
+);
 
 type PersonaDetailPageProps = {
   params: Promise<{ clientSlug: string; personaSlug: string }>;
@@ -32,6 +58,7 @@ type PersonaRow = {
   customer_status: string | null;
   profile_image: string | null;
   role_title: string | null;
+  jobs_to_be_done: unknown;
 };
 
 type PersonaSummary = {
@@ -43,6 +70,9 @@ type PersonaSummary = {
   updatedAt: string | null;
   profileImage: string | null;
   roleTitle: string | null;
+  painPoints: string[];
+  jobsToBeDone: string[];
+  keyTraits: string[];
 };
 
 type SuggestedQuestionRow = {
@@ -92,6 +122,21 @@ function buildPersonaSlug(row: PersonaRow): string {
   return rawFallback.length > 0 ? rawFallback : "persona";
 }
 
+function parsePersonaList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[\r\n]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
   const slugCounts = new Map<string, number>();
   return rows.map((row) => {
@@ -99,6 +144,10 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
     const count = slugCounts.get(baseSlug) ?? 0;
     slugCounts.set(baseSlug, count + 1);
     const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+
+    const painPoints = parsePersonaList(row.key_pain_points);
+    const jobsToBeDone = parsePersonaList(row.jobs_to_be_done);
+    const keyTraits = parsePersonaList(row.key_traits);
 
       return {
         id: row.agent_id,
@@ -112,6 +161,9 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
             ? row.profile_image.trim()
             : null,
         roleTitle: row.role_title?.trim().length ? row.role_title.trim() : null,
+        painPoints,
+      keyTraits,
+        jobsToBeDone,
       } satisfies PersonaSummary;
   });
 }
@@ -164,7 +216,7 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, role_title"
+      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, jobs_to_be_done, age, gender, location, customer_status, profile_image, role_title"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
@@ -422,6 +474,36 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               >
                 {persona.roleTitle ?? "Role not available yet."}
               </p>
+              {persona.keyTraits.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {persona.keyTraits.map((trait, index) => (
+                    <span
+                      key={`key-trait-${index}`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        background: "#ffffff",
+                        border: "1px solid rgba(59,130,246,0.4)",
+                        color: "#0f172a",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {trait}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </header>
             <div
               style={{
@@ -516,6 +598,162 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               </div>
               <div style={{ marginTop: 12 }}>
                 <PersonaDescription text={descriptionText} />
+              </div>
+            </div>
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                height: 1,
+                borderBottom: "1px dashed rgba(148,163,184,0.35)",
+                margin: "16px 0",
+              }}
+            />
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                borderRadius: 20,
+                color: "#0f172a",
+                fontFamily: BODY_FONT_STACK,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {painPointIcon}
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    fontFamily: HEADING_FONT_STACK,
+                  }}
+                >
+                  Pain Points
+                </h2>
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {persona.painPoints.length > 0 ? (
+                  persona.painPoints.map((point, index) => (
+                    <p
+                      key={`pain-point-${index}`}
+                      style={{
+                        margin: 0,
+                        fontSize: 15,
+                        lineHeight: 1.5,
+                        color: "#475569",
+                        fontFamily: BODY_FONT_STACK,
+                      }}
+                    >
+                      {point}
+                    </p>
+                  ))
+                ) : (
+                  <p
+                    style={{
+                      margin: 0,
+                      padding: "0 16px 0 0",
+                      borderRadius: 16,
+                      color: "#475569",
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                      fontFamily: BODY_FONT_STACK,
+                    }}
+                  >
+                    Pain points haven’t been documented for this persona yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                height: 1,
+                borderBottom: "1px dashed rgba(148,163,184,0.35)",
+                margin: "16px 0",
+              }}
+            />
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                borderRadius: 20,
+                color: "#0f172a",
+                fontFamily: BODY_FONT_STACK,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {jobIcon}
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    fontFamily: HEADING_FONT_STACK,
+                  }}
+                >
+                  Jobs To Be Done
+                </h2>
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {persona.jobsToBeDone.length > 0 ? (
+                  persona.jobsToBeDone.map((job, index) => (
+                    <p
+                      key={`jtbd-${index}`}
+                      style={{
+                        margin: 0,
+                        padding: "0px 16px 0px 0",
+                        borderRadius: 16,
+                        color: "#475569",
+                        fontSize: 15,
+                        lineHeight: 1.5,
+                        fontFamily: BODY_FONT_STACK,
+                      }}
+                    >
+                      {job}
+                    </p>
+                  ))
+                ) : (
+                  <p
+                    style={{
+                      margin: 0,
+                      padding: "0 16px 0 0",
+                      borderRadius: 16,
+                      color: "#475569",
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                      fontFamily: BODY_FONT_STACK,
+                    }}
+                  >
+                    Jobs descriptions are coming soon for this persona.
+                  </p>
+                )}
               </div>
             </div>
 

@@ -19,6 +19,7 @@ const STAGE_CHIPS = ["Basic Info", "Image", "Description", "Documents", "Links",
 const PERSONA_CATEGORIES = [
   { value: "existing", label: "Existing customer" },
   { value: "prospective", label: "Prospective customer" },
+  { value: "internal", label: "Internal Stakeholder" },
 ] as const;
 const KEY_TRAIT_PLACEHOLDERS = [
   "Age range",
@@ -556,9 +557,9 @@ export default function UploadPage() {
   const canSkipUpload = isDescribeMode;
   const personaNameTrimmed = personaName.trim();
   const personaTaglineTrimmed = personaTagline.trim();
-  const personaNameDisplay = personaNameTrimmed || "Your persona";
-  const personaNameHeadline = personaNameTrimmed || "your persona";
-  const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "your persona's";
+  const personaNameDisplay = personaNameTrimmed || "Campaign name";
+  const personaNameHeadline = personaNameTrimmed || "campaign name";
+  const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "campaign name's";
   const personaNameFormId = "persona-name-form";
   const personaImageInputId = "persona-image-upload";
   const [personaDescription, setPersonaDescription] = useState<string>("");
@@ -1183,7 +1184,7 @@ export default function UploadPage() {
                     onChange={(event) => setPersonaDescription(event.target.value)}
                     onFocus={() => setActiveResourceDetail("description")}
                     onBlur={() => setActiveResourceDetail("")}
-                    placeholder="Describe pain points, intent signals, behavioural traits, and more context."
+                    placeholder="Describe your persona. The more detail, the better."
                     rows={3}
                     style={{
                       width: "100%",

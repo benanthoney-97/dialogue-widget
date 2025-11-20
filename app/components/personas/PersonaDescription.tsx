@@ -57,7 +57,7 @@ export default function PersonaDescription({ text }: PersonaDescriptionProps) {
           ref={paragraphRef}
           style={{
             margin: 0,
-            fontSize: 17,
+            fontSize: 15,
             lineHeight: 1.65,
             color: "#334155",
             maxWidth: "80ch",

@@ -7,6 +7,8 @@ type RunInterviewsRequest = {
   interviewTypes: string[];
   ideaTitle?: string;
   ideaDescription?: string;
+  personaFirstName?: string | null;
+  stageMetadata?: Record<string, string>;
 };
 
 const SIMULATE_ENDPOINT = "https://api.elevenlabs.io/v1/convai/agents/{agentId}/simulate-conversation/stream";
@@ -18,10 +20,25 @@ if (!supabaseUrl || !supabaseServiceRole) {
 }
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole);
 
+const buildFirstMessage = (options: {
+  personaFirstName: string | null;
+  stageLabel: string | null;
+  stageSubtitle: string | null;
+}) => {
+  const normalizedName = options.personaFirstName?.trim() || "there";
+  const normalizedStageLabel = options.stageLabel?.trim()?.toLowerCase() || "research";
+  const normalizedSubtitle = options.stageSubtitle?.trim();
+  const formattedSubtitle = normalizedSubtitle
+    ? `${normalizedSubtitle.charAt(0).toLowerCase()}${normalizedSubtitle.slice(1)}`
+    : "this research stage";
+  return `Hi ${normalizedName}, today we're conducting a ${normalizedStageLabel}-focused interview to ${formattedSubtitle}. Ready to get started?`;
+};
+
 async function simulateAgent(
   agentId: string,
   apiKey: string,
-  detail: string
+  detail: string,
+  firstMessage: string = "Hello there!"
 ) {
   console.log(`[run-interviews] simulate agent ${agentId}`, detail);
   const agentEndpoint = SIMULATE_ENDPOINT.replace("{agentId}", encodeURIComponent(agentId));
@@ -36,6 +53,7 @@ async function simulateAgent(
       simulation_specification: {
         simulated_user_config: {
           instruction: detail,
+          first_message: firstMessage,
         },
       },
     }),
@@ -155,7 +173,7 @@ export async function POST(request: Request, context: { params: { clientId: stri
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { agentIds, ideaId, interviewTypes, ideaTitle, ideaDescription } = payload;
+  const { agentIds, ideaId, interviewTypes, ideaTitle, ideaDescription, personaFirstName, stageMetadata: stageMetadataPayload } = payload;
   if (!Array.isArray(agentIds) || agentIds.length === 0 || !Array.isArray(interviewTypes) || interviewTypes.length === 0) {
     return NextResponse.json({ error: "Missing required payload fields" }, { status: 400 });
   }
@@ -169,11 +187,9 @@ export async function POST(request: Request, context: { params: { clientId: stri
 
   const typeFocusStatements: Record<string, string> = {
     Problem:
-      "Understand what they’re trying to achieve, their motivations, and the existing pain points they face.",
+      "Help us understand specific challenges and pain points.",
     Ideation:
-      "Stress-test your idea, surface which parts of the concept land, and uncover what feels valuable to them.",
-    "Final validation":
-      "Pressure-test the final assumptions with scenarios that mirror how the idea would ship.",
+      "Help us create new ideas and solutions.",
     Solution:
       "Stress-test your idea, surface which parts of the concept land, and uncover what feels valuable to them.",
     Positioning:
@@ -182,6 +198,20 @@ export async function POST(request: Request, context: { params: { clientId: stri
 
   const ideaTitleText = typeof ideaTitle === "string" ? (ideaTitle.trim() || null) : null;
   const ideaDescriptionText = typeof ideaDescription === "string" ? (ideaDescription.trim() || null) : null;
+
+  const normalizedPersonaFirstName =
+    typeof personaFirstName === "string" && personaFirstName.trim().length > 0
+      ? personaFirstName.trim().split(/\s+/).filter(Boolean)[0] ?? personaFirstName.trim()
+      : null;
+  const stageMetadataMap: Record<string, string | null> =
+    typeof stageMetadataPayload === "object" && stageMetadataPayload !== null
+      ? Object.fromEntries(
+          Object.entries(stageMetadataPayload).map(([key, value]) => [
+            key,
+            typeof value === "string" && value.trim().length > 0 ? value.trim() : null,
+          ])
+        )
+      : {};
 
   const buildDetailForType = (interviewType: string) => {
     const detailLines: string[] = [];
@@ -212,6 +242,7 @@ export async function POST(request: Request, context: { params: { clientId: stri
     callSummaryTitle: string;
     transcriptSummary: string;
     bodyPayload: Record<string, unknown>;
+    firstMessage: string;
   };
 
   const interviewSeeds: InterviewSeed[] = agentIds.flatMap((agentId) =>
@@ -228,6 +259,12 @@ export async function POST(request: Request, context: { params: { clientId: stri
         interview_type: normalizedType,
         instruction: detail,
       };
+      const stageSubtitle = normalizedType ? stageMetadataMap[normalizedType] ?? null : null;
+      const firstMessage = buildFirstMessage({
+        personaFirstName: normalizedPersonaFirstName,
+        stageLabel: normalizedType,
+        stageSubtitle,
+      });
       return {
         spec: {
           agent_id: agentId,
@@ -238,10 +275,12 @@ export async function POST(request: Request, context: { params: { clientId: stri
         callSummaryTitle,
         transcriptSummary,
         bodyPayload,
+        firstMessage,
       };
     })
   );
 
+  const initialReceivedAt = new Date().toISOString();
   const initialPayloads = interviewSeeds.map((seed) => ({
     client_id: normalizedClientId,
     agent_id: seed.spec.agent_id ?? null,
@@ -249,7 +288,7 @@ export async function POST(request: Request, context: { params: { clientId: stri
     call_summary_title: seed.callSummaryTitle,
     transcript: { messages: [] },
     transcript_summary: null,
-    received_at: null,
+    received_at: initialReceivedAt,
     event_timestamp: null,
     body: seed.bodyPayload,
     type: "simulated",
@@ -278,7 +317,7 @@ export async function POST(request: Request, context: { params: { clientId: stri
   };
   let results: SimulationOutcome[];
   const simulationTasks = interviewSeeds.map((seed) =>
-    simulateAgent(seed.spec.agent_id, apiKey, seed.spec.detail).then((result) => ({
+    simulateAgent(seed.spec.agent_id, apiKey, seed.spec.detail, seed.firstMessage).then((result) => ({
       spec: seed.spec,
       detail: seed.spec.detail,
       turns: result.turns,

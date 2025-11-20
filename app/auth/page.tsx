@@ -180,7 +180,7 @@ function AuthPageContent() {
           password,
           options: origin
             ? {
-                emailRedirectTo: `${origin}/auth`,
+                emailRedirectTo: `${origin}/welcome`,
               }
             : undefined,
         });

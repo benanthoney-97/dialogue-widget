@@ -289,7 +289,7 @@ export default function Sidebar() {
       icon: campaignIcon,
     },
     {
-      label: "Results",
+      label: "Responses",
       href: `${clientBasePath}/results`,
       icon: responsesIcon,
     },

@@ -14,6 +14,7 @@ export type PersonaSummary = {
   profileImage: string | null;
   roleTitle: string | null;
   painPoints: string[];
+  customerStatus: string | null;
 };
 
 type PersonaGalleryProps = {

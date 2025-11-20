@@ -201,7 +201,7 @@ export default function IdeasOverlayContent({ idea, clientId }: IdeasOverlayCont
               </span>
             </div>
             <p className="ideas-overlay__grid-note">
-              Understand what they’re trying to achieve, their motivations and existing pain points.
+              Help us understand challenges and pain points.
             </p>
           </div>
           <div
@@ -230,7 +230,7 @@ export default function IdeasOverlayContent({ idea, clientId }: IdeasOverlayCont
               </span>
             </div>
             <p className="ideas-overlay__grid-note">
-              Stress-test your idea, which parts of the concept land, and what feels valuable.
+              Help us create new ideas and solutions.
             </p>
           </div>
           <div
@@ -257,7 +257,7 @@ export default function IdeasOverlayContent({ idea, clientId }: IdeasOverlayCont
               </span>
             </div>
             <p className="ideas-overlay__grid-note">
-              How they’d compare you to alternatives and what language actually resonates.
+              Help us refine our messaging and market fit.
             </p>
           </div>
         </div>

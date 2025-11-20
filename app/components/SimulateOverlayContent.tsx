@@ -22,7 +22,7 @@ type PersonaOption = {
 const interviewTypes = [
   {
     label: "Problem",
-    description: "Understand what they’re trying to achieve, their motivations and existing pain points.",
+    description: "Help us understand challenges and pain points.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
@@ -33,7 +33,7 @@ const interviewTypes = [
   },
   {
     label: "Ideation",
-    description: "Stress-test your idea, which parts of the concept land, and what feels valuable.",
+    description: "Help us create new ideas and solutions.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
@@ -45,7 +45,7 @@ const interviewTypes = [
   },
   {
     label: "Positioning",
-    description: "How they’d compare you to alternatives and what language actually resonates.",
+    description: "Help us refine our messaging and market fit.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2" />
@@ -57,7 +57,7 @@ const interviewTypes = [
   },
   {
     label: "Final validation",
-    description: "Pressure-test the final assumptions with scenarios that mirror how the idea would ship.",
+    description: "Help us pressure-test final assumptions.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
@@ -72,6 +72,11 @@ const interviewTypes = [
     ),
   },
 ];
+
+const STAGE_METADATA: Record<string, string> = interviewTypes.reduce<Record<string, string>>((acc, type) => {
+  acc[type.label] = type.description;
+  return acc;
+}, {});
 
 export default function SimulateOverlayContent({ clientId, personaName, personaId }: SimulateOverlayContentProps) {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -195,6 +200,17 @@ export default function SimulateOverlayContent({ clientId, personaName, personaI
           }
         }, 3000);
 
+            const personaFirstName = (() => {
+              const trimmed = personaName?.trim();
+              if (!trimmed) return null;
+              const segments = trimmed.split(/\s+/).filter(Boolean);
+              return segments[0] ?? trimmed;
+            })();
+            const stageMetadata = selectedTypes.reduce<Record<string, string>>((acc, type) => {
+              acc[type] = STAGE_METADATA[type] ?? "";
+              return acc;
+            }, {});
+
         const response = await fetch(`/api/clients/${clientId}/run-interviews`, {
           method: "POST",
           headers: {
@@ -207,6 +223,8 @@ export default function SimulateOverlayContent({ clientId, personaName, personaI
             interviewTypes: selectedTypes,
             ideaTitle: `Simulated research with ${personaName}`,
             ideaDescription: objectiveTrimmed,
+                personaFirstName,
+                stageMetadata,
           }),
         });
         const payload = await response.json().catch(() => null);

@@ -27,6 +27,7 @@ type ChatRoomRow = {
 };
 
 type ProfileRow = {
+  id: string;
   display_name?: string | null;
   email?: string | null;
 };
@@ -157,9 +158,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const { data: rows, error: messagesError } = await supabaseAdmin
       .from("chat_messages")
-      .select(
-        "id, room_id, sender_id, sender_role, content, metadata, created_at, updated_at, profiles:chat_messages_sender_id_fkey(display_name, email)"
-      )
+      .select("id, room_id, sender_id, sender_role, content, metadata, created_at, updated_at")
       .eq("room_id", roomId)
       .order("created_at", { ascending: true });
 
@@ -168,7 +167,32 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unable to load messages" }, { status: 500 });
     }
 
-    const messages = ((rows ?? []) as ChatMessageRow[]).map(mapMessage);
+    const selectedRows = (rows ?? []) as ChatMessageRow[];
+    const senderIds = Array.from(
+      new Set(selectedRows.map((message) => message.sender_id).filter(Boolean))
+    );
+    const profileMap = new Map<string, ProfileRow>();
+    if (senderIds.length > 0) {
+      const { data: profileRows, error: profilesError } = await supabaseAdmin
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", senderIds);
+      if (profilesError) {
+        console.error("[live-chat] Failed to load sender profiles", profilesError);
+      } else if (profileRows) {
+        profileRows.forEach((profile) => {
+          if (profile.id) {
+            profileMap.set(profile.id, profile);
+          }
+        });
+      }
+    }
+
+    const enrichedRows = selectedRows.map((message) => ({
+      ...message,
+      profiles: profileMap.get(message.sender_id) ?? null,
+    }));
+    const messages = enrichedRows.map(mapMessage);
     return NextResponse.json({ room: { id: roomId }, messages });
   } catch (error) {
     if (error instanceof Error && (error as Error & { status?: number }).status === 404) {
@@ -246,9 +270,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { data: row, error: insertError } = await supabaseAdmin
       .from("chat_messages")
       .insert(insertPayload)
-      .select(
-        "id, room_id, sender_id, sender_role, content, metadata, created_at, updated_at, profiles:chat_messages_sender_id_fkey(display_name, email)"
-      )
+      .select("id, room_id, sender_id, sender_role, content, metadata, created_at, updated_at")
       .single<ChatMessageRow>();
 
     if (insertError || !row) {
@@ -256,7 +278,19 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unable to create message" }, { status: 500 });
     }
 
-    return NextResponse.json({ message: mapMessage(row) }, { status: 201 });
+    let enrichedRow: ChatMessageRow = { ...row, profiles: null };
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, display_name, email")
+      .eq("id", row.sender_id)
+      .maybeSingle<ProfileRow>();
+    if (profileError) {
+      console.error("[live-chat] Failed to load sender profile", profileError);
+    } else if (profile) {
+      enrichedRow = { ...enrichedRow, profiles: profile };
+    }
+
+    return NextResponse.json({ message: mapMessage(enrichedRow) }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && (error as Error & { status?: number }).status === 404) {
       return NextResponse.json({ error: error.message }, { status: 404 });

@@ -1,7 +1,6 @@
 "use client";
 import React, { ChangeEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { resolveDestinationForUser } from "../lib/authRedirect";
 import { supabase } from "../lib/supabaseClient";
 
 const companySizeOptions = [
@@ -74,59 +73,7 @@ export default function WelcomeOnboardingPage() {
       }
 
       setSubmitted(true);
-
-      const email = session.user.email ?? "";
-      if (email) {
-        try {
-          const matchResponse = await fetch("/api/domain-match", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email }),
-          });
-          if (matchResponse.ok) {
-            const payload = (await matchResponse.json()) as {
-              found?: boolean;
-              domain?: string;
-              workspaces?: { id?: number; slug?: string; name?: string }[];
-            };
-            const normalizedMatches = (payload.workspaces ?? []).map((workspace) => ({
-              id: typeof workspace?.id === "number" ? workspace.id : undefined,
-              slug: workspace.slug?.trim(),
-              name: workspace.name?.trim(),
-            }));
-
-            const matches = normalizedMatches
-              .filter((workspace) => Boolean(workspace.slug))
-              .map((workspace): { id?: number; slug: string; name?: string } => ({
-                id: workspace.id,
-                slug: workspace.slug!,
-                name: workspace.name,
-              }));
-
-            if (payload.found && matches.length) {
-              const params = new URLSearchParams();
-              if (payload.domain) {
-                params.set("domain", payload.domain);
-              }
-              params.set("workspaces", JSON.stringify(matches));
-              const primaryWorkspace = matches[0];
-              params.set("workspaceSlug", primaryWorkspace.slug);
-              if (primaryWorkspace.name) {
-                params.set("workspaceName", primaryWorkspace.name);
-              }
-              router.push(`/welcome/domain-match?${params.toString()}`);
-              return;
-            }
-          }
-        } catch (matchError) {
-          console.error("[welcome] Domain lookup failed", matchError);
-        }
-      }
-
-      const destination = await resolveDestinationForUser(supabase, session.user.id);
-      router.push(destination);
+      router.push("/personas");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your details right now.";
       setSubmissionError(message);

@@ -7,6 +7,7 @@ import PurposeCard from "../../../components/PurposeCard";
 import ExecutiveAgent from "@/app/components/BriefingAgent";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 import { supabase } from "@/app/lib/supabaseClient";
+import { slugify } from "@/app/lib/jump";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   Prepare: "Personal",
@@ -46,10 +47,11 @@ type PersonaCardData = {
   name: string;
   title: string;
   image?: string | null;
+  agentId?: string | null;
 };
 const DEFAULT_PERSONA_OPTIONS: PersonaCardData[] = [
-  { id: "bella", name: "Bella Thomas", title: "Single Mum of 2" },
-  { id: "jane", name: "Jane Doe", title: "Head of Procurement" },
+  { id: "bella", name: "Bella Thomas", title: "Single Mum of 2", agentId: null },
+  { id: "jane", name: "Jane Doe", title: "Head of Procurement", agentId: null },
 ] as const;
 type AgentMapRow = {
   agent_id?: string | null;
@@ -408,21 +410,39 @@ export default function UploadPage() {
       setResolvedClientId(null);
       return;
     }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(clientSlug)) {
+      setResolvedClientId(clientSlug);
+      return;
+    }
     let active = true;
     async function fetchClientId() {
       try {
         const { data, error } = await supabase
           .from("clients")
-          .select("id")
-          .eq("slug", clientSlug)
-          .maybeSingle();
+          .select("id, name, display_name");
         if (!active) return;
         if (error) {
-          console.warn("Client slug lookup failed", error);
+          console.warn("Client lookup failed", error);
           setResolvedClientId(null);
           return;
         }
-        setResolvedClientId(data?.id ?? null);
+        if (!data) {
+          console.warn("Client lookup returned no rows", clientSlug);
+          setResolvedClientId(null);
+          return;
+        }
+        const normalizedSlug = clientSlug.trim().toLowerCase();
+        const match = data.find((client) => {
+          if (!client) return false;
+          if (client.name?.toLowerCase() === normalizedSlug) return true;
+          if (client.display_name?.toLowerCase() === normalizedSlug) return true;
+          const nameSlug = client.name ? slugify(client.name) : "";
+          const displaySlug = client.display_name ? slugify(client.display_name) : "";
+          return nameSlug === normalizedSlug || displaySlug === normalizedSlug;
+        });
+        console.debug("Client lookup match", { match, clientSlug });
+        setResolvedClientId(match?.id ?? null);
       } catch (err) {
         console.error("Failed to resolve client id", err);
         setResolvedClientId(null);
@@ -443,7 +463,7 @@ export default function UploadPage() {
     async function loadPersonas() {
       try {
         const { data } = await supabase
-          .from<AgentMapRow>("agent_map")
+          .from("agent_map")
           .select(
             "agent_id, agent_name, work_label, talk_label, background_image, persona_image, key"
           )
@@ -452,14 +472,20 @@ export default function UploadPage() {
         if (!isActive) return;
         if (data && data.length > 0) {
           const fetched = data
-            .map((row, index) => {
+            .map((row: AgentMapRow, index) => {
+              const agentId = row.agent_id ?? row.key ?? null;
               const id =
-                row.agent_id ??
-                row.key ??
+                agentId ??
                 (row.agent_name ? row.agent_name.toLowerCase().replace(/\s+/g, "-") : `persona-${index}`);
               const name = row.agent_name ?? row.key ?? `Persona ${index + 1}`;
               const title = row.work_label ?? row.talk_label ?? "Persona";
-              return { id, name, title, image: row.background_image ?? row.persona_image };
+              return {
+                id,
+                name,
+                title,
+                image: row.background_image ?? row.persona_image,
+                agentId,
+              };
             })
             .filter((card) => Boolean(card.id));
           if (fetched.length > 0) {
@@ -476,7 +502,7 @@ export default function UploadPage() {
     return () => {
       isActive = false;
     };
-  }, [clientSlug]);
+  }, [resolvedClientId]);
   async function stageFiles() {
     setSubmitted(true);
     setNotification(null);
@@ -520,7 +546,9 @@ export default function UploadPage() {
         setInternalPanelExpanded(false);
         await handleFinalize();
       } else {
-        setNotification({ type: 'error', message: 'Please add at least one file or URL before continuing.' });
+        setTempId(null);
+        setCreatedDocs([]);
+        await handleFinalize();
       }
     } catch (err: any) {
       const msg = err?.message ?? 'Unknown error';
@@ -593,12 +621,58 @@ export default function UploadPage() {
     setKnowledgePanelExpanded(linksUrls.length > 0);
   }, [linksUrls.length]);
   const canAddCurrentLink = !!linksUrl.trim() && !linksUrls.includes(linksUrl.trim());
-  function handleAddLink() {
-    const trimmed = linksUrl.trim();
+  function addQuestionToList(question: string): boolean {
+    const trimmed = question.trim();
     if (!trimmed) {
-      return;
+      return false;
     }
-    setLinksUrls((prev) => [...prev, trimmed]);
+    let added = false;
+    setLinksUrls((prev) => {
+      if (prev.includes(trimmed)) {
+        return prev;
+      }
+      added = true;
+      return [...prev, trimmed];
+    });
+    return added;
+  }
+
+  function addQuestionsToList(questions: string[]) {
+    if (questions.length === 0) return;
+    setLinksUrls((prev) => {
+      const next = [...prev];
+      const seen = new Set(prev);
+      questions.forEach((item) => {
+        const trimmed = item.trim();
+        if (!trimmed || seen.has(trimmed)) {
+          return;
+        }
+        seen.add(trimmed);
+        next.push(trimmed);
+      });
+      return next;
+    });
+  }
+
+  function handleAddLink() {
+    if (addQuestionToList(linksUrl)) {
+      setLinksUrl("");
+    }
+  }
+
+  function splitQuestionsFromPaste(text: string) {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function handleQuestionPaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    const pasted = event.clipboardData.getData("text");
+    const questions = splitQuestionsFromPaste(pasted);
+    if (questions.length <= 1) return;
+    event.preventDefault();
+    addQuestionsToList(questions);
     setLinksUrl("");
   }
   function handleRemoveLink(target: string) {
@@ -624,6 +698,7 @@ export default function UploadPage() {
       return [personaCards[0].id];
     });
   }, [personaCards]);
+
   const [outputDescription, setOutputDescription] = useState<string>("");
   const [selectedOutputType, setSelectedOutputType] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
@@ -689,12 +764,20 @@ export default function UploadPage() {
   }
   const personaNameTrimmed = personaName.trim();
   const personaTaglineTrimmed = personaTagline.trim();
-  const personaNameDisplay = personaNameTrimmed || "Your persona";
-  const personaNameHeadline = personaNameTrimmed || "your persona";
-  const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "your persona's";
+  const personaNameDisplay = personaNameTrimmed || "Campaign name";
+  const personaNameHeadline = personaNameTrimmed || "campaign name";
+  const personaNamePossessive = personaNameTrimmed ? `${personaNameTrimmed}'s` : "campaign name's";
   const personaNameFormId = "persona-name-form";
   const personaImageInputId = "persona-image-upload";
   const [personaDescription, setPersonaDescription] = useState<string>("");
+  const personaDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
+  const handleDescriptionLinkClick = () => {
+    setCurrentStep(2);
+    if (currentStep === 2 && personaDescriptionRef.current) {
+      personaDescriptionRef.current.focus();
+    }
+  };
+  const sidebarDescriptionText = personaDescription.trim() || personaTaglineTrimmed;
   const [activeResourceDetail, setActiveResourceDetail] = useState<"description" | "">("");
   const personaDescriptionHasContent = Boolean(personaDescription.trim());
   const internalDataHasContent = files.length > 0;
@@ -710,6 +793,12 @@ export default function UploadPage() {
     if (linksUrls.length === 0) return;
     setKnowledgePanelExpanded((prev) => !prev);
   };
+
+  useEffect(() => {
+    if (currentStep === 2 && personaDescriptionRef.current) {
+      personaDescriptionRef.current.focus();
+    }
+  }, [currentStep]);
 
   const descriptionPanelClass = joinClasses(
     "upload-layout__resource-description",
@@ -740,8 +829,13 @@ export default function UploadPage() {
       ? "upload-layout__knowledge-links--filled"
       : "upload-layout__knowledge-links--empty"
   );
+  const RESOURCE_TABS = ["Link", "QR Code", "Phone call"] as const;
+  type ResourceTab = (typeof RESOURCE_TABS)[number];
+  const [selectedResourceTab, setSelectedResourceTab] = useState<ResourceTab>("Link");
   const personaRoleDisplay = personaTaglineTrimmed || "Their role";
   const [personaImagePreview, setPersonaImagePreview] = useState<string | null>(null);
+  const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null);
+
   const resourceImageStyle = personaImagePreview
     ? {
         backgroundImage: `url(${personaImagePreview})`,
@@ -749,6 +843,105 @@ export default function UploadPage() {
         backgroundPosition: "center",
       }
     : undefined;
+
+  async function waitForClientId(): Promise<string | null> {
+    if (resolvedClientId) return resolvedClientId;
+    const start = Date.now();
+    const timeout = 3000;
+    while (!resolvedClientId && Date.now() - start < timeout) {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    return resolvedClientId;
+  }
+
+  async function createCampaignRecord(): Promise<string> {
+    const clientId = await waitForClientId();
+    if (createdCampaignId) return createdCampaignId;
+    if (!clientId) {
+      console.error("createCampaignRecord missing resolved client", {
+        clientSlug,
+        resolvedClientId,
+        personaNameTrimmed,
+        selectedPersonaIds,
+        linksUrls,
+      });
+      throw new Error("Client context missing");
+    }
+    if (createdCampaignId) return createdCampaignId;
+    if (!clientId) {
+      console.error("createCampaignRecord missing resolved client", {
+        clientSlug,
+        resolvedClientId,
+        personaNameTrimmed,
+        selectedPersonaIds,
+        linksUrls,
+      });
+      throw new Error("Client context missing");
+    }
+    if (!personaNameTrimmed) {
+      throw new Error("Campaign name is required");
+    }
+    const outputsPayload = savedOutputs.map((entry) => ({
+      type: entry.type,
+      description: entry.description,
+    }));
+    const personaIdsPayload = Array.from(
+      new Set(
+        selectedPersonaIds
+          .map((personaId) => {
+            const card = personaCards.find((persona) => persona.id === personaId);
+            return card ? card.agentId ?? personaId : personaId;
+          })
+          .filter((item): item is string => Boolean(item))
+      )
+    );
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.warn("Failed to resolve user for campaign creation", userError);
+    }
+    const { data, error } = await supabase
+      .from("campaigns")
+      .insert({
+        name: personaNameTrimmed,
+        description: personaTaglineTrimmed || null,
+        objective: personaDescription.trim() || null,
+        questions: linksUrls,
+        outputs: outputsPayload,
+        client_id: clientId,
+  persona_ids: personaIdsPayload,
+        created_by: userData?.user?.id ?? null,
+        document_ids: [],
+      })
+      .select("id")
+      .single();
+    if (error) {
+      throw error;
+    }
+    if (!data?.id) {
+      throw new Error("Failed to create campaign record");
+    }
+    setCreatedCampaignId(data.id);
+    return data.id;
+  }
+
+  async function persistCampaignDocuments(campaignId: string): Promise<void> {
+    if (createdDocs.length === 0) {
+      return;
+    }
+    const response = await fetch("/api/campaigns/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaignId, docs: createdDocs }),
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const errorMessage =
+        payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : `Server error: ${response.status}`;
+      throw new Error(errorMessage);
+    }
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -881,9 +1074,25 @@ export default function UploadPage() {
       }
     }
 
+    let campaignId = createdCampaignId;
+
     const keyTraitsPayload = keyTraits
       .map((trait) => trait.value.trim())
       .filter((value) => value.length > 0);
+
+    if (!campaignId) {
+      try {
+        campaignId = await createCampaignRecord();
+      } catch (err: any) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? (err as Error).message
+            : "Failed to create campaign record";
+        setNotification({ type: "error", message });
+        setFinalizing(false);
+        return;
+      }
+    }
 
     console.log("[Upload] Starting persona create flow", {
       personaName: personaNameDisplay,
@@ -892,6 +1101,16 @@ export default function UploadPage() {
       keyTraits: keyTraitsPayload,
     });
     setFinalizing(true);
+    if (docsAvailable) {
+      try {
+        await persistCampaignDocuments(campaignId);
+      } catch (error: any) {
+        const message = error instanceof Error ? error.message : `${error ?? "Unknown error"}`;
+        setNotification({ type: "error", message: `Failed to persist documents: ${message}` });
+        setFinalizing(false);
+        return;
+      }
+    }
     try {
       console.log("[Upload] Calling dialogues create API", { tempId, docsCount: docsPayload.length });
       const res = await fetch('/api/dialogues/create', {
@@ -941,7 +1160,7 @@ export default function UploadPage() {
         sessionStorage.removeItem('temp-upload-purpose');
       }
       setFinalizing(false);
-      router.push(`/client/${clientSlug}/personas`);
+      router.push(`/client/${clientSlug}/campaigns`);
     } catch (e: any) {
       console.error("[Upload] Failed to finalize", e);
       setNotification({ type: 'error', message: `Failed to finalize: ${e?.message ?? e}` });
@@ -1194,6 +1413,7 @@ export default function UploadPage() {
                 <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <span className="persona-description-input-label">Campaign objective</span>
                   <textarea
+                    ref={personaDescriptionRef}
                     value={personaDescription}
                     onChange={(event) => setPersonaDescription(event.target.value)}
                     onFocus={() => setActiveResourceDetail("description")}
@@ -1226,6 +1446,7 @@ export default function UploadPage() {
                       placeholder="Type a critical question"
                       value={linksUrl}
                       onChange={(event) => setLinksUrl(event.target.value)}
+                      onPaste={handleQuestionPaste}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -1243,6 +1464,12 @@ export default function UploadPage() {
                       </button>
                     )}
                   </div>
+                    <p
+                      className="links-stage__bulk-hint"
+                      style={{ fontSize: "12px", marginTop: 8, color: "#0f172a", paddingLeft: 5 }}
+                    >
+                    Shortcut: Paste multiple questions
+                  </p>
                   {linksUrls.length > 0 && (
                     <div className="links-stage__urls-wrapper">
                       <div className="links-stage__urls-list">
@@ -1294,7 +1521,7 @@ export default function UploadPage() {
               </StagePanel>
             )}
             {currentStep === 4 && (
-              <StagePanel heading="Define your campaign outputs">
+              <StagePanel heading="Choose what data is collected from interivews">
                 <div className="output-stage-content">
                   {!selectedOutputOption ? (
                     canAddMoreOutputs ? (
@@ -1414,7 +1641,7 @@ export default function UploadPage() {
               </StagePanel>
             )}
             {currentStep === 5 && (
-              <StagePanel heading={`Upload documents for ${personaNamePossessive} persona`}>
+              <StagePanel heading="Upload context documents for your AI interviewer">
                 <form onSubmit={handleSubmit} style={{ width: "100%" }}>
                   {uploadMode === "upload" ? (
                     <label
@@ -1726,13 +1953,9 @@ export default function UploadPage() {
                       type="button"
                       variant="primary"
                       onClick={() => stageFiles()}
-                      disabled={
-                        finalizing ||
-                        (uploadMode === "upload" && (files.length === 0 || submitted)) ||
-                        (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
-                      }
+                      disabled={finalizing || submitted}
                     >
-                      {finalizing ? "Creating…" : "Continue"}
+                      {finalizing ? "Creating…" : "Create Campaign"}
                     </StageButton>
                   </div>
                 </div>
@@ -1742,20 +1965,94 @@ export default function UploadPage() {
           <div className="upload-layout__separator" aria-hidden="true" />
           <div className="upload-layout__side-panel">
             <div className="upload-layout__resource-tabs" role="tablist" aria-label="Launch options">
-              {["Link", "QR Code", "Phone call"].map((tab) => (
-                <button key={tab} type="button" className="upload-layout__resource-tab">
+              {RESOURCE_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`upload-layout__resource-tab${selectedResourceTab === tab ? " upload-layout__resource-tab--active" : ""}`}
+                  onClick={() => setSelectedResourceTab(tab)}
+                  aria-pressed={selectedResourceTab === tab}
+                >
                   {tab}
                 </button>
               ))}
             </div>
             <div className="upload-layout__resource-card" aria-label="Resource placeholder card">
               <div className="upload-layout__resource-card__image" style={resourceImageStyle}>
-                <div className="upload-layout__resource-card__image-overlay">
-                  <p className="upload-layout__resource-card__image-title">{personaNameDisplay}</p>
-                  <p className="upload-layout__resource-card__image-description">
-                    {personaDescription || "Add a campaign summary so outputs stay focused."}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  className="upload-layout__resource-card__image-link"
+                  onClick={handleDescriptionLinkClick}
+                >
+                  <div className="upload-layout__resource-card__image-overlay">
+                    {selectedResourceTab === "QR Code" && (
+                      <span
+                        aria-hidden="true"
+                        className="upload-layout__resource-card__image-icon"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="#22325A"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M2 2h2v2H2z" />
+                          <path d="M6 0v6H0V0zM5 1H1v4h4zM4 12H2v2h2z" />
+                          <path d="M6 10v6H0v-6zm-5 1v4h4v-4zm11-9h2v2h-2z" />
+                          <path d="M10 0v6h6V0zm5 1v4h-4V1zM8 1V0h1v2H8v2H7V1zm0 5V4h1v2zM6 8V7h1V6h1v2h1V7h5v1h-4v1H7V8zm0 0v1H2V8H1v1H0V7h3v1zm10 1h-1V7h1zm-1 0h-1v2h2v-1h-1zm-4 0h2v1h-1v1h-1zm2 3v-1h-1v1h-1v1H9v1h3v-2zm0 0h3v1h-2v1h-1zm-4-1v1h1v-2H7v1z" />
+                          <path
+                            fillRule="evenodd"
+                            d="M7 12h1v3h4v1H7zm9 2v2h-3v-1h2v-1z"
+                          />
+                        </svg>
+                      </span>
+                    )}
+                    {selectedResourceTab === "Phone call" && (
+                      <span
+                        aria-hidden="true"
+                        className="upload-layout__resource-card__image-icon"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="#22325A"
+                          viewBox="0 0 16 16"
+                        >
+                          <path fillRule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z" />
+                        </svg>
+                      </span>
+                    )}
+                    {selectedResourceTab === "Link" && (
+                      <span
+                        aria-hidden="true"
+                        className="upload-layout__resource-card__image-icon"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="#22325A"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z" />
+                          <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z" />
+                        </svg>
+                      </span>
+                    )}
+                    <p className="upload-layout__resource-card__image-title">{personaNameDisplay}</p>
+                    <p className="upload-layout__resource-card__image-description">
+                      {sidebarDescriptionText ? (
+                        sidebarDescriptionText
+                      ) : (
+                        <span className="upload-layout__resource-card__image-description--link">
+                          Your campaign description
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </button>
               </div>
               {keyTraits.some((trait) => trait.value.trim().length > 0) ? (
                 <div className="upload-layout__resource-key-traits upload-layout__resource-key-traits--bottom">
@@ -1827,6 +2124,7 @@ export default function UploadPage() {
             gap: 8px;
             width: 100%;
             margin-bottom: 12px;
+            padding-top: 4px;
           }
           .upload-layout__resource-tab {
             flex: 1;
@@ -1845,6 +2143,13 @@ export default function UploadPage() {
             border-color: rgba(59, 130, 246, 0.6);
             box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
             transform: translateY(-2px);
+          }
+          .upload-layout__resource-tab--active {
+            background: linear-gradient(180deg, #e0f2fe, #bae6fd);
+            border-color: rgba(37, 99, 235, 0.8);
+            color: #0b1f3f;
+            box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+            transform: none;
           }
           .upload-layout__resource-card {
             display: flex;
@@ -1871,22 +2176,74 @@ export default function UploadPage() {
             inset: 0;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
+            justify-content: center;
+            align-items: center;
             padding: 16px;
             border-radius: 16px;
             background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.9) 100%);
             color: #fff;
             text-shadow: 0 2px 8px rgba(15, 23, 42, 0.75);
+            text-align: center;
+          }
+          .upload-layout__resource-card__image-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+            width: 64px;
+            height: 64px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.2);
+          }
+          .upload-layout__resource-card__image-icon svg {
+            width: 40px;
+            height: 40px;
+          }
+          .upload-layout__resource-card__image-link {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: inherit;
+            text-transform: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 0;
+          }
+          .upload-layout__resource-card__image-link:hover,
+          .upload-layout__resource-card__image-link:focus-visible {
+            outline: none;
+            text-shadow: 0 6px 16px rgba(15, 23, 42, 0.85);
           }
           .upload-layout__resource-card__image-title {
             margin: 0;
             font-size: 14px;
             font-weight: 700;
+            text-align: center;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.3;
+            max-height: calc(1.3em * 2);
+            overflow-wrap: anywhere;
           }
           .upload-layout__resource-card__image-description {
             margin: 2px 0 0;
             font-size: 11px;
             line-height: 1.4;
+            text-align: center;
+            white-space: normal;
+            word-break: break-word;
+          }
+          .upload-layout__resource-card__image-description--link {
+            font-weight: 600;
+            letter-spacing: 0.01em;
           }
           .upload-layout__resource-card__copy {
             display: flex;

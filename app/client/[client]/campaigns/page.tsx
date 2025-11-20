@@ -14,6 +14,30 @@ const newIcon = (
 import Image from "next/image";
 import Sidebar from "@/app/client/[client]/Sidebar";
 import Topbar from "@/app/components/Topbar";
+import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
+const placeholderImages = [
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNlMGU3ZmYiLz48L3N2Zz4=",
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNkYmVhZmUiLz48L3N2Zz4=",
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNjYmQ1ZjUiLz48L3N2Zz4=",
+];
+
+type CampaignSection = {
+  title: string;
+  description: string;
+};
+
+const overviewHighlights = [
+  "Recording scheduled within 48 hours",
+  "Persona brief (v2)",
+  "Script outline",
+  "Recent transcript",
+];
+
+const researchHighlights = [
+  "Conversion uplift +12% vs baseline",
+  "Verbatim snippets matched persona tone",
+  "Latest insights sync weekly",
+];
 
 export default function ResultsPage() {
   const metrics = [
@@ -21,7 +45,9 @@ export default function ResultsPage() {
     { label: "New", value: "15", icon: newIcon },
   ];
   const [openCard, setOpenCard] = useState<string | null>(null);
-  const sections = [
+  const [resultsOverlaySection, setResultsOverlaySection] = useState<CampaignSection | null>(null);
+  const [isResultsOverlayOpen, setIsResultsOverlayOpen] = useState(false);
+  const sections: CampaignSection[] = [
     {
       title: "Active campaigns",
       description: "Monitor ongoing plays and their status at a glance.",
@@ -192,6 +218,41 @@ export default function ResultsPage() {
                     flex: columnFlex,
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: "0",
+                    minWidth: 0,
+                  }}
+                >
+                  {placeholderImages.map((src, index) => (
+                    <div
+                      key={`${src}-${index}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 32,
+                        height: 32,
+                        marginLeft: index === 0 ? 0 : -6,
+                      }}
+                    >
+                      <Image
+                        src={src}
+                        width={32}
+                        height={32}
+                        alt={`Placeholder icon ${index + 1}`}
+                        unoptimized
+                        style={{
+                          borderRadius: "50%",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    flex: columnFlex,
+                    display: "flex",
+                    alignItems: "center",
                     justifyContent: "center",
                     minWidth: 0,
                   }}
@@ -209,34 +270,22 @@ export default function ResultsPage() {
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                     }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setResultsOverlaySection(container);
+                      setIsResultsOverlayOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setResultsOverlaySection(container);
+                        setIsResultsOverlayOpen(true);
+                      }
+                    }}
                   >
                     View Results
                   </button>
-                </div>
-                <div
-                  style={{
-                    flex: columnFlex,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    gap: "16px",
-                    minWidth: 0,
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
-                    <path d="M2 2h2v2H2z" />
-                    <path d="M6 0v6H0V0zM5 1H1v4h4zM4 12H2v2h2z" />
-                    <path d="M6 10v6H0v-6zm-5 1v4h4v-4zm11-9h2v2h-2z" />
-                    <path d="M10 0v6h6V0zm5 1v4h-4V1zM8 1V0h1v2H8v2H7V1zm0 5V4h1v2zM6 8V7h1V6h1v2h1V7h5v1h-4v1H7V8zm0 0v1H2V8H1v1H0V7h3v1zm10 1h-1V7h1zm-1 0h-1v2h2v-1h-1zm-4 0h2v1h-1v1h-1zm2 3v-1h-1v1h-1v1H9v1h3v-2zm0 0h3v1h-2v1h-1zm-4-1v1h1v-2H7v1z" />
-                    <path fillRule="evenodd" d="M7 12h1v3h4v1H7zm9 2v2h-3v-1h2v-1z" />
-                  </svg>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
-                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z" />
-                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z" />
-                  </svg>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z" />
-                  </svg>
                 </div>
               </div>
               {isOpen && (
@@ -309,6 +358,142 @@ export default function ResultsPage() {
           box-shadow: 0 26px 48px rgba(15, 23, 42, 0.12);
         }
       `}</style>
+      <SlidingPanelOverlay
+        open={isResultsOverlayOpen}
+        onRequestClose={() => setIsResultsOverlayOpen(false)}
+        onAfterClose={() => setResultsOverlaySection(null)}
+        title={
+          resultsOverlaySection
+            ? `${resultsOverlaySection.title} results`
+            : "Campaign results"
+        }
+        description={
+          resultsOverlaySection
+            ? `Latest takeaways for ${resultsOverlaySection.title.toLowerCase()}.`
+            : "Explore the latest outcomes across your campaigns."
+        }
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            {metrics.map((metric) => (
+              <div
+                key={`overlay-metric-${metric.label}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                  minWidth: 120,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "14px",
+                    color: "rgba(15,23,42,0.6)",
+                  }}
+                >
+                  {metric.icon}
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: 700,
+                      color: "#091F5B",
+                    }}
+                  >
+                    {metric.value}
+                  </span>
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "rgba(15,23,42,0.58)",
+                  }}
+                >
+                  {metric.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "16px",
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
+                Highlights
+              </h3>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  color: "rgba(15,23,42,0.75)",
+                }}
+              >
+                {overviewHighlights.map((point) => (
+                  <li key={point} style={{ margin: 0 }}>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
+                Supporting research
+              </h3>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  color: "rgba(15,23,42,0.75)",
+                }}
+              >
+                {researchHighlights.map((point) => (
+                  <li key={point} style={{ margin: 0 }}>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </SlidingPanelOverlay>
     </div>
   );
 }

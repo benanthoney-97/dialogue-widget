@@ -76,7 +76,7 @@ export default async function LiveChatAdminPage({ searchParams }: LiveChatAdminP
             width: "100%",
           }}
         >
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Live Chat</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Chat with us</h1>
           <p style={{ fontSize: 16, color: "#475569" }}>No chat rooms available yet.</p>
         </main>
       </div>
