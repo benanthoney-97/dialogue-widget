@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BODY_FONT_STACK } from "@/app/lib/fontStacks";
 
 export type AgentResearchRecord = {
@@ -15,7 +15,13 @@ export type AgentResearchRecord = {
   currentJobStatus?: string | null;
 };
 
-type ResearchOverlayTab = "research" | "prompt";
+type ResearchOverlayTab = "research" | "prompt" | "sources";
+
+type ExternalProvider = {
+  id: string;
+  name: string;
+  logo: string | null;
+};
 
 type ResearchOverlayContentProps = {
   agent: AgentResearchRecord;
@@ -34,6 +40,8 @@ type ResearchOverlayContentProps = {
   overlayDescriptionId: string;
 };
 
+const EXTERNAL_SOURCES_ENDPOINT = "/api/external-sources";
+
 export default function ResearchOverlayContent({
   agent,
   activeTab,
@@ -50,6 +58,59 @@ export default function ResearchOverlayContent({
   overlayTitleId,
   overlayDescriptionId,
 }: ResearchOverlayContentProps) {
+  const [externalProviders, setExternalProviders] = useState<ExternalProvider[]>([]);
+  const [externalProvidersLoading, setExternalProvidersLoading] = useState(true);
+  const [externalProvidersError, setExternalProvidersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadExternalSources = async () => {
+      setExternalProvidersLoading(true);
+      setExternalProvidersError(null);
+
+      try {
+        const response = await fetch(EXTERNAL_SOURCES_ENDPOINT, { cache: "no-store" });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Failed to load external sources");
+        }
+
+        const normalized = Array.isArray(payload?.sources)
+          ? (payload.sources as Partial<ExternalProvider>[])
+              .map((source) => ({
+                id: source?.id ?? "",
+                name: typeof source?.name === "string" ? source.name : "",
+                logo:
+                  typeof source?.logo === "string" && source.logo.trim().length > 0
+                    ? source.logo.trim()
+                    : null,
+              }))
+              .filter((source): source is ExternalProvider => Boolean(source.id && source.name))
+          : [];
+
+        if (isMounted) {
+          setExternalProviders(normalized);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        const message = error instanceof Error ? error.message : "Unable to load sources.";
+        setExternalProvidersError(message);
+      } finally {
+        if (isMounted) {
+          setExternalProvidersLoading(false);
+        }
+      }
+    };
+
+    loadExternalSources();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   if (!agent) return null;
 
   return (
@@ -61,6 +122,13 @@ export default function ResearchOverlayContent({
           onClick={() => setActiveTab("research")}
         >
           Research
+        </button>
+        <button
+          type="button"
+          className={`research-overlay__tab${activeTab === "sources" ? " research-overlay__tab--active" : ""}`}
+          onClick={() => setActiveTab("sources")}
+        >
+          Sources
         </button>
         <button
           type="button"
@@ -143,6 +211,48 @@ export default function ResearchOverlayContent({
               </section>
             </div>
           </div>
+        ) : activeTab === "sources" ? (
+          <section className="research-overlay__sources-panel" aria-label="Sources placeholder">
+            {externalProvidersLoading ? (
+              <p className="research-overlay__sources-status">Loading sources…</p>
+            ) : externalProvidersError ? (
+              <p className="research-overlay__sources-status research-overlay__sources-error">
+                {externalProvidersError}
+              </p>
+            ) : externalProviders.length === 0 ? (
+              <p className="research-overlay__placeholder-line">
+                No sources are configured yet. Check back once external providers are available.
+              </p>
+            ) : (
+              <div className="research-overlay__sources-grid">
+                {externalProviders.map((source) => (
+                  <article key={source.id} className="research-overlay__sources-card">
+                    {source.logo ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={source.logo}
+                        alt={`${source.name} logo`}
+                        className="research-overlay__sources-card-logo"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="research-overlay__sources-card-fallback">
+                        {source.name
+                          .split(" ")
+                          .map((token) => token.charAt(0))
+                          .join("")
+                          .slice(0, 3)
+                          .toUpperCase()}
+                      </div>
+                    )}
+                    <div className="research-overlay__sources-card-body">
+                      <p className="research-overlay__sources-card-title">{source.name}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         ) : (
           <section className="research-overlay__prompt-panel" aria-label="Research prompt">
             <p className="research-overlay__placeholder-heading">Research Prompt</p>
@@ -206,6 +316,41 @@ export default function ResearchOverlayContent({
           flex-direction: column;
           gap: 4px;
         }
+        .research-overlay__tabs {
+          display: flex;
+          gap: 12px;
+        }
+        .research-overlay__body {
+          flex: 1;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          align-items: stretch;
+          min-height: 0;
+          overflow: hidden;
+          height: 100%;
+        }
+        .research-overlay__tab {
+          width: 150px;
+          padding: 8px 0;
+          border: 1px solid rgba(59, 130, 246, 0.18);
+          background: rgba(59, 130, 246, 0.08);
+          color: rgba(15, 23, 42, 0.75);
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: border 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+          text-align: center;
+        }
+        .research-overlay__tab--active {
+          background: rgba(59, 130, 246, 0.16);
+          border-color: rgba(59, 130, 246, 0.4);
+          box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+          color: #052033;
+        }
         .research-overlay__preview-link {
           font-size: 10px;
           font-weight: 400;
@@ -216,57 +361,81 @@ export default function ResearchOverlayContent({
           margin-top: 2px;
           word-break: break-all;
         }
-        .research-overlay__preview-link:hover,
-        .research-overlay__preview-link:focus-visible {
-          text-decoration: underline;
-        }
-        .research-overlay__tabs {
-          display: flex;
-          gap: 12px;
-        }
-        .research-overlay__tab {
-          width: 150px;
-          padding: 8px 0;
-          border: 1px solid transparent;
-          background: transparent;
-          color: rgba(15, 23, 42, 0.6);
-          font-size: 14px;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: border 0.2s ease, color 0.2s ease, background 0.2s ease;
-          text-align: center;
-        }
-        .research-overlay__tab--active {
-          background: rgba(59, 130, 246, 0.08);
-          border-color: rgba(59, 130, 246, 0.25);
-          color: #0f172a;
-        }
-        .research-overlay__body {
-          flex: 1;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          align-items: stretch;
-          min-height: 0;
-          overflow-x: hidden;
-        }
         .research-overlay__content {
           width: 100%;
           display: flex;
           gap: 28px;
-          align-items: stretch;
           flex: 1;
           min-height: 0;
+          flex-wrap: nowrap;
+          align-items: stretch;
         }
-        .research-overlay__main {
+        .research-overlay__content .research-overlay__main {
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.16);
+          border-radius: 16px;
+          padding: 20px;
           flex: 2;
           min-width: 0;
           width: 0;
           display: flex;
           flex-direction: column;
+          gap: 16px;
+          overflow: visible;
+          position: relative;
+          height: 100%;
+        }
+        .research-overlay__sources-grid {
+          width: 100%;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 10px;
+          margin-top: 4px;
+        }
+        .research-overlay__sources-card {
+          background: #ffffff;
+          border-radius: 12px;
+          border: 1px solid rgba(15, 23, 42, 0.12);
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-height: 0;
+          box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+        }
+        .research-overlay__sources-card-image {
+          width: 100%;
+          height: 80px;
+          border-radius: 8px;
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.25));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          letter-spacing: 0.3em;
+          text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.4);
+        }
+        .research-overlay__sources-card-logo {
+          width: 100%;
+          height: 80px;
+          object-fit: contain;
+          border-radius: 8px;
+          background: rgba(248, 250, 252, 1);
+        }
+        .research-overlay__sources-card-fallback {
+          width: 100%;
+          height: 80px;
+          border-radius: 8px;
+          background: rgba(15, 23, 42, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          font-weight: 600;
+          color: rgba(15, 23, 42, 0.6);
+          letter-spacing: 0.2em;
+        }
           gap: 16px;
           overflow: visible;
           position: relative;
@@ -295,11 +464,111 @@ export default function ResearchOverlayContent({
           letter-spacing: 0.02em;
           color: rgba(15, 23, 42, 0.55);
         }
+        .research-overlay__sources-panel {
+          width: 100%;
+          flex: 1;
+          min-height: 0;
+          border-radius: 20px;
+          border: 1px dashed rgba(15, 23, 42, 0.1);
+          padding: 32px;
+          padding-top: 0px'
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          justify-content: flex-start;
+          align-items: stretch;
+        }
+        .research-overlay__placeholder-line {
+          margin: 0;
+          font-size: 13px;
+          color: rgba(15, 23, 42, 0.65);
+          line-height: 1.5;
+        }
+        .research-overlay__sources-hero {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .research-overlay__sources-grid {
+          width: 100%;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 12px;
+          margin-top: 4px;
+        }
+        .research-overlay__sources-card {
+          background: #ffffff;
+          border-radius: 14px;
+          border: 1px solid rgba(15, 23, 42, 0.12);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-height: 0;
+          box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
+        }
+        .research-overlay__sources-card-image {
+          width: 100%;
+          height: 96px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.25));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          letter-spacing: 0.3em;
+          text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.4);
+        }
+        .research-overlay__sources-card-logo {
+          width: 100%;
+          height: 96px;
+          object-fit: contain;
+          border-radius: 10px;
+          background: rgba(248, 250, 252, 1);
+        }
+        .research-overlay__sources-card-fallback {
+          width: 100%;
+          height: 96px;
+          border-radius: 10px;
+          background: rgba(15, 23, 42, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          font-weight: 600;
+          color: rgba(15, 23, 42, 0.6);
+          letter-spacing: 0.2em;
+        }
+        .research-overlay__sources-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .research-overlay__sources-card-title {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .research-overlay__sources-card-description {
+          margin: 0;
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.65);
+        }
+        .research-overlay__sources-status {
+          margin-top: 8px;
+          font-size: 12px;
+          color: rgba(15, 23, 42, 0.65);
+        }
+        .research-overlay__sources-error {
+          color: #b91c1c;
+        }
         .research-overlay__actions-stack {
-          flex: 0 0 48%;
-          width: 48%;
-          min-width: 0;
-          max-width: 48%;
+          flex: 0 0 40%;
+          width: 40%;
+          min-width: 320px;
+          max-width: 40%;
           min-height: 0;
           height: 100%;
           background: rgba(59, 130, 246, 0.08);
@@ -323,6 +592,13 @@ export default function ResearchOverlayContent({
           display: flex;
           flex-direction: column;
           gap: 6px;
+        }
+        .research-overlay__actions-stack .research-overlay__sources-list,
+        .research-overlay__main .research-overlay__sources-list {
+          flex: 1;
+          min-height: 0;
+          max-height: 100%;
+          overflow-y: auto;
         }
         .research-overlay__knowledge-item {
           border: 1px solid rgba(15, 23, 42, 0.1);
@@ -378,7 +654,7 @@ export default function ResearchOverlayContent({
           width: 100%;
           flex: 1;
           min-height: 0;
-          background: rgba(248, 250, 252, 0.9);
+          background: rgba(59, 130, 246, 0.1);
           border-radius: 16px;
           border: 1px solid rgba(148, 163, 184, 0.5);
           padding: 24px;

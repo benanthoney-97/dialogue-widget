@@ -53,6 +53,7 @@ const DEFAULT_PERSONA_OPTIONS: PersonaCardData[] = [
   { id: "bella", name: "Bella Thomas", title: "Single Mum of 2", agentId: null },
   { id: "jane", name: "Jane Doe", title: "Head of Procurement", agentId: null },
 ] as const;
+const getPersonaIdentity = (persona: PersonaCardData): string => persona.agentId ?? persona.id;
 type AgentMapRow = {
   agent_id?: string | null;
   agent_name?: string | null;
@@ -614,9 +615,7 @@ export default function UploadPage() {
   const [linksUrl, setLinksUrl] = useState<string>("");
   const [linksUrls, setLinksUrls] = useState<string[]>([]);
   const [personaCards, setPersonaCards] = useState<PersonaCardData[]>(DEFAULT_PERSONA_OPTIONS);
-  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([
-    DEFAULT_PERSONA_OPTIONS[0].id,
-  ]);
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(() => [getPersonaIdentity(DEFAULT_PERSONA_OPTIONS[0])]);
   useEffect(() => {
     setKnowledgePanelExpanded(linksUrls.length > 0);
   }, [linksUrls.length]);
@@ -690,12 +689,12 @@ export default function UploadPage() {
       return;
     }
     setSelectedPersonaIds((prev) => {
-      const available = new Set(personaCards.map((card) => card.id));
+      const available = new Set(personaCards.map((card) => getPersonaIdentity(card)));
       const filtered = prev.filter((id) => available.has(id));
       if (filtered.length > 0) {
         return filtered;
       }
-      return [personaCards[0].id];
+      return [getPersonaIdentity(personaCards[0])];
     });
   }, [personaCards]);
 
@@ -855,19 +854,10 @@ export default function UploadPage() {
   }
 
   async function createCampaignRecord(): Promise<string> {
-    const clientId = await waitForClientId();
-    if (createdCampaignId) return createdCampaignId;
-    if (!clientId) {
-      console.error("createCampaignRecord missing resolved client", {
-        clientSlug,
-        resolvedClientId,
-        personaNameTrimmed,
-        selectedPersonaIds,
-        linksUrls,
-      });
-      throw new Error("Client context missing");
+    if (createdCampaignId) {
+      return createdCampaignId;
     }
-    if (createdCampaignId) return createdCampaignId;
+    const clientId = await waitForClientId();
     if (!clientId) {
       console.error("createCampaignRecord missing resolved client", {
         clientSlug,
@@ -885,43 +875,41 @@ export default function UploadPage() {
       type: entry.type,
       description: entry.description,
     }));
-    const personaIdsPayload = Array.from(
-      new Set(
-        selectedPersonaIds
-          .map((personaId) => {
-            const card = personaCards.find((persona) => persona.id === personaId);
-            return card ? card.agentId ?? personaId : personaId;
-          })
-          .filter((item): item is string => Boolean(item))
-      )
-    );
+    const personaIdsPayload = Array.from(new Set(selectedPersonaIds.filter(Boolean)));
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) {
       console.warn("Failed to resolve user for campaign creation", userError);
     }
-    const { data, error } = await supabase
-      .from("campaigns")
-      .insert({
+    const response = await fetch("/api/campaigns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
         name: personaNameTrimmed,
         description: personaTaglineTrimmed || null,
         objective: personaDescription.trim() || null,
         questions: linksUrls,
         outputs: outputsPayload,
-        client_id: clientId,
-  persona_ids: personaIdsPayload,
-        created_by: userData?.user?.id ?? null,
-        document_ids: [],
-      })
-      .select("id")
-      .single();
-    if (error) {
-      throw error;
+        personaIds: personaIdsPayload,
+        createdBy: userData?.user?.id ?? null,
+        documentIds: [],
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { id?: string; error?: string }
+      | null;
+    if (!response.ok) {
+      const msg =
+        payload && typeof payload === "object" && typeof payload.error === "string"
+          ? payload.error
+          : `Server error: ${response.status}`;
+      throw new Error(msg);
     }
-    if (!data?.id) {
+    if (!payload?.id) {
       throw new Error("Failed to create campaign record");
     }
-    setCreatedCampaignId(data.id);
-    return data.id;
+    setCreatedCampaignId(payload.id);
+    return payload.id;
   }
 
   async function persistCampaignDocuments(campaignId: string): Promise<void> {
@@ -1111,61 +1099,14 @@ export default function UploadPage() {
         return;
       }
     }
-    try {
-      console.log("[Upload] Calling dialogues create API", { tempId, docsCount: docsPayload.length });
-      const res = await fetch('/api/dialogues/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tempId,
-          clientSlug,
-          docs: docsPayload,
-          purpose: savedPurpose ?? purposeText,
-          audienceType: audienceType || "Custom",
-          briefingConversationId,
-          briefingEndedAt,
-          personaName: personaNameDisplay,
-          personaImage: personaImagePreview
-            ? {
-                fileName: buildPersonaImageFileName(personaImageFile, personaImagePreview),
-                dataUrl: personaImagePreview,
-                mimeType: personaImageFile?.type ?? extractMimeFromDataUrl(personaImagePreview),
-              }
-            : undefined,
-          personaTagline: personaTagline.trim() || null,
-          personaDescription: personaDescription.trim() || null,
-          personaGuidance: selectedGuidance ?? null,
-          personaSetting: selectedSetting ?? null,
-          personaTone: tone || null,
-          personaVoice: voice || null,
-          personaLinks: linksUrls,
-          key_traits: keyTraitsPayload,
-        }),
-      });
-      const payload = await res.json().catch(() => null);
-      if (!res.ok) {
-        const msg =
-          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
-            ? payload.error
-            : `Server error: ${res.status}`;
-        console.error("[Upload] Dialogues API failure", { status: res.status, message: msg });
-        setNotification({ type: 'error', message: `Failed to finalize: ${msg}` });
-        setFinalizing(false);
-        return;
-      }
 
-      setNotification({ type: 'success', message: 'Dialogue created successfully.' });
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem('temp-upload-docs');
-        sessionStorage.removeItem('temp-upload-purpose');
-      }
-      setFinalizing(false);
-      router.push(`/client/${clientSlug}/campaigns`);
-    } catch (e: any) {
-      console.error("[Upload] Failed to finalize", e);
-      setNotification({ type: 'error', message: `Failed to finalize: ${e?.message ?? e}` });
-      setFinalizing(false);
+    setNotification({ type: 'success', message: 'Campaign created successfully.' });
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem('temp-upload-docs');
+      sessionStorage.removeItem('temp-upload-purpose');
     }
+    setFinalizing(false);
+    router.push(`/client/${clientSlug}/campaigns`);
   }
 
   return (
@@ -1351,7 +1292,8 @@ export default function UploadPage() {
               >
                 <div className="personas-stage__grid" role="list">
                   {personaCards.map((persona) => {
-                    const isSelected = selectedPersonaIds.includes(persona.id);
+                    const personaIdentity = getPersonaIdentity(persona);
+                    const isSelected = selectedPersonaIds.includes(personaIdentity);
                     return (
                       <button
                         key={persona.id}
@@ -1360,9 +1302,9 @@ export default function UploadPage() {
                         className={`personas-stage__card${isSelected ? " personas-stage__card--active" : ""}`}
                         onClick={() => {
                           setSelectedPersonaIds((prev) =>
-                            prev.includes(persona.id)
-                              ? prev.filter((id) => id !== persona.id)
-                              : [...prev, persona.id]
+                            prev.includes(personaIdentity)
+                              ? prev.filter((id) => id !== personaIdentity)
+                              : [...prev, personaIdentity]
                           );
                         }}
                         aria-pressed={isSelected}

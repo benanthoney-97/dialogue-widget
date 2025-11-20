@@ -885,16 +885,30 @@ export default function UploadPage() {
       }
     }
 
-    const keyTraitsPayload = keyTraits
-      .map((trait) => trait.value.trim())
-      .filter((value) => value.length > 0);
+    const LABELED_TRAIT_PREFIXES: Record<string, string> = {
+      "Age range": "Age",
+      Location: "Location",
+      Gender: "Gender",
+      "No. employees": "No. Employees",
+      "Company Turnover": "Company Turnover",
+    };
+    const keyTraitsPayload = keyTraits.reduce<string[]>((acc, trait) => {
+      const value = trait.value.trim();
+      if (!value) return acc;
+      const label = LABELED_TRAIT_PREFIXES[trait.placeholder];
+      acc.push(label ? `${label}: ${value}` : value);
+      return acc;
+    }, []);
 
     console.log("[Upload] Starting persona create flow", {
       personaName: personaNameDisplay,
       personaTagline: personaTagline.trim(),
       linksCount: linksUrls.length,
       keyTraits: keyTraitsPayload,
+      keyTraitsRaw: keyTraits,
     });
+    console.log("keyTraits (raw)", keyTraits);
+    console.log("keyTraitsPayload (sending)", keyTraitsPayload);
     setFinalizing(true);
     try {
       console.log("[Upload] Calling dialogues create API", { tempId, docsCount: docsPayload.length });
@@ -1556,15 +1570,7 @@ export default function UploadPage() {
                 >
                   Back
                 </button>
-                <div className="stage-button-row__group">
-                  <StageButton
-                    type="button"
-                    variant="ghost"
-                    className="stage-button--outline"
-                    onClick={() => setCurrentStep(4)}
-                  >
-                    Skip
-                  </StageButton>
+                <div className="stage-button-row__group" style={{ flex: "0 0 25%" }}>
                   <StageButton
                     type="button"
                     variant="primary"
@@ -1573,6 +1579,7 @@ export default function UploadPage() {
                       (uploadMode === "upload" && (files.length === 0 || submitted)) ||
                       (uploadMode === "url" && (fileUrl.trim() === "" || submitted))
                     }
+                    style={{ width: "100%" }}
                   >
                     Continue
                   </StageButton>
@@ -1855,7 +1862,7 @@ export default function UploadPage() {
             </div>
           <div className={internalDataPanelClass}>
             <div className="upload-layout__resource-description__header">
-              <h4>Internal data</h4>
+              <h4>Documents</h4>
               {internalDataHasContent && (
                 <span className="upload-layout__resource-check" aria-hidden="true">
                   ✓
@@ -1896,7 +1903,7 @@ export default function UploadPage() {
               }}
             >
               <div className="upload-layout__resource-description__header">
-                <h4>Knowledge links</h4>
+                <h4>Links</h4>
                 {knowledgeLinksHaveContent && (
                   <span className="upload-layout__resource-check" aria-hidden="true">
                     ✓

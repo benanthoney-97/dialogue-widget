@@ -72,8 +72,19 @@ export default function WelcomeOnboardingPage() {
         throw new Error(data?.error ?? "Unable to save your details right now.");
       }
 
+      // Redirect to the client's personas page.
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("client_id")
+        .maybeSingle();
+      const clientId = profileRow?.client_id;
+
       setSubmitted(true);
-      router.push("/personas");
+      if (clientId) {
+        router.push(`/client/${clientId}/personas`);
+      } else {
+        router.push("/personas");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your details right now.";
       setSubmissionError(message);

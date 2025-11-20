@@ -39,6 +39,7 @@ type CreateDialoguePayload = {
   painPoints?: string | null;
   jobsToBeDone?: string | null;
   customerStatus?: string | null;
+  key_traits?: string[] | null;
 };
 
 type PersonaImagePayload = {
@@ -115,6 +116,7 @@ export async function POST(req: Request) {
     painPoints,
     jobsToBeDone,
     customerStatus,
+    key_traits: keyTraits,
   } = body;
     console.log("[CreateDialogue] payload", {
       clientSlug,
@@ -238,6 +240,9 @@ export async function POST(req: Request) {
     if (trimmedSetting.length > 0) {
       insertPayload.region = trimmedSetting;
     }
+    if (Array.isArray(keyTraits) && keyTraits.length > 0) {
+      insertPayload.key_traits = keyTraits;
+    }
     const trimmedCustomerStatus = typeof customerStatus === "string" ? customerStatus.trim() : "";
     if (trimmedCustomerStatus.length > 0) {
       insertPayload.customer_status = trimmedCustomerStatus;
@@ -262,15 +267,31 @@ export async function POST(req: Request) {
       insertPayload.url = linkUrls[0];
     }
 
+    console.log("[CreateDialogue] agent_map insert payload", {
+      agentId,
+      clientId,
+      agentName: derivedAgentName,
+      purpose,
+      linkUrlsCount: linkUrls.length,
+      docsCount: docsArray.length,
+    });
+
     if (ownerProfileId) {
       insertPayload.user_id = ownerProfileId;
     }
+
+    console.log("[CreateDialogue] inserting into agent_map", insertPayload);
 
     const { error: createAgentError } = await supabaseAdmin
       .from('agent_map')
       .insert([
         insertPayload as any,
       ]);
+
+    console.log("[CreateDialogue] agent_map insert result", {
+      agentId,
+      errorMessage: createAgentError?.message ?? null,
+    });
 
     if (createAgentError) {
       return NextResponse.json({ error: createAgentError.message }, { status: 500 });

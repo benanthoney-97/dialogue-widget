@@ -1,6 +1,7 @@
 "use client";
 
-import { KeyboardEvent, useState } from "react";
+import { KeyboardEvent, useEffect, useState } from "react";
+import { supabase } from "@/app/lib/supabaseClient";
 const responsesIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#091F5B" viewBox="0 0 16 16">
     <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z" />
@@ -20,11 +21,42 @@ const placeholderImages = [
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNkYmVhZmUiLz48L3N2Zz4=",
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNjYmQ1ZjUiLz48L3N2Zz4=",
 ];
+const FALLBACK_CAMPAIGN_IMAGE =
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjY2JkNWY1Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMTYiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=";
 
 type CampaignSection = {
   title: string;
   description: string;
+  imageUrl?: string | null;
+  questions?: string[] | null;
 };
+
+const DEFAULT_QUESTIONS = [
+  "Persona brief (v2)",
+  "Script outline",
+  "Recent transcript",
+];
+
+const DEFAULT_CAMPAIGN_SECTIONS: CampaignSection[] = [
+  {
+    title: "Active campaigns",
+    description: "Monitor ongoing plays and their status at a glance.",
+    imageUrl: null,
+    questions: DEFAULT_QUESTIONS,
+  },
+  {
+    title: "Upcoming campaigns",
+    description: "Prepare briefs, assign personas, and queue recordings.",
+    imageUrl: null,
+    questions: DEFAULT_QUESTIONS,
+  },
+  {
+    title: "Recent reports",
+    description: "Review insights, transcripts, and executive summaries.",
+    imageUrl: null,
+    questions: DEFAULT_QUESTIONS,
+  },
+];
 
 const overviewHighlights = [
   "Recording scheduled within 48 hours",
@@ -47,24 +79,51 @@ export default function ResultsPage() {
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [resultsOverlaySection, setResultsOverlaySection] = useState<CampaignSection | null>(null);
   const [isResultsOverlayOpen, setIsResultsOverlayOpen] = useState(false);
-  const sections: CampaignSection[] = [
-    {
-      title: "Active campaigns",
-      description: "Monitor ongoing plays and their status at a glance.",
-    },
-    {
-      title: "Upcoming campaigns",
-      description: "Prepare briefs, assign personas, and queue recordings.",
-    },
-    {
-      title: "Recent reports",
-      description: "Review insights, transcripts, and executive summaries.",
-    },
-  ];
+  const [campaignSections, setCampaignSections] = useState<CampaignSection[]>(DEFAULT_CAMPAIGN_SECTIONS);
   const toggleCard = (title: string) => {
     setOpenCard((prev) => (prev === title ? null : title));
   };
   const columnFlex = "1 1 0";
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadCampaigns() {
+      try {
+        const { data, error } = await supabase
+          .from("campaigns")
+          .select("id, name, description, image_url, questions")
+          .order("created_at", { ascending: false })
+          .limit(3);
+        if (!isActive) return;
+        if (error) {
+          console.error("[campaigns page] failed to load campaigns", error);
+          return;
+        }
+        if (!data || data.length === 0) {
+          return;
+        }
+        const mapped = data.map((campaign) => ({
+          id: campaign.id ?? undefined,
+          title: campaign.name ?? "Untitled campaign",
+          description: campaign.description ?? "No description yet",
+          imageUrl: campaign.image_url ?? null,
+          questions: Array.isArray(campaign.questions)
+            ? campaign.questions.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+            : null,
+        }));
+        if (mapped.length > 0) {
+          setCampaignSections(mapped);
+        }
+      } catch (error) {
+        console.error("[campaigns page] unexpected error loading campaigns", error);
+      }
+    }
+
+    loadCampaigns();
+    return () => {
+      isActive = false;
+    };
+  }, []);
   return (
     <div
       style={{
@@ -88,8 +147,14 @@ export default function ResultsPage() {
           gap: "24px",
         }}
       >
-        {sections.map((container) => {
+        {campaignSections.map((container) => {
           const isOpen = openCard === container.title;
+          const detailImages = container.imageUrl
+            ? [container.imageUrl, ...placeholderImages.slice(0, 2)]
+            : placeholderImages;
+          const questionList = container.questions && container.questions.length > 0
+            ? container.questions
+            : DEFAULT_QUESTIONS;
           return (
             <section
               key={container.title}
@@ -144,10 +209,10 @@ export default function ResultsPage() {
                     }}
                   >
                     <Image
-                      src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjY2JkNWY1Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMTYiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4="
+                      src={container.imageUrl ?? FALLBACK_CAMPAIGN_IMAGE}
                       width={48}
                       height={48}
-                      alt="Campaign placeholder"
+                      alt={container.title}
                       unoptimized
                       priority
                     />
@@ -223,7 +288,7 @@ export default function ResultsPage() {
                     minWidth: 0,
                   }}
                 >
-                  {placeholderImages.map((src, index) => (
+                  {detailImages.map((src, index) => (
                     <div
                       key={`${src}-${index}`}
                       style={{
@@ -324,9 +389,11 @@ export default function ResultsPage() {
                       </div>
                       <div className="persona-expanded-block__list-wrapper">
                         <ul>
-                          <li>Persona brief (v2)</li>
-                          <li>Script outline</li>
-                          <li>Recent transcript</li>
+                          {questionList.map((question) => (
+                            <li key={question} style={{ margin: 0 }}>
+                              {question}
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     </div>

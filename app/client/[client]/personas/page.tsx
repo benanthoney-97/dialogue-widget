@@ -24,6 +24,8 @@ import { useResearchOverlayState } from "@/app/hooks/useResearchOverlayState";
 
 const QUESTIONNAIRE_STORAGE_BUCKET = "questionnaires";
 const PERSONA_IMAGES_BUCKET = "persona_images";
+const STATUS_POLL_INTERVAL_MS = 10_000;
+const STATUS_POLL_MAX_DURATION_MS = 5 * 60 * 1000;
 
 type PersonaRow = {
   agent_id: string;
@@ -41,7 +43,8 @@ type PersonaRow = {
   gender?: string | null;
   location?: string | null;
   customer_status?: string | null;
-  key_pain_points?: string[] | null;
+  key_pain_points?: string[] | string | null;
+  jobs_to_be_done?: string[] | string | null;
   intent_signals?: string[] | null;
   key_traits?: string[] | null;
   profile_image?: string | null;
@@ -178,6 +181,30 @@ function normalizeTraitsInput(value: string): string {
     .map((trait) => trait.trim())
     .filter((trait) => trait.length > 0)
     .join(", ");
+}
+
+function normalizeListFieldToString(source: string[] | string | null | undefined): string {
+  if (Array.isArray(source)) {
+    return source
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => value.length > 0)
+      .join(", ");
+  }
+  if (typeof source === "string") {
+    return source
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+      .join(", ");
+  }
+  return "";
+}
+
+function normalizeCommaSeparatedList(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 function buildPersonaInitial(name: string | null | undefined): string {
@@ -612,6 +639,9 @@ export default function PersonasPage() {
   const [currentUserDisplayName, setCurrentUserDisplayName] = useState<string | null>(null);
   const [expandedPersonaId, setExpandedPersonaId] = useState<string | null>(null);
   const [activePersona, setActivePersona] = useState<PersonaRow | null>(null);
+  const [selectedKeyInfoTab, setSelectedKeyInfoTab] = useState<"Description" | "Traits" | "Pain Points" | "JTBD">(
+    "Description"
+  );
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [personaDocuments, setPersonaDocuments] = useState<Record<string, AgentDocumentRow[]>>({});
   const [documentsError, setDocumentsError] = useState<string | null>(null);
@@ -765,7 +795,7 @@ export default function PersonasPage() {
   } = useResearchOverlayState(clientSlug);
   const overlayTitleId = "research-overlay-title";
   const overlayDescriptionId = "research-overlay-description";
-  const [activeOverlayTab, setActiveOverlayTab] = useState<"research" | "prompt">("research");
+  const [activeOverlayTab, setActiveOverlayTab] = useState<"research" | "prompt" | "sources">("research");
   const handleOpenResearchOverlay = useCallback(
     (agentId: string) => {
       selectAgentById(agentId);
@@ -851,25 +881,50 @@ export default function PersonasPage() {
   const [descriptionOverlayChipEditingIndex, setDescriptionOverlayChipEditingIndex] = useState<number | null>(null);
   const [descriptionOverlayChipEditingValue, setDescriptionOverlayChipEditingValue] = useState("");
   const [descriptionOverlayTraitsError, setDescriptionOverlayTraitsError] = useState<string | null>(null);
+  const [descriptionOverlayPainPoints, setDescriptionOverlayPainPoints] = useState("");
+  const [descriptionOverlayJobsToBeDone, setDescriptionOverlayJobsToBeDone] = useState("");
   const [isSavingDescriptionOverlay, setIsSavingDescriptionOverlay] = useState(false);
   const [isSavingDescriptionOverlayTraits, setIsSavingDescriptionOverlayTraits] = useState(false);
+  const resetDescriptionOverlayFields = useCallback(() => {
+    if (!descriptionOverlayPersona) return;
+    const initialPainPoints = Array.isArray(descriptionOverlayPersona.key_pain_points)
+      ? descriptionOverlayPersona.key_pain_points
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter((value) => value.length > 0)
+          .join(", ")
+      : typeof descriptionOverlayPersona.key_pain_points === "string"
+        ? descriptionOverlayPersona.key_pain_points
+        : "";
+    const initialJobs = Array.isArray(descriptionOverlayPersona.jobs_to_be_done)
+      ? descriptionOverlayPersona.jobs_to_be_done
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter((value) => value.length > 0)
+          .join(", ")
+      : typeof descriptionOverlayPersona.jobs_to_be_done === "string"
+        ? descriptionOverlayPersona.jobs_to_be_done
+        : "";
+    const initialTraits = Array.isArray(descriptionOverlayPersona.key_traits)
+      ? descriptionOverlayPersona.key_traits
+          .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
+          .filter((trait) => trait.length > 0)
+      : [];
+    const normalizedTraits = normalizeTraitsInput(initialTraits.join(", "));
+
+    setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
+    setDescriptionOverlayError(null);
+    setIsSavingDescriptionOverlay(false);
+    setDescriptionOverlayPainPoints(initialPainPoints);
+    setDescriptionOverlayJobsToBeDone(initialJobs);
+    setDescriptionOverlayTraits(normalizedTraits);
+    setDescriptionOverlayChipEditingIndex(null);
+    setDescriptionOverlayChipEditingValue("");
+    setDescriptionOverlayTraitsError(null);
+    setIsSavingDescriptionOverlayTraits(false);
+  }, [descriptionOverlayPersona]);
 
   useEffect(() => {
     if (descriptionOverlayPersona) {
-      setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
-      setDescriptionOverlayError(null);
-      setIsSavingDescriptionOverlay(false);
-      const initialTraits = Array.isArray(descriptionOverlayPersona.key_traits)
-        ? descriptionOverlayPersona.key_traits
-            .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
-            .filter((trait) => trait.length > 0)
-        : [];
-      const normalizedTraits = normalizeTraitsInput(initialTraits.join(", "));
-      setDescriptionOverlayTraits(normalizedTraits);
-      setDescriptionOverlayChipEditingIndex(null);
-      setDescriptionOverlayChipEditingValue("");
-      setDescriptionOverlayTraitsError(null);
-      setIsSavingDescriptionOverlayTraits(false);
+      resetDescriptionOverlayFields();
     } else {
       setDescriptionOverlayDraft("");
       setDescriptionOverlayError(null);
@@ -879,8 +934,10 @@ export default function PersonasPage() {
       setDescriptionOverlayChipEditingValue("");
       setDescriptionOverlayTraitsError(null);
       setIsSavingDescriptionOverlayTraits(false);
+      setDescriptionOverlayPainPoints("");
+      setDescriptionOverlayJobsToBeDone("");
     }
-  }, [descriptionOverlayPersona]);
+  }, [descriptionOverlayPersona, resetDescriptionOverlayFields]);
 
   const descriptionOverlayNormalizedTraits = useMemo(
     () => normalizeTraitsInput(descriptionOverlayTraits),
@@ -893,6 +950,34 @@ export default function PersonasPage() {
       .map((trait) => trait.trim())
       .filter((trait) => trait.length > 0);
   }, [descriptionOverlayNormalizedTraits]);
+  const descriptionOverlayBaseline = useMemo(() => {
+    if (!descriptionOverlayPersona) {
+      return {
+        description: "",
+        painPoints: "",
+        jobs: "",
+      };
+    }
+    return {
+      description: descriptionOverlayPersona.description ?? "",
+      painPoints: normalizeListFieldToString(descriptionOverlayPersona.key_pain_points),
+      jobs: normalizeListFieldToString(descriptionOverlayPersona.jobs_to_be_done),
+    };
+  }, [descriptionOverlayPersona]);
+  const descriptionOverlayHasUnsavedChanges = useMemo(() => {
+    if (!descriptionOverlayPersona) return false;
+    return (
+      descriptionOverlayDraft !== descriptionOverlayBaseline.description ||
+      descriptionOverlayPainPoints !== descriptionOverlayBaseline.painPoints ||
+      descriptionOverlayJobsToBeDone !== descriptionOverlayBaseline.jobs
+    );
+  }, [
+    descriptionOverlayPersona,
+    descriptionOverlayBaseline,
+    descriptionOverlayDraft,
+    descriptionOverlayPainPoints,
+    descriptionOverlayJobsToBeDone,
+  ]);
   const handleCreateFirstPersona = useCallback(() => {
     if (clientSlug) {
       router.push(`/client/${clientSlug}/upload`);
@@ -1044,6 +1129,41 @@ export default function PersonasPage() {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isSavingDocuments, setIsSavingDocuments] = useState(false);
   const [documentsActionError, setDocumentsActionError] = useState<string | null>(null);
+  const handleRemoveAgentDocument = useCallback(
+    async (doc: AgentDocumentRow) => {
+      if (!doc?.id) return;
+      setDocumentsActionError(null);
+      try {
+        if (doc.document_id) {
+          const response = await fetch("/api/eleven/delete-document", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentId: doc.document_id }),
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || "Failed to delete ElevenLabs document");
+          }
+        }
+
+        const { error } = await supabase.from("agent_documents").delete().eq("id", doc.id);
+        if (error) {
+          throw error;
+        }
+        setPersonaDocuments((previous) => {
+          if (!doc.agent_id) return previous;
+          const next = { ...previous };
+          next[doc.agent_id] = (next[doc.agent_id] ?? []).filter((item) => item.id !== doc.id);
+          return next;
+        });
+      } catch (error) {
+        console.error("[personas] Failed to remove document", error);
+        setDocumentsActionError("Unable to remove document. Please try again.");
+        throw error;
+      }
+    },
+    [supabase]
+  );
   const [documentsEditingPersonaId, setDocumentsEditingPersonaId] = useState<string | null>(null);
   const [documentUploadPersonaId, setDocumentUploadPersonaId] = useState<string | null>(null);
   const [selectedMetaChip, setSelectedMetaChip] = useState<PersonaMetaChipLabel>(
@@ -1657,10 +1777,70 @@ export default function PersonasPage() {
     };
   }, [expandedPersonaId, personas]);
 
+  const hasPendingPersonas = useMemo(
+    () =>
+      personas.some((persona) => {
+        const status = typeof persona.status === "string" ? persona.status.trim().toLowerCase() : "";
+        return status.length === 0 || status !== "ready";
+      }),
+    [personas]
+  );
+
   useEffect(() => {
     setIsMounted(true);
     return () => setIsMounted(false);
   }, []);
+
+  useEffect(() => {
+    if (!hasPendingPersonas) return undefined;
+    let isActive = true;
+    const startTime = Date.now();
+
+    const getPendingIds = () =>
+      personas
+        .filter((persona) => {
+          const status = typeof persona.status === "string" ? persona.status.trim().toLowerCase() : "";
+          return status.length === 0 || status !== "ready";
+        })
+        .map((persona) => persona.agent_id)
+        .filter((agentId): agentId is string => typeof agentId === "string" && agentId.length > 0);
+
+    async function pollStatuses() {
+      if (!isActive) return;
+      if (Date.now() - startTime > STATUS_POLL_MAX_DURATION_MS) {
+        return;
+      }
+      const ids = getPendingIds();
+      if (ids.length === 0) return;
+
+      const { data, error } = await supabase
+        .from("agent_map")
+        .select("agent_id,status")
+        .in("agent_id", ids);
+
+      if (!isActive) return;
+
+      if (!error && Array.isArray(data)) {
+        setPersonas((previous) =>
+          previous.map((persona) => {
+            const latest = data.find((row) => row.agent_id === persona.agent_id);
+            return latest ? { ...persona, status: latest.status } : persona;
+          })
+        );
+      }
+
+      if (getPendingIds().length > 0) {
+        timeoutId = window.setTimeout(pollStatuses, STATUS_POLL_INTERVAL_MS);
+      }
+    }
+
+    let timeoutId = window.setTimeout(pollStatuses, STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [hasPendingPersonas, personas, supabase, setPersonas]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -2431,6 +2611,7 @@ export default function PersonasPage() {
       setDescriptionDraft("");
       setDescriptionInlineError(null);
       setIsSavingDescriptionInline(false);
+      setSelectedKeyInfoTab("Description");
       return;
     }
     if (descriptionEditingPersonaId !== expandedPersonaId) {
@@ -2439,6 +2620,7 @@ export default function PersonasPage() {
       setDescriptionDraft(persona?.description ?? "");
       setDescriptionInlineError(null);
       setIsSavingDescriptionInline(false);
+      setSelectedKeyInfoTab("Description");
     }
   }, [canEdit, expandedPersonaId, descriptionEditingPersonaId, personas]);
 
@@ -2614,8 +2796,14 @@ export default function PersonasPage() {
     if (!canEdit || !descriptionOverlayPersona || isSavingDescriptionOverlay) {
       return;
     }
-    const previous = descriptionOverlayPersona.description ?? "";
-    if (descriptionOverlayDraft === previous) {
+    const previousDescription = descriptionOverlayPersona.description ?? "";
+    const previousPainPoints = normalizeListFieldToString(descriptionOverlayPersona.key_pain_points);
+    const previousJobs = normalizeListFieldToString(descriptionOverlayPersona.jobs_to_be_done);
+    if (
+      descriptionOverlayDraft === previousDescription &&
+      descriptionOverlayPainPoints === previousPainPoints &&
+      descriptionOverlayJobsToBeDone === previousJobs
+    ) {
       setDescriptionOverlayError(null);
       return;
     }
@@ -2623,9 +2811,18 @@ export default function PersonasPage() {
     setIsSavingDescriptionOverlay(true);
     setDescriptionOverlayError(null);
 
+    const normalizedPainPoints = normalizeCommaSeparatedList(descriptionOverlayPainPoints);
+    const normalizedJobs = normalizeCommaSeparatedList(descriptionOverlayJobsToBeDone);
+    const payloadPainPoints = normalizedPainPoints.length > 0 ? normalizedPainPoints : null;
+    const payloadJobs = normalizedJobs.length > 0 ? normalizedJobs : null;
+
     const { error } = await supabase
       .from("agent_map")
-      .update({ description: descriptionOverlayDraft })
+      .update({
+        description: descriptionOverlayDraft,
+        key_pain_points: payloadPainPoints,
+        jobs_to_be_done: payloadJobs,
+      })
       .eq("agent_id", descriptionOverlayPersona.agent_id);
 
     if (error) {
@@ -2636,12 +2833,24 @@ export default function PersonasPage() {
 
     setPersonas((prev) =>
       prev.map((item) =>
-        item.agent_id === descriptionOverlayPersona.agent_id ? { ...item, description: descriptionOverlayDraft } : item
+        item.agent_id === descriptionOverlayPersona.agent_id
+          ? {
+              ...item,
+              description: descriptionOverlayDraft,
+              key_pain_points: payloadPainPoints,
+              jobs_to_be_done: payloadJobs,
+            }
+          : item
       )
     );
     setActivePersona((prev) =>
       prev && prev.agent_id === descriptionOverlayPersona.agent_id
-        ? { ...prev, description: descriptionOverlayDraft }
+        ? {
+            ...prev,
+            description: descriptionOverlayDraft,
+            key_pain_points: payloadPainPoints,
+            jobs_to_be_done: payloadJobs,
+          }
         : prev
     );
 
@@ -2651,6 +2860,8 @@ export default function PersonasPage() {
     canEdit,
     descriptionOverlayPersona,
     descriptionOverlayDraft,
+    descriptionOverlayPainPoints,
+    descriptionOverlayJobsToBeDone,
     isSavingDescriptionOverlay,
     supabase,
     setActivePersona,
@@ -4155,8 +4366,8 @@ export default function PersonasPage() {
                 style={{
                   gridColumn: "1 / -1",
                   textAlign: "center",
-                  color: "var(--muted)",
-                  fontSize: 16,
+                  color: "#1e293b",
+                  fontSize: 14,
                 }}
               >
                 Loading personas…
@@ -4275,6 +4486,34 @@ export default function PersonasPage() {
                   hasInternalSources,
                   hasExternalSources,
                 ].reduce((acc, item) => acc + (item ? 1 : 0), 0);
+                const painPointsList = (() => {
+                  const source = persona.key_pain_points;
+                  if (!source) return [] as string[];
+                  if (Array.isArray(source)) {
+                    return source.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean);
+                  }
+                  if (typeof source === "string") {
+                    return source
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter((item) => item.length > 0);
+                  }
+                  return [] as string[];
+                })();
+                const jobsToBeDoneList = (() => {
+                  const source = persona.jobs_to_be_done;
+                  if (!source) return [] as string[];
+                  if (Array.isArray(source)) {
+                    return source.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean);
+                  }
+                  if (typeof source === "string") {
+                    return source
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter((item) => item.length > 0);
+                  }
+                  return [] as string[];
+                })();
                 const completionPercent = Math.round(
                   (completedSlots / PERSONA_COMPLETION_TOTAL_SLOTS) * 100
                 );
@@ -4423,7 +4662,7 @@ export default function PersonasPage() {
                                 )}
                                 {isExpanded ? (
                                   <div className="persona-completion persona-completion--inline">
-                                    <span className="persona-completion__label">Completion</span>
+                                    <span className="persona-completion__label">Persona setup</span>
                                     <span
                                       className={`persona-completion__value persona-completion__value--${completionVariant}`}
                                     >
@@ -4467,14 +4706,39 @@ export default function PersonasPage() {
                                   </div>
                                 ) : null}
                               </div>
-                            </div>
+                                {!isExpanded && roleTitle ? (
+                                  <div className="persona-card__role-container">
+                                    <p className="persona-card__role-title">{roleTitle}</p>
+                                  </div>
+                                ) : null}
+                                {!isExpanded && Array.isArray(persona.key_traits) && persona.key_traits.length > 0 ? (
+                                  <div className="persona-card__collapsed-traits persona-card__collapsed-traits--summary">
+                                    {persona.key_traits
+                                      .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
+                                      .filter((trait) => trait.length > 0)
+                                      .slice(0, 3)
+                                      .map((trait) => (
+                                        <span key={`${persona.agent_id}-summary-${trait}`} className="persona-card__trait-chip">
+                                          {trait}
+                                        </span>
+                                      ))}
+                                    {persona.key_traits.filter(
+                                      (trait) => typeof trait === "string" && trait.trim().length > 0
+                                    ).length > 3 ? (
+                                      <span className="persona-card__trait-chip persona-card__trait-chip--more">
+                                        +
+                                        {
+                                          persona.key_traits.filter(
+                                            (trait) => typeof trait === "string" && trait.trim().length > 0
+                                          ).length - 3
+                                        }
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </div>
                             {isExpanded && isScalarTraitsEditing ? null : null}
-                          </div>
-                          {!isExpanded && roleTitle ? (
-                            <div className="persona-card__role-container">
-                              <p className="persona-card__role-title">{roleTitle}</p>
                             </div>
-                          ) : null}
                           <div className="persona-card__title-right">
                             {isExpanded ? (
                               <div className="persona-title-actions persona-title-actions--inline">
@@ -4637,6 +4901,24 @@ export default function PersonasPage() {
                                   <span className="sr-only">Open description details</span>
                                 </button>
                               </div>
+                              <div className="persona-keyinfo-chips" aria-label="Key info sections">
+                                {["Description", "Traits", "Pain Points", "JTBD"].map((label) => (
+                                  <button
+                                    key={label}
+                                    type="button"
+                                    className={`persona-keyinfo-chip${
+                                      selectedKeyInfoTab === label ? " persona-keyinfo-chip--active" : ""
+                                    }`}
+                                    onClick={(event) => {
+                                      // Prevent collapsing the expanded card when interacting with chips.
+                                      event.stopPropagation();
+                                      setSelectedKeyInfoTab(label as "Description" | "Traits" | "Pain Points" | "JTBD");
+                                    }}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
                             <div
                               className={`persona-description${
                                 isDescriptionEditing
@@ -4647,17 +4929,47 @@ export default function PersonasPage() {
                               }`}
                               style={isDescriptionEditing && canEdit ? { height: "100%" } : undefined}
                             >
-                              {keyTraits.length > 0 ? (
-                                <div className="persona-description__traits">
-                                  {keyTraits.map((trait) => (
-                                    <span key={trait} className="persona-description__trait-chip">
-                                      {trait}
-                                    </span>
-                                  ))}
+                              {selectedKeyInfoTab === "Traits" ? (
+                                keyTraits.length > 0 ? (
+                                  <div className="persona-description__traits">
+                                    {keyTraits.map((trait) => (
+                                      <span key={trait} className="persona-description__trait-chip">
+                                        {trait}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="persona-description-section__empty">No key traits added yet.</p>
+                                )
+                              ) : selectedKeyInfoTab === "Pain Points" ? (
+                                painPointsList.length > 0 ? (
+                                  <div className="persona-description__scroll">
+                                    <ul className="persona-description__list">
+                                      {painPointsList.map((painPoint, index) => (
+                                        <li key={`${persona.agent_id}-pain-${index}`}>{painPoint}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : (
+                                  <p className="persona-description-section__empty">No pain points added yet.</p>
+                                )
+                              ) : selectedKeyInfoTab === "JTBD" ? (
+                                jobsToBeDoneList.length > 0 ? (
+                                  <div className="persona-description__scroll">
+                                    <ul className="persona-description__list">
+                                      {jobsToBeDoneList.map((job, index) => (
+                                        <li key={`${persona.agent_id}-jtdb-${index}`}>{job}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : (
+                                  <p className="persona-description-section__empty">No jobs to be done added yet.</p>
+                                )
+                              ) : (
+                                <div className="persona-description__scroll">
+                                  <p className="persona-description__text">{descriptionText}</p>
                                 </div>
-                              ) : null}
-                              <p className="persona-description__heading">Persona description</p>
-                              <p>{descriptionText}</p>
+                              )}
                             </div>
                           </div>
                             <div
@@ -4922,31 +5234,8 @@ export default function PersonasPage() {
                     >
                       {!isExpanded ? (
                         <>
-                          <div
-                            className="persona-card__collapsed-meta"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              width: "100%",
-                            }}
-                          >
-                            <div className="persona-completion persona-completion--inline persona-completion--collapsed">
-                              <span className="persona-completion__label">Completeness</span>
-                              <span
-                                className={`persona-completion__value persona-completion__value--${completionVariant}`}
-                              >
-                                {completionPercent}%
-                              </span>
-                            </div>
-                            <span
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: statusColor,
-                                fontFamily: HEADING_FONT_STACK,
-                              }}
-                            >
+                          <div className="persona-card__collapsed-status-row">
+                            <span className="persona-card__status" style={{ color: statusColor }}>
                               {statusLabel}
                             </span>
                           </div>
@@ -6177,7 +6466,7 @@ export default function PersonasPage() {
             padding-bottom: 12px;
             align-items: stretch;
             justify-items: center;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             grid-auto-flow: row;
           }
           .personas-empty {
@@ -6324,6 +6613,7 @@ export default function PersonasPage() {
   background-image: none;
   box-shadow: 0 18px 36px rgba(10, 22, 40, 0.12);
   padding: 24px;
+  padding-top: 10px;
   padding-bottom: 24px; /* 👈 overrides just the bottom padding */
   display: flex;
   flex-direction: column;
@@ -6418,8 +6708,40 @@ export default function PersonasPage() {
           .persona-card__collapsed-meta {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
+            width: 100%;
+            gap: 12px;
             margin-bottom: 6px;
+          }
+          .persona-card__collapsed-traits {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+          }
+          .persona-card__trait-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+          }
+          .persona-card__status {
+            font-size: 13px;
+            font-weight: 600;
+            font-family: ${HEADING_FONT_STACK};
+          }
+          .persona-card__collapsed-status-row {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+            margin-top: 6px;
           }
           .persona-traits {
             display: flex;
@@ -6535,15 +6857,16 @@ export default function PersonasPage() {
             border-radius: 16px;
             border: 1px solid rgba(43, 108, 176, 0.14);
             background: rgba(30, 41, 59, 0.04);
-            max-height: 100%;
-            overflow: hidden;
-            height: 100%;
             position: relative;
           }
           .persona-expanded-block--overlay {
             border: none;
             background: transparent;
             padding-left: 0;
+            max-height: none;
+            height: auto;
+            overflow: visible;
+            box-shadow: none;
           }
           .persona-expanded-block__list-wrapper {
             position: relative;
@@ -6566,6 +6889,40 @@ export default function PersonasPage() {
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+          }
+          .persona-keyinfo-chips {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0 10px;
+          }
+          .persona-keyinfo-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            line-height: 1.2;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s ease, box-shadow 0.15s ease;
+          }
+          .persona-keyinfo-chip:focus-visible {
+            outline: 2px solid rgba(59, 130, 246, 0.4);
+            outline-offset: 2px;
+          }
+          .persona-keyinfo-chip:hover {
+            background: #d9e4f3;
+            box-shadow: 0 4px 8px rgba(15, 23, 42, 0.08);
+          }
+          .persona-keyinfo-chip--active {
+            background: #d0e2ff;
+            box-shadow: 0 6px 12px rgba(34, 56, 96, 0.15);
           }
           .persona-expanded-block__overlay {
             position: absolute;
@@ -6769,6 +7126,29 @@ export default function PersonasPage() {
             align-items: center;
             gap: 6px;
           }
+          .persona-description__scroll {
+            max-height: 290px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding-right: 6px;
+          }
+          .persona-description__text {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(15, 23, 42, 0.92);
+            white-space: pre-line;
+          }
+          .persona-description__list {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(15, 23, 42, 0.92);
+          }
+          .persona-description__list li + li {
+            margin-top: 8px;
+          }
           .persona-description__input {
             width: 100%;
             flex: 1;
@@ -6833,6 +7213,48 @@ export default function PersonasPage() {
             color: rgba(15, 23, 42, 0.65);
             letter-spacing: 0.3px;
           }
+          .persona-description-overlay__footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 4px;
+            align-items: center;
+          }
+          .persona-description-overlay__footer .persona-description-section__reset {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            font-size: 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            border: 1px solid #052033 !important;
+            background: transparent;
+            color: #052033;
+            box-shadow: none;
+            appearance: none;
+            line-height: 1.2;
+          }
+          .persona-description-overlay__footer .persona-description-section__reset:disabled {
+            opacity: 0.6;
+          }
+          .persona-description-overlay__save {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px !important;
+            font-size: 14px !important;
+            border-radius: 12px !important;
+            font-weight: 700 !important;
+            background: #052033 !important;
+            color: #fff !important;
+            border: 1px solid #052033 !important;
+            box-shadow: none !important;
+            appearance: none;
+            line-height: 1.2;
+          }
           .persona-description-section__empty {
             margin: 0;
             font-size: 13px;
@@ -6853,7 +7275,9 @@ export default function PersonasPage() {
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
           }
           .persona-description__input--overlay {
-            min-height: 140px;
+            min-height: 90px;
+            max-height: 150px;
+            height: auto;
           }
           .persona-description__input:focus {
             outline: none;
@@ -7126,9 +7550,9 @@ export default function PersonasPage() {
           .persona-card__title-left {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 12px;
             min-width: 0;
-            padding-right: 72px;
+            padding-right: 120px;
           }
           .persona-card__title-left--expanded {
             padding-right: 0;
@@ -7242,7 +7666,7 @@ export default function PersonasPage() {
             display: flex;
             align-items: flex-end;
             justify-content: space-between;
-            gap: 12px;
+            gap: 0;
             flex-wrap: wrap;
           }
           .persona-card__title {
@@ -7252,10 +7676,10 @@ export default function PersonasPage() {
             color: var(--text);
             border: 1px solid transparent;
             border-radius: 10px;
-            padding: 4px 8px;
+            padding: 0px 8px 0px;
             padding-left: 0;
-            [add]
             transition: border-color 0.2s ease, background-color 0.2s ease;
+            margin-bottom: 0px;
           }
           .persona-card__title--editable:hover {
             border-color: rgba(15, 23, 42, 0.16);
@@ -7413,8 +7837,12 @@ export default function PersonasPage() {
             color: var(--muted);
           }
           .persona-card__role-container {
-            margin-top: auto;
-            padding-right: 80px;
+            margin-top: 0px;
+            padding-right: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
           }
           .persona-card__role-title {
             margin: 0;
@@ -7428,7 +7856,6 @@ export default function PersonasPage() {
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-height: calc(1.35em * 3);
           }
           .persona-card__footer {
             display: flex;
@@ -10091,7 +10518,11 @@ export default function PersonasPage() {
             <SlidingPanelOverlay
               open
               onRequestClose={closeInternalOverlay}
-              title={internalOverlayPersona.agent_name ?? "Internal documents"}
+              title={
+                internalOverlayPersona.agent_name
+                  ? `Docs & Links - ${internalOverlayPersona.agent_name}`
+                  : "Docs & Links"
+              }
               titleId={internalOverlayTitleId}
               descriptionId={internalOverlayDescriptionId}
             >
@@ -10101,7 +10532,7 @@ export default function PersonasPage() {
                 isLoading={documentsLoading}
                 overlayTitleId={internalOverlayTitleId}
                 overlayDescriptionId={internalOverlayDescriptionId}
-                lastUpdatedLabel={internalOverlayLastUpdatedLabel}
+                onRemoveDocument={handleRemoveAgentDocument}
               />
             </SlidingPanelOverlay>
           ) : null}
@@ -10154,7 +10585,11 @@ export default function PersonasPage() {
             <SlidingPanelOverlay
               open
               onRequestClose={closeDescriptionOverlay}
-              title={<div className="persona-expanded-block__header-labels">{descriptionOverlayPersona.agent_name}</div>}
+              title={
+                <div className="persona-expanded-block__header-labels">
+                  Key Info - {descriptionOverlayPersona.agent_name}
+                </div>
+              }
               titleId={descriptionOverlayTitleId}
               descriptionId={descriptionOverlayDescriptionId}
             >
@@ -10303,37 +10738,75 @@ export default function PersonasPage() {
                         {descriptionOverlayError ? (
                           <p className="persona-edit-error">{descriptionOverlayError}</p>
                         ) : null}
-                        <div className="persona-description-section__actions">
-                          <PillButton
-                            type="button"
-                            onClick={() => {
-                              void handleSaveDescriptionOverlay();
-                            }}
-                            disabled={isSavingDescriptionOverlay}
-                          >
-                            {isSavingDescriptionOverlay ? "Saving…" : "Save description"}
-                          </PillButton>
-                          <button
-                            type="button"
-                            className="persona-description-section__reset"
-                            onClick={() => {
-                              setDescriptionOverlayDraft(descriptionOverlayPersona.description ?? "");
-                              setDescriptionOverlayError(null);
-                            }}
-                            disabled={isSavingDescriptionOverlay}
-                          >
-                            Reset
-                          </button>
-                        </div>
                       </>
                     ) : (
-                      <p>
-                        {descriptionOverlayPersona.description && descriptionOverlayPersona.description.trim().length > 0
-                          ? descriptionOverlayPersona.description
-                          : "No description provided yet."}
-                      </p>
+                    <p>
+                      {descriptionOverlayPersona.description && descriptionOverlayPersona.description.trim().length > 0
+                        ? descriptionOverlayPersona.description
+                        : "No description provided yet."}
+                    </p>
+                  )}
+                  </div>
+                  <div className="persona-description-section">
+                    <p className="persona-description-section__heading">Pain Points</p>
+                    {canEdit ? (
+                      <textarea
+                        className="persona-description__input persona-description__input--overlay"
+                        value={descriptionOverlayPainPoints}
+                        placeholder="Describe the persona’s pain points"
+                        onChange={(event) => {
+                          setDescriptionOverlayPainPoints(event.target.value);
+                        }}
+                        disabled={isSavingDescriptionOverlay}
+                      />
+                    ) : descriptionOverlayPainPoints.trim().length > 0 ? (
+                      <p>{descriptionOverlayPainPoints}</p>
+                    ) : (
+                      <p className="persona-description-section__empty">Pain points will appear once added.</p>
                     )}
                   </div>
+                  <div className="persona-description-section">
+                    <p className="persona-description-section__heading">Jobs To Be Done</p>
+                    {canEdit ? (
+                      <textarea
+                        className="persona-description__input persona-description__input--overlay"
+                        value={descriptionOverlayJobsToBeDone}
+                        placeholder="Describe the persona’s jobs to be done"
+                        onChange={(event) => {
+                          setDescriptionOverlayJobsToBeDone(event.target.value);
+                        }}
+                        disabled={isSavingDescriptionOverlay}
+                      />
+                    ) : descriptionOverlayJobsToBeDone.trim().length > 0 ? (
+                      <p>{descriptionOverlayJobsToBeDone}</p>
+                    ) : (
+                      <p className="persona-description-section__empty">Jobs to be done will appear once added.</p>
+                    )}
+                  </div>
+                  {canEdit ? (
+                    <div className="persona-description-overlay__footer">
+                      <button
+                        type="button"
+                        className="persona-description-section__reset"
+                        onClick={() => {
+                          resetDescriptionOverlayFields();
+                        }}
+                        disabled={isSavingDescriptionOverlay}
+                      >
+                        Clear
+                      </button>
+                      <PillButton
+                        type="button"
+                        onClick={() => {
+                          void handleSaveDescriptionOverlay();
+                        }}
+                        disabled={isSavingDescriptionOverlay || !descriptionOverlayHasUnsavedChanges}
+                        className="persona-description-overlay__save"
+                      >
+                        {isSavingDescriptionOverlay ? "Saving…" : "Save"}
+                      </PillButton>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             </SlidingPanelOverlay>

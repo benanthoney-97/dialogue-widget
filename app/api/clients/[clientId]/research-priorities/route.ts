@@ -139,20 +139,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    const { data: existingRow, error: fetchError } = await supabaseAdmin
-      .from("client_research_priorities")
-      .select("id")
-      .eq("client_id", clientRow.id)
-      .maybeSingle<{ id: string }>();
-
-    if (fetchError) {
-      console.error("[Research] Failed to load existing research priorities", fetchError);
-      return NextResponse.json({ error: "Unable to update research priorities" }, { status: 500 });
-    }
-
-    let mutationError: unknown = null;
-    let payloadRow: ClientResearchPriorityRow | null = null;
-
     const updateFields: Record<string, unknown> = {};
     if (hasPrimaryGoal) {
       updateFields.primary_goal = primaryGoalValue ?? null;
@@ -168,37 +154,16 @@ export async function PATCH(
       return NextResponse.json({ error: "No valid update fields provided" }, { status: 400 });
     }
 
-    if (existingRow) {
-      const { data, error } = await supabaseAdmin
-        .from("client_research_priorities")
-        .update(updateFields)
-        .eq("id", existingRow.id)
-        .select()
-        .maybeSingle<ClientResearchPriorityRow>();
+    const upsertPayload = {
+      client_id: clientRow.id,
+      ...updateFields,
+    };
 
-      mutationError = error;
-      payloadRow = data ?? null;
-    } else {
-      const insertFields: Record<string, unknown> = { client_id: clientRow.id };
-      if (hasPrimaryGoal) {
-        insertFields.primary_goal = primaryGoalValue ?? null;
-      }
-      if (hasPriorities) {
-        insertFields.priorities = prioritiesValue ?? [];
-      }
-      if (hasTargetSources) {
-        insertFields.target_sources = targetSourcesValue ?? [];
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from("client_research_priorities")
-        .insert(insertFields)
-        .select()
-        .maybeSingle<ClientResearchPriorityRow>();
-
-      mutationError = error;
-      payloadRow = data ?? null;
-    }
+    const { data: payloadRow, error: mutationError } = await supabaseAdmin
+      .from("client_research_priorities")
+      .upsert(upsertPayload, { onConflict: "client_id" })
+      .select()
+      .maybeSingle<ClientResearchPriorityRow>();
 
     if (mutationError) {
       const detail =
