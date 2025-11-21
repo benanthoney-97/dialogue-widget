@@ -323,7 +323,16 @@ export default function Sidebar() {
   const sectionHeadingMarginTop = collapsed ? 6 : 10;
 
   const renderHeading = (text: string, marginTop = 0) => (
-    <div style={{ ...headingStyle, marginTop }}>
+    <div
+      style={{
+        ...headingStyle,
+        marginTop,
+        opacity: collapsed ? 0 : 1,
+        visibility: collapsed ? "hidden" : "visible",
+        minHeight: collapsed ? 12 : undefined,
+      }}
+      aria-hidden={collapsed}
+    >
       <span>{text}</span>
     </div>
   );

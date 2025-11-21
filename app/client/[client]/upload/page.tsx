@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
 import PurposeCard from "../../../components/PurposeCard";
 import ExecutiveAgent from "@/app/components/BriefingAgent";
+import DocumentLinkInput from "@/app/components/DocumentLinkInput";
 import { BODY_FONT_STACK, HEADING_FONT_STACK } from "@/app/lib/fontStacks";
 
 const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
@@ -1589,49 +1590,15 @@ export default function UploadPage() {
           )}
             {currentStep === 4 && (
               <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
-                <div className="links-stage__url-input">
-                <div className="links-stage__url-wrapper">
-                    <input
-                      type="url"
-                      placeholder="https://"
-                      value={linksUrl}
-                      onChange={(event) => setLinksUrl(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          handleAddLink();
-                        }
-                      }}
-                    />
-                    {canAddCurrentLink && (
-                      <button
-                        type="button"
-                        className="links-stage__add-link"
-                        onClick={handleAddLink}
-                      >
-                        Add link
-                      </button>
-                    )}
-                  </div>
-                  {linksUrls.length > 0 && (
-                    <div className="links-stage__urls-wrapper">
-                      <div className="links-stage__urls-list">
-                        {linksUrls.map((url) => (
-                          <div className="links-stage__url-chip" key={url}>
-                            <span>{url}</span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${url}`}
-                              onClick={() => handleRemoveLink(url)}
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <DocumentLinkInput
+                  value={linksUrl}
+                  onChange={setLinksUrl}
+                  onAdd={handleAddLink}
+                  canAdd={canAddCurrentLink}
+                  links={linksUrls}
+                  onRemove={(link) => handleRemoveLink(link)}
+                  placeholder="https://"
+                />
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                   <button
                     type="button"

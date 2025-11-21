@@ -3,6 +3,7 @@
 import React from "react";
 import { BODY_FONT_STACK } from "@/app/lib/fontStacks";
 import { PersonaDocumentRecord } from "@/app/lib/documentTypes";
+import DocumentLinkInput from "./DocumentLinkInput";
 import DocumentUploadCard from "./DocumentUploadCard";
 
 type InternalKnowledgeOverlayContentProps = {
@@ -15,6 +16,10 @@ type InternalKnowledgeOverlayContentProps = {
   showUploadCard: boolean;
   onUploadDocuments?: (files: File[]) => Promise<void>;
   isUploadingDocuments?: boolean;
+  onRequestShowUploadCard?: (mode: "upload" | "link") => void;
+  onAddDocumentLink?: (links: string[]) => Promise<void>;
+  isAddingLink?: boolean;
+  activeUploadMode: "upload" | "link";
 };
 
 export default function InternalKnowledgeOverlayContent({
@@ -27,20 +32,50 @@ export default function InternalKnowledgeOverlayContent({
   showUploadCard,
   onUploadDocuments,
   isUploadingDocuments = false,
+  onRequestShowUploadCard,
+  onAddDocumentLink,
+  isAddingLink = false,
+  activeUploadMode,
 }: InternalKnowledgeOverlayContentProps) {
   const [pendingRemove, setPendingRemove] = React.useState<PersonaDocumentRecord | null>(null);
   const [isRemoving, setIsRemoving] = React.useState(false);
   const [cardFiles, setCardFiles] = React.useState<File[]>([]);
+  const [linkValue, setLinkValue] = React.useState("");
+  const [linkList, setLinkList] = React.useState<string[]>([]);
+  const [activeMode, setActiveMode] = React.useState<"upload" | "link">("upload");
   React.useEffect(() => {
     if (!showUploadCard) {
       setCardFiles([]);
+      setLinkList([]);
     }
   }, [showUploadCard]);
 
   const handleUploadClick = async () => {
     if (!onUploadDocuments || cardFiles.length === 0) return;
+    console.log("[InternalKnowledgeOverlayContent] handleUploadClick files", cardFiles.map((file) => file.name));
     await onUploadDocuments(cardFiles);
     setCardFiles([]);
+  };
+
+  const handleAddLink = () => {
+    const trimmed = linkValue.trim();
+    if (!trimmed) return;
+    setLinkList((prev) => [...prev, trimmed]);
+    setLinkValue("");
+  };
+
+  const handleSubmitLinks = async () => {
+    if (linkList.length === 0) return;
+    try {
+      await onAddDocumentLink?.(linkList);
+      setLinkList([]);
+    } catch (error) {
+      console.error("[InternalKnowledgeOverlayContent] Failed to submit links", error);
+    }
+  };
+
+  const handleRemoveLink = (link: string) => {
+    setLinkList((prev) => prev.filter((item) => item !== link));
   };
 
   const formatDate = (value?: string | null) => {
@@ -71,25 +106,75 @@ export default function InternalKnowledgeOverlayContent({
         {!isLoading && documents.length === 0 && (
           <p className="internal-knowledge-overlay__status">No documents added yet.</p>
         )}
-        {showUploadCard && (
-          <div className="internal-knowledge-overlay__upload-card-wrapper">
-            <DocumentUploadCard
-              files={cardFiles}
-              onFilesAdded={(files) => setCardFiles((prev) => [...prev, ...files])}
-              onFilesRemoved={(index) => setCardFiles((prev) => prev.filter((_, idx) => idx !== index))}
-            />
-            {cardFiles.length > 0 && (
-              <button
-                type="button"
-                className="internal-knowledge-overlay__upload-submit"
-                onClick={handleUploadClick}
-                disabled={isUploadingDocuments}
-              >
-                {isUploadingDocuments ? "Uploading…" : "Upload"}
-              </button>
-            )}
+        <div className="internal-knowledge-overlay__upload-area">
+          <div className="internal-knowledge-overlay__mode-buttons">
+          <button
+            type="button"
+            className="internal-knowledge-overlay__upload-button"
+            aria-pressed={activeMode === "upload"}
+            onClick={() => {
+              setActiveMode("upload");
+              onRequestShowUploadCard?.("upload");
+            }}
+          >
+            Upload document
+          </button>
+          <button
+            type="button"
+            className="internal-knowledge-overlay__upload-button"
+            aria-pressed={activeMode === "link"}
+            onClick={() => {
+              setActiveMode("link");
+              onRequestShowUploadCard?.("link");
+            }}
+            >
+              Add link
+            </button>
           </div>
-        )}
+          {showUploadCard && (
+            <div className="internal-knowledge-overlay__upload-card-wrapper">
+              {activeUploadMode === "upload" ? (
+                <>
+                  <DocumentUploadCard
+                    files={cardFiles}
+                    onFilesAdded={(files) => setCardFiles((prev) => [...prev, ...files])}
+                    onFilesRemoved={(index) => setCardFiles((prev) => prev.filter((_, idx) => idx !== index))}
+                  />
+                  {cardFiles.length > 0 && (
+                    <button
+                      type="button"
+                      className="internal-knowledge-overlay__upload-submit"
+                      onClick={handleUploadClick}
+                      disabled={isUploadingDocuments}
+                    >
+                      {isUploadingDocuments ? "Uploading…" : "Upload"}
+                    </button>
+                  )}
+                </>
+              ) : (
+            <DocumentLinkInput
+              value={linkValue}
+              onChangeAction={setLinkValue}
+              onAdd={handleAddLink}
+              canAdd={linkValue.trim().length > 0}
+              links={linkList}
+              onRemove={handleRemoveLink}
+              placeholder="https://"
+            />
+              )}
+              {activeUploadMode === "link" && linkList.length > 0 && (
+                <button
+                  type="button"
+                  className="internal-knowledge-overlay__upload-submit"
+                  onClick={handleSubmitLinks}
+                  disabled={isAddingLink}
+                >
+                  {isAddingLink ? "Saving…" : "Add link"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {!isLoading && documents.length > 0 && (
           <div className="internal-knowledge-overlay__list-container">
             <ul className="internal-knowledge-overlay__list">
@@ -155,7 +240,7 @@ export default function InternalKnowledgeOverlayContent({
           gap: 12px;
         }
         .internal-knowledge-overlay__header-row button {
-          margin-left: auto;
+          margin-left: 0;
         }
         .internal-knowledge-overlay__header-row span {
           flex: 1;
@@ -173,6 +258,19 @@ export default function InternalKnowledgeOverlayContent({
           min-height: 0;
           flex: 1;
         }
+        .internal-knowledge-overlay__upload-area {
+          background: rgba(59, 130, 246, 0.08);
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .internal-knowledge-overlay__mode-buttons {
+          display: flex;
+          gap: 12px;
+        }
         .internal-knowledge-overlay__upload-card-wrapper {
           width: 100%;
         }
@@ -185,6 +283,7 @@ export default function InternalKnowledgeOverlayContent({
           border-radius: 12px;
           padding: 10px 24px;
           font-weight: 700;
+          font-size: 13px;
           cursor: pointer;
           box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
           transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -215,10 +314,15 @@ export default function InternalKnowledgeOverlayContent({
           border-radius: 12px;
           border: none;
           font-weight: 700;
-          font-size: 15px;
+          font-size: 13px;
           cursor: pointer;
           transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
-          margin-left: 12px;
+          margin-left: 0px;
+        }
+        .internal-knowledge-overlay__upload-button[aria-pressed="true"] {
+          background: #0f172a;
+          color: #fff;
+        
         }
         .internal-knowledge-overlay__upload-modal {
           position: fixed;

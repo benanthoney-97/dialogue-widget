@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { AgentResearchRecord } from "@/app/components/ResearchOverlayContent";
 
-export function useResearchOverlayState(clientSlug: string | null) {
+const normalizeTargetSources = (entries: unknown): string[] =>
+  Array.isArray(entries)
+    ? Array.from(
+        new Set(
+          entries
+            .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+            .filter((value) => value.length > 0)
+        )
+      )
+    : [];
+
+export function useResearchOverlayState(clientId: string | null) {
   const [agentResearch, setAgentResearch] = useState<AgentResearchRecord[]>([]);
   const [agentResearchLoading, setAgentResearchLoading] = useState(false);
   const [agentResearchError, setAgentResearchError] = useState<string | null>(null);
@@ -12,6 +23,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
   const [isPromptDirty, setIsPromptDirty] = useState(false);
   const [isPromptSaving, setIsPromptSaving] = useState(false);
   const [promptSaveError, setPromptSaveError] = useState<string | null>(null);
+  const [targetSources, setTargetSources] = useState<string[]>([]);
 
   const selectAgentById = useCallback(
     (agentId: string | null) => {
@@ -45,7 +57,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
 
   const handlePromptSave = useCallback(
     async (value: string) => {
-      if (!clientSlug || !selectedAgent) return;
+      if (!clientId || !selectedAgent) return;
       const trimmed = value.trim();
       const current = selectedAgent.watchlistQuery ?? "";
       if (trimmed === current) {
@@ -56,7 +68,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
       setIsPromptSaving(true);
       setPromptSaveError(null);
       try {
-        const response = await fetch(`/api/clients/${clientSlug}/watchlist`, {
+        const response = await fetch(`/api/clients/${clientId}/watchlist`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ agentId: selectedAgent.agentId, query: trimmed || null }),
@@ -88,7 +100,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
         setIsPromptSaving(false);
       }
     },
-    [clientSlug, selectedAgent]
+    [clientId, selectedAgent]
   );
 
   const handleRemoveSourcedArticle = useCallback(
@@ -149,7 +161,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
   );
 
   useEffect(() => {
-    if (!clientSlug) {
+    if (!clientId) {
       setAgentResearch([]);
       setAgentResearchError(null);
       setAgentResearchLoading(false);
@@ -162,7 +174,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
       setAgentResearchLoading(true);
       setAgentResearchError(null);
       try {
-        const response = await fetch(`/api/clients/${clientSlug}/agent-research`, {
+  const response = await fetch(`/api/clients/${clientId}/agent-research`, {
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -184,14 +196,17 @@ export function useResearchOverlayState(clientSlug: string | null) {
             sourced_articles_count?: number | null;
             added_articles?: Array<{ title?: string | null; url?: string | null }>;
             watchlist_query?: string | null;
+            current_job_status?: string | null;
           }>;
         };
         if (!isMounted) return;
         const records = Array.isArray(payload.records) ? payload.records : [];
         const normalized: AgentResearchRecord[] = records
-          .map((record) => {
+          .reduce<AgentResearchRecord[]>((acc, record) => {
             const agentId = typeof record.agent_id === "string" ? record.agent_id.trim() : "";
-            if (!agentId) return null;
+            if (!agentId) {
+              return acc;
+            }
             const personaName =
               typeof record.persona_name === "string" && record.persona_name.trim().length > 0
                 ? record.persona_name.trim()
@@ -244,7 +259,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
               typeof record.current_job_status === "string" && record.current_job_status.trim().length > 0
                 ? record.current_job_status.trim().toLowerCase()
                 : null;
-            return {
+            acc.push({
               agentId,
               personaName,
               knowledgeText,
@@ -254,9 +269,9 @@ export function useResearchOverlayState(clientSlug: string | null) {
               sourcedArticlesCount,
               watchlistQuery,
               currentJobStatus,
-            } satisfies AgentResearchRecord;
-          })
-          .filter((item): item is AgentResearchRecord => item !== null)
+            });
+            return acc;
+          }, [])
           .sort((a, b) => {
             const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
             const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
@@ -283,7 +298,90 @@ export function useResearchOverlayState(clientSlug: string | null) {
       isMounted = false;
       controller.abort();
     };
-  }, [clientSlug]);
+  }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId) {
+      setTargetSources([]);
+      return;
+    }
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function fetchPriorities() {
+      try {
+  const response = await fetch(`/api/clients/${clientId}/research-priorities`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          console.error("[Research] Failed to load research priorities", response.status);
+          return;
+        }
+        const payload = (await response.json()) as {
+          id?: string | null;
+          client_id?: string | null;
+          priority?: { target_sources?: unknown[] | null } | null;
+        };
+        if (!isMounted) return;
+        const sourcesRaw = payload.priority?.target_sources ?? null;
+        console.log("[Research] priorities payload", {
+          clientId,
+          priorityRow: payload,
+          sourcesRaw,
+        });
+        setTargetSources(normalizeTargetSources(sourcesRaw));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Research] Unexpected error loading priorities", error);
+      }
+    }
+
+    void fetchPriorities();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [clientId]);
+
+  const toggleTargetSource = useCallback(
+    async (sourceName: string) => {
+      if (!clientId) return;
+      const normalizedName = sourceName.trim();
+      if (!normalizedName) return;
+      const previousTargets = targetSources;
+      const normalizedKey = normalizedName.toLowerCase();
+      const isSelected = previousTargets.some(
+        (entry) => entry.trim().toLowerCase() === normalizedKey
+      );
+      const nextTargets = isSelected
+        ? previousTargets.filter((entry) => entry.trim().toLowerCase() !== normalizedKey)
+        : [...previousTargets, normalizedName];
+      setTargetSources(nextTargets);
+
+      try {
+  const response = await fetch(`/api/clients/${clientId}/research-priorities`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target_sources: nextTargets }),
+        });
+        if (!response.ok) {
+          console.error("[Research] Failed to update target sources", response.status);
+          setTargetSources(previousTargets);
+          return;
+        }
+        const payload = await response.json().catch(() => null);
+        const payloadTargets = payload?.priority?.target_sources;
+        if (Array.isArray(payloadTargets)) {
+          setTargetSources(normalizeTargetSources(payloadTargets));
+        }
+      } catch (error) {
+        console.error("[Research] Unexpected error updating target sources", error);
+        setTargetSources(previousTargets);
+      }
+    },
+    [clientId, targetSources]
+  );
 
   return {
     agentResearch,
@@ -301,5 +399,7 @@ export function useResearchOverlayState(clientSlug: string | null) {
     handleRemoveSourcedArticle,
     addArticleToAgent,
     setSelectedAgent,
+    targetSources,
+    toggleTargetSource,
   };
 }

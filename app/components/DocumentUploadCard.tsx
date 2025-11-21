@@ -16,6 +16,7 @@ export default function DocumentUploadCard({ files, onFilesAdded, onFilesRemoved
     if (!event.dataTransfer) return;
     const droppedFiles = Array.from(event.dataTransfer.files);
     if (droppedFiles.length > 0) {
+      console.log("[DocumentUploadCard] drop files", droppedFiles.map((file) => file.name));
       onFilesAdded(droppedFiles);
     }
   };
@@ -23,8 +24,10 @@ export default function DocumentUploadCard({ files, onFilesAdded, onFilesRemoved
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
     if (selectedFiles.length > 0) {
+      console.log("[DocumentUploadCard] onChange files", selectedFiles.map((file) => file.name));
       onFilesAdded(selectedFiles);
     }
+    event.target.value = "";
   };
 
   return (
@@ -147,6 +150,7 @@ export default function DocumentUploadCard({ files, onFilesAdded, onFilesRemoved
           flex-direction: column;
           align-items: flex-start;
           gap: 4px;
+          width: 100%;
         }
         .document-upload-card__item-content p,
         .document-upload-card__item-content small {
@@ -157,6 +161,8 @@ export default function DocumentUploadCard({ files, onFilesAdded, onFilesRemoved
           text-align: left;
           display: block;
           width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .document-upload-card__item p {
           font-weight: 600;

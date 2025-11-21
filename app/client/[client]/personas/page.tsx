@@ -121,6 +121,15 @@ function formatResearchUpdatedAt(value: string | null): string {
   });
 }
 
+function guessLinkMimeType(url: string): string {
+  if (/\.pdf$/i.test(url)) return "application/pdf";
+  if (/\.txt$/i.test(url)) return "text/plain";
+  if (/\.docx$/i.test(url)) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (/\.doc$/i.test(url)) return "application/msword";
+  if (/\.html?$/i.test(url)) return "text/html";
+  return "text/html";
+}
+
 function formatRelativeTime(value: string | null): string | null {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -794,8 +803,10 @@ export default function PersonasPage() {
     handleClearPrompt,
     handleRemoveSourcedArticle,
     addArticleToAgent,
+    targetSources,
+    toggleTargetSource,
     setSelectedAgent,
-  } = useResearchOverlayState(clientSlug);
+  } = useResearchOverlayState(resolvedClientId);
   const overlayTitleId = "research-overlay-title";
   const overlayDescriptionId = "research-overlay-description";
   const [activeOverlayTab, setActiveOverlayTab] = useState<"research" | "prompt" | "sources">("research");
@@ -850,17 +861,72 @@ export default function PersonasPage() {
   const [descriptionOverlayPersonaId, setDescriptionOverlayPersonaId] = useState<string | null>(null);
   const descriptionOverlayTitleId = "description-overlay-title";
   const descriptionOverlayDescriptionId = "description-overlay-description";
+  const [activeUploadMode, setActiveUploadMode] = useState<"upload" | "link">("upload");
   const openInternalOverlay = useCallback((personaId: string) => {
     setInternalOverlayPersonaId(personaId);
-    setDocsUploadCardOpen(false);
   }, []);
   const closeInternalOverlay = useCallback(() => {
     setInternalOverlayPersonaId(null);
     setDocsUploadCardOpen(false);
   }, []);
+  const handleToggleUploadCard = useCallback(
+    (mode: "upload" | "link") => {
+      setDocsUploadCardOpen((prev) => (prev && activeUploadMode === mode ? false : true));
+      setActiveUploadMode(mode);
+    },
+    [activeUploadMode]
+  );
+  const [isAddingLink, setIsAddingLink] = useState(false);
   const internalOverlayPersona = useMemo(
     () => (internalOverlayPersonaId ? personas.find((persona) => persona.agent_id === internalOverlayPersonaId) ?? null : null),
     [internalOverlayPersonaId, personas]
+  );
+  const handleAddDocumentLink = useCallback(
+    async (links: string[]) => {
+      if (!internalOverlayPersona || !clientSlug || links.length === 0) return;
+      const agentId = internalOverlayPersona.agent_id;
+      if (!agentId) {
+        setDocumentsActionError("Missing agent identifier");
+        return;
+      }
+      setDocumentsActionError(null);
+      setIsAddingLink(true);
+      const insertedLinks: AgentDocumentRow[] = [];
+      try {
+        for (const link of links) {
+          const { data: insertedDoc, error } = await supabase
+            .from("agent_documents")
+            .insert({
+              agent_id: agentId,
+              file_name: link,
+              document_url: link,
+              public_url: link,
+              source: "link",
+              added_stage: "docs_overlay",
+            })
+            .select()
+            .single<AgentDocumentRow>();
+          if (error) throw error;
+          if (insertedDoc) {
+            insertedLinks.push(insertedDoc as AgentDocumentRow);
+          }
+        }
+        setPersonaDocuments((prev) => {
+          const prevDocs = prev[agentId] ?? [];
+          return {
+            ...prev,
+            [agentId]: [...insertedLinks, ...prevDocs],
+          };
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[personas] Failed to add link document", error);
+        setDocumentsActionError(message || "Unable to add link.");
+      } finally {
+        setIsAddingLink(false);
+      }
+    },
+    [clientSlug, internalOverlayPersona, supabase]
   );
   const internalOverlayDocuments = useMemo(
     () => (internalOverlayPersonaId ? personaDocuments[internalOverlayPersonaId] ?? [] : []),
@@ -1192,6 +1258,7 @@ export default function PersonasPage() {
   const handleUploadDocuments = useCallback(
     async (files: File[]) => {
       if (!internalOverlayPersona || !clientSlug || files.length === 0) return;
+      console.log("[personas] handleUploadDocuments start", files.map((file) => file.name));
       const agentId = internalOverlayPersona.agent_id;
       if (!agentId) {
         setDocumentsActionError("Missing agent identifier");
@@ -1203,6 +1270,7 @@ export default function PersonasPage() {
       try {
         for (const file of files) {
           const storagePath = `clients/${clientSlug}/${uuidv4()}/${file.name}`;
+          console.log("[personas] uploading", file.name, storagePath);
           const { error: uploadError } = await supabase.storage.from("docs").upload(storagePath, file, { upsert: true });
           if (uploadError) throw uploadError;
           const { data: publicUrlData } = await supabase.storage.from("docs").getPublicUrl(storagePath);
@@ -1226,6 +1294,7 @@ export default function PersonasPage() {
             .select()
             .single<AgentDocumentRow>();
           if (insertError) throw insertError;
+          console.log("[personas] inserted document", insertedDoc?.id);
           if (insertedDoc) {
             insertedDocs.push(insertedDoc as AgentDocumentRow);
           }
@@ -1237,7 +1306,6 @@ export default function PersonasPage() {
             [agentId]: [...insertedDocs, ...prevDocs],
           };
         });
-        setDocsUploadCardOpen(false);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error("[personas] Failed to upload documents", message);
@@ -5155,8 +5223,9 @@ const handleConfirmDeletePersona = useCallback(async () => {
                                   ) : documents.length === 0 ? (
                                     <div className="persona-edit-documents--empty">No data sources added yet.</div>
                                   ) : (
-                                    <div className="persona-edit-documents persona-edit-documents--inline" role="list">
-                                      {documents.map((doc) => {
+                                    <div className="persona-expanded-block__list-wrapper persona-expanded-block__list-wrapper--documents">
+                                      <div className="persona-edit-documents persona-edit-documents--inline" role="list">
+                                        {documents.map((doc) => {
                                         const metaParts: string[] = [];
                                         const title =
                                           doc.file_name && doc.file_name.trim().length > 0
@@ -5173,33 +5242,34 @@ const handleConfirmDeletePersona = useCallback(async () => {
                                           title.length > DOCUMENT_TITLE_MAX_CHARS
                                             ? `${title.slice(0, DOCUMENT_TITLE_MAX_CHARS).trimEnd()}…`
                                             : title;
-                                        return (
-                                          <div key={doc.id} className="persona-edit-document-card" role="listitem">
-                                            <div className="persona-edit-document-meta">
-                                              <strong className="persona-edit-document-title" title={title}>
-                                                {displayTitle}
-                                              </strong>
-                                              {metaParts.length > 0 ? (
-                                                <span className="persona-edit-document-details">
-                                                  {metaParts.join(" · ")}
-                                                </span>
-                                              ) : null}
+                                          return (
+                                            <div key={doc.id} className="persona-edit-document-card" role="listitem">
+                                              <div className="persona-edit-document-meta">
+                                                <strong className="persona-edit-document-title" title={title}>
+                                                  {displayTitle}
+                                                </strong>
+                                                {metaParts.length > 0 ? (
+                                                  <span className="persona-edit-document-details">
+                                                    {metaParts.join(" · ")}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                              <div className="persona-edit-document-actions">
+                                                {doc.public_url ? (
+                                                  <a
+                                                    className="persona-edit-document-open"
+                                                    href={doc.public_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                  >
+                                                    Open
+                                                  </a>
+                                                ) : null}
+                                              </div>
                                             </div>
-                                            <div className="persona-edit-document-actions">
-                                              {doc.public_url ? (
-                                                <a
-                                                  className="persona-edit-document-open"
-                                                  href={doc.public_url}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                >
-                                                  Open
-                                                </a>
-                                              ) : null}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   )}
                                   {isSavingDocuments ? (
@@ -5209,9 +5279,10 @@ const handleConfirmDeletePersona = useCallback(async () => {
                                   ) : null}
                                 </>
                               ) : (
-                                <ul className="persona-expanded-list">
-                                  {documents.length > 0 ? (
-                                    documents.map((doc) => {
+                                <div className="persona-expanded-block__list-wrapper persona-expanded-block__list-wrapper--documents">
+                                  <ul className="persona-expanded-list">
+                                    {documents.length > 0 ? (
+                                      documents.map((doc) => {
                                       const metaParts: string[] = [];
                                       const title =
                                         doc.file_name && doc.file_name.trim().length > 0
@@ -5229,30 +5300,31 @@ const handleConfirmDeletePersona = useCallback(async () => {
                                       if (createdLabel && createdLabel !== "—") {
                                         metaParts.push(`Added ${createdLabel}`);
                                       }
-                                      return (
-                                        <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
-                                          <div className="persona-expanded-list-item persona-expanded-list-item--document">
-                                            <span className="persona-doc-title">{title}</span>
-                                            {metaParts.length > 0 ? (
-                                              <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
-                                            ) : null}
-                                          </div>
-                                        </li>
-                                      );
-                                    })
-                                ) : (
-                                  <li>
-                                    <div className="persona-expanded-list-item">
-                                      {documentsLoading
-                                        ? "Loading data sources…"
-                                        : documentsError
-                                          ? "Unable to load data sources."
-                                          : "No data sources added yet."}
-                                    </div>
-                                  </li>
-                                )}
-                              </ul>
-                            )}
+                                        return (
+                                          <li key={`persona-document-${persona.agent_id}-${doc.id}`}>
+                                            <div className="persona-expanded-list-item persona-expanded-list-item--document">
+                                              <span className="persona-doc-title">{title}</span>
+                                              {metaParts.length > 0 ? (
+                                                <span className="persona-doc-meta">{metaParts.join(" · ")}</span>
+                                              ) : null}
+                                            </div>
+                                          </li>
+                                        );
+                                      })
+                                    ) : (
+                                      <li>
+                                        <div className="persona-expanded-list-item">
+                                          {documentsLoading
+                                            ? "Loading data sources…"
+                                            : documentsError
+                                              ? "Unable to load data sources."
+                                              : "No data sources added yet."}
+                                        </div>
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
                             {documentsUpdatedAt ? (
                               <span className="persona-expanded-block__updated-flag">
                                 Updated {formatDate(documentsUpdatedAt)}
@@ -7017,6 +7089,10 @@ const handleConfirmDeletePersona = useCallback(async () => {
             padding-right: 4px;
             border-radius: 12px
           }
+          .persona-expanded-block__list-wrapper--documents {
+            max-height: min(370px, 45vh);
+            overflow-y: auto;
+          }
           .persona-expanded-block--description {
             flex-basis: min(420px, calc(100% - 32px));
           }
@@ -7707,6 +7783,7 @@ const handleConfirmDeletePersona = useCallback(async () => {
             align-items: flex-end;
             gap: 10px;
             flex: 0 0 auto;
+            margin-top: 6px;
           }
           .persona-card__avatar-floating {
             position: absolute;
@@ -10694,70 +10771,42 @@ const handleConfirmDeletePersona = useCallback(async () => {
                       ? `Docs & Links - ${internalOverlayPersona.agent_name}`
                       : "Docs & Links"}
                   </span>
-                  <button
-                    className="internal-knowledge-overlay__upload-button"
-                    type="button"
-                    onClick={() => setDocsUploadCardOpen((prev) => !prev)}
-                    style={{
-                      background: "#1e293b",
-                      color: "#f6f7f9",
-                      boxShadow: "0 12px 24px rgba(15, 23, 42, 0.18)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      padding: "12px 20px",
-                      borderRadius: "12px",
-                      border: "none",
-                      fontWeight: 700,
-                      fontSize: "15px",
-                      cursor: "pointer",
-                      transition: "transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease",
-                      marginLeft: "auto",
-                    }}
-                  >
-                    Upload document or link
-                  </button>
                 </div>
               }
               titleId={internalOverlayTitleId}
               descriptionId={internalOverlayDescriptionId}
+              title=""
             >
-              <InternalKnowledgeOverlayContent
-                personaName={internalOverlayPersona.agent_name ?? "Persona"}
-                documents={internalOverlayDocuments}
-                isLoading={documentsLoading}
-                overlayTitleId={internalOverlayTitleId}
-                overlayDescriptionId={internalOverlayDescriptionId}
-                onRemoveDocument={handleRemoveAgentDocument}
-                showUploadCard={docsUploadCardOpen}
-                onUploadDocuments={handleUploadDocuments}
-                isUploadingDocuments={isUploadingDocument}
-              />
+            <InternalKnowledgeOverlayContent
+              personaName={internalOverlayPersona.agent_name ?? "Persona"}
+              documents={internalOverlayDocuments}
+              isLoading={documentsLoading}
+              overlayTitleId={internalOverlayTitleId}
+              overlayDescriptionId={internalOverlayDescriptionId}
+              onRemoveDocument={handleRemoveAgentDocument}
+              showUploadCard={docsUploadCardOpen}
+              onUploadDocuments={handleUploadDocuments}
+              isUploadingDocuments={isUploadingDocument}
+              onRequestShowUploadCard={handleToggleUploadCard}
+              onAddDocumentLink={handleAddDocumentLink}
+              isAddingLink={isAddingLink}
+              activeUploadMode={activeUploadMode}
+            />
             </SlidingPanelOverlay>
           ) : null}
           {selectedAgent ? (
             <SlidingPanelOverlay
               open
               onRequestClose={closeResearchOverlay}
-              title={
+              title={`Supporting Research for ${selectedAgent.personaName}`}
+              titleElement={
                 <div className="research-overlay__title">
                   <div>{`Supporting Research for ${selectedAgent.personaName}`}</div>
                   <p className="research-overlay__updated research-overlay__updated--title">
-                    Last updated{" "}
-                    <strong>{formatResearchUpdatedAt(selectedAgent.updatedAt)}</strong>{" "}
+                    Last updated {" "}
+                    <strong>{formatResearchUpdatedAt(selectedAgent.updatedAt)}</strong> {" "}
                     <span className="research-overlay__refresh-note">(refreshes weekly)</span>
                   </p>
-                  {personaPreviewHref ? (
-                    <a
-                      className="research-overlay__preview-link"
-                      href={personaPreviewHref}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {personaPreviewHref}
-                    </a>
-                  ) : null}
                 </div>
               }
               titleId={overlayTitleId}
@@ -10778,6 +10827,8 @@ const handleConfirmDeletePersona = useCallback(async () => {
                 onAddArticle={handleAddResearchArticle}
                 overlayTitleId={overlayTitleId}
                 overlayDescriptionId={overlayDescriptionId}
+                selectedSources={targetSources}
+                onSourceToggle={toggleTargetSource}
               />
             </SlidingPanelOverlay>
           ) : null}

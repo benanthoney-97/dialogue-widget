@@ -42,6 +42,12 @@ const OUTPUT_PLACEHOLDER_MAP: Record<OutputOptionId, string> = {
   yesno: "Yes/No output",
   number: "numerical output",
 };
+type PrimitiveOutputType = "string" | "boolean" | "number";
+const OUTPUT_TYPE_MAP: Record<OutputOptionId, PrimitiveOutputType> = {
+  text: "string",
+  yesno: "boolean",
+  number: "number",
+};
 type PersonaCardData = {
   id: string;
   name: string;
@@ -529,7 +535,7 @@ export default function UploadPage() {
         setTempId(groupTempId);
         setCreatedDocs(stagedDocs);
         setInternalPanelExpanded(false);
-        await handleFinalize();
+  await handleFinalize({ docsOverride: stagedDocs, tempIdOverride: groupTempId });
       } else if (uploadMode === 'url' && fileUrl.trim()) {
         const groupTempId = uuidv4();
         const stagedDoc: StagedDoc = {
@@ -545,7 +551,7 @@ export default function UploadPage() {
         setTempId(groupTempId);
         setCreatedDocs([stagedDoc]);
         setInternalPanelExpanded(false);
-        await handleFinalize();
+  await handleFinalize({ docsOverride: [stagedDoc], tempIdOverride: groupTempId });
       } else {
         setTempId(null);
         setCreatedDocs([]);
@@ -614,6 +620,7 @@ export default function UploadPage() {
   const canContinueFromBriefing = hasBriefing || canSkipBriefing;
   const [linksUrl, setLinksUrl] = useState<string>("");
   const [linksUrls, setLinksUrls] = useState<string[]>([]);
+  const questionInputRef = useRef<HTMLInputElement | null>(null);
   const [personaCards, setPersonaCards] = useState<PersonaCardData[]>(DEFAULT_PERSONA_OPTIONS);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(() => [getPersonaIdentity(DEFAULT_PERSONA_OPTIONS[0])]);
   const hasPersonaSelection = selectedPersonaIds.length > 0;
@@ -657,6 +664,7 @@ export default function UploadPage() {
   function handleAddLink() {
     if (addQuestionToList(linksUrl)) {
       setLinksUrl("");
+      questionInputRef.current?.focus();
     }
   }
 
@@ -674,6 +682,7 @@ export default function UploadPage() {
     event.preventDefault();
     addQuestionsToList(questions);
     setLinksUrl("");
+    questionInputRef.current?.focus();
   }
   function handleRemoveLink(target: string) {
     setLinksUrls((prev) => prev.filter((url) => url !== target));
@@ -734,6 +743,23 @@ export default function UploadPage() {
     setSelectedOutputType(entry.type);
     setOutputDescription(entry.description);
     setEditingOutputIndex(index);
+  }
+
+  function removeSavedOutput(index: number) {
+    setSavedOutputs((prev) => prev.filter((_, idx) => idx !== index));
+    setEditingOutputIndex((prev) => {
+      if (prev === null) {
+        return null;
+      }
+      if (prev === index) {
+        resetOutputSelection();
+        return null;
+      }
+      if (prev > index) {
+        return prev - 1;
+      }
+      return prev;
+    });
   }
 
   function commitOutput(advance = false) {
@@ -802,6 +828,12 @@ export default function UploadPage() {
     }
   }, [currentStep]);
 
+  useEffect(() => {
+    if (currentStep === 4 && questionInputRef.current) {
+      questionInputRef.current.focus();
+    }
+  }, [currentStep]);
+
   const descriptionPanelClass = joinClasses(
     "upload-layout__resource-description",
     activeResourceDetail === "description"
@@ -856,7 +888,7 @@ export default function UploadPage() {
     return resolvedClientId;
   }
 
-  async function createCampaignRecord(): Promise<string> {
+  async function createCampaignRecord(docsPayload: StagedDoc[]): Promise<string> {
     if (createdCampaignId) {
       return createdCampaignId;
     }
@@ -875,7 +907,7 @@ export default function UploadPage() {
       throw new Error("Campaign name is required");
     }
     const outputsPayload = savedOutputs.map((entry) => ({
-      type: entry.type,
+      type: OUTPUT_TYPE_MAP[entry.type] ?? "string",
       description: entry.description,
     }));
     const personaIdsPayload = Array.from(new Set(selectedPersonaIds.filter(Boolean)));
@@ -883,6 +915,16 @@ export default function UploadPage() {
     if (userError) {
       console.warn("Failed to resolve user for campaign creation", userError);
     }
+    const personaImageUploadPayload = personaImagePreview
+      ? {
+          fileName: buildPersonaImageFileName(personaImageFile, personaImagePreview),
+          dataUrl: personaImagePreview,
+          mimeType: personaImageFile?.type ?? extractMimeFromDataUrl(personaImagePreview) ?? undefined,
+        }
+      : null;
+
+    const documentsUploadPayload = Array.isArray(docsPayload) && docsPayload.length > 0 ? docsPayload : null;
+
     const response = await fetch("/api/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -896,10 +938,12 @@ export default function UploadPage() {
         personaIds: personaIdsPayload,
         createdBy: userData?.user?.id ?? null,
         documentIds: [],
+        personaImageUpload: personaImageUploadPayload,
+        documentsUpload: documentsUploadPayload,
       }),
     });
     const payload = (await response.json().catch(() => null)) as
-      | { id?: string; error?: string }
+      | { id?: string; agentId?: string; error?: string }
       | null;
     if (!response.ok) {
       const msg =
@@ -913,25 +957,6 @@ export default function UploadPage() {
     }
     setCreatedCampaignId(payload.id);
     return payload.id;
-  }
-
-  async function persistCampaignDocuments(campaignId: string): Promise<void> {
-    if (createdDocs.length === 0) {
-      return;
-    }
-    const response = await fetch("/api/campaigns/documents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ campaignId, docs: createdDocs }),
-    });
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      const errorMessage =
-        payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
-          ? payload.error
-          : `Server error: ${response.status}`;
-      throw new Error(errorMessage);
-    }
   }
 
   useEffect(() => {
@@ -1028,20 +1053,28 @@ export default function UploadPage() {
 
 
   // Finalize: ensure purpose/settings saved, then call server endpoint to move temp files and mark rows Ready
-  async function handleFinalize() {
+  type FinalizeOptions = {
+    docsOverride?: StagedDoc[];
+    tempIdOverride?: string | null;
+  };
+
+  async function handleFinalize(options?: FinalizeOptions) {
     if (finalizing) return;
     // Make sure purpose and settings are saved first
     const okPurpose = await savePurpose();
     if (!okPurpose) return;
 
-    const docsAvailable = Array.isArray(createdDocs) && createdDocs.length > 0;
+    const docsOverride = options?.docsOverride;
+    const docsSource = Array.isArray(docsOverride) ? docsOverride : createdDocs;
+    const docsAvailable = Array.isArray(docsSource) && docsSource.length > 0;
     const briefingAvailable = Boolean(briefingConversationId && briefingEndedAt);
-    if (docsAvailable && !tempId) {
+    const effectiveTempId = options?.tempIdOverride ?? tempId;
+    if (docsAvailable && !effectiveTempId) {
       setNotification({ type: 'error', message: 'Upload session expired. Please re-upload your documents.' });
       return;
     }
 
-    const docsPayload: StagedDoc[] = docsAvailable ? [...createdDocs] : [];
+    const docsPayload: StagedDoc[] = docsAvailable ? [...docsSource] : [];
     if (briefingAvailable && briefingTranscript.length > 0) {
       const transcriptText = buildTranscriptContent(
         briefingTranscript,
@@ -1073,7 +1106,7 @@ export default function UploadPage() {
 
     if (!campaignId) {
       try {
-        campaignId = await createCampaignRecord();
+        campaignId = await createCampaignRecord(docsPayload);
       } catch (err: any) {
         const message =
           err && typeof err === "object" && "message" in err
@@ -1092,16 +1125,6 @@ export default function UploadPage() {
       keyTraits: keyTraitsPayload,
     });
     setFinalizing(true);
-    if (docsAvailable) {
-      try {
-        await persistCampaignDocuments(campaignId);
-      } catch (error: any) {
-        const message = error instanceof Error ? error.message : `${error ?? "Unknown error"}`;
-        setNotification({ type: "error", message: `Failed to persist documents: ${message}` });
-        setFinalizing(false);
-        return;
-      }
-    }
 
     setNotification({ type: 'success', message: 'Campaign created successfully.' });
     if (typeof window !== "undefined") {
@@ -1209,7 +1232,7 @@ export default function UploadPage() {
                         type="text"
                         value={personaTagline}
                         onChange={(event) => setPersonaTagline(event.target.value)}
-                        placeholder="Summarize the campaign’s goal, audience, or key focus in a sentence"
+                        placeholder="Summarise the campaign’s goal, audience, or key focus in a sentence"
                         maxLength={120}
                         style={{
                           width: "100%",
@@ -1683,7 +1706,7 @@ export default function UploadPage() {
                     onChange={(event) => setPersonaDescription(event.target.value)}
                     onFocus={() => setActiveResourceDetail("description")}
                     onBlur={() => setActiveResourceDetail("")}
-                    placeholder="Summarize the campaign’s goal, desired impact, and target audience."
+                    placeholder="Summarise the campaign’s goal, desired impact, and target audience."
                     rows={3}
                     style={{
                       width: "100%",
@@ -1707,6 +1730,7 @@ export default function UploadPage() {
                 <div className="links-stage__url-input">
                   <div className="links-stage__url-wrapper">
                     <input
+                      ref={questionInputRef}
                       type="text"
                       placeholder="Type a critical question"
                       value={linksUrl}
@@ -1855,28 +1879,41 @@ export default function UploadPage() {
                 {savedOutputs.length > 0 && (
                   <div className="output-stage-saved">
                     <p className="output-stage-saved__title">Added outputs</p>
-                    <ul className="output-stage-saved__list">
-                      {savedOutputs.map((entry, idx) => {
-                        const option = OUTPUT_OPTIONS.find((opt) => opt.id === entry.type);
-                        return (
-                          <li key={`${entry.type}-${idx}`} className="output-stage-saved__item">
-                            <button
-                              type="button"
-                              className="output-stage-saved__entry"
-                              onClick={() => editSavedOutput(idx)}
-                            >
-                              <span className="output-stage-saved__badge">
-                                {option?.title ?? entry.type}
-                              </span>
-                              <span className="output-stage-saved__description">
-                                {entry.description || "No description provided"}
-                              </span>
-                              <span className="output-stage-saved__hint">Edit</span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                      <ul className="output-stage-saved__list">
+                        {savedOutputs.map((entry, idx) => {
+                          const option = OUTPUT_OPTIONS.find((opt) => opt.id === entry.type);
+                          return (
+                            <li key={`${entry.type}-${idx}`} className="output-stage-saved__item">
+                              <div className="output-stage-saved__row">
+                                <button
+                                  type="button"
+                                  className="output-stage-saved__entry"
+                                  onClick={() => editSavedOutput(idx)}
+                                >
+                                  <span className="output-stage-saved__badge">
+                                    {option?.title ?? entry.type}
+                                  </span>
+                                  <span className="output-stage-saved__description">
+                                    {entry.description || "No description provided"}
+                                  </span>
+                                  <span className="output-stage-saved__hint">Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="output-stage-saved__remove"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    removeSavedOutput(idx);
+                                  }}
+                                  aria-label={`Remove ${option?.title ?? entry.type} output`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                   </div>
                 )}
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
@@ -1889,15 +1926,17 @@ export default function UploadPage() {
                     Back
                   </button>
                   <div className="stage-button-row__group" style={{ flex: '0 0 60%' }}>
-                    <StageButton
-                      type="button"
-                      variant="ghost"
-                      className="stage-button--outline"
-                      onClick={() => commitOutput()}
-                      disabled={!selectedOutputOption || !canAddMoreOutputs}
-                    >
-                      {hasOutputDescription ? "Save output" : "Add another output"}
-                    </StageButton>
+                    {selectedOutputOption && (
+                      <StageButton
+                        type="button"
+                        variant="ghost"
+                        className="stage-button--outline"
+                        onClick={() => commitOutput()}
+                        disabled={!selectedOutputOption || !canAddMoreOutputs}
+                      >
+                        {hasOutputDescription ? "Save output" : "Add another output"}
+                      </StageButton>
+                    )}
                     <StageButton
                       type="button"
                       variant="primary"
@@ -2703,17 +2742,46 @@ export default function UploadPage() {
             font-size: 13px;
             color: rgba(15, 23, 42, 0.75);
           }
+          .output-stage-saved__row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+          }
           .output-stage-saved__entry {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
             gap: 4px;
             width: 100%;
+            flex: 1;
             border: none;
             background: transparent;
             padding: 0;
             text-align: left;
             cursor: pointer;
+          }
+          .output-stage-saved__remove {
+            border: none;
+            background: rgba(15, 23, 42, 0.08);
+            color: rgba(15, 23, 42, 0.65);
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 1;
+            width: 32px;
+            height: 32px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, color 0.2s ease;
+            cursor: pointer;
+          }
+          .output-stage-saved__remove:hover,
+          .output-stage-saved__remove:focus-visible {
+            background: rgba(15, 23, 42, 0.18);
+            color: #0f172a;
+            outline: none;
           }
           .output-stage-saved__badge {
             font-weight: 600;

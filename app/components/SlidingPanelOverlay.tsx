@@ -198,7 +198,9 @@ export default function SlidingPanelOverlay({
         }
         .sliding-panel-overlay__title-slot {
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
           gap: 4px;
           width: 100%;
           flex: 1 1 auto;
