@@ -20,6 +20,7 @@ import {
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import ResearchOverlayContent from "@/app/components/ResearchOverlayContent";
 import InternalKnowledgeOverlayContent from "@/app/components/InternalKnowledgeOverlayContent";
+import { AgentDocumentRow, PersonaDocumentRecord } from "@/app/lib/documentTypes";
 import { useResearchOverlayState } from "@/app/hooks/useResearchOverlayState";
 
 const QUESTIONNAIRE_STORAGE_BUCKET = "questionnaires";
@@ -32,7 +33,6 @@ type PersonaRow = {
   agent_name: string | null;
   role_title?: string | null;
   audience_type: string | null;
-  content_type: string | null;
   description: string | null;
   status: string | null;
   dialogue_created_date: string | null;
@@ -43,9 +43,8 @@ type PersonaRow = {
   gender?: string | null;
   location?: string | null;
   customer_status?: string | null;
-  key_pain_points?: string[] | string | null;
-  jobs_to_be_done?: string[] | string | null;
-  intent_signals?: string[] | null;
+  key_pain_points?: string | string | null;
+  jobs_to_be_done?: string | string | null;
   key_traits?: string[] | null;
   profile_image?: string | null;
   voice_id?: string | null;
@@ -62,22 +61,6 @@ type ProfileRow = {
 type ClientRow = {
   id: string;
   name?: string | null;
-};
-
-type AgentDocumentRow = {
-  id: string;
-  agent_id: string;
-  file_name: string;
-  storage_path?: string | null;
-  profile_image?: string | null;
-  public_url?: string | null;
-  document_url?: string | null;
-  document_id?: string | null;
-  mime_type?: string | null;
-  file_size?: number | null;
-  source?: string | null;
-  created_at?: string | null;
-  added_stage?: string | null;
 };
 
 function getClientSlug(pathname: string | null): string {
@@ -320,6 +303,25 @@ function buildStoragePublicUrl(bucket: string, path: string) {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   return `${base}/storage/v1/object/public/${bucket}/${encodedPath}`;
+}
+
+type PublicUrlResponse = {
+  publicUrl?: string;
+  publicURL?: string;
+};
+
+function resolvePersonaProfileImageUrl(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return buildStoragePublicUrl(PERSONA_IMAGES_BUCKET, trimmed);
 }
 
 function buildPublicUrl(path: string) {
@@ -643,6 +645,7 @@ export default function PersonasPage() {
     "Description"
   );
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const selectionResetRef = useRef(false);
   const [personaDocuments, setPersonaDocuments] = useState<Record<string, AgentDocumentRow[]>>({});
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -841,6 +844,7 @@ export default function PersonasPage() {
     return `/app/${encodeURIComponent(targetClientSlug)}/${encodeURIComponent(personaSlug)}`;
   }, [clientSlug, personaSlugLookup, resolvedClientSlug, selectedAgent]);
   const [internalOverlayPersonaId, setInternalOverlayPersonaId] = useState<string | null>(null);
+  const [docsUploadCardOpen, setDocsUploadCardOpen] = useState(false);
   const internalOverlayTitleId = "internal-knowledge-overlay-title";
   const internalOverlayDescriptionId = "internal-knowledge-overlay-description";
   const [descriptionOverlayPersonaId, setDescriptionOverlayPersonaId] = useState<string | null>(null);
@@ -848,9 +852,11 @@ export default function PersonasPage() {
   const descriptionOverlayDescriptionId = "description-overlay-description";
   const openInternalOverlay = useCallback((personaId: string) => {
     setInternalOverlayPersonaId(personaId);
+    setDocsUploadCardOpen(false);
   }, []);
   const closeInternalOverlay = useCallback(() => {
     setInternalOverlayPersonaId(null);
+    setDocsUploadCardOpen(false);
   }, []);
   const internalOverlayPersona = useMemo(
     () => (internalOverlayPersonaId ? personas.find((persona) => persona.agent_id === internalOverlayPersonaId) ?? null : null),
@@ -950,6 +956,15 @@ export default function PersonasPage() {
       .map((trait) => trait.trim())
       .filter((trait) => trait.length > 0);
   }, [descriptionOverlayNormalizedTraits]);
+  const descriptionOverlayBaselineKeyTraitsNormalized = useMemo(() => {
+    if (!descriptionOverlayPersona) return "";
+    const traits = Array.isArray(descriptionOverlayPersona.key_traits)
+      ? descriptionOverlayPersona.key_traits
+          .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
+          .filter((trait) => trait.length > 0)
+      : [];
+    return traits.length > 0 ? normalizeTraitsInput(traits.join(", ")) : "";
+  }, [descriptionOverlayPersona]);
   const descriptionOverlayBaseline = useMemo(() => {
     if (!descriptionOverlayPersona) {
       return {
@@ -964,6 +979,12 @@ export default function PersonasPage() {
       jobs: normalizeListFieldToString(descriptionOverlayPersona.jobs_to_be_done),
     };
   }, [descriptionOverlayPersona]);
+  const descriptionOverlayHasKeyTraitChanges = useMemo(() => {
+    if (!descriptionOverlayPersona) return false;
+    const normalizedCurrent = normalizeTraitsInput(descriptionOverlayTraitList.join(", "));
+    return normalizedCurrent !== descriptionOverlayBaselineKeyTraitsNormalized;
+  }, [descriptionOverlayPersona, descriptionOverlayBaselineKeyTraitsNormalized, descriptionOverlayTraitList]);
+
   const descriptionOverlayHasUnsavedChanges = useMemo(() => {
     if (!descriptionOverlayPersona) return false;
     return (
@@ -978,6 +999,10 @@ export default function PersonasPage() {
     descriptionOverlayPainPoints,
     descriptionOverlayJobsToBeDone,
   ]);
+  const descriptionOverlayHasAnyChanges = useMemo(
+    () => descriptionOverlayHasUnsavedChanges || descriptionOverlayHasKeyTraitChanges,
+    [descriptionOverlayHasUnsavedChanges, descriptionOverlayHasKeyTraitChanges]
+  );
   const handleCreateFirstPersona = useCallback(() => {
     if (clientSlug) {
       router.push(`/client/${clientSlug}/upload`);
@@ -1163,6 +1188,65 @@ export default function PersonasPage() {
       }
     },
     [supabase]
+  );
+  const handleUploadDocuments = useCallback(
+    async (files: File[]) => {
+      if (!internalOverlayPersona || !clientSlug || files.length === 0) return;
+      const agentId = internalOverlayPersona.agent_id;
+      if (!agentId) {
+        setDocumentsActionError("Missing agent identifier");
+        return;
+      }
+      setIsUploadingDocument(true);
+      setDocumentsActionError(null);
+      const insertedDocs: AgentDocumentRow[] = [];
+      try {
+        for (const file of files) {
+          const storagePath = `clients/${clientSlug}/${uuidv4()}/${file.name}`;
+          const { error: uploadError } = await supabase.storage.from("docs").upload(storagePath, file, { upsert: true });
+          if (uploadError) throw uploadError;
+          const { data: publicUrlData } = await supabase.storage.from("docs").getPublicUrl(storagePath);
+          const publicUrlResponse = (publicUrlData as PublicUrlResponse) ?? {};
+          const publicUrl =
+            publicUrlResponse.publicUrl ??
+            publicUrlResponse.publicURL ??
+            buildPublicUrl(storagePath);
+          const { data: insertedDoc, error: insertError } = await supabase
+            .from("agent_documents")
+            .insert({
+              agent_id: agentId,
+              file_name: file.name,
+              storage_path: storagePath,
+              public_url: publicUrl,
+              mime_type: file.type || null,
+              file_size: file.size,
+              source: "storage",
+              added_stage: "docs_overlay",
+            })
+            .select()
+            .single<AgentDocumentRow>();
+          if (insertError) throw insertError;
+          if (insertedDoc) {
+            insertedDocs.push(insertedDoc as AgentDocumentRow);
+          }
+        }
+        setPersonaDocuments((prev) => {
+          const prevDocs = prev[agentId] ?? [];
+          return {
+            ...prev,
+            [agentId]: [...insertedDocs, ...prevDocs],
+          };
+        });
+        setDocsUploadCardOpen(false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[personas] Failed to upload documents", message);
+        setDocumentsActionError(message || "Failed to upload documents.");
+      } finally {
+        setIsUploadingDocument(false);
+      }
+    },
+    [clientSlug, internalOverlayPersona, supabase]
   );
   const [documentsEditingPersonaId, setDocumentsEditingPersonaId] = useState<string | null>(null);
   const [documentUploadPersonaId, setDocumentUploadPersonaId] = useState<string | null>(null);
@@ -2228,7 +2312,7 @@ export default function PersonasPage() {
         const { data, error: personaError } = await supabase
           .from("agent_map")
           .select(
-            "agent_id, agent_name, role_title, audience_type, content_type, description, status, dialogue_created_date, key, age, gender, location, customer_status, key_pain_points, jobs_to_be_done, key_traits, profile_image, voice_id, active_status"
+            "agent_id, agent_name, role_title, audience_type, description, status, dialogue_created_date, key, customer_status, key_pain_points, jobs_to_be_done, key_traits, profile_image, voice_id, active_status"
           )
           .eq("client_id", client.id)
           .order("created_at", { ascending: false });
@@ -2366,6 +2450,24 @@ export default function PersonasPage() {
       }
     }
     fetchPersonas();
+  }, [clientSlug]);
+
+  useEffect(() => {
+    if (personas.length === 0) {
+      selectionResetRef.current = false;
+      return;
+    }
+    if (selectionResetRef.current) {
+      return;
+    }
+    setExpandedPersonaId(null);
+    setActivePersona(null);
+    setSelectedOption(null);
+    selectionResetRef.current = true;
+  }, [personas.length, setExpandedPersonaId, setActivePersona, setSelectedOption]);
+
+  useEffect(() => {
+    selectionResetRef.current = false;
   }, [clientSlug]);
 
   useEffect(() => {
@@ -2792,6 +2894,36 @@ export default function PersonasPage() {
     [canEdit, descriptionDraft, descriptionEditingPersonaId, isSavingDescriptionInline, supabase]
   );
 
+  const persistDescriptionOverlayKeyTraits = useCallback(
+    async (agentId: string, nextTraits: string[]) => {
+      if (isSavingDescriptionOverlayTraits || !descriptionOverlayPersona) return false;
+      setIsSavingDescriptionOverlayTraits(true);
+      setDescriptionOverlayTraitsError(null);
+      const normalizedTraits = nextTraits
+        .map((trait) => trait.trim())
+        .filter((trait) => trait.length > 0);
+      const { error } = await supabase.from("agent_map").update({ key_traits: normalizedTraits }).eq("agent_id", agentId);
+      if (error) {
+        setDescriptionOverlayTraitsError("Unable to update key traits. Please try again.");
+        setIsSavingDescriptionOverlayTraits(false);
+        return false;
+      }
+      const normalizedString = normalizeTraitsInput(normalizedTraits.join(", "));
+      setDescriptionOverlayTraits(normalizedString);
+      setPersonas((prev) =>
+        prev.map((persona) =>
+          persona.agent_id === agentId ? { ...persona, key_traits: normalizedTraits } : persona
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === agentId ? { ...prev, key_traits: normalizedTraits } : prev
+      );
+      setIsSavingDescriptionOverlayTraits(false);
+      return true;
+    },
+    [descriptionOverlayPersona, isSavingDescriptionOverlayTraits, supabase]
+  );
+
   const handleSaveDescriptionOverlay = useCallback(async () => {
     if (!canEdit || !descriptionOverlayPersona || isSavingDescriptionOverlay) {
       return;
@@ -2799,76 +2931,97 @@ export default function PersonasPage() {
     const previousDescription = descriptionOverlayPersona.description ?? "";
     const previousPainPoints = normalizeListFieldToString(descriptionOverlayPersona.key_pain_points);
     const previousJobs = normalizeListFieldToString(descriptionOverlayPersona.jobs_to_be_done);
-    if (
-      descriptionOverlayDraft === previousDescription &&
-      descriptionOverlayPainPoints === previousPainPoints &&
-      descriptionOverlayJobsToBeDone === previousJobs
-    ) {
+    const descriptionChanged =
+      descriptionOverlayDraft !== previousDescription ||
+      descriptionOverlayPainPoints !== previousPainPoints ||
+      descriptionOverlayJobsToBeDone !== previousJobs;
+    const keyTraitsChanged = descriptionOverlayHasKeyTraitChanges;
+
+    if (!descriptionChanged && !keyTraitsChanged) {
       setDescriptionOverlayError(null);
       return;
     }
 
+    setSuppressUnsavedChangesBanner(true);
     setIsSavingDescriptionOverlay(true);
     setDescriptionOverlayError(null);
 
-    const normalizedPainPoints = normalizeCommaSeparatedList(descriptionOverlayPainPoints);
-    const normalizedJobs = normalizeCommaSeparatedList(descriptionOverlayJobsToBeDone);
-    const payloadPainPoints = normalizedPainPoints.length > 0 ? normalizedPainPoints : null;
-    const payloadJobs = normalizedJobs.length > 0 ? normalizedJobs : null;
+    if (descriptionChanged) {
+      const normalizedPainPoints = normalizeCommaSeparatedList(descriptionOverlayPainPoints);
+      const normalizedJobs = normalizeCommaSeparatedList(descriptionOverlayJobsToBeDone);
+      const payloadPainPoints =
+        normalizedPainPoints.length > 0 ? normalizedPainPoints.join("\n") : null;
+      const payloadJobs = normalizedJobs.length > 0 ? normalizedJobs.join("\n") : null;
 
-    const { error } = await supabase
-      .from("agent_map")
-      .update({
-        description: descriptionOverlayDraft,
-        key_pain_points: payloadPainPoints,
-        jobs_to_be_done: payloadJobs,
-      })
-      .eq("agent_id", descriptionOverlayPersona.agent_id);
+      const { error } = await supabase
+        .from("agent_map")
+        .update({
+          description: descriptionOverlayDraft,
+          key_pain_points: payloadPainPoints,
+          jobs_to_be_done: payloadJobs,
+        })
+        .eq("agent_id", descriptionOverlayPersona.agent_id);
 
-    if (error) {
-      setDescriptionOverlayError("Unable to update description. Please try again.");
-      setIsSavingDescriptionOverlay(false);
-      return;
-    }
+      if (error) {
+        setDescriptionOverlayError("Unable to update description. Please try again.");
+        setIsSavingDescriptionOverlay(false);
+        return;
+      }
 
-    setPersonas((prev) =>
-      prev.map((item) =>
-        item.agent_id === descriptionOverlayPersona.agent_id
+      setPersonas((prev) =>
+        prev.map((item) =>
+          item.agent_id === descriptionOverlayPersona.agent_id
+            ? {
+                ...item,
+                description: descriptionOverlayDraft,
+                key_pain_points: payloadPainPoints,
+                jobs_to_be_done: payloadJobs,
+              }
+            : item
+        )
+      );
+      setActivePersona((prev) =>
+        prev && prev.agent_id === descriptionOverlayPersona.agent_id
           ? {
-              ...item,
+              ...prev,
               description: descriptionOverlayDraft,
               key_pain_points: payloadPainPoints,
               jobs_to_be_done: payloadJobs,
             }
-          : item
-      )
-    );
-    setActivePersona((prev) =>
-      prev && prev.agent_id === descriptionOverlayPersona.agent_id
-        ? {
-            ...prev,
-            description: descriptionOverlayDraft,
-            key_pain_points: payloadPainPoints,
-            jobs_to_be_done: payloadJobs,
-          }
-        : prev
-    );
+          : prev
+      );
+    }
 
-    setIsSavingDescriptionOverlay(false);
+    if (keyTraitsChanged) {
+      const success = await persistDescriptionOverlayKeyTraits(
+        descriptionOverlayPersona.agent_id,
+        descriptionOverlayTraitList
+      );
+      if (!success) {
+        setIsSavingDescriptionOverlay(false);
+        return;
+      }
+    }
+
     setDescriptionOverlayError(null);
+    setSuppressUnsavedChangesBanner(false);
+    setIsSavingDescriptionOverlay(false);
   }, [
     canEdit,
     descriptionOverlayPersona,
     descriptionOverlayDraft,
     descriptionOverlayPainPoints,
     descriptionOverlayJobsToBeDone,
+    descriptionOverlayHasKeyTraitChanges,
+    descriptionOverlayTraitList,
     isSavingDescriptionOverlay,
-    supabase,
+    persistDescriptionOverlayKeyTraits,
     setActivePersona,
+    setDescriptionOverlayError,
     setPersonas,
+    supabase,
   ]);
-
-  const handleConfirmDeletePersona = useCallback(async () => {
+const handleConfirmDeletePersona = useCallback(async () => {
     if (!personaPendingDelete || !canEdit) return;
     const agentId = personaPendingDelete.agent_id;
     setIsDeletingPersona(true);
@@ -3465,36 +3618,6 @@ export default function PersonasPage() {
     [isSavingTraits, supabase]
   );
 
-  const persistDescriptionOverlayKeyTraits = useCallback(
-    async (agentId: string, nextTraits: string[]) => {
-      if (isSavingDescriptionOverlayTraits || !descriptionOverlayPersona) return false;
-      setIsSavingDescriptionOverlayTraits(true);
-      setDescriptionOverlayTraitsError(null);
-      const normalizedTraits = nextTraits
-        .map((trait) => trait.trim())
-        .filter((trait) => trait.length > 0);
-      const { error } = await supabase.from("agent_map").update({ key_traits: normalizedTraits }).eq("agent_id", agentId);
-      if (error) {
-        setDescriptionOverlayTraitsError("Unable to update key traits. Please try again.");
-        setIsSavingDescriptionOverlayTraits(false);
-        return false;
-      }
-      const normalizedString = normalizeTraitsInput(normalizedTraits.join(", "));
-      setDescriptionOverlayTraits(normalizedString);
-      setPersonas((prev) =>
-        prev.map((persona) =>
-          persona.agent_id === agentId ? { ...persona, key_traits: normalizedTraits } : persona
-        )
-      );
-      setActivePersona((prev) =>
-        prev && prev.agent_id === agentId ? { ...prev, key_traits: normalizedTraits } : prev
-      );
-      setIsSavingDescriptionOverlayTraits(false);
-      return true;
-    },
-    [descriptionOverlayPersona, isSavingDescriptionOverlayTraits, supabase]
-  );
-
   const handleStartChipEdit = useCallback((index: number, trait: string) => {
     setChipEditingIndex(index);
     setChipEditingValue(trait);
@@ -3605,7 +3728,7 @@ export default function PersonasPage() {
     } else {
       nextTraits[descriptionOverlayChipEditingIndex] = trimmedValue;
     }
-    await persistDescriptionOverlayKeyTraits(descriptionOverlayPersona.agent_id, nextTraits);
+    setDescriptionOverlayTraits(normalizeTraitsInput(nextTraits.join(", ")));
     handleDescriptionOverlayCancelEdit();
   }, [
     descriptionOverlayChipEditingIndex,
@@ -3966,6 +4089,8 @@ export default function PersonasPage() {
       });
   }, [activePersona, personaDocuments]);
 
+  const [suppressUnsavedChangesBanner, setSuppressUnsavedChangesBanner] = useState(false);
+
   const hasAnyUnsavedChanges =
     hasUnsavedName ||
     hasUnsavedNameInline ||
@@ -3975,7 +4100,14 @@ export default function PersonasPage() {
     hasUnsavedKeyTraitEdits ||
     hasUnsavedScalarTraits ||
     hasUnsavedAvatarDraft;
-  const showUnsavedChangesBanner = canEdit && hasAnyUnsavedChanges;
+  const showUnsavedChangesBanner =
+    canEdit && hasAnyUnsavedChanges && !suppressUnsavedChangesBanner;
+
+  useEffect(() => {
+    if (!hasAnyUnsavedChanges) {
+      setSuppressUnsavedChangesBanner(false);
+    }
+  }, [hasAnyUnsavedChanges]);
   const handleClearUnsavedChanges = useCallback(() => {
     if (hasUnsavedAvatarDraft) {
       clearAvatarDrafts();
@@ -4124,7 +4256,7 @@ export default function PersonasPage() {
     >
       <span
         className="persona-unsaved-message"
-        style={{ fontFamily: HEADING_FONT_STACK }}
+                style={{ fontFamily: HEADING_FONT_STACK, background: "rgba(248, 250, 252, 0.92)" }}
       >
         You have unsaved changes
       </span>
@@ -4192,9 +4324,9 @@ export default function PersonasPage() {
                   justifyContent: "center",
                   padding: "8px 18px",
                   borderRadius: 999,
-                  border: "1px solid rgba(15, 23, 42, 0.16)",
-                  background: "rgba(248, 250, 252, 0.92)",
-                  color: "#0f172a",
+                  border: "1px solid rgba(255, 255, 255, 0.4)",
+                  background: "#1e293b",
+                  color: "#ffffff",
                   fontSize: 13,
                   fontWeight: 700,
                   fontFamily: HEADING_FONT_STACK,
@@ -4202,27 +4334,27 @@ export default function PersonasPage() {
                   transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease",
                 }}
                 onMouseEnter={(event) => {
-                  event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.3)";
-                  event.currentTarget.style.background = "rgba(248, 250, 252, 0.98)";
-                  event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.16)";
+                  event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.7)";
+                  event.currentTarget.style.background = "#15203b";
+                  event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.3)";
                   event.currentTarget.style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={(event) => {
-                  event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.16)";
-                  event.currentTarget.style.background = "rgba(248, 250, 252, 0.92)";
+                  event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.4)";
+                  event.currentTarget.style.background = "#1e293b";
                   event.currentTarget.style.boxShadow = "none";
                   event.currentTarget.style.transform = "none";
                 }}
                 onFocus={(event) => {
-                  event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.3)";
-                  event.currentTarget.style.background = "rgba(248, 250, 252, 0.98)";
-                  event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.16)";
+                  event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.7)";
+                  event.currentTarget.style.background = "#15203b";
+                  event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.3)";
                   event.currentTarget.style.transform = "translateY(-1px)";
                   event.currentTarget.style.outline = "none";
                 }}
                 onBlur={(event) => {
-                  event.currentTarget.style.borderColor = "rgba(15, 23, 42, 0.16)";
-                  event.currentTarget.style.background = "rgba(248, 250, 252, 0.92)";
+                  event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.4)";
+                  event.currentTarget.style.background = "#1e293b";
                   event.currentTarget.style.boxShadow = "none";
                   event.currentTarget.style.transform = "none";
                 }}
@@ -4418,18 +4550,13 @@ export default function PersonasPage() {
                   : [];
                 const isChipRowExpanded = chipRowsExpanded[persona.agent_id] ?? false;
                 const avatarDraft = avatarDrafts[persona.agent_id];
-                const profileImageUrl =
-                  avatarDraft?.previewUrl ??
-                  (typeof persona.profile_image === "string" && persona.profile_image.trim().length > 0
-                    ? persona.profile_image.trim()
-                    : null);
+                const personaProfileImage = resolvePersonaProfileImageUrl(persona.profile_image);
+                const profileImageUrl = avatarDraft?.previewUrl ?? personaProfileImage;
+                const placeholderImageUrl = !profileImageUrl && personaProfileImage ? personaProfileImage : null;
+                const placeholderHasImage = Boolean(placeholderImageUrl);
                 const personaInitial = buildPersonaInitial(persona.agent_name);
                 const avatarInlineError = avatarInlineErrors[persona.agent_id] ?? null;
                 const profileImageAlt = `${persona.agent_name ?? "Persona"} profile image`;
-                const contentType =
-                  typeof persona.content_type === "string" && persona.content_type.trim().length > 0
-                    ? persona.content_type.trim()
-                    : null;
                 const roleTitle =
                   typeof persona.role_title === "string" && persona.role_title.trim().length > 0
                     ? persona.role_title.trim()
@@ -4597,8 +4724,20 @@ export default function PersonasPage() {
                                           className="persona-card__avatar"
                                         />
                                       ) : (
-                                        <span className="persona-card__avatar-placeholder" aria-hidden="true">
-                                          {personaInitial}
+                                        <span
+                                          className={`persona-card__avatar-placeholder${
+                                            placeholderHasImage ? " persona-card__avatar-placeholder--image" : ""
+                                          }`}
+                                          style={
+                                            placeholderHasImage
+                                              ? {
+                                                  backgroundImage: `url(${placeholderImageUrl})`,
+                                                }
+                                              : undefined
+                                          }
+                                          aria-hidden="true"
+                                        >
+                                          {!placeholderHasImage ? personaInitial : null}
                                         </span>
                                       )}
                                       {canEditAvatar ? (
@@ -4859,7 +4998,6 @@ export default function PersonasPage() {
                             ) : null}
                           </div>
                         </div>
-                        {contentType ? <p className="persona-card__type">{contentType}</p> : null}
                       </div>
                     <div className="persona-card__expanded" data-visible={isExpanded ? "true" : "false"}>
                       <div className="persona-card__expanded-inner">
@@ -6434,9 +6572,13 @@ export default function PersonasPage() {
           }
           .personas-new-button.stage-button--primary {
             box-shadow: none;
+            background: rgba(248, 250, 252, 0.92);
+            color: #0f172a;
+            border: 1px solid #1e293b;
           }
           .personas-new-button.stage-button--primary:not(:disabled):hover {
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+            transform: translateY(-1px);
           }
           .personas-new-button .stage-button__icon {
             margin-right: 0px;
@@ -6873,6 +7015,7 @@ export default function PersonasPage() {
             flex: 1 1 auto;
             overflow: auto;
             padding-right: 4px;
+            border-radius: 12px
           }
           .persona-expanded-block--description {
             flex-basis: min(420px, calc(100% - 32px));
@@ -6926,23 +7069,24 @@ export default function PersonasPage() {
           }
           .persona-expanded-block__overlay {
             position: absolute;
-            bottom: 14px;
-            right: 14px;
+            inset: 0;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.85);
+            justify-content: center;
+            gap: 10px;
+            padding: 24px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.92);
             font-weight: 500;
             color: #fff;
             z-index: 2;
-            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.35);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
             pointer-events: none;
           }
           .persona-expanded-block__overlay-note {
             font-size: 12px;
-            color: rgba(15, 23, 42, 0.7);
+            color: rgba(255, 255, 255, 0.75);
             font-weight: 500;
           }
           .persona-expanded-block__updated-flag {
@@ -7451,7 +7595,7 @@ export default function PersonasPage() {
           }
           .persona-expanded-block--documents,
           .persona-expanded-block--external {
-            padding-bottom: 0;
+            padding-bottom: 10;
           }
           .persona-expanded-block--documents .persona-edit-documents,
           .persona-expanded-block--documents .persona-edit-documents--inline,
@@ -7637,6 +7781,13 @@ export default function PersonasPage() {
             font-size: 20px;
             color: rgba(15, 23, 42, 0.68);
             background: rgba(241, 245, 249, 0.88);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+          }
+          .persona-card__avatar-placeholder--image {
+            color: transparent;
+            background-color: transparent;
           }
           .persona-card__avatar-overlay {
             position: absolute;
@@ -10474,11 +10625,11 @@ export default function PersonasPage() {
             background: rgba(59, 130, 246, 0.16);
           }
         /* Theme variables for a lighter navy-themed palette. Adjust here to tune the theme. */
-        :global(.persona-root) {
-          --bg: #f4f8ff; /* page background (very light bluish) */
-          --panel: #f4f8ff; /* panel/card background */
-          --panel-2: #f4f8ff; /* slightly bluish panel */
-          --accent: #2b6cb0; /* primary accent (navy-blue) */
+      :global(.persona-root) {
+        --bg: #f4f8ff; /* page background (very light bluish) */
+        --panel: #f4f8ff; /* panel/card background */
+        --panel-2: #f4f8ff; /* slightly bluish panel */
+        --accent: #2b6cb0; /* primary accent (navy-blue) */
           --accent-2: #7fb3ff; /* lighter accent */
           --accent-rgb: 43,108,176;
           --text: #052033; /* primary text (dark navy) */
@@ -10492,10 +10643,28 @@ export default function PersonasPage() {
           border-spacing: 0 10px;
           font-family: ${BODY_FONT_STACK};
           font-size: 15px;
-          background: transparent;
-        }
-        :global(.persona-root table th) {
-          text-align: left;
+        background: transparent;
+      }
+      :global(.internal-knowledge-overlay__upload-button) {
+        background: #1e293b;
+        color: #f6f7f9;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: none;
+        font-weight: 700;
+        font-size: 15px;
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+        margin-left: 12px;
+
+      }
+      :global(.persona-root table th) {
+        text-align: left;
           padding: 10px 8px;
           color: rgba(15, 23, 42, 0.65);
           font-size: 13px;
@@ -10518,10 +10687,38 @@ export default function PersonasPage() {
             <SlidingPanelOverlay
               open
               onRequestClose={closeInternalOverlay}
-              title={
-                internalOverlayPersona.agent_name
-                  ? `Docs & Links - ${internalOverlayPersona.agent_name}`
-                  : "Docs & Links"
+              titleElement={
+                <div className="internal-knowledge-overlay__header-row">
+                  <span>
+                    {internalOverlayPersona.agent_name
+                      ? `Docs & Links - ${internalOverlayPersona.agent_name}`
+                      : "Docs & Links"}
+                  </span>
+                  <button
+                    className="internal-knowledge-overlay__upload-button"
+                    type="button"
+                    onClick={() => setDocsUploadCardOpen((prev) => !prev)}
+                    style={{
+                      background: "#1e293b",
+                      color: "#f6f7f9",
+                      boxShadow: "0 12px 24px rgba(15, 23, 42, 0.18)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      padding: "12px 20px",
+                      borderRadius: "12px",
+                      border: "none",
+                      fontWeight: 700,
+                      fontSize: "15px",
+                      cursor: "pointer",
+                      transition: "transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease",
+                      marginLeft: "auto",
+                    }}
+                  >
+                    Upload document or link
+                  </button>
+                </div>
               }
               titleId={internalOverlayTitleId}
               descriptionId={internalOverlayDescriptionId}
@@ -10533,6 +10730,9 @@ export default function PersonasPage() {
                 overlayTitleId={internalOverlayTitleId}
                 overlayDescriptionId={internalOverlayDescriptionId}
                 onRemoveDocument={handleRemoveAgentDocument}
+                showUploadCard={docsUploadCardOpen}
+                onUploadDocuments={handleUploadDocuments}
+                isUploadingDocuments={isUploadingDocument}
               />
             </SlidingPanelOverlay>
           ) : null}
@@ -10800,7 +11000,7 @@ export default function PersonasPage() {
                         onClick={() => {
                           void handleSaveDescriptionOverlay();
                         }}
-                        disabled={isSavingDescriptionOverlay || !descriptionOverlayHasUnsavedChanges}
+                        disabled={isSavingDescriptionOverlay || !descriptionOverlayHasAnyChanges}
                         className="persona-description-overlay__save"
                       >
                         {isSavingDescriptionOverlay ? "Saving…" : "Save"}

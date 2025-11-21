@@ -16,7 +16,7 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const STAGE_CHIPS = ["Basic Info", "Personas", "Objective", "Questions", "Output", "Documents"];
+const STAGE_CHIPS = ["Basic Info", "Documents", "Personas", "Objective", "Questions", "Output"];
 const OUTPUT_OPTIONS = [
   {
       id: "text",
@@ -564,7 +564,7 @@ export default function UploadPage() {
     await stageFiles();
   }
 
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic Info, 1: Personas, 2: Objective, 3: Questions, 4: Output, 5: Documents
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic Info, 1: Documents, 2: Personas, 3: Objective, 4: Questions, 5: Output
   const [personaName, setPersonaName] = useState<string>("");
   const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
@@ -616,6 +616,7 @@ export default function UploadPage() {
   const [linksUrls, setLinksUrls] = useState<string[]>([]);
   const [personaCards, setPersonaCards] = useState<PersonaCardData[]>(DEFAULT_PERSONA_OPTIONS);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(() => [getPersonaIdentity(DEFAULT_PERSONA_OPTIONS[0])]);
+  const hasPersonaSelection = selectedPersonaIds.length > 0;
   useEffect(() => {
     setKnowledgePanelExpanded(linksUrls.length > 0);
   }, [linksUrls.length]);
@@ -681,7 +682,7 @@ export default function UploadPage() {
     if (linksUrls.length === 0) return;
     setKnowledgePanelExpanded(false);
     setKnowledgePanelCompleted(true);
-    setCurrentStep(4);
+    setCurrentStep(5);
   }
   useEffect(() => {
     if (personaCards.length === 0) {
@@ -721,6 +722,8 @@ export default function UploadPage() {
   const [editingOutputIndex, setEditingOutputIndex] = useState<number | null>(null);
   const hasReachedOutputLimit = savedOutputs.length >= MAX_OUTPUTS;
   const canAddMoreOutputs = editingOutputIndex !== null || !hasReachedOutputLimit;
+  const hasOutputDescription = outputDescription.trim().length > 0;
+  const hasSavedOutputs = savedOutputs.length > 0;
   function resetOutputSelection() {
     setSelectedOutputType(null);
     setOutputDescription("");
@@ -736,7 +739,7 @@ export default function UploadPage() {
   function commitOutput(advance = false) {
     if (!selectedOutputOption) {
       if (advance) {
-        setCurrentStep(5);
+        setCurrentStep(1);
       }
       return;
     }
@@ -758,7 +761,7 @@ export default function UploadPage() {
     resetOutputSelection();
     setEditingOutputIndex(null);
     if (advance) {
-      setCurrentStep(5);
+      setCurrentStep(1);
     }
   }
   const personaNameTrimmed = personaName.trim();
@@ -771,8 +774,8 @@ export default function UploadPage() {
   const [personaDescription, setPersonaDescription] = useState<string>("");
   const personaDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const handleDescriptionLinkClick = () => {
-    setCurrentStep(2);
-    if (currentStep === 2 && personaDescriptionRef.current) {
+    setCurrentStep(3);
+    if (currentStep === 3 && personaDescriptionRef.current) {
       personaDescriptionRef.current.focus();
     }
   };
@@ -794,7 +797,7 @@ export default function UploadPage() {
   };
 
   useEffect(() => {
-    if (currentStep === 2 && personaDescriptionRef.current) {
+    if (currentStep === 3 && personaDescriptionRef.current) {
       personaDescriptionRef.current.focus();
     }
   }, [currentStep]);
@@ -945,8 +948,8 @@ export default function UploadPage() {
   }, [clientSlug]);
 
   useEffect(() => {
-    if (selectedGuidance === 'Describe persona' && currentStep === 1) {
-      setCurrentStep(4);
+    if (selectedGuidance === 'Describe persona' && currentStep === 2) {
+      setCurrentStep(5);
     }
   }, [selectedGuidance, currentStep]);
 
@@ -958,7 +961,7 @@ export default function UploadPage() {
     hasHydratedFromParams.current = true;
 
     if (stageParam === "upload") {
-      setCurrentStep(3);
+      setCurrentStep(4);
     }
 
     if (purposeParam) {
@@ -1265,12 +1268,297 @@ export default function UploadPage() {
                 </>
               </StagePanel>
             )}
-            {currentStep === 1 && (
-              <StagePanel
-                heading="Add personas to this campaign"
-                subheading="Each persona will get a unique link to simplify tracking"
-                footer={
-                  <div className="stage-button-row stage-button-row--with-back">
+              {currentStep === 1 && (
+                <StagePanel heading="Upload context documents for your AI interviewer">
+                  <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+                    {uploadMode === "upload" ? (
+                      <label
+                        htmlFor="file-upload"
+                        className="image-stage-placeholder data-upload-placeholder"
+                        style={{
+                          minHeight: files.length > 0 ? 218 : 186,
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            const dropped = Array.from(e.dataTransfer.files);
+                            setFiles((prev) => mergeFileLists(prev, dropped));
+                            setNotification(null);
+                            e.dataTransfer.clearData();
+                          }
+                        }}
+                      >
+                        <input
+                          id="file-upload"
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.docx,.txt,.html"
+                          onChange={handleFileChange}
+                          style={{ display: "none" }}
+                        />
+                        {files.length === 0 ? (
+                          <>
+                            <div className="data-upload-placeholder__heading">Drag & drop files here</div>
+                            <div className="data-upload-placeholder__subheading">
+                              or <span className="data-upload-placeholder__link">click to select from computer</span>
+                            </div>
+                            <div className="data-upload-placeholder__types">
+                              {["PDF", "TXT", "DOCX", "HTML"].map((type) => (
+                                <span key={type} className="data-upload-placeholder__chip">
+                                  {type}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <ul
+                              style={{
+                                color: "#a3c0ff",
+                                fontSize: 15,
+                                paddingLeft: 0,
+                                margin: 0,
+                                width: "100%",
+                                display: "flex",
+                                gap: 12,
+                                overflowX: "auto",
+                                alignItems: "center",
+                              }}
+                            >
+                              {files.map((file, idx) => (
+                                <li
+                                  key={idx}
+                                  style={{
+                                    marginBottom: 6,
+                                    flexGrow: 0,
+                                    flexShrink: 0,
+                                    flexBasis: "130px",
+                                    width: "130px",
+                                    maxWidth: "130px",
+                                    boxSizing: "border-box",
+                                    height: 186,
+                                    borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                    paddingTop: 8,
+                                    listStyle: "none",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      position: "relative",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      justifyContent: "space-between",
+                                      gap: 12,
+                                      height: "100%",
+                                      padding: "30px 12px 24px",
+                                      borderRadius: 10,
+                                      background: "rgba(255,255,255,0.02)",
+                                      border: "1px solid #1e293b",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "flex-start",
+                                        gap: 12,
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: 36,
+                                          height: 36,
+                                          flex: "0 0 36px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          borderRadius: 6,
+                                        }}
+                                      >
+                                        <svg
+                                          width="20"
+                                          height="20"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          aria-hidden="true"
+                                          focusable="false"
+                                        >
+                                          <path
+                                            d="M6 6L18 18M6 18L18 6"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            fill="none"
+                                          />
+                                        </svg>
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div
+                                          title={file.name}
+                                          style={{
+                                            maxWidth: "100%",
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                            fontSize: 12,
+                                            color: "#1e293b",
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontSize: 12,
+                                            color: "#1e293b",
+                                            marginTop: 4,
+                                            textAlign: "left",
+                                          }}
+                                        >
+                                          {file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveFile(idx)}
+                                      aria-label="Remove file"
+                                      title="Remove"
+                                      style={{
+                                        position: "absolute",
+                                        top: -12,
+                                        right: -12,
+                                        width: 30,
+                                        height: 30,
+                                        borderRadius: "50%",
+                                        background: "#1e293b",
+                                        border: "1px solid rgba(255,255,255,0.04)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#9fb3ff",
+                                        cursor: "pointer",
+                                        padding: 0,
+                                        zIndex: 5,
+                                        boxShadow: "0 6px 16px rgba(2,6,23,0.45)",
+                                      }}
+                                    >
+                                      <svg
+                                        width="12"
+                                        height="12"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                        focusable="false"
+                                      >
+                                        <path
+                                          d="M6 6L18 18M6 18L18 6"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          fill="none"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </li>
+                              ))}
+                              <li
+                                style={{
+                                  listStyle: "none",
+                                  marginBottom: 6,
+                                  flexGrow: 0,
+                                  flexShrink: 0,
+                                  flexBasis: "130px",
+                                  width: "130px",
+                                  maxWidth: "130px",
+                                  boxSizing: "border-box",
+                                  height: 186,
+                                  paddingTop: 8,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    position: "relative",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    height: "100%",
+                                    padding: "30px 12px 24px",
+                                    borderRadius: 10,
+                                    background: "rgba(255,255,255,0.02)",
+                                    border: "1px dashed #1e293b",
+                                    color: "#1e293b",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  Click to add more documents
+                                </div>
+                              </li>
+                            </ul>
+                          </>
+                        )}
+                      </label>
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "2px dashed #2d406b",
+                          background: "#22325a",
+                          borderRadius: 12,
+                          padding: 0,
+                          marginBottom: 22,
+                          color: "#a3c0ff",
+                          fontSize: 16,
+                          fontWeight: 600,
+                          minHeight: 186,
+                          width: "100%",
+                          textAlign: "center",
+                        }}
+                      >
+                        <input
+                          type="url"
+                          value={fileUrl}
+                          onChange={(e) => {
+                            setFileUrl(e.target.value);
+                            setNotification(null); // Clear notification on new URL
+                          }}
+                          placeholder="Paste file URL here..."
+                          style={{
+                            width: "80%",
+                            padding: "12px 14px",
+                            borderRadius: 8,
+                            border: "1px solid #2d406b",
+                            fontSize: 15,
+                            color: "#a3c0ff",
+                            background: "#192447",
+                            marginBottom: 0,
+                          }}
+                        />
+                      </div>
+                    )}
+                    {submitted && !notification && (
+                      <StageAlert type="info" message="Stay on the page while document is uploading." />
+                    )}
+                    {notification && <StageAlert type={notification.type} message={notification.message} />}
+                  </form>
+                  <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
                     <button
                       type="button"
                       className="stage-back"
@@ -1279,10 +1567,41 @@ export default function UploadPage() {
                     >
                       Back
                     </button>
+                    <div className="stage-button-row__group" style={{ flex: "0 0 25%" }}>
+                      <StageButton
+                        type="button"
+                        variant="primary"
+                        onClick={() => setCurrentStep(2)}
+                        disabled={finalizing || files.length === 0}
+                      >
+                        Continue
+                      </StageButton>
+                    </div>
+                  </div>
+                </StagePanel>
+              )}
+            {currentStep === 2 && (
+              <StagePanel
+                heading="Add personas to this campaign"
+                subheading="Each persona will get a unique link to simplify tracking"
+                footer={
+                  <div className="stage-button-row stage-button-row--with-back">
+                    <button
+                      type="button"
+                      className="stage-back"
+                      onClick={() => setCurrentStep(1)}
+                      style={{ width: "25%" }}
+                    >
+                      Back
+                    </button>
                     <StageButton
                       type="button"
                       variant="primary"
-                      onClick={() => setCurrentStep(2)}
+                      onClick={() => {
+                        if (!hasPersonaSelection) return;
+                        setCurrentStep(3);
+                      }}
+                      disabled={!hasPersonaSelection}
                       style={{ width: "25%" }}
                     >
                       Continue
@@ -1328,7 +1647,7 @@ export default function UploadPage() {
                 </div>
               </StagePanel>
             )}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <StagePanel
                 className="stage-panel--align-left"
                 footer={
@@ -1336,7 +1655,7 @@ export default function UploadPage() {
                     <button
                       type="button"
                       className="stage-back"
-                      onClick={() => setCurrentStep(1)}
+                      onClick={() => setCurrentStep(2)}
                       style={{ width: "25%" }}
                     >
                       Back
@@ -1344,7 +1663,11 @@ export default function UploadPage() {
                     <StageButton
                       type="button"
                       variant="primary"
-                      onClick={() => setCurrentStep(3)}
+                      onClick={() => {
+                        if (!personaDescriptionHasContent) return;
+                        setCurrentStep(4);
+                      }}
+                      disabled={!personaDescriptionHasContent}
                       style={{ width: "25%" }}
                     >
                       Continue
@@ -1379,7 +1702,7 @@ export default function UploadPage() {
                 </label>
               </StagePanel>
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <StagePanel heading={`Add critical questions for ${personaNameDisplay}`}>
                 <div className="links-stage__url-input">
                   <div className="links-stage__url-wrapper">
@@ -1435,7 +1758,7 @@ export default function UploadPage() {
                   <button
                     type="button"
                     className="stage-back"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(3)}
                     style={{ width: '25%' }}
                   >
                     Back
@@ -1445,7 +1768,7 @@ export default function UploadPage() {
                       type="button"
                       variant="ghost"
                       className="stage-button--outline"
-                      onClick={() => setCurrentStep(4)}
+                      onClick={() => setCurrentStep(5)}
                       disabled={finalizing}
                     >
                       Skip
@@ -1462,7 +1785,7 @@ export default function UploadPage() {
                 </div>
               </StagePanel>
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <StagePanel heading="Choose what data is collected from interivews">
                 <div className="output-stage-content">
                   {!selectedOutputOption ? (
@@ -1560,12 +1883,12 @@ export default function UploadPage() {
                   <button
                     type="button"
                     className="stage-back"
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(4)}
                     style={{ width: '25%' }}
                   >
                     Back
                   </button>
-                  <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
+                  <div className="stage-button-row__group" style={{ flex: '0 0 60%' }}>
                     <StageButton
                       type="button"
                       variant="ghost"
@@ -1573,329 +1896,13 @@ export default function UploadPage() {
                       onClick={() => commitOutput()}
                       disabled={!selectedOutputOption || !canAddMoreOutputs}
                     >
-                      Add another output
-                    </StageButton>
-                    <StageButton type="button" variant="primary" onClick={() => commitOutput(true)}>
-                      Continue
-                    </StageButton>
-                  </div>
-                </div>
-              </StagePanel>
-            )}
-            {currentStep === 5 && (
-              <StagePanel heading="Upload context documents for your AI interviewer">
-                <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-                  {uploadMode === "upload" ? (
-                    <label
-                      htmlFor="file-upload"
-                      className="image-stage-placeholder data-upload-placeholder"
-                      style={{
-                        minHeight: files.length > 0 ? 218 : 186,
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                          const dropped = Array.from(e.dataTransfer.files);
-                          setFiles((prev) => mergeFileLists(prev, dropped));
-                          setNotification(null);
-                          e.dataTransfer.clearData();
-                        }
-                      }}
-                    >
-                      <input
-                        id="file-upload"
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept=".pdf,.docx,.txt,.html"
-                        onChange={handleFileChange}
-                        style={{ display: "none" }}
-                      />
-                      {files.length === 0 ? (
-                        <>
-                          <div className="data-upload-placeholder__heading">Drag & drop files here</div>
-                          <div className="data-upload-placeholder__subheading">
-                            or <span className="data-upload-placeholder__link">click to select from computer</span>
-                          </div>
-                          <div className="data-upload-placeholder__types">
-                            {["PDF", "TXT", "DOCX", "HTML"].map((type) => (
-                              <span key={type} className="data-upload-placeholder__chip">
-                                {type}
-                              </span>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <ul
-                            style={{
-                              color: "#a3c0ff",
-                              fontSize: 15,
-                              paddingLeft: 0,
-                              margin: 0,
-                              width: "100%",
-                              display: "flex",
-                              gap: 12,
-                              overflowX: "auto",
-                              alignItems: "center",
-                            }}
-                          >
-                            {files.map((file, idx) => (
-                              <li
-                                key={idx}
-                                style={{
-                                  marginBottom: 6,
-                                  flexGrow: 0,
-                                  flexShrink: 0,
-                                  flexBasis: "130px",
-                                  width: "130px",
-                                  maxWidth: "130px",
-                                  boxSizing: "border-box",
-                                  height: 186,
-                                  borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                                  paddingTop: 8,
-                                  listStyle: "none",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    position: "relative",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "space-between",
-                                    gap: 12,
-                                    height: "100%",
-                                    padding: "30px 12px 24px",
-                                    borderRadius: 10,
-                                    background: "rgba(255,255,255,0.02)",
-                                    border: "1px solid #1e293b",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      alignItems: "flex-start",
-                                      gap: 12,
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        width: 36,
-                                        height: 36,
-                                        flex: "0 0 36px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        borderRadius: 6,
-                                      }}
-                                    >
-                                      <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-hidden="true"
-                                        focusable="false"
-                                      >
-                                        <path
-                                          d="M6 6L18 18M6 18L18 6"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          fill="none"
-                                        />
-                                      </svg>
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div
-                                        title={file.name}
-                                        style={{
-                                          maxWidth: "100%",
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          fontSize: 12,
-                                          color: "#1e293b",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
-                                      </div>
-                                      <div
-                                        style={{
-                                          fontSize: 12,
-                                          color: "#1e293b",
-                                          marginTop: 4,
-                                          textAlign: "left",
-                                        }}
-                                      >
-                                        {file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveFile(idx)}
-                                    aria-label="Remove file"
-                                    title="Remove"
-                                    style={{
-                                      position: "absolute",
-                                      top: -12,
-                                      right: -12,
-                                      width: 30,
-                                      height: 30,
-                                      borderRadius: "50%",
-                                      background: "#1e293b",
-                                      border: "1px solid rgba(255,255,255,0.04)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      color: "#9fb3ff",
-                                      cursor: "pointer",
-                                      padding: 0,
-                                      zIndex: 5,
-                                      boxShadow: "0 6px 16px rgba(2,6,23,0.45)",
-                                    }}
-                                  >
-                                    <svg
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      aria-hidden="true"
-                                      focusable="false"
-                                    >
-                                      <path
-                                        d="M6 6L18 18M6 18L18 6"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        fill="none"
-                                      />
-                                    </svg>
-                                  </button>
-                                </div>
-                              </li>
-                            ))}
-                            <li
-                              style={{
-                                listStyle: "none",
-                                marginBottom: 6,
-                                flexGrow: 0,
-                                flexShrink: 0,
-                                flexBasis: "130px",
-                                width: "130px",
-                                maxWidth: "130px",
-                                boxSizing: "border-box",
-                                height: 186,
-                                paddingTop: 8,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  position: "relative",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                  gap: 12,
-                                  height: "100%",
-                                  padding: "30px 12px 24px",
-                                  borderRadius: 10,
-                                  background: "rgba(255,255,255,0.02)",
-                                  border: "1px dashed #1e293b",
-                                  color: "#1e293b",
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  textAlign: "center",
-                                }}
-                              >
-                                Click to add more documents
-                              </div>
-                            </li>
-                          </ul>
-                        </>
-                      )}
-                    </label>
-                  ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "2px dashed #2d406b",
-                        background: "#22325a",
-                        borderRadius: 12,
-                        padding: 0,
-                        marginBottom: 22,
-                        color: "#a3c0ff",
-                        fontSize: 16,
-                        fontWeight: 600,
-                        minHeight: 186,
-                        width: "100%",
-                        textAlign: "center",
-                      }}
-                    >
-                      <input
-                        type="url"
-                        value={fileUrl}
-                        onChange={(e) => {
-                          setFileUrl(e.target.value);
-                          setNotification(null); // Clear notification on new URL
-                        }}
-                        placeholder="Paste file URL here..."
-                        style={{
-                          width: "80%",
-                          padding: "12px 14px",
-                          borderRadius: 8,
-                          border: "1px solid #2d406b",
-                          fontSize: 15,
-                          color: "#a3c0ff",
-                          background: "#192447",
-                          marginBottom: 0,
-                        }}
-                      />
-                    </div>
-                  )}
-                  {submitted && !notification && (
-                    <StageAlert type="info" message="Stay on the page while document is uploading." />
-                  )}
-                  {notification && <StageAlert type={notification.type} message={notification.message} />}
-                </form>
-                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
-                  <button
-                    type="button"
-                    className="stage-back"
-                    onClick={() => setCurrentStep(4)}
-                    style={{ width: "25%" }}
-                  >
-                    Back
-                  </button>
-                  <div className="stage-button-row__group">
-                    <StageButton
-                      type="button"
-                      variant="ghost"
-                      className="stage-button--outline"
-                      onClick={() => void handleFinalize()}
-                      disabled={finalizing}
-                    >
-                      Skip
+                      {hasOutputDescription ? "Save output" : "Add another output"}
                     </StageButton>
                     <StageButton
                       type="button"
                       variant="primary"
                       onClick={() => stageFiles()}
-                      disabled={finalizing || submitted}
+                      disabled={!hasSavedOutputs || finalizing || submitted}
                     >
                       {finalizing ? "Creating…" : "Create Campaign"}
                     </StageButton>

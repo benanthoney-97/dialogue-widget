@@ -1003,7 +1003,7 @@ export default function BatchPage() {
   };
 
   const selectedCount = selectedPersonaIds.size;
-  const hasMinimumSelection = selectedCount >= 2;
+  const hasPersonaSelection = selectedCount > 0;
   const selectedPersonas = useMemo(
     () => personas.filter((persona) => selectedPersonaIds.has(persona.agent_id)),
     [personas, selectedPersonaIds]
@@ -1161,20 +1161,20 @@ export default function BatchPage() {
           </StageButton>
         ) : null}
         {stage === "select" ? (
-          <StageButton
-            type="button"
-            variant="primary"
-            disabled={!profileReady || !canCreateGroups || !hasMinimumSelection || isHydratingBatchJob}
-            onClick={handleContinueToUpload}
-          >
-            {!profileReady
-              ? "Checking access…"
-              : !canCreateGroups
-              ? "View only access"
-              : !hasMinimumSelection
-                ? "Select at least two"
-                : `Continue (${selectedCount})`}
-          </StageButton>
+            <StageButton
+              type="button"
+              variant="primary"
+              disabled={!profileReady || !canCreateGroups || !hasPersonaSelection || isHydratingBatchJob}
+              onClick={handleContinueToUpload}
+            >
+              {!profileReady
+                ? "Checking access…"
+                : !canCreateGroups
+                ? "View only access"
+                : !hasPersonaSelection
+                  ? "Select a persona"
+                  : `Continue (${selectedCount})`}
+            </StageButton>
         ) : null}
       </>
     );
@@ -1204,7 +1204,7 @@ export default function BatchPage() {
 
   const handleContinueToUpload = () => {
     if (!canCreateGroups) return;
-    if (!hasMinimumSelection) return;
+    if (!hasPersonaSelection) return;
     setUploadError(null);
     setStage("upload");
   };

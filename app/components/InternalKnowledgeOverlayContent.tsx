@@ -2,16 +2,8 @@
 
 import React from "react";
 import { BODY_FONT_STACK } from "@/app/lib/fontStacks";
-
-export type PersonaDocumentRecord = {
-  id: string;
-  agent_id?: string | null;
-  file_name: string | null;
-  document_url?: string | null;
-  public_url?: string | null;
-  created_at?: string | null;
-  file_size?: number | null;
-};
+import { PersonaDocumentRecord } from "@/app/lib/documentTypes";
+import DocumentUploadCard from "./DocumentUploadCard";
 
 type InternalKnowledgeOverlayContentProps = {
   personaName: string;
@@ -20,6 +12,9 @@ type InternalKnowledgeOverlayContentProps = {
   overlayTitleId: string;
   overlayDescriptionId: string;
   onRemoveDocument?: (doc: PersonaDocumentRecord) => Promise<void>;
+  showUploadCard: boolean;
+  onUploadDocuments?: (files: File[]) => Promise<void>;
+  isUploadingDocuments?: boolean;
 };
 
 export default function InternalKnowledgeOverlayContent({
@@ -29,9 +24,24 @@ export default function InternalKnowledgeOverlayContent({
   overlayTitleId,
   overlayDescriptionId,
   onRemoveDocument,
+  showUploadCard,
+  onUploadDocuments,
+  isUploadingDocuments = false,
 }: InternalKnowledgeOverlayContentProps) {
   const [pendingRemove, setPendingRemove] = React.useState<PersonaDocumentRecord | null>(null);
   const [isRemoving, setIsRemoving] = React.useState(false);
+  const [cardFiles, setCardFiles] = React.useState<File[]>([]);
+  React.useEffect(() => {
+    if (!showUploadCard) {
+      setCardFiles([]);
+    }
+  }, [showUploadCard]);
+
+  const handleUploadClick = async () => {
+    if (!onUploadDocuments || cardFiles.length === 0) return;
+    await onUploadDocuments(cardFiles);
+    setCardFiles([]);
+  };
 
   const formatDate = (value?: string | null) => {
     if (!value) return "—";
@@ -56,14 +66,31 @@ export default function InternalKnowledgeOverlayContent({
 
   return (
     <div className="internal-knowledge-overlay" aria-labelledby={overlayTitleId} aria-describedby={overlayDescriptionId}>
-      <div className="internal-knowledge-overlay__header">
-      </div>
       <div className="internal-knowledge-overlay__body">
-        {isLoading ? (
-          <p className="internal-knowledge-overlay__status">Loading documents…</p>
-        ) : documents.length === 0 ? (
+        {isLoading && <p className="internal-knowledge-overlay__status">Loading documents…</p>}
+        {!isLoading && documents.length === 0 && (
           <p className="internal-knowledge-overlay__status">No documents added yet.</p>
-        ) : (
+        )}
+        {showUploadCard && (
+          <div className="internal-knowledge-overlay__upload-card-wrapper">
+            <DocumentUploadCard
+              files={cardFiles}
+              onFilesAdded={(files) => setCardFiles((prev) => [...prev, ...files])}
+              onFilesRemoved={(index) => setCardFiles((prev) => prev.filter((_, idx) => idx !== index))}
+            />
+            {cardFiles.length > 0 && (
+              <button
+                type="button"
+                className="internal-knowledge-overlay__upload-submit"
+                onClick={handleUploadClick}
+                disabled={isUploadingDocuments}
+              >
+                {isUploadingDocuments ? "Uploading…" : "Upload"}
+              </button>
+            )}
+          </div>
+        )}
+        {!isLoading && documents.length > 0 && (
           <div className="internal-knowledge-overlay__list-container">
             <ul className="internal-knowledge-overlay__list">
               {documents.map((doc) => {
@@ -120,6 +147,20 @@ export default function InternalKnowledgeOverlayContent({
           font-size: 16px;
           font-weight: 600;
         }
+        .internal-knowledge-overlay__header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 12px;
+        }
+        .internal-knowledge-overlay__header-row button {
+          margin-left: auto;
+        }
+        .internal-knowledge-overlay__header-row span {
+          flex: 1;
+          text-align: left;
+        }
         .internal-knowledge-overlay__updated {
           margin: 4px 0 0;
           font-size: 12px;
@@ -132,14 +173,150 @@ export default function InternalKnowledgeOverlayContent({
           min-height: 0;
           flex: 1;
         }
+        .internal-knowledge-overlay__upload-card-wrapper {
+          width: 100%;
+        }
+        .internal-knowledge-overlay__upload-submit {
+          margin-top: 12px;
+          align-self: flex-end;
+          background: #1e293b;
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          padding: 10px 24px;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .internal-knowledge-overlay__upload-submit:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          box-shadow: none;
+          transform: none;
+        }
+        .internal-knowledge-overlay__upload-submit:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.2);
+        }
         .internal-knowledge-overlay__status {
           margin: 0;
           color: rgba(15, 23, 42, 0.65);
         }
+        .internal-knowledge-overlay__upload-button {
+          background: #1e293b;
+          color: #f6f7f9;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 20px;
+          border-radius: 12px;
+          border: none;
+          font-weight: 700;
+          font-size: 15px;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+          margin-left: 12px;
+        }
+        .internal-knowledge-overlay__upload-modal {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 400;
+        }
+        .internal-knowledge-overlay__upload-card {
+          background: #f6f7fb;
+          border-radius: 18px;
+          width: min(540px, 90vw);
+          padding: 30px;
+          box-shadow: 0 18px 60px rgba(15, 23, 42, 0.25);
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .internal-knowledge-overlay__upload-card h3 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .internal-knowledge-overlay__upload-dropzone {
+          border: 2px dashed rgba(15, 23, 42, 0.35);
+          border-radius: 22px;
+          background: #ffffff;
+          padding: 32px 24px;
+          text-align: center;
+        }
+        .internal-knowledge-overlay__dropzone-cards {
+          display: flex;
+          justify-content: center;
+          align-items: stretch;
+          gap: 10px;
+          margin-top: 18px;
+          flex-wrap: wrap;
+          height: 200px;
+        }
+        .internal-knowledge-overlay__doc-card {
+          border: 1px solid rgba(15, 23, 42, 0.25);
+          border-radius: 14px;
+          padding: 14px 16px;
+          width: 150px;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 6px;
+          font-size: 13px;
+          color: #0f172a;
+        }
+        .internal-knowledge-overlay__doc-card.placeholder {
+          border-style: dashed;
+          justify-content: center;
+          text-align: center;
+          color: rgba(15, 23, 42, 0.6);
+        }
+        .internal-knowledge-overlay__doc-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          background: rgba(15, 23, 42, 0.15);
+          display: inline-block;
+        }
+        .internal-knowledge-overlay__upload-heading {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
+        }
+        .internal-knowledge-overlay__upload-placeholder {
+          border: 2px dashed rgba(15, 23, 42, 0.2);
+          border-radius: 16px;
+          padding: 24px;
+          text-align: center;
+          color: rgba(15, 23, 42, 0.65);
+          font-size: 14px;
+        }
+        .internal-knowledge-overlay__upload-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+        }
+        .internal-knowledge-overlay__upload-close {
+          border: none;
+          background: transparent;
+          color: #0f172a;
+          font-weight: 600;
+          cursor: pointer;
+        }
         .internal-knowledge-overlay__list-container {
           background: none;
           border-radius: 12px;
-          padding: 12px;
+          padding: 0px;
           flex: 1;
           min-height: 0;
         }
