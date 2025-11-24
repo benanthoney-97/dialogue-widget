@@ -10815,13 +10815,13 @@ const handleConfirmDeletePersona = useCallback(async () => {
               <ResearchOverlayContent
                 agent={selectedAgent}
                 activeTab={activeOverlayTab}
-                setActiveTab={setActiveOverlayTab}
+                setActiveTabAction={setActiveOverlayTab}
                 promptValue={promptValue}
                 isPromptDirty={isPromptDirty}
                 isPromptSaving={isPromptSaving}
                 promptSaveError={promptSaveError}
-                onPromptChange={handlePromptChange}
-                onPromptSave={handlePromptSaveCurrent}
+                onPromptChangeAction={handlePromptChange}
+                onPromptSaveAction={handlePromptSaveCurrent}
                 onClearPrompt={handleClearPrompt}
                 onRemoveArticle={handleRemoveSourcedArticle}
                 onAddArticle={handleAddResearchArticle}

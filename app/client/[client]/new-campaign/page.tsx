@@ -60,15 +60,6 @@ const DEFAULT_PERSONA_OPTIONS: PersonaCardData[] = [
   { id: "jane", name: "Jane Doe", title: "Head of Procurement", agentId: null },
 ] as const;
 const getPersonaIdentity = (persona: PersonaCardData): string => persona.agentId ?? persona.id;
-type AgentMapRow = {
-  agent_id?: string | null;
-  agent_name?: string | null;
-  work_label?: string | null;
-  talk_label?: string | null;
-  background_image?: string | null;
-  persona_image?: string | null;
-  key?: string | null;
-};
 const MAX_OUTPUTS = 3;
 const renderOutputIcon = (optionId: string) => {
   if (optionId === "yesno") {
@@ -422,94 +413,46 @@ export default function UploadPage() {
       setResolvedClientId(clientSlug);
       return;
     }
-    let active = true;
-    async function fetchClientId() {
-      try {
-        const { data, error } = await supabase
-          .from("clients")
-          .select("id, name, display_name");
-        if (!active) return;
-        if (error) {
-          console.warn("Client lookup failed", error);
-          setResolvedClientId(null);
-          return;
-        }
-        if (!data) {
-          console.warn("Client lookup returned no rows", clientSlug);
-          setResolvedClientId(null);
-          return;
-        }
-        const normalizedSlug = clientSlug.trim().toLowerCase();
-        const match = data.find((client) => {
-          if (!client) return false;
-          if (client.name?.toLowerCase() === normalizedSlug) return true;
-          if (client.display_name?.toLowerCase() === normalizedSlug) return true;
-          const nameSlug = client.name ? slugify(client.name) : "";
-          const displaySlug = client.display_name ? slugify(client.display_name) : "";
-          return nameSlug === normalizedSlug || displaySlug === normalizedSlug;
-        });
-        console.debug("Client lookup match", { match, clientSlug });
-        setResolvedClientId(match?.id ?? null);
-      } catch (err) {
-        console.error("Failed to resolve client id", err);
-        setResolvedClientId(null);
-      }
-    }
-    fetchClientId();
-    return () => {
-      active = false;
-    };
+    setResolvedClientId(null);
   }, [clientSlug]);
+
   useEffect(() => {
-    const lookupId = resolvedClientId;
-    if (!lookupId) {
+    if (!clientSlug) {
       setPersonaCards(DEFAULT_PERSONA_OPTIONS);
       return;
     }
     let isActive = true;
     async function loadPersonas() {
       try {
-        const { data } = await supabase
-          .from("agent_map")
-          .select(
-            "agent_id, agent_name, work_label, talk_label, background_image, persona_image, key"
-          )
-          .eq("client_id", lookupId)
-          .order("agent_name", { ascending: true });
+        const response = await fetch(`/api/clients/${encodeURIComponent(clientSlug)}/personas`);
         if (!isActive) return;
-        if (data && data.length > 0) {
-          const fetched = data
-            .map((row: AgentMapRow, index) => {
-              const agentId = row.agent_id ?? row.key ?? null;
-              const id =
-                agentId ??
-                (row.agent_name ? row.agent_name.toLowerCase().replace(/\s+/g, "-") : `persona-${index}`);
-              const name = row.agent_name ?? row.key ?? `Persona ${index + 1}`;
-              const title = row.work_label ?? row.talk_label ?? "Persona";
-              return {
-                id,
-                name,
-                title,
-                image: row.background_image ?? row.persona_image,
-                agentId,
-              };
-            })
-            .filter((card) => Boolean(card.id));
-          if (fetched.length > 0) {
-            setPersonaCards(fetched);
-            return;
-          }
+        if (!response.ok) {
+          throw new Error(`Failed to load personas: ${response.status}`);
         }
+        const payload = (await response.json().catch(() => null)) as
+          | { clientId?: string | null; personas?: PersonaCardData[] }
+          | null;
+        if (!isActive) return;
+        if (payload?.clientId) {
+          setResolvedClientId((prev) => prev ?? payload.clientId ?? null);
+        }
+        if (Array.isArray(payload?.personas) && payload.personas.length > 0) {
+          setPersonaCards(payload.personas);
+          return;
+        }
+        setPersonaCards(DEFAULT_PERSONA_OPTIONS);
       } catch (error) {
         console.error("[new-campaign] failed to load personas", error);
+        if (isActive) {
+          setPersonaCards(DEFAULT_PERSONA_OPTIONS);
+        }
       }
-      setPersonaCards(DEFAULT_PERSONA_OPTIONS);
     }
     loadPersonas();
     return () => {
       isActive = false;
     };
-  }, [resolvedClientId]);
+  }, [clientSlug]);
   async function stageFiles() {
     setSubmitted(true);
     setNotification(null);
@@ -936,6 +879,7 @@ export default function UploadPage() {
         questions: linksUrls,
         outputs: outputsPayload,
         personaIds: personaIdsPayload,
+        clientSlug,
         createdBy: userData?.user?.id ?? null,
         documentIds: [],
         personaImageUpload: personaImageUploadPayload,

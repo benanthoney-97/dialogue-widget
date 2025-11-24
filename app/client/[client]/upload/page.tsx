@@ -1592,11 +1592,11 @@ export default function UploadPage() {
               <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
                 <DocumentLinkInput
                   value={linksUrl}
-                  onChange={setLinksUrl}
-                  onAdd={handleAddLink}
+                  onChangeAction={setLinksUrl}
+                  onAddAction={handleAddLink}
                   canAdd={canAddCurrentLink}
                   links={linksUrls}
-                  onRemove={(link) => handleRemoveLink(link)}
+                  onRemoveAction={(link) => handleRemoveLink(link)}
                   placeholder="https://"
                 />
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>

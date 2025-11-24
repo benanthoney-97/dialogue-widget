@@ -8,6 +8,7 @@ const supabaseAdmin = createClient(
 );
 
 const CAMPAIGN_DOCUMENTS_BUCKET = "campaign_documents";
+const CAMPAIGN_QR_BUCKET = "campaign_qrcodes";
 
 function safeFileName(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -20,6 +21,79 @@ function buildStoragePublicUrl(bucket: string, path: string) {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   return `${base}/storage/v1/object/public/${bucket}/${encodedPath}`;
+}
+
+function buildDubQrEndpoint(targetUrl: string): string {
+  const qrUrl = new URL("https://api.dub.co/qr");
+  qrUrl.searchParams.set("size", "600");
+  qrUrl.searchParams.set("level", "L");
+  qrUrl.searchParams.set("fgColor", "#000000");
+  qrUrl.searchParams.set("bgColor", "#FFFFFF");
+  qrUrl.searchParams.set("hideLogo", "true");
+  qrUrl.searchParams.set("margin", "2");
+  qrUrl.searchParams.set("includeMargin", "true");
+  qrUrl.searchParams.set("url", targetUrl);
+  return qrUrl.toString();
+}
+
+async function generateQrCodeBase64(url: string): Promise<string | null> {
+  const apiKey = process.env.DUB_API_KEY?.trim();
+  if (!apiKey) {
+    console.warn("[campaigns] DUB_API_KEY missing, skipping QR generation");
+    return null;
+  }
+  const endpoint = buildDubQrEndpoint(url);
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Dub QR fetch failed: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    console.log("[campaigns] dub qr result length", buffer.length);
+    console.log("[campaigns] qr header bytes", Array.from(buffer.slice(0, 8)));
+    return buffer.toString("base64");
+  } catch (error) {
+    console.error("[campaigns] failed to generate QR code", { url, error });
+    return null;
+  }
+}
+
+async function uploadQrCodeImage(
+  clientId: string,
+  campaignId: string,
+  linkId: string,
+  base64: string
+): Promise<string | null> {
+  if (!base64) {
+    return null;
+  }
+  const buffer = Buffer.from(base64, "base64");
+  const normalizedClient = clientId.trim();
+  const storagePath = `clients/${normalizedClient}/campaigns/${campaignId}/${linkId}.png`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(CAMPAIGN_QR_BUCKET)
+    .upload(storagePath, buffer, {
+      contentType: "image/png",
+      upsert: true,
+    });
+  if (uploadError) {
+    console.error("[campaigns] failed to upload QR code image", { campaignId, linkId, error: uploadError });
+    return null;
+  }
+  const { data: publicUrlData } = await supabaseAdmin.storage
+    .from(CAMPAIGN_QR_BUCKET)
+    .getPublicUrl(storagePath);
+  const publicUrlRecord = publicUrlData as { publicUrl?: string | null; publicURL?: string | null } | null;
+  return (
+    publicUrlRecord?.publicUrl ??
+    publicUrlRecord?.publicURL ??
+    buildStoragePublicUrl(CAMPAIGN_QR_BUCKET, storagePath)
+  );
 }
 
 function decodeDataUrl(dataUrl: string) {
@@ -38,6 +112,7 @@ type CampaignCreationPayload = {
   description?: string | null;
   objective?: string | null;
   questions?: unknown;
+  clientSlug?: string | null;
   outputs?: unknown;
   personaIds?: unknown;
   createdBy?: string | null;
@@ -86,6 +161,15 @@ type CampaignDocumentInsertRow = {
   source: string | null;
   created_by: string | null;
   agent_id?: string;
+};
+
+type CampaignLinkInsertRow = {
+  id: string;
+  campaign_id: string;
+  persona_id: string | null;
+  link_url?: string | null;
+  qr_code?: string | null;
+  qr_code_image?: string | null;
 };
 
 function isAgentIdConstraintError(message: string | null | undefined): boolean {
@@ -409,6 +493,7 @@ export async function POST(request: Request) {
       clientId: body.clientId,
       name: body.name,
       personaIdsCount: Array.isArray(body.personaIds) ? body.personaIds.length : 0,
+      questionsCount: Array.isArray(body.questions) ? body.questions.length : 0,
       outputsCount: Array.isArray(body.outputs) ? body.outputs.length : 0,
       documentIdsCount: Array.isArray(body.documentIds) ? body.documentIds.length : 0,
     });
@@ -426,15 +511,26 @@ export async function POST(request: Request) {
     const questionPayload = normalizeStringArray(body.questions);
     const outputsPayload = normalizeOutputs(body.outputs);
     const personaIdsPayload = uniqueStrings(normalizeStringArray(body.personaIds));
-  const initialDocumentIds = uniqueStrings(normalizeStringArray(body.documentIds));
+    const initialDocumentIds = uniqueStrings(normalizeStringArray(body.documentIds));
     const documentsUploadPayload = normalizeDocumentUploads(body.documentsUpload);
     const personaImagePayload = normalizePersonaImagePayload(body.personaImageUpload);
     const createdBy = typeof body.createdBy === "string" && body.createdBy.trim().length > 0
       ? body.createdBy.trim()
       : null;
     const agentId = randomUUID();
+    const campaignId = randomUUID();
+    let personaImageUrl: string | null = null;
+    if (personaImagePayload) {
+      try {
+        personaImageUrl = await uploadPersonaImageToStorage(clientId, campaignId, personaImagePayload);
+      } catch (imageUploadError) {
+        console.error("[campaigns] persona image upload failed", imageUploadError);
+        throw imageUploadError instanceof Error ? imageUploadError : new Error("Persona image upload failed");
+      }
+    }
 
     const insertPayload = {
+      id: campaignId,
       name,
       description: description.length > 0 ? description : null,
       objective: objective.length > 0 ? objective : null,
@@ -445,6 +541,7 @@ export async function POST(request: Request) {
       created_by: createdBy,
       document_ids: initialDocumentIds,
       agent_id: agentId,
+      image_url: personaImageUrl,
     };
 
     const { data, error } = await supabaseAdmin
@@ -468,7 +565,7 @@ export async function POST(request: Request) {
     try {
       const { storedAgentId, documentIds: newDocumentIds } = await persistCampaignDocuments(
         clientId,
-        data.id,
+        campaignId,
         documentsUploadPayload,
         createdBy,
         agentId
@@ -477,13 +574,13 @@ export async function POST(request: Request) {
       uploadedDocumentIds = newDocumentIds;
     } catch (documentsError) {
       console.error("[campaigns] document upload failed", documentsError);
-      await supabaseAdmin.from("campaigns").delete().eq("id", data.id);
+      await supabaseAdmin.from("campaigns").delete().eq("id", campaignId);
       throw documentsError;
     }
 
     if (!persistedAgentLink) {
       console.warn("[campaigns] campaign documents stored without agent linkage", {
-        campaignId: data.id,
+        campaignId,
         agentId,
       });
     }
@@ -494,39 +591,70 @@ export async function POST(request: Request) {
         const { error: documentIdsUpdateError } = await supabaseAdmin
           .from("campaigns")
           .update({ document_ids: combinedDocumentIds })
-          .eq("id", data.id);
+          .eq("id", campaignId);
         if (documentIdsUpdateError) {
           throw documentIdsUpdateError;
         }
       } catch (documentIdsUpdateError) {
         console.error("[campaigns] failed to update campaign document_ids", documentIdsUpdateError);
-        await supabaseAdmin.from("campaigns").delete().eq("id", data.id);
+        await supabaseAdmin.from("campaigns").delete().eq("id", campaignId);
         throw documentIdsUpdateError;
       }
     }
 
-    let imageUrl: string | null = null;
-    if (personaImagePayload) {
+    const shareSlugRaw =
+      typeof body.clientSlug === "string" ? body.clientSlug.trim() : "";
+    const shareSlug = shareSlugRaw.length > 0 ? shareSlugRaw : null;
+    const shareBaseUrl =
+      typeof process.env.NEXT_PUBLIC_SITE_URL === "string"
+        ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/$/, "")
+        : "";
+    const requestOrigin = (() => {
       try {
-        imageUrl = await uploadPersonaImageToStorage(clientId, data.id, personaImagePayload);
-        if (imageUrl) {
-          const { error: updateError } = await supabaseAdmin
-            .from("campaigns")
-            .update({ image_url: imageUrl })
-            .eq("id", data.id);
-          if (updateError) {
-            throw updateError;
-          }
-        }
-      } catch (imageError) {
-        console.error("[campaigns] persona image upload failed", imageError);
-        await supabaseAdmin.from("campaigns").delete().eq("id", data.id);
-        throw imageError;
+        return new URL(request.url).origin;
+      } catch {
+        return null;
+      }
+    })();
+    const shareOrigin = shareSlug
+      ? shareBaseUrl || requestOrigin
+      : null;
+    if (personaIdsPayload.length > 0) {
+      const personaLinkRows: CampaignLinkInsertRow[] = [];
+      for (const personaId of personaIdsPayload) {
+        const linkId = randomUUID();
+        const sharePath = shareSlug ? `/campaign/${shareSlug}/${linkId}` : null;
+        const absoluteShareUrl =
+          sharePath && shareOrigin ? `${shareOrigin}${sharePath}` : null;
+        const qrCodeBase64 = absoluteShareUrl
+          ? await generateQrCodeBase64(absoluteShareUrl)
+          : null;
+        const qrCodeImage =
+          qrCodeBase64 && clientId
+            ? await uploadQrCodeImage(clientId, campaignId, linkId, qrCodeBase64)
+            : null;
+        personaLinkRows.push({
+          id: linkId,
+          campaign_id: campaignId,
+          persona_id: personaId,
+          link_url: absoluteShareUrl ?? sharePath ?? null,
+        qr_code_image: qrCodeImage,
+      });
+      }
+      const { error: campaignLinkError } = await supabaseAdmin
+        .from("campaign_links")
+        .insert(personaLinkRows);
+      if (campaignLinkError) {
+        console.error(
+          "[campaigns] failed to insert campaign_links rows",
+          campaignLinkError,
+          { campaignId, personaIds: personaIdsPayload, shareSlug }
+        );
       }
     }
 
-    console.log("[campaigns] created campaign", { campaignId: data.id, agentId, clientId });
-    return NextResponse.json({ id: data.id, agentId, imageUrl });
+    console.log("[campaigns] created campaign", { campaignId, agentId, clientId });
+    return NextResponse.json({ id: campaignId, agentId, imageUrl: personaImageUrl });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     console.error("[campaigns] create route failed", error);

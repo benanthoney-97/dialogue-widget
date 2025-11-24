@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // This is a placeholder implementation for generating a signed URL for ElevenLabs API usage.
 // Replace this logic with your actual signing logic and credentials as needed.
 
+const ELEVENLABS_API_BASE =
+  process.env.ELEVENLABS_API_BASE?.replace(/\/+$/, "") || "https://api.elevenlabs.io";
+
 export async function POST(req: NextRequest) {
   try {
     const { agent_id } = await req.json();
@@ -17,8 +20,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing ElevenLabs API key' }, { status: 500 });
     }
 
+    if (!agent_id) {
+      console.error('[elevenlabs-debug] Missing agent_id in request body');
+      return NextResponse.json({ error: 'Missing agent_id' }, { status: 400 });
+    }
+
     // Call ElevenLabs API to get the signed WebSocket URL for the agent
-    const url = `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agent_id)}`;
+    const url = `${ELEVENLABS_API_BASE}/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agent_id)}`;
     console.log('[elevenlabs-debug] Requesting ElevenLabs signed URL:', url);
     const response = await fetch(url, {
       method: 'GET',
@@ -43,9 +51,21 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ signedUrl });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[elevenlabs-debug] Exception in get-signed-url:', error);
-    return NextResponse.json({ error: error.message || 'Failed to generate signed URL' }, { status: 500 });
+    type ErrorWithCause = NodeJS.ErrnoException & { cause?: { code?: string } };
+    const err = error as ErrorWithCause;
+    const networkCodes = new Set(['ENOTFOUND', 'ETIMEDOUT', 'ECONNREFUSED']);
+    const errorCode = err?.code || err?.cause?.code;
+    if (errorCode && networkCodes.has(errorCode)) {
+      return NextResponse.json(
+        {
+          error: `Unable to reach ElevenLabs at ${ELEVENLABS_API_BASE}. Check your network connection or ELEVENLABS_API_BASE setting.`,
+        },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: err?.message || 'Failed to generate signed URL' }, { status: 500 });
   }
 }
 

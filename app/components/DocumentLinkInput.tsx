@@ -5,20 +5,20 @@ import React from "react";
 type DocumentLinkInputProps = {
   value: string;
   onChangeAction: (value: string) => void;
-  onAdd: () => void;
+  onAddAction: () => void;
   canAdd: boolean;
   links: string[];
-  onRemove: (link: string) => void;
+  onRemoveAction: (link: string) => void;
   placeholder?: string;
 };
 
 export default function DocumentLinkInput({
   value,
   onChangeAction,
-  onAdd,
+  onAddAction,
   canAdd,
   links,
-  onRemove,
+  onRemoveAction,
   placeholder = "https://",
 }: DocumentLinkInputProps) {
   return (
@@ -28,15 +28,15 @@ export default function DocumentLinkInput({
           type="url"
           placeholder={placeholder}
           value={value}
-        onChange={(event) => onChangeAction(event.target.value)}
+          onChange={(event) => onChangeAction(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              onAdd();
+              onAddAction();
             }
           }}
         />
-        <button type="button" onClick={onAdd} disabled={!canAdd}>
+        <button type="button" onClick={onAddAction} disabled={!canAdd}>
           Add link
         </button>
       </div>
@@ -45,7 +45,7 @@ export default function DocumentLinkInput({
           {links.map((link) => (
             <span className="document-link-input__chip" key={link}>
               <span>{link}</span>
-              <button type="button" onClick={() => onRemove(link)} aria-label={`Remove ${link}`}>
+              <button type="button" onClick={() => onRemoveAction(link)} aria-label={`Remove ${link}`}>
                 ✕
               </button>
             </span>

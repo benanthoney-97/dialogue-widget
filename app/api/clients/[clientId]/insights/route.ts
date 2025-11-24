@@ -1,46 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-type DialogueRow = {
-  id: number;
-  agent_id: string | null;
-  call_duration_secs: number | null;
-  received_at: string | null;
-  transcript?: unknown;
-  transcript_summary?: string | null;
-  main_language?: string | null;
-  research_type?: string | null;
-  conversation_id?: string | null;
-  call_summary_title?: string | null;
-  user_id?: string | null;
-};
-
 type AgentMapRow = {
   agent_id: string;
   agent_name: string;
   profile_image?: string | null;
 };
 
-type ProfileRow = {
-  id: string;
-  display_name: string | null;
-  email: string | null;
+type CampaignResponseRow = {
+  id?: string | number | null;
+  conversation_id?: string | null;
+  campaign_id?: string | null;
+  persona_id?: string | null;
+  received_at?: string | null;
+  call_duration?: string | number | null;
+  raw_body?: unknown;
+  transcript?: unknown;
+  response_summary?: string | null;
+  response_title?: string | null;
 };
 
 type InsightsRow = {
-  personaId: string;
-  sourceDocument: string;
-  lead: { value: string; source: string };
-  engagementTime: string;
-  status: "Simulation" | "Interview" | "Chat";
-  dialogueStatus?: string | null;
-  date: string;
-  briefReport: string;
-  conversation_id: string;
+  id: string;
+  personaId: string | null;
+  campaignId: string | null;
+  campaignName?: string | null;
+  receivedAt: string | null;
+  callDurationSeconds: number | null;
   transcript?: unknown;
-  transcript_summary?: string | null;
-  main_language?: string | null;
-  ownerEmail?: string | null;
+  summary?: string | null;
+  responseTitle?: string | null;
+  conversationId?: string | null;
 };
 
 type PersonaOption = {
@@ -77,15 +67,6 @@ function normalizePageSize(value: string | null): number {
   return Math.min(parsed, PAGE_SIZE_MAX);
 }
 
-function normalizeStatuses(rawStatuses: string | null): string[] {
-  if (!rawStatuses) return [];
-  return rawStatuses
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .map((item) => (item === "questionnaire" ? "simulation" : item))
-    .filter((item) => item === "simulation" || item === "interview" || item === "chat");
-}
-
 function normalizeSearch(rawSearch: string | null): string | null {
   if (!rawSearch) return null;
   const trimmed = rawSearch.trim();
@@ -98,27 +79,63 @@ function normalizePersona(rawPersonaId: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeDialogueStatus(rawStatus: string | null | undefined): string | null {
-  if (!rawStatus) return null;
-  const trimmed = rawStatus.trim();
-  return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+function readDurationValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
-function determineStatus(researchType: string | null | undefined): "Simulation" | "Interview" | "Chat" {
-  const normalized = typeof researchType === "string" ? researchType.trim().toLowerCase() : "";
-  if (normalized === "interview") return "Interview";
-  if (normalized === "chat") return "Chat";
-  return "Simulation";
+function extractMetadata(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        const metadata = (parsed as { data?: { metadata?: unknown } })?.data?.metadata;
+        if (metadata && typeof metadata === "object") {
+          return metadata as Record<string, unknown>;
+        }
+      }
+    } catch {
+      return null;
+    }
+  } else if (raw && typeof raw === "object") {
+    const metadata = (raw as { data?: { metadata?: unknown } })?.data?.metadata;
+    if (metadata && typeof metadata === "object") {
+      return metadata as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
-function formatDuration(seconds: number | null | undefined): string {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return "";
-  const date = new Date(seconds * 1000);
-  return date.toISOString().substr(11, 8);
+function coerceCallDurationSeconds(row: CampaignResponseRow): number | null {
+  const direct = readDurationValue(row.call_duration);
+  if (direct !== null) {
+    return direct;
+  }
+
+  const metadata = extractMetadata(row.raw_body);
+  if (!metadata) {
+    return null;
+  }
+
+  const candidate = metadata["call_duration_secs"] ?? metadata["call_duration"];
+  return readDurationValue(candidate);
 }
 
-export async function GET(request: NextRequest, { params }: { params: { clientId?: string } }) {
-  const clientId = params.clientId;
+export async function GET(
+  request: NextRequest,
+  context: { params: { clientId?: string } } | { params: Promise<{ clientId?: string }> }
+) {
+  const params = "params" in context ? context.params : undefined;
+  const resolvedParams = params instanceof Promise ? await params : params;
+  const clientId = resolvedParams?.clientId;
   if (!clientId) {
     return NextResponse.json({ error: "Missing workspace identifier" }, { status: 400 });
   }
@@ -128,10 +145,17 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
   const pageSize = normalizePageSize(searchParams.get("pageSize"));
   const search = normalizeSearch(searchParams.get("search"));
   const personaId = normalizePersona(searchParams.get("personaId"));
-  const statuses = normalizeStatuses(searchParams.get("statuses"));
 
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  const logContext = {
+    clientId,
+    page,
+    pageSize,
+    personaId,
+    search,
+  };
+  console.info("[Insights API] Incoming request", logContext);
 
   try {
     const { data: clientRow, error: clientError } = await supabaseAdmin
@@ -146,20 +170,12 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
 
     const { data: agents, error: agentError } = await supabaseAdmin
       .from("agent_map")
-      .select("agent_id, agent_name")
+      .select("agent_id, agent_name, profile_image")
       .eq("client_id", clientRow.id);
 
     if (agentError) {
       return NextResponse.json({ error: "Failed to fetch personas" }, { status: 500 });
     }
-
-    const agentMapById: Record<string, AgentMapRow> = (agents ?? []).reduce<Record<string, AgentMapRow>>(
-      (acc, agent) => {
-        acc[agent.agent_id] = agent;
-        return acc;
-      },
-      {}
-    );
 
     const personaOptions: PersonaOption[] = (agents ?? []).map((agent) => ({
       id: agent.agent_id,
@@ -167,114 +183,134 @@ export async function GET(request: NextRequest, { params }: { params: { clientId
       profile_image: (agent as AgentMapRow & { profile_image?: string | null }).profile_image ?? null,
     }));
 
-    let personaNameMatches: string[] = [];
-    if (search) {
-      const lowerSearch = search.toLowerCase();
-      personaNameMatches = (agents ?? [])
-        .filter((agent) => (agent.agent_name ?? "").toLowerCase().includes(lowerSearch))
-        .map((agent) => agent.agent_id);
+    const { data: campaignRows, error: campaignError } = await supabaseAdmin
+      .from("campaigns")
+      .select("id, name")
+      .eq("client_id", clientRow.id);
+
+    if (campaignError) {
+      console.error("[Insights API] Failed to load campaigns", { clientId, error: campaignError });
+      return NextResponse.json({ error: "Failed to load campaigns" }, { status: 500 });
+    }
+
+    const campaignNameLookup = new Map<string, string | null>();
+    const campaignIds = (campaignRows ?? [])
+      .map((campaign) => {
+        let normalizedId: string | null = null;
+        if (typeof campaign.id === "string" && campaign.id.trim().length > 0) {
+          normalizedId = campaign.id.trim();
+        } else if (typeof campaign.id === "number") {
+          normalizedId = String(campaign.id);
+        }
+
+        if (normalizedId) {
+          const campaignName =
+            typeof campaign.name === "string" && campaign.name.trim().length > 0
+              ? campaign.name.trim()
+              : null;
+          campaignNameLookup.set(normalizedId, campaignName);
+        }
+
+        return normalizedId;
+      })
+      .filter((value): value is string => Boolean(value));
+
+    console.info("[Insights API] Resolved campaigns", { clientId, campaignCount: campaignIds.length });
+
+    if (campaignIds.length === 0) {
+      return NextResponse.json(
+        {
+          rows: [],
+          totalCount: 0,
+          personas: personaOptions,
+        } satisfies InsightsResponse,
+        { status: 200 }
+      );
     }
 
     const baseQuery = supabaseAdmin
-      .from("dialogues")
+      .from("campaign_responses")
       .select(
-        "id, conversation_id, agent_id, user_id, status, call_duration_secs, received_at, transcript, transcript_summary, main_language, research_type, call_summary_title",
+        "id, conversation_id, campaign_id, persona_id, received_at, call_duration, raw_body, transcript, response_summary, response_title",
         { count: "exact" }
       )
-      .eq("client_id", clientRow.id)
+      .in("campaign_id", campaignIds)
       .order("received_at", { ascending: false })
       .range(from, to);
 
     if (personaId) {
-      baseQuery.eq("agent_id", personaId);
-    }
-
-    if (statuses.length > 0) {
-      const researchTypes = statuses.flatMap((status) => {
-        if (status === "interview") return ["interview"];
-        if (status === "chat") return ["chat"];
-        return ["questionnaire", "simulation"];
-      });
-      const uniqueResearchTypes = Array.from(new Set(researchTypes));
-      baseQuery.in("research_type", uniqueResearchTypes);
+      baseQuery.eq("persona_id", personaId);
     }
 
     if (search) {
       const safeSearch = search.replace(/[%_,"']/g, " ").trim();
-      const orConditions: string[] = [];
       if (safeSearch.length > 0) {
-        orConditions.push(`transcript_summary.ilike.%${safeSearch}%`);
-        orConditions.push(`main_language.ilike.%${safeSearch}%`);
-        orConditions.push(`conversation_id.ilike.%${safeSearch}%`);
-      }
-      if (personaNameMatches.length > 0) {
-        const encodedIds = personaNameMatches.map((id) => `"${id}"`).join(",");
-        orConditions.push(`agent_id.in.(${encodedIds})`);
-      }
-      if (orConditions.length > 0) {
-        baseQuery.or(orConditions.join(","));
+        baseQuery.or(
+          [`persona_id.ilike.%${safeSearch}%`, `campaign_id.ilike.%${safeSearch}%`, `response_summary.ilike.%${safeSearch}%`].join(",")
+        );
       }
     }
 
-    const { data: dialogueRows, error: dialogueError, count } = await baseQuery;
+    const { data: responseRows, error: responsesError, count } = await baseQuery;
 
-    if (dialogueError) {
-      return NextResponse.json({ error: "Failed to fetch dialogues" }, { status: 500 });
+    if (responsesError) {
+      console.error("[Insights API] Failed to load campaign responses", {
+        clientId,
+        personaId,
+        search,
+        error: responsesError,
+      });
+      return NextResponse.json({ error: "Failed to load campaign responses" }, { status: 500 });
     }
 
-    const rows = dialogueRows ?? [];
-
-    const userIds = Array.from(
-      new Set(rows.map((row) => row.user_id).filter((value): value is string => Boolean(value)))
-    );
-
-    let profileById: Record<string, ProfileRow> = {};
-    if (userIds.length > 0) {
-      const { data: profiles, error: profilesError } = await supabaseAdmin
-        .from("profiles")
-  .select("id, display_name, email")
-        .in("id", userIds);
-
-      if (profilesError) {
-        return NextResponse.json({ error: "Failed to fetch participant profiles" }, { status: 500 });
-      }
-
-      profileById = (profiles ?? []).reduce<Record<string, ProfileRow>>((acc, profile) => {
-        acc[profile.id] = profile;
-        return acc;
-      }, {});
-    }
-
-    const responseRows: InsightsRow[] = rows.map((dialogue) => {
-      const agent = dialogue.agent_id ? agentMapById[dialogue.agent_id] : undefined;
+    const rows: InsightsRow[] = (responseRows ?? []).map((row: CampaignResponseRow, index) => {
+      const callDurationSeconds = coerceCallDurationSeconds(row);
+      const summary =
+        typeof row.response_summary === "string" && row.response_summary.trim().length > 0
+          ? row.response_summary
+          : null;
+      const campaignId = row.campaign_id ?? null;
+      const campaignName = campaignId ? campaignNameLookup.get(campaignId) ?? null : null;
+      const responseId =
+        typeof row.id === "string" && row.id.trim().length > 0
+          ? row.id.trim()
+          : typeof row.id === "number"
+          ? String(row.id)
+          : row.conversation_id && row.conversation_id.trim().length > 0
+          ? row.conversation_id.trim()
+          : `response-${index}`;
 
       return {
-        personaId: dialogue.agent_id ?? "",
-        sourceDocument: agent ? agent.agent_name : "",
-        lead: { value: "", source: "none" },
-        engagementTime: formatDuration(dialogue.call_duration_secs),
-        status: determineStatus(dialogue.research_type),
-        dialogueStatus: normalizeDialogueStatus(dialogue.status ?? null),
-        date: dialogue.received_at || "",
-        briefReport: "",
-        conversation_id: dialogue.conversation_id ?? "",
-        transcript: dialogue.transcript,
-        transcript_summary: dialogue.transcript_summary,
-        main_language: dialogue.main_language ?? undefined,
-        ownerEmail: dialogue.user_id ? profileById[dialogue.user_id]?.email ?? null : null,
-        call_summary_title: dialogue.call_summary_title ?? null,
-      };
+        id: responseId,
+        personaId: row.persona_id ?? null,
+        campaignId,
+        campaignName,
+        receivedAt: row.received_at ?? null,
+        callDurationSeconds,
+        transcript: row.transcript,
+        summary,
+        responseTitle: row.response_title ?? null,
+        conversationId: row.conversation_id ?? null,
+      } satisfies InsightsRow;
     });
 
     const payload: InsightsResponse = {
-      rows: responseRows,
-      totalCount: count ?? 0,
+      rows,
+      totalCount: count ?? rows.length,
       personas: personaOptions,
     };
 
+    console.info("[Insights API] Responding", {
+      clientId,
+      rowCount: rows.length,
+      totalCount: payload.totalCount,
+      from,
+      to,
+    });
+
     return NextResponse.json(payload);
   } catch (error) {
-    console.error("[Insights API] Unexpected failure", error);
+    console.error("[Insights API] Unexpected failure", { clientId, error });
     return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
   }
 }

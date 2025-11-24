@@ -155,10 +155,10 @@ export default function InternalKnowledgeOverlayContent({
             <DocumentLinkInput
               value={linkValue}
               onChangeAction={setLinkValue}
-              onAdd={handleAddLink}
+              onAddAction={handleAddLink}
               canAdd={linkValue.trim().length > 0}
               links={linkList}
-              onRemove={handleRemoveLink}
+              onRemoveAction={handleRemoveLink}
               placeholder="https://"
             />
               )}

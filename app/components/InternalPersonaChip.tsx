@@ -2,16 +2,16 @@
 
 type InternalPersonaChipProps = {
   isToggled: boolean;
-  onToggle: () => void;
+  onToggleAction: () => void;
 };
 
-export default function InternalPersonaChip({ isToggled, onToggle }: InternalPersonaChipProps) {
+export default function InternalPersonaChip({ isToggled, onToggleAction }: InternalPersonaChipProps) {
   const label = isToggled ? "Customer Personas" : "Internal Personas";
 
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={onToggleAction}
       style={{
         borderRadius: 999,
         border: "1px solid rgba(15, 23, 42, 0.18)",

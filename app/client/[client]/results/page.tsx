@@ -16,20 +16,16 @@ type PersonaOption = {
 };
 
 type InsightsRow = {
-	personaId: string;
-	sourceDocument: string;
-	lead: { value: string; source: string };
-	engagementTime: string;
-	status: "Simulation" | "Interview" | "Chat";
-	date: string;
-	briefReport: string;
-	conversation_id: string;
+	id: string;
+	personaId: string | null;
+	campaignId: string | null;
+	campaignName?: string | null;
+	receivedAt: string | null;
+	callDurationSeconds: number | null;
 	transcript?: unknown;
-	transcript_summary?: string | null;
-	main_language?: string;
-	ownerEmail?: string | null;
-	call_summary_title?: string | null;
-	dialogueStatus?: "pending" | "running" | "completed";
+	summary?: string | null;
+	responseTitle?: string | null;
+	conversationId?: string | null;
 };
 
 type TranscriptChatMessage = {
@@ -55,6 +51,19 @@ function formatInsightsDate(value?: string): string {
 		minute: "2-digit",
 		hour12: true,
 	});
+}
+
+function formatCallDuration(seconds?: number | null): string {
+	if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
+		return "—";
+	}
+	const totalSeconds = Math.round(seconds);
+	const mins = Math.floor(totalSeconds / 60);
+	const secs = totalSeconds % 60;
+	if (mins <= 0) {
+		return `${secs}s`;
+	}
+	return `${mins}m ${secs.toString().padStart(2, "0")}s`;
 }
 function parseTranscriptMessagesFromString(rawTranscript: string): TranscriptChatMessage[] {
 	const messages: TranscriptChatMessage[] = [];
@@ -83,11 +92,6 @@ function parseTranscriptMessagesFromString(rawTranscript: string): TranscriptCha
 	}
 	return messages;
 }
-type FilterableStatus = "Interview" | "Chat" | "Simulation";
-// Status options for the connected segmented control (kept here so length is available)
-const statusOptions = (['All','Interview','Chat','Simulation'] as const);
-
-
 type StagePanelProps = {
 	heading?: string;
 	subheading?: string;
@@ -149,25 +153,22 @@ function StageAlert({ type, message }: StageAlertProps) {
 }
 
 type InsightActionsProps = {
-	activeRow: InsightsRow | null;
+	personaLabel: string;
+	receivedAt?: string | null;
 	transcriptText: string;
 	chatMessages: TranscriptChatMessage[];
 };
 
-function InsightActions({
-	activeRow,
-	transcriptText,
-	chatMessages,
-}: InsightActionsProps) {
+function InsightActions({ personaLabel, receivedAt, transcriptText, chatMessages }: InsightActionsProps) {
 	const handleDownloadTranscript = useCallback(async () => {
-		if (!transcriptText || !activeRow) return;
-			const pdfMessages: PdfTranscriptMessage[] = chatMessages
+		if (!transcriptText) return;
+		const pdfMessages: PdfTranscriptMessage[] = chatMessages
 			.filter((message) => message.role === "user" || message.role === "persona")
 			.map((message) => ({
 				role: message.role === "user" ? "user" : "agent",
 				text: message.text,
 			}));
-		const dateValue = activeRow.date ? new Date(activeRow.date) : new Date();
+		const dateValue = receivedAt ? new Date(receivedAt) : new Date();
 		const validDate = Number.isNaN(dateValue.getTime()) ? new Date() : dateValue;
 		const timestampLabel = new Intl.DateTimeFormat("en", {
 			month: "short",
@@ -175,12 +176,11 @@ function InsightActions({
 			hour: "numeric",
 			minute: "2-digit",
 		}).format(validDate);
+		const label = personaLabel && personaLabel.trim().length > 0 ? personaLabel.trim() : "Persona";
 		const payload: TranscriptPdfPayload = {
-			conversationTitle: activeRow.sourceDocument
-				? `Session with ${activeRow.sourceDocument}`
-				: "Dialogue session",
-			personaName: activeRow.sourceDocument ?? "Persona",
-			researchType: activeRow.status,
+			conversationTitle: `Session with ${label}`,
+			personaName: label,
+			researchType: "Call",
 			timestampLabel,
 			messages: pdfMessages,
 			fallbackText: transcriptText,
@@ -190,9 +190,9 @@ function InsightActions({
 		} catch (error) {
 			console.error("[InsightActions] Failed to download transcript", error);
 		}
-	}, [activeRow, chatMessages, transcriptText]);
+	}, [chatMessages, personaLabel, receivedAt, transcriptText]);
 
-	if (!activeRow) return null;
+	if (!transcriptText) return null;
 	return (
 		<div className="insights-panel__actions insights-panel__actions--align-end">
 			<button
@@ -212,13 +212,6 @@ export default function InsightsTable() {
 	const [filters, setFilters] = useState<{ personaId: string; search: string }>({
 		personaId: "",
 		search: "",
-	});
-	// Multi-select status chips: when `allStatuses` is true we show everything.
-	const [allStatuses, setAllStatuses] = useState<boolean>(true);
-	const [selectedStatuses, setSelectedStatuses] = useState<Record<FilterableStatus, boolean>>({
-		Interview: false,
-		Chat: false,
-		Simulation: false,
 	});
 	const filterBarRef = useRef<HTMLDivElement>(null);
 	const filterToggleWrapperRef = useRef<HTMLDivElement>(null);
@@ -289,13 +282,6 @@ export default function InsightsTable() {
 		return [];
 	}, [activeRow]);
 
-	const selectedStatusKeys = React.useMemo(() => {
-		if (allStatuses) return [];
-		return (Object.entries(selectedStatuses) as Array<[FilterableStatus, boolean]>)
-			.filter(([, value]) => value)
-			.map(([key]) => key.toLowerCase());
-	}, [allStatuses, selectedStatuses]);
-
 	// Close the Filters popup when clicking or touching outside the filterBar
 	useEffect(() => {
 		if (!filtersOpen) return;
@@ -329,8 +315,6 @@ export default function InsightsTable() {
 	useEffect(() => {
 		setPage(1);
 		setFilters({ personaId: "", search: "" });
-		setAllStatuses(true);
-		setSelectedStatuses({ Interview: false, Chat: false, Simulation: false });
 		setFiltersOpen(false);
 		setRows([]);
 		setTotalCount(0);
@@ -374,9 +358,7 @@ export default function InsightsTable() {
 				if (filters.personaId) {
 					params.set("personaId", filters.personaId);
 				}
-				if (selectedStatusKeys.length > 0) {
-					params.set("statuses", selectedStatusKeys.join(","));
-				}
+				// status filtering removed; no longer sending statuses param
 
 				const response = await fetch(
 					`/api/clients/${encodeURIComponent(clientSlug)}/insights?${params.toString()}`,
@@ -420,7 +402,7 @@ export default function InsightsTable() {
 			isMounted = false;
 			controller.abort();
 		};
-	}, [clientSlug, page, filters.personaId, filters.search, selectedStatusKeys]);
+	}, [clientSlug, page, filters.personaId, filters.search]);
 
 	const personaSelectOptions = React.useMemo(() => {
 		return [...personaOptions].sort((a, b) => {
@@ -430,14 +412,16 @@ export default function InsightsTable() {
 		});
 	}, [personaOptions]);
 
-	const selectedPersonaOption = React.useMemo(() => {
-		if (!filters.personaId) return null;
-		return personaOptions.find((option) => option.id === filters.personaId) ?? null;
-	}, [filters.personaId, personaOptions]);
-	const activePersonaOption = React.useMemo(() => {
-		if (!activeRow) return null;
-		return personaOptions.find((option) => option.id === activeRow.personaId) ?? null;
-	}, [activeRow, personaOptions]);
+	const personaLookup = React.useMemo(() => {
+		const lookup = new Map<string, PersonaOption>();
+		personaOptions.forEach((option) => {
+			lookup.set(option.id, option);
+		});
+		return lookup;
+	}, [personaOptions]);
+
+	const selectedPersonaOption = filters.personaId ? personaLookup.get(filters.personaId) ?? null : null;
+	const activePersonaOption = activeRow?.personaId ? personaLookup.get(activeRow.personaId) ?? null : null;
 
 	const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
 	const pageRangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -563,63 +547,6 @@ export default function InsightsTable() {
 						))}
 					</select>
 				</div>
-				<div className="insights-filters__section">
-					<span className="insights-filters__label">Research type</span>
-					<div className="insights-filters__section-row">
-						<div className="insights-status-group" role="tablist" aria-label="Research type">
-							{statusOptions.map((opt, idx) => {
-								const isAll = opt === 'All';
-								const statusKey = opt as FilterableStatus;
-								const isActive = isAll ? allStatuses : selectedStatuses[statusKey];
-								const chipClasses = [
-									'insights-status-chip',
-									isActive ? 'insights-status-chip--active' : '',
-									idx === 0 ? 'insights-status-chip--start' : '',
-									idx === statusOptions.length - 1 ? 'insights-status-chip--end' : '',
-								].filter(Boolean).join(' ');
-								return (
-									<StageButton
-										key={opt}
-										type="button"
-										role="tab"
-										variant="ghost"
-										className={chipClasses}
-										aria-selected={isActive}
-										onClick={(event) => {
-											event.stopPropagation();
-											setPage(1);
-											if (isAll) {
-												setAllStatuses(true);
-												setSelectedStatuses({ Interview: false, Chat: false, Simulation: false });
-											} else {
-												setAllStatuses(false);
-												setSelectedStatuses((prev) => {
-													const next = { ...prev, [statusKey]: !prev[statusKey] };
-													if (!next.Interview && !next.Chat && !next.Simulation) {
-														setAllStatuses(true);
-														return { Interview: false, Chat: false, Simulation: false };
-													}
-													return next;
-												});
-											}
-										}}
-										title={
-											isActive
-												? isAll
-													? "All statuses selected"
-													: `Selected ${opt}`
-												: isAll
-													? "Show all statuses"
-													: `Toggle ${opt}`
-										}
-									>
-										{opt}
-									</StageButton>
-								);
-							})}
-						</div>
-					</div>
-				</div>
 			</div>
 		</>
 	);
@@ -685,14 +612,23 @@ export default function InsightsTable() {
 													) : null}
 												</div>
 											</th>
-											<th className="insights-table__head-cell">Owner</th>
-											<th className="insights-table__head-cell">Research Type</th>
+											<th className="insights-table__head-cell">Campaign</th>
+											<th className="insights-table__head-cell">Duration</th>
 										</tr>
 								</thead>
 								<tbody>
-									{rows.map((row, i) => (
-										<React.Fragment key={row.conversation_id || `${row.personaId}-${i}`}>
+									{rows.map((row, i) => {
+										const personaLabel = row.personaId
+											? personaLookup.get(row.personaId)?.name || "Untitled persona"
+											: "Unknown persona";
+										const campaignLabel =
+											typeof row.campaignName === "string" && row.campaignName.trim().length > 0
+												? row.campaignName.trim()
+												: row.campaignId ?? "—";
+										const rowKey = row.conversationId || row.id || `${row.personaId ?? "row"}-${i}`;
+										return (
 											<tr
+												key={rowKey}
 												className="insights-table__row insights-table__row--clickable"
 												tabIndex={0}
 												role="button"
@@ -704,134 +640,112 @@ export default function InsightsTable() {
 													}
 												}}
 											>
-										{/* Length column removed - engagementTime omitted */}
-										<td className="insights-table__cell">{formatInsightsDate(row.date)}</td>
-									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument || "Untitled persona"}</td>
-										<td className="insights-table__cell">{row.ownerEmail ?? row.lead?.value ?? ''}</td>
-									<td className="insights-table__cell">
-										{row.dialogueStatus === "pending" ? (
-											<span className="insights-status-running">
-												<span aria-hidden="true" className="insights-status-spinner" />
-												Running
-											</span>
-										) : (
-											(() => {
-												const statusClass =
-													row.status === "Simulation"
-														? "simulation"
-														: row.status === "Interview"
-															? "interview"
-															: "chat";
-												return (
-													<span
-														className={`insights-status-badge insights-status-badge--${statusClass}`}
-													>
-														{row.status}
-													</span>
-												);
-											})()
-										)}
-									</td>
-					
-										</tr>
-														
-								</React.Fragment>
-							))}
+												<td className="insights-table__cell">{formatInsightsDate(row.receivedAt ?? undefined)}</td>
+												<td className="insights-table__cell insights-table__cell--persona">{personaLabel}</td>
+												<td className="insights-table__cell">{campaignLabel}</td>
+												<td className="insights-table__cell">{formatCallDuration(row.callDurationSeconds)}</td>
+											</tr>
+										);
+									})}
 								</tbody>
 							</table>
-							{activeRow && (
-								<SlidingPanelOverlay
-									open
-									title={activeRow.sourceDocument || "Playback details"}
-									onRequestClose={() => setActiveRow(null)}
-									onAfterClose={() => setActiveRow(null)}
-								>
-									<div className="insights-detail-panel">
-										<div className="insights-panel__meta-grid">
-											<article className="insights-panel__meta-card">
-												<p className="insights-panel__meta-label">Date</p>
-												<p className="insights-panel__meta-value">{formatInsightsDate(activeRow.date)}</p>
-											</article>
-											<article className="insights-panel__meta-card">
-												<p className="insights-panel__meta-label">User</p>
-												<p className="insights-panel__meta-value">
-													{activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}
-												</p>
-											</article>
-											<article className="insights-panel__meta-card insights-panel__meta-card--persona">
-												<p className="insights-panel__meta-label">Research type</p>
-												<p className="insights-panel__meta-value">{activeRow.status}</p>
-											</article>
-											</div>
-										<div className="insights-panel__wide-container" aria-live="polite">
-											<span className="insights-panel__wide-label">Session summary</span>
-											<p className="insights-panel__wide-body">
-												{activeRow?.transcript_summary && activeRow.transcript_summary.trim()
-													? activeRow.transcript_summary
-													: "Summary unavailable"}
-											</p>
-										</div>
-										{activeRow.briefReport ? (
-											<section>
-												<p className="insights-detail-heading">Short report</p>
-												<p>{activeRow.briefReport}</p>
-											</section>
-										) : null}
-										{chatMessages.length > 0 ? (
-											<section className="insights-panel__summary">
-												<div className="insights-panel__summary-header">
-													<span className="insights-panel__wide-label">Transcript</span>
-													<InsightActions
-														activeRow={activeRow}
-														transcriptText={transcriptText}
-														chatMessages={chatMessages}
-													/>
-												</div>
-												<div className="insights-panel__chat" role="log" aria-label="Transcript conversation">
-													{chatMessages.map((message, index) => {
-														const personaAuthorName =
-															activePersonaOption?.name?.trim() ||
-															activeRow?.sourceDocument?.trim() ||
-															"Persona";
-														const userAuthorName =
-															activeRow?.ownerEmail ??
-															activeRow?.lead?.value ??
-															"User";
-														return (
-															<div
-																key={`${message.role}-${index}`}
-																className={`insights-panel__chat-message insights-panel__chat-message--${message.role}`}
-															>
-																<div
-																	className={`insights-panel__chat-author insights-panel__chat-author--${message.role}`}
-																>
-																	{message.role === "persona" && activePersonaOption?.profile_image?.trim() ? (
-																		<span className="insights-panel__chat-author-avatar" aria-hidden="true">
-																			<Image
-																				src={activePersonaOption.profile_image.trim()}
-																				alt=""
-																				width={12}
-																				height={12}
-																				unoptimized
-																			/>
-																		</span>
-																	) : null}
-																	{message.role === "persona"
-																		? personaAuthorName
-																		: message.role === "user"
-																			? userAuthorName
-																			: "System"}
-																</div>
-																<span>{message.text}</span>
+								{activeRow && (
+									<SlidingPanelOverlay
+										open
+										title={
+											typeof activeRow.campaignName === "string" && activeRow.campaignName.trim().length > 0
+												? activeRow.campaignName.trim()
+											: activeRow.campaignId || "Playback details"
+										}
+										onRequestClose={() => setActiveRow(null)}
+										onAfterClose={() => setActiveRow(null)}
+									>
+										{(() => {
+											const personaLabel = activePersonaOption?.name || activeRow.personaId || "Persona";
+											const campaignMetaLabel =
+												typeof activeRow.campaignName === "string" && activeRow.campaignName.trim().length > 0
+													? activeRow.campaignName.trim()
+													: activeRow.campaignId ?? "—";
+											return (
+												<div className="insights-detail-panel">
+													<div className="insights-panel__meta-grid">
+														<article className="insights-panel__meta-card">
+															<p className="insights-panel__meta-label">Received</p>
+															<p className="insights-panel__meta-value">{formatInsightsDate(activeRow.receivedAt ?? undefined)}</p>
+														</article>
+														<article className="insights-panel__meta-card">
+															<p className="insights-panel__meta-label">Persona</p>
+															<p className="insights-panel__meta-value">{personaLabel}</p>
+														</article>
+														<article className="insights-panel__meta-card">
+															<p className="insights-panel__meta-label">Campaign</p>
+															<p className="insights-panel__meta-value">{campaignMetaLabel}</p>
+														</article>
+														<article className="insights-panel__meta-card insights-panel__meta-card--persona">
+															<p className="insights-panel__meta-label">Duration</p>
+															<p className="insights-panel__meta-value">{formatCallDuration(activeRow.callDurationSeconds)}</p>
+														</article>
+													</div>
+													<div className="insights-panel__wide-container" aria-live="polite">
+														<span className="insights-panel__wide-label">Session summary</span>
+														<p className="insights-panel__wide-body">
+															{activeRow.summary && activeRow.summary.trim()
+																? activeRow.summary
+																: "Summary unavailable"}
+														</p>
+													</div>
+													{chatMessages.length > 0 ? (
+														<section className="insights-panel__summary">
+															<div className="insights-panel__summary-header">
+																<span className="insights-panel__wide-label">Transcript</span>
+																<InsightActions
+																	personaLabel={personaLabel}
+																	receivedAt={activeRow.receivedAt}
+																	transcriptText={transcriptText}
+																	chatMessages={chatMessages}
+																/>
 															</div>
-														);
-													})}
+															<div className="insights-panel__chat" role="log" aria-label="Transcript conversation">
+																{chatMessages.map((message, index) => {
+																	const personaAuthorName = "Interviewer";
+																	const userAuthorName = "Participant";
+																	return (
+																		<div
+																			key={`${message.role}-${index}`}
+																			className={`insights-panel__chat-message insights-panel__chat-message--${message.role}`}
+																		>
+																		<div
+																			className={`insights-panel__chat-author insights-panel__chat-author--${message.role}`}
+																		>
+																			{message.role === "persona" && activePersonaOption?.profile_image?.trim() ? (
+																				<span className="insights-panel__chat-author-avatar" aria-hidden="true">
+																					<Image
+																						src={activePersonaOption.profile_image.trim()}
+																						alt=""
+																						width={12}
+																						height={12}
+																						unoptimized
+																					/>
+																				</span>
+																			) : null}
+																			{message.role === "persona"
+																				? personaAuthorName
+																				: message.role === "user"
+																				? userAuthorName
+																				: "System"}
+																		</div>
+																		<span>{message.text}</span>
+																	</div>
+																);
+															})}
+															</div>
+														</section>
+													) : null}
 												</div>
-											</section>
-										) : null}
-									</div>
-								</SlidingPanelOverlay>
-							)}
+											);
+										})()}
+									</SlidingPanelOverlay>
+								)}
 							{!loading && !error && rows.length === 0 ? (
 								<div className="insights-empty">No playbacks found matching your filters.</div>
 							) : null}
@@ -1563,9 +1477,12 @@ ease;
 				overflow: hidden;
 				margin-right: 6px;
 			}
+			.insights-panel__chat-author--persona {
+				text-align: right;
+			}
 			.insights-panel__chat-author--user {
 				color: #ffffff;
-				text-align: right;
+				text-align: left;
 			}
 			.insights-panel__chat-author-img {
 				width: 18px;
@@ -1576,14 +1493,16 @@ ease;
 				vertical-align: middle;
 			}
 			.insights-panel__chat-message--persona {
-				align-self: flex-start;
+				align-self: flex-end;
 				background: rgba(15, 23, 42, 0.08);
 				color: #0f172a;
+				text-align: right;
 			}
 			.insights-panel__chat-message--user {
-				align-self: flex-end;
+				align-self: flex-start;
 				background: #0A1C2F;
 				color: #f8fafc;
+				text-align: left;
 			}
 			.insights-panel__chat-message--system {
 				align-self: center;
@@ -1594,9 +1513,9 @@ ease;
 				border-radius: 12px;
 			}
 			.insights-panel__wide-container {
-				width: min(1120px, 96vw);
+				width: 100%;
 				max-width: 100%;
-				margin: 0 auto 12px;
+				margin: 0 0 12px;
 				padding: 10px 16px;
 				background: rgba(15, 23, 42, 0.04);
 				border-radius: 16px;

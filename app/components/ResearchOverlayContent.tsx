@@ -26,13 +26,13 @@ type ExternalProvider = {
 type ResearchOverlayContentProps = {
   agent: AgentResearchRecord;
   activeTab: ResearchOverlayTab;
-  setActiveTab: (tab: ResearchOverlayTab) => void;
+  setActiveTabAction: (tab: ResearchOverlayTab) => void;
   promptValue: string;
   isPromptDirty: boolean;
   isPromptSaving: boolean;
   promptSaveError: string | null;
-  onPromptChange: (value: string) => void;
-  onPromptSave: () => void;
+  onPromptChangeAction: (value: string) => void;
+  onPromptSaveAction: () => void;
   onClearPrompt: () => void;
   onRemoveArticle: (url: string) => void;
   onAddArticle: (article: { title: string | null; url: string | null }) => void;
@@ -45,13 +45,13 @@ const EXTERNAL_SOURCES_ENDPOINT = "/api/external-sources";
 export default function ResearchOverlayContent({
   agent,
   activeTab,
-  setActiveTab,
+  setActiveTabAction,
   promptValue,
   isPromptDirty,
   isPromptSaving,
   promptSaveError,
-  onPromptChange,
-  onPromptSave,
+  onPromptChangeAction,
+  onPromptSaveAction,
   onClearPrompt,
   onRemoveArticle,
   onAddArticle,
@@ -119,21 +119,21 @@ export default function ResearchOverlayContent({
         <button
           type="button"
           className={`research-overlay__tab${activeTab === "research" ? " research-overlay__tab--active" : ""}`}
-          onClick={() => setActiveTab("research")}
+          onClick={() => setActiveTabAction("research")}
         >
           Research
         </button>
         <button
           type="button"
           className={`research-overlay__tab${activeTab === "sources" ? " research-overlay__tab--active" : ""}`}
-          onClick={() => setActiveTab("sources")}
+          onClick={() => setActiveTabAction("sources")}
         >
           Sources
         </button>
         <button
           type="button"
           className={`research-overlay__tab${activeTab === "prompt" ? " research-overlay__tab--active" : ""}`}
-          onClick={() => setActiveTab("prompt")}
+          onClick={() => setActiveTabAction("prompt")}
         >
           Prompt
         </button>
@@ -256,13 +256,13 @@ export default function ResearchOverlayContent({
         ) : (
           <section className="research-overlay__prompt-panel" aria-label="Research prompt">
             <p className="research-overlay__placeholder-heading">Research Prompt</p>
-            <textarea
-              className="research-overlay__prompt-input"
-              value={promptValue}
-              placeholder="No research prompt captured for this persona."
-              onChange={(event) => onPromptChange(event.target.value)}
-              disabled={isPromptSaving}
-            />
+              <textarea
+                className="research-overlay__prompt-input"
+                value={promptValue}
+                placeholder="No research prompt captured for this persona."
+                onChange={(event) => onPromptChangeAction(event.target.value)}
+                disabled={isPromptSaving}
+              />
             <div className="research-overlay__prompt-status">
               {isPromptSaving ? (
                 <span>Saving…</span>
@@ -287,12 +287,12 @@ export default function ResearchOverlayContent({
                   >
                     Clear
                   </button>
-                  <button
-                    type="button"
-                    className="persona-unsaved-save"
-                    onClick={onPromptSave}
-                    disabled={isPromptSaving}
-                  >
+                    <button
+                      type="button"
+                      className="persona-unsaved-save"
+                      onClick={onPromptSaveAction}
+                      disabled={isPromptSaving}
+                    >
                     Save &amp; Refresh
                   </button>
                 </div>

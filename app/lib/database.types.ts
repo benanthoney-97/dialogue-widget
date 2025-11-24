@@ -349,6 +349,51 @@ export type Database = {
           },
         ]
       }
+      campaign_links: {
+        Row: {
+          id: string
+          campaign_id: string
+          persona_id: string | null
+          qr_code: string | null
+          link_url: string | null
+          phone_number: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          persona_id?: string | null
+          qr_code?: string | null
+          link_url?: string | null
+          phone_number?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          persona_id?: string | null
+          qr_code?: string | null
+          link_url?: string | null
+          phone_number?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_links_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "agent_map"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
     }
     Views: {
       dialogues_count_by_client: {

@@ -139,12 +139,17 @@ async function fetchClientRecord(
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname === "/api/eleven/webhook") {
+    return NextResponse.next({ request });
+  }
+
   const response = await updateSession(request);
+
   if (response.headers.get("location")) {
     return response;
   }
 
-  const { pathname } = request.nextUrl;
   const match = CLIENT_ROUTE_REGEX.exec(pathname);
   if (!match) {
     return response;

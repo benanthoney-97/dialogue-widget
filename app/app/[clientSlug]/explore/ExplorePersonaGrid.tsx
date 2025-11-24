@@ -32,7 +32,7 @@ export default function ExplorePersonaGrid({ clientSlug, personas, errorMessage 
           width: "100%",
         }}
       >
-        <InternalPersonaChip isToggled={showInternal} onToggle={() => setShowInternal((prev) => !prev)} />
+        <InternalPersonaChip isToggled={showInternal} onToggleAction={() => setShowInternal((prev) => !prev)} />
       </div>
       <PersonaGallery
         clientSlug={clientSlug}
