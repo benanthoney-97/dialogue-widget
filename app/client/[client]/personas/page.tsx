@@ -685,10 +685,11 @@ export default function PersonasPage() {
   const [personaClockStates, setPersonaClockStates] = useState<Record<string, boolean>>({});
   const [chipRowsExpanded, setChipRowsExpanded] = useState<Record<string, boolean>>({});
   const personasViewHref = useMemo(() => {
+    if (resolvedClientId) return `/app/${resolvedClientId}/explore`;
     if (resolvedClientSlug) return `/app/${resolvedClientSlug}/explore`;
     if (clientSlug) return `/app/${clientSlug}/explore`;
     return "/app/explore";
-  }, [resolvedClientSlug, clientSlug]);
+  }, [resolvedClientId, resolvedClientSlug, clientSlug]);
   const handleCopyPersonasViewHref = useCallback(async () => {
     if (typeof window === "undefined") return;
     const absoluteHref = new URL(personasViewHref, window.location.origin).toString();
@@ -747,7 +748,7 @@ export default function PersonasPage() {
     async (persona: PersonaRow) => {
       if (typeof window === "undefined") return;
       const personaSlug = personaSlugLookup.get(persona.agent_id) ?? null;
-      const targetClientSlug = resolvedClientSlug ?? clientSlug ?? null;
+      const targetClientSlug = resolvedClientId ?? resolvedClientSlug ?? clientSlug ?? null;
       if (!personaSlug || !targetClientSlug) return;
       const personaPath = `/app/${encodeURIComponent(targetClientSlug)}/${encodeURIComponent(personaSlug)}`;
       const absoluteHref = new URL(personaPath, window.location.origin).toString();
@@ -850,7 +851,7 @@ export default function PersonasPage() {
   const personaPreviewHref = useMemo(() => {
     if (!selectedAgent) return null;
     const personaSlug = personaSlugLookup.get(selectedAgent.agentId);
-    const targetClientSlug = resolvedClientSlug ?? clientSlug ?? null;
+    const targetClientSlug = resolvedClientId ?? resolvedClientSlug ?? clientSlug ?? null;
     if (!personaSlug || !targetClientSlug) return null;
     return `/app/${encodeURIComponent(targetClientSlug)}/${encodeURIComponent(personaSlug)}`;
   }, [clientSlug, personaSlugLookup, resolvedClientSlug, selectedAgent]);
@@ -4715,7 +4716,7 @@ const handleConfirmDeletePersona = useCallback(async () => {
                 const completionVariant =
                   completionPercent >= 90 ? "complete" : completionPercent >= 50 ? "warning" : "danger";
                 const personaSlug = personaSlugLookup.get(persona.agent_id) ?? null;
-                const targetClientSlug = resolvedClientSlug ?? clientSlug ?? "";
+                const targetClientSlug = resolvedClientId ?? resolvedClientSlug ?? clientSlug ?? "";
                 const personaResearchRecord =
                   agentResearch.find((record) => record.agentId === persona.agent_id) ?? null;
                 const canEditAvatar = canEdit && isExpanded;

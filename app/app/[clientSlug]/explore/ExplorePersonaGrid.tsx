@@ -21,6 +21,9 @@ export default function ExplorePersonaGrid({ clientSlug, personas, errorMessage 
     });
   }, [personas, showInternal]);
 
+  console.log("[explore-grid] personas passed", personas.length, personas);
+  console.log("[explore-grid] visiblePersonas", visiblePersonas.length, visiblePersonas);
+
   return (
     <>
       <div

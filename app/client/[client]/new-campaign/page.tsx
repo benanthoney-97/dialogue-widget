@@ -520,6 +520,8 @@ export default function UploadPage() {
   const [personaTagline, setPersonaTagline] = useState<string>("");
   const [keyTraits, setKeyTraits] = useState<KeyTrait[]>(DEFAULT_KEY_TRAITS);
   const [editingKeyTraitId, setEditingKeyTraitId] = useState<string | null>(null);
+  const [tagInput, setTagInput] = useState<string>("");
+  const [campaignTags, setCampaignTags] = useState<string[]>([]);
 
   function handleKeyTraitChange(id: string, value: string) {
     setKeyTraits((prev) =>
@@ -605,10 +607,10 @@ export default function UploadPage() {
   }
 
   function handleAddLink() {
-    if (addQuestionToList(linksUrl)) {
-      setLinksUrl("");
-      questionInputRef.current?.focus();
-    }
+    const added = addQuestionToList(linksUrl);
+    setLinksUrl("");
+    questionInputRef.current?.focus();
+    return added;
   }
 
   function splitQuestionsFromPaste(text: string) {
@@ -748,7 +750,7 @@ export default function UploadPage() {
       personaDescriptionRef.current.focus();
     }
   };
-  const sidebarDescriptionText = personaDescription.trim() || personaTaglineTrimmed;
+  const sidebarDescriptionText = personaTaglineTrimmed;
   const [activeResourceDetail, setActiveResourceDetail] = useState<"description" | "">("");
   const personaDescriptionHasContent = Boolean(personaDescription.trim());
   const internalDataHasContent = files.length > 0;
@@ -831,7 +833,7 @@ export default function UploadPage() {
     return resolvedClientId;
   }
 
-  async function createCampaignRecord(docsPayload: StagedDoc[]): Promise<string> {
+async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: string[]): Promise<string> {
     if (createdCampaignId) {
       return createdCampaignId;
     }
@@ -884,6 +886,7 @@ export default function UploadPage() {
         documentIds: [],
         personaImageUpload: personaImageUploadPayload,
         documentsUpload: documentsUploadPayload,
+        tags: campaignTags,
       }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -1050,7 +1053,7 @@ export default function UploadPage() {
 
     if (!campaignId) {
       try {
-        campaignId = await createCampaignRecord(docsPayload);
+        campaignId = await createCampaignRecord(docsPayload, campaignTags);
       } catch (err: any) {
         const message =
           err && typeof err === "object" && "message" in err
@@ -1576,8 +1579,8 @@ export default function UploadPage() {
                   </div>
                 }
               >
-                <div className="personas-stage__grid" role="list">
-                  {personaCards.map((persona) => {
+            <div className="personas-stage__grid" role="list">
+              {personaCards.map((persona) => {
                     const personaIdentity = getPersonaIdentity(persona);
                     const isSelected = selectedPersonaIds.includes(personaIdentity);
                     return (
@@ -1611,9 +1614,107 @@ export default function UploadPage() {
                       </button>
                     );
                   })}
+              </div>
+              <div
+                style={{
+                  marginTop: 24,
+                  padding: "16px",
+                  borderRadius: 12,
+                  border: "1px dashed rgba(15, 23, 42, 0.2)",
+                  background: "#f8f9ff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <h3 style={{ margin: 0, fontSize: 16 }}>Use tags instead of personas</h3>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignTags([])}
+                    style={{
+                      fontSize: 12,
+                      color: "#155EEF",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Clear all
+                  </button>
                 </div>
-              </StagePanel>
-            )}
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: 13,
+                    color: "rgba(15, 23, 42, 0.6)",
+                  }}
+                >
+                  Use tags (e.g., “Female customers in London, “Power users”) to track the campaign instead of creating personas.
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {campaignTags.map((tag) => (
+                    <span
+                      key={tag}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        background: "rgba(31, 41, 55, 0.08)",
+                        color: "#0f172a",
+                        fontSize: 12,
+                      }}
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setCampaignTags((prev) => prev.filter((value) => value !== tag))}
+                        style={{
+                          border: "none",
+                          background: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          color: "#0f172a",
+                          fontSize: 12,
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    value={tagInput}
+                    onChange={(event) => setTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && tagInput.trim()) {
+                        event.preventDefault();
+                        const normalized = tagInput.trim();
+                        if (!campaignTags.includes(normalized)) {
+                          setCampaignTags((prev) => [...prev, normalized]);
+                        }
+                        setTagInput("");
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                    style={{
+                      border: "1px solid rgba(15,23,42,0.22)",
+                      borderRadius: 8,
+                      padding: "6px 10px",
+                      fontSize: 13,
+                      flex: "1 1 180px",
+                    }}
+                  />
+                </div>
+              </div>
+            </StagePanel>
+          )}
             {currentStep === 3 && (
               <StagePanel
                 className="stage-panel--align-left"

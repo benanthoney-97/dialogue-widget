@@ -28,10 +28,11 @@ async function createSupabaseClient() {
 
 export default async function CampaignCallPage({ params }: { params: PageParams }) {
   const supabase = await createSupabaseClient();
+  const { campaignSlug, clientSlug } = params;
   const { data: linkRow, error: linkError } = await supabase
     .from("campaign_links" as const)
     .select("id, campaign_id, persona_id, campaign:campaigns(id, name, description, objective, questions)")
-    .eq("id", params.campaignSlug)
+    .eq("id", campaignSlug)
     .maybeSingle<CampaignLinksTable["Row"] & { campaign?: { id: string; name: string; description: string; objective: string; questions: unknown } }>();
 
   if (linkError || !linkRow) {
@@ -79,7 +80,7 @@ export default async function CampaignCallPage({ params }: { params: PageParams 
         documentMarkdowns={documents}
       />
       <footer style={footerStyle}>
-        <Link href={`/campaign/${params.clientSlug}/${params.campaignSlug}`} style={backLinkStyle}>
+        <Link href={`/campaign/${clientSlug}/${campaignSlug}`} style={backLinkStyle}>
           Back to campaign
         </Link>
       </footer>

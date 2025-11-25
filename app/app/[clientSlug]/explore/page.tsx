@@ -6,7 +6,7 @@ import { slugify } from "@/app/lib/jump";
 export const dynamic = "force-dynamic";
 
 type ClientRow = {
-  id: number;
+  id: string;
   name: string;
   display_name: string | null;
 };
@@ -15,14 +15,10 @@ type PersonaRow = {
   agent_id: string;
   agent_name: string | null;
   description: string | null;
-  content_type: string | null;
   dialogue_created_date: string | null;
   status: string | null;
   key_traits: unknown;
   key_pain_points: unknown;
-  age: string | number | null;
-  gender: string | null;
-  location: string | null;
   customer_status: string | null;
   profile_image: string | null;
   role_title: string | null;
@@ -30,6 +26,12 @@ type PersonaRow = {
 };
 
 type Supabase = SupabaseClient<any, "public", any>;
+
+const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value.trim());
+}
 
 function normalizeKeyTraits(source: unknown): string[] {
   if (Array.isArray(source)) {
@@ -48,16 +50,8 @@ function normalizeKeyTraits(source: unknown): string[] {
 
 function buildAttributes(row: PersonaRow): Array<{ label: string; value: string }> {
   const entries: Array<{ label: string; value: string }> = [];
-  const ageValue = row.age != null ? `${row.age}`.trim() : "";
-  const genderValue = row.gender?.trim() ?? "";
-  const locationValue = row.location?.trim() ?? "";
   const statusValue = row.customer_status?.trim() ?? "";
-
-  if (ageValue) entries.push({ label: "Age", value: ageValue });
-  if (genderValue) entries.push({ label: "Gender", value: genderValue });
-  if (locationValue) entries.push({ label: "Location", value: locationValue });
   if (statusValue) entries.push({ label: "Customer status", value: statusValue });
-
   return entries;
 }
 
@@ -76,26 +70,23 @@ function buildPersonaSlug(row: PersonaRow): string {
   return rawFallback.length > 0 ? rawFallback : "persona";
 }
 
-async function resolveClient(supabase: Supabase, clientSlug: string): Promise<ClientRow | null> {
-  const direct = await supabase
+async function fetchClientById(supabase: Supabase, clientParam: string): Promise<ClientRow | null> {
+  const trimmed = clientParam.trim();
+  if (!trimmed || !isUuid(trimmed)) return null;
+
+  const { data, error } = await supabase
     .from("clients")
     .select("id, name, display_name")
-    .eq("name", clientSlug)
+    .eq("id", trimmed)
     .maybeSingle<ClientRow>();
-  if (direct.data) {
-    return direct.data;
+
+  console.log("[explore] fetchClientById result", { trimmed, data, error });
+
+  if (error && error.code && error.code !== "PGRST116") {
+    console.warn("[portal] Failed to resolve client by id", { candidate: trimmed, error });
   }
 
-  const { data } = await supabase.from("clients").select("id, name, display_name");
-  if (!data) return null;
-
-  const match = data.find((client) => {
-    const nameSlug = client.name ? slugify(client.name) : "";
-    const displaySlug = client.display_name ? slugify(client.display_name) : "";
-    return nameSlug === clientSlug || displaySlug === clientSlug;
-  });
-
-  return match ?? null;
+  return data ?? null;
 }
 
 function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
@@ -113,7 +104,6 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
       description: row.description,
       keyTraits: normalizeKeyTraits(row.key_traits),
       painPoints: normalizeKeyTraits(row.key_pain_points),
-      contentType: row.content_type?.trim().length ? row.content_type.trim() : null,
       updatedAt: row.dialogue_created_date,
       attributes: buildAttributes(row),
       profileImage:
@@ -134,7 +124,7 @@ export default async function ExplorePage({
 }: {
   params: Promise<{ clientSlug: string }>;
 }) {
-  const { clientSlug } = await params;
+  const { clientSlug: clientParam } = await params;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -157,8 +147,10 @@ export default async function ExplorePage({
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey) as Supabase;
 
-  const client = await resolveClient(supabase, clientSlug);
+  console.log("[explore] resolving client slug", clientParam);
+  const client = await fetchClientById(supabase, clientParam);
   if (!client) {
+    console.warn("[explore] failed to find client", clientParam);
     return (
       <div
         style={{
@@ -170,7 +162,7 @@ export default async function ExplorePage({
           fontWeight: 600,
         }}
       >
-        Workspace not found. Ask the Dialogue team to confirm the shareable portal URL.
+        Workspace not found. Confirm the shareable portal URL includes a valid client ID.
       </div>
     );
   }
@@ -178,10 +170,16 @@ export default async function ExplorePage({
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, role_title, active_status"
+      "agent_id, agent_name, description, dialogue_created_date, status, key_traits, key_pain_points, customer_status, profile_image, role_title, active_status"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
+
+  console.log("[explore] agent_map fetch", {
+    clientId: client.id,
+    length: (personaRows ?? []).length,
+    error,
+  });
 
   const readyPersonas = (personaRows ?? []).filter((row) => {
     const statusReady = (row.status ?? "").toLowerCase() === "ready";
@@ -236,7 +234,7 @@ export default async function ExplorePage({
             }}
           >
             <ExplorePersonaGrid
-              clientSlug={clientSlug}
+              clientSlug={String(client.id)}
               personas={summaries}
               errorMessage={error ? "Unable to load personas right now. Please try again." : null}
             />

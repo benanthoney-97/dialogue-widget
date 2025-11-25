@@ -327,6 +327,7 @@ function buildDynamicVariables(details: CampaignWebhookDetails): Record<string, 
 
 export async function POST(request: NextRequest) {
   const rawPayload = await request.text();
+  console.log("[eleven-webhook] handler invoked");
   console.log("[eleven-webhook] received payload", rawPayload);
   // Signature verification temporarily disabled for testing
 
@@ -341,9 +342,15 @@ export async function POST(request: NextRequest) {
   const metadata = parseMetadata(parsed.metadata ?? parsed.meta ?? null);
   console.log("[eleven-webhook] parsed metadata", metadata);
   const parsedDynamicVariables = getDynamicVariables(parsed);
+  console.log("[eleven-webhook] parsed dynamic variables", parsedDynamicVariables);
   const campaignLinkId = extractCampaignLinkId(parsed, metadata, parsedDynamicVariables);
   const campaignId = extractCampaignId(parsed, metadata, parsedDynamicVariables);
   const agentId = extractAgentId(parsed, metadata, parsedDynamicVariables);
+  console.log("[eleven-webhook] resolved identifiers", {
+    campaignLinkId,
+    campaignId,
+    agentId,
+  });
   const details = await resolveCampaignDetails({
     campaignLinkId,
     campaignId,
@@ -360,6 +367,7 @@ export async function POST(request: NextRequest) {
   }
 
   const resolvedVariables = buildDynamicVariables(details);
+  console.log("[eleven-webhook] persona metadata", details.meta);
   console.log("[eleven-webhook] resolved dynamic variables", resolvedVariables);
   if (!resolvedVariables) {
     console.warn("[eleven-webhook] persona_id missing, cannot build dynamic variables");

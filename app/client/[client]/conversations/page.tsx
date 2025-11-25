@@ -28,6 +28,7 @@ type InsightsRow = {
 	transcript_summary?: string | null;
 	main_language?: string;
 	ownerEmail?: string | null;
+	ownerName?: string | null;
 	call_summary_title?: string | null;
 	dialogueStatus?: "pending" | "running" | "completed";
 };
@@ -176,10 +177,10 @@ function InsightActions({
 			minute: "2-digit",
 		}).format(validDate);
 		const payload: TranscriptPdfPayload = {
-			conversationTitle: activeRow.sourceDocument
-				? `Session with ${activeRow.sourceDocument}`
+			conversationTitle: activeRow.personaName
+				? `Session with ${activeRow.personaName}`
 				: "Dialogue session",
-			personaName: activeRow.sourceDocument ?? "Persona",
+			personaName: activeRow.personaName ?? "Persona",
 			researchType: activeRow.status,
 			timestampLabel,
 			messages: pdfMessages,
@@ -378,13 +379,13 @@ export default function InsightsTable() {
 					params.set("statuses", selectedStatusKeys.join(","));
 				}
 
-				const response = await fetch(
-					`/api/clients/${encodeURIComponent(clientSlug)}/insights?${params.toString()}`,
-					{ signal: controller.signal }
-				);
+                const response = await fetch(
+                    `/api/clients/${encodeURIComponent(clientSlug)}/conversations?${params.toString()}`,
+                    { signal: controller.signal }
+                );
 
 				if (!response.ok) {
-					let message = "Failed to load insights";
+                    let message = "Failed to load conversations";
 					try {
 						const payload = (await response.json()) as { error?: string };
 						if (payload?.error) message = payload.error;
@@ -401,12 +402,12 @@ export default function InsightsTable() {
 				setTotalCount(data.totalCount ?? 0);
 			} catch (fetchError) {
 				if (controller.signal.aborted) return;
-				console.error("[Insights] Failed to load insights", fetchError);
+                console.error("[Conversations] Failed to load conversations", fetchError);
 				if (isMounted) {
 					setRows([]);
 					setPersonaOptions([]);
 					setTotalCount(0);
-					setError(fetchError instanceof Error ? fetchError.message : "Failed to load insights");
+                    setError(fetchError instanceof Error ? fetchError.message : "Failed to load conversations");
 				}
 			} finally {
 				if (isMounted) {
@@ -674,8 +675,8 @@ export default function InsightsTable() {
 														selectedPersonaOption.profile_image &&
 														selectedPersonaOption.profile_image.trim().length > 0 ? (
 															<Image
-																 src={selectedPersonaOption.profile_image.trim()}
-																 alt={selectedPersonaOption.name || "Persona avatar"}
+																src={selectedPersonaOption.profile_image.trim()}
+																alt={selectedPersonaOption.name || "Persona avatar"}
 																className="insights-table__head-persona-avatar"
 																width={24}
 																height={24}
@@ -706,8 +707,8 @@ export default function InsightsTable() {
 											>
 										{/* Length column removed - engagementTime omitted */}
 										<td className="insights-table__cell">{formatInsightsDate(row.date)}</td>
-									<td className="insights-table__cell insights-table__cell--persona">{row.sourceDocument || "Untitled persona"}</td>
-										<td className="insights-table__cell">{row.ownerEmail ?? row.lead?.value ?? ''}</td>
+										<td className="insights-table__cell insights-table__cell--persona">{row.personaName || "Untitled persona"}</td>
+										<td className="insights-table__cell">{row.ownerName ?? row.ownerEmail ?? row.lead?.value ?? ''}</td>
 									<td className="insights-table__cell">
 										{row.dialogueStatus === "pending" ? (
 											<span className="insights-status-running">
@@ -742,7 +743,7 @@ export default function InsightsTable() {
 							{activeRow && (
 								<SlidingPanelOverlay
 									open
-									title={activeRow.sourceDocument || "Playback details"}
+									title={activeRow.personaName || "Playback details"}
 									onRequestClose={() => setActiveRow(null)}
 									onAfterClose={() => setActiveRow(null)}
 								>
@@ -755,7 +756,7 @@ export default function InsightsTable() {
 											<article className="insights-panel__meta-card">
 												<p className="insights-panel__meta-label">User</p>
 												<p className="insights-panel__meta-value">
-													{activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}
+													{activeRow.ownerName ?? activeRow.ownerEmail ?? activeRow.lead?.value ?? "Unknown"}
 												</p>
 											</article>
 											<article className="insights-panel__meta-card insights-panel__meta-card--persona">
@@ -771,12 +772,6 @@ export default function InsightsTable() {
 													: "Summary unavailable"}
 											</p>
 										</div>
-										{activeRow.briefReport ? (
-											<section>
-												<p className="insights-detail-heading">Short report</p>
-												<p>{activeRow.briefReport}</p>
-											</section>
-										) : null}
 										{chatMessages.length > 0 ? (
 											<section className="insights-panel__summary">
 												<div className="insights-panel__summary-header">
@@ -791,12 +786,13 @@ export default function InsightsTable() {
 													{chatMessages.map((message, index) => {
 														const personaAuthorName =
 															activePersonaOption?.name?.trim() ||
-															activeRow?.sourceDocument?.trim() ||
+															activeRow?.personaName?.trim() ||
 															"Persona";
-														const userAuthorName =
-															activeRow?.ownerEmail ??
-															activeRow?.lead?.value ??
-															"User";
+													const userAuthorName =
+														activeRow?.ownerName ??
+														activeRow?.ownerEmail ??
+														activeRow?.lead?.value ??
+														"User";
 														return (
 															<div
 																key={`${message.role}-${index}`}

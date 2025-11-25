@@ -270,37 +270,19 @@ export default function ResultsPage() {
     [clientSlug, router]
   );
 
-  const triggerOutboundCall = useCallback(
-    async (entry: { phoneNumber?: string; campaignId?: string | number | null; linkId?: string | null }) => {
-      if (!entry.phoneNumber || !entry.linkId) {
-        return;
-      }
-      try {
-        await fetch("/api/eleven/twilio-outbound-call", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: entry.phoneNumber,
-            campaignLinkId: entry.linkId,
-            campaignId: typeof entry.campaignId === "string" ? entry.campaignId : undefined,
-          }),
-        });
-      } catch (error) {
-        console.error("[campaigns page] failed to trigger outbound call from dropdown", error);
-      }
-    },
-    []
-  );
-
   const handleCopyPhoneNumber = useCallback(
-    async (entry: { phoneNumber?: string | null | undefined; campaignId?: string | number | null; linkId?: string | null }) => {
-      if (!entry.phoneNumber || !entry.linkId) {
+    async (entry: { linkId?: string | null | undefined }) => {
+      if (!entry.linkId || !clientSlug) {
         return;
       }
-      await triggerOutboundCall(entry);
-      window.open(`tel:${entry.phoneNumber}`, "_blank");
+      const link = `${window.location.origin}/campaign/${clientSlug}/${entry.linkId}/call`;
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch (error) {
+        console.error("[campaigns page] failed to copy call link", error);
+      }
     },
-    [triggerOutboundCall]
+    [clientSlug]
   );
 
   type PersonaMetadata = {
@@ -396,7 +378,13 @@ export default function ResultsPage() {
   }, []);
 
   const fetchCampaignLinks = useCallback(async (campaignIds: string[]) => {
-    const lookup = new Map<string, Map<string, { linkId: string; qrCodeUrl: string | null; phoneNumber: string | null }>>();
+    const lookup = new Map<
+      string,
+      {
+        personas: Map<string, { linkId: string; qrCodeUrl: string | null; phoneNumber: string | null }>;
+        tags: { linkId: string; qrCodeUrl: string | null; phoneNumber: string | null; tag: string }[];
+      }
+    >();
     if (campaignIds.length === 0) {
       return lookup;
     }
@@ -406,7 +394,7 @@ export default function ResultsPage() {
     }
     const { data, error } = await supabase
       .from("campaign_links")
-      .select("id, campaign_id, persona_id, qr_code_image, phone_number")
+      .select("id, campaign_id, persona_id, qr_code_image, phone_number, tag")
       .in("campaign_id", uniqueIds);
     if (error) {
       console.error("[campaigns page] failed to load campaign links", error);
@@ -434,16 +422,27 @@ export default function ResultsPage() {
         typeof row.phone_number === "string" && row.phone_number.trim().length > 0
           ? row.phone_number.trim()
           : null;
+      const tag =
+        typeof row.tag === "string" && row.tag.trim().length > 0
+          ? row.tag.trim()
+          : null;
       if (!campaignId || !linkId) {
         return;
       }
-      let personaLookup = lookup.get(campaignId);
-      if (!personaLookup) {
-        personaLookup = new Map<string, { linkId: string; qrCodeUrl: string | null; phoneNumber: string | null }>();
-        lookup.set(campaignId, personaLookup);
+      let campaignEntry = lookup.get(campaignId);
+      if (!campaignEntry) {
+        campaignEntry = {
+          personas: new Map<string, { linkId: string; qrCodeUrl: string | null; phoneNumber: string | null }>(),
+          tags: [],
+        };
+        lookup.set(campaignId, campaignEntry);
       }
-      if (personaId && !personaLookup.has(personaId)) {
-        personaLookup.set(personaId, { linkId, qrCodeUrl, phoneNumber });
+      if (personaId) {
+        if (!campaignEntry.personas.has(personaId)) {
+          campaignEntry.personas.set(personaId, { linkId, qrCodeUrl, phoneNumber });
+        }
+      } else if (tag) {
+        campaignEntry.tags.push({ linkId, qrCodeUrl, phoneNumber, tag });
       }
     });
     return lookup;
@@ -611,10 +610,10 @@ export default function ResultsPage() {
 
         const enriched = mapped.map((campaign) => {
           const personaLinkLookup = campaign.id ? campaignLinksLookup.get(campaign.id) : undefined;
-          const personas = campaign.personaIds
+          const personaEntries = campaign.personaIds
             ? campaign.personaIds.map((id) => {
                 const detail = personaDetailsLookup.get(id);
-                const linkMeta = personaLinkLookup?.get(id);
+                const linkMeta = personaLinkLookup?.personas.get(id);
                 return {
                   id,
                   name: detail?.name ?? null,
@@ -625,6 +624,18 @@ export default function ResultsPage() {
                 };
               })
             : [];
+          const tagEntries =
+            personaLinkLookup?.tags.length
+              ? personaLinkLookup.tags.map((tagRow) => ({
+                  id: tagRow.linkId,
+                  name: tagRow.tag,
+                  imageUrl: null,
+                  linkId: tagRow.linkId,
+                  qrCodeUrl: tagRow.qrCodeUrl ?? null,
+                  phoneNumber: tagRow.phoneNumber ?? null,
+                }))
+              : [];
+          const personas = [...personaEntries, ...tagEntries];
           const resultsCount = campaign.id ? responseCounts.get(campaign.id) ?? 0 : 0;
 
           return {
@@ -929,7 +940,7 @@ export default function ResultsPage() {
                   <div className="persona-expanded-track campaign-dropdown-track">
                     <div className="persona-expanded-block persona-expanded-block--personas">
                       <div className="persona-expanded-block__header">
-                        <h4>Overview</h4>
+                        <h4>Shareable Links</h4>
                       </div>
                       <div
                         className="persona-expanded-block__list-wrapper"
@@ -993,7 +1004,7 @@ export default function ResultsPage() {
                                           unoptimized
                                         />
                                       ) : (
-                                        entry.id.slice(0, 2).toUpperCase()
+                                        ""
                                       )}
                                     </span>
                                     <span
@@ -1233,13 +1244,11 @@ export default function ResultsPage() {
                                                   }}
                                                   onClick={() =>
                                                     handleCopyPhoneNumber({
-                                                      phoneNumber: entry.phoneNumber ?? undefined,
-                                                      campaignId: entry.campaignId,
                                                       linkId: entry.linkId,
                                                     })
                                                   }
                                                 >
-                                                  Copy phone number
+                                                  Copy call link
                                                 </button>
                                               </div>
                                             )}
@@ -1326,60 +1335,6 @@ export default function ResultsPage() {
                         ) : (
                           <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
                             Add questions to your campaign to see them here.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="persona-expanded-block persona-expanded-block--outputs">
-                      <div className="persona-expanded-block__header">
-                        <h4>Outputs</h4>
-                      </div>
-                      <div className="persona-expanded-block__list-wrapper">
-                        {outputList ? (
-                          <ul
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "8px",
-                              margin: 0,
-                              paddingLeft: 0,
-                              listStyle: "none",
-                            }}
-                          >
-                            {outputList.map((output, index) => (
-                              <li key={`${output.description}-${index}`} style={{ margin: 0, display: "flex", flexDirection: "column", gap: "4px" }}>
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    fontSize: "13px",
-                                    color: "rgba(15, 23, 42, 0.65)",
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      padding: "2px 8px",
-                                      borderRadius: "999px",
-                                      background: "rgba(21, 94, 239, 0.08)",
-                                      color: "#155EEF",
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.04em",
-                                    }}
-                                  >
-                                    {formatOutputType(output.type)}
-                                  </span>
-                                  {output.description}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
-                            Define outputs to capture structured responses here.
                           </p>
                         )}
                       </div>

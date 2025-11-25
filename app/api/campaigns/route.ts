@@ -119,6 +119,7 @@ type CampaignCreationPayload = {
   documentIds?: unknown;
   personaImageUpload?: PersonaImageUploadPayload | null;
   documentsUpload?: unknown;
+  tags?: unknown;
 };
 
 type PersonaImageUploadPayload = {
@@ -170,6 +171,7 @@ type CampaignLinkInsertRow = {
   link_url?: string | null;
   qr_code?: string | null;
   qr_code_image?: string | null;
+  tag?: string | null;
 };
 
 function isAgentIdConstraintError(message: string | null | undefined): boolean {
@@ -616,39 +618,56 @@ export async function POST(request: Request) {
         return null;
       }
     })();
-    const shareOrigin = shareSlug
-      ? shareBaseUrl || requestOrigin
-      : null;
-    if (personaIdsPayload.length > 0) {
-      const personaLinkRows: CampaignLinkInsertRow[] = [];
-      for (const personaId of personaIdsPayload) {
-        const linkId = randomUUID();
-        const sharePath = shareSlug ? `/campaign/${shareSlug}/${linkId}` : null;
-        const absoluteShareUrl =
-          sharePath && shareOrigin ? `${shareOrigin}${sharePath}` : null;
-        const qrCodeBase64 = absoluteShareUrl
-          ? await generateQrCodeBase64(absoluteShareUrl)
-          : null;
-        const qrCodeImage =
-          qrCodeBase64 && clientId
-            ? await uploadQrCodeImage(clientId, campaignId, linkId, qrCodeBase64)
-            : null;
-        personaLinkRows.push({
-          id: linkId,
-          campaign_id: campaignId,
-          persona_id: personaId,
-          link_url: absoluteShareUrl ?? sharePath ?? null,
-        qr_code_image: qrCodeImage,
-      });
+    const shareOrigin = shareSlug ? shareBaseUrl || requestOrigin : null;
+    function normalizeTags(value: unknown): string[] {
+      if (!Array.isArray(value)) {
+        return [];
       }
+      const seen = new Set<string>();
+      const tags: string[] = [];
+      for (const entry of value) {
+        if (typeof entry !== "string") continue;
+        const trimmed = entry.trim();
+        if (trimmed.length === 0) continue;
+        if (seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        tags.push(trimmed);
+      }
+      return tags;
+    }
+    const tagsPayload = normalizeTags(body.tags);
+    const campaignLinkRows: CampaignLinkInsertRow[] = [];
+    async function buildCampaignLinkRow(personaId: string | null, tag?: string | null) {
+      const linkId = randomUUID();
+      const sharePath = shareSlug ? `/campaign/${shareSlug}/${linkId}` : null;
+      const absoluteShareUrl = sharePath && shareOrigin ? `${shareOrigin}${sharePath}` : null;
+      const qrCodeBase64 = absoluteShareUrl ? await generateQrCodeBase64(absoluteShareUrl) : null;
+      const qrCodeImage =
+        qrCodeBase64 && clientId ? await uploadQrCodeImage(clientId, campaignId, linkId, qrCodeBase64) : null;
+      return {
+        id: linkId,
+        campaign_id: campaignId,
+        persona_id: personaId,
+        link_url: absoluteShareUrl ?? sharePath ?? null,
+        qr_code_image: qrCodeImage,
+        tag: tag ?? null,
+      };
+    }
+    for (const personaId of personaIdsPayload) {
+      campaignLinkRows.push(await buildCampaignLinkRow(personaId));
+    }
+    for (const tag of tagsPayload) {
+      campaignLinkRows.push(await buildCampaignLinkRow(null, tag));
+    }
+    if (campaignLinkRows.length > 0) {
       const { error: campaignLinkError } = await supabaseAdmin
         .from("campaign_links")
-        .insert(personaLinkRows);
+        .insert(campaignLinkRows);
       if (campaignLinkError) {
         console.error(
           "[campaigns] failed to insert campaign_links rows",
           campaignLinkError,
-          { campaignId, personaIds: personaIdsPayload, shareSlug }
+          { campaignId, personaIds: personaIdsPayload, tags: tagsPayload, shareSlug }
         );
       }
     }
