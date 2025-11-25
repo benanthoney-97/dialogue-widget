@@ -7782,7 +7782,7 @@ const handleConfirmDeletePersona = useCallback(async () => {
             flex-direction: column;
             gap: 12px;
             min-width: 0;
-            padding-right: 120px;
+            padding-right: 60px;
           }
           .persona-card__title-left--expanded {
             padding-right: 0;
@@ -7799,9 +7799,9 @@ const handleConfirmDeletePersona = useCallback(async () => {
             position: absolute;
             top: 10px;
             right: 12px;
-            width: 100px;
-            height: 100px;
-            border-radius: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
             overflow: hidden;
             background: rgba(248, 250, 252, 0.92);
             display: inline-flex;
@@ -7816,9 +7816,9 @@ const handleConfirmDeletePersona = useCallback(async () => {
             min-width: 56px;
           }
           .persona-card__avatar-inline {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
             overflow: hidden;
             border: 1px solid rgba(15, 23, 42, 0.12);
             background: rgba(248, 250, 252, 0.92);

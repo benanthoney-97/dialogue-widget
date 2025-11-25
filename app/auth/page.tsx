@@ -142,15 +142,15 @@ function AuthPageContent() {
   }, [searchParams]);
 
   const heading = useMemo(
-    () => (mode === "login" ? "Welcome back" : "Create your account"),
+    () => (mode === "login" ? "Log in to your Dialogue account" : "Create your account"),
     [mode]
   );
 
   const subheading = useMemo(
     () =>
-      mode === "login"
-        ? "Sign in with the email you use for Dialogue."
-        : "Enter your details to start collaborating with Dialogue.",
+      mode === "signup"
+        ? "Enter your details to start collaborating with Dialogue."
+        : "",
     [mode]
   );
 
@@ -165,58 +165,22 @@ function AuthPageContent() {
     event.preventDefault();
     if (submitting) return;
     setFeedback(null);
-
-    if (mode === "signup" && password !== confirmPassword) {
-      setFeedback({ type: "error", message: "Passwords do not match." });
-      return;
-    }
-
     setSubmitting(true);
     try {
-      if (mode === "signup") {
-        const origin = typeof window !== "undefined" ? window.location.origin : undefined;
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: origin
-            ? {
-                emailRedirectTo: `${origin}/welcome`,
-              }
-            : undefined,
-        });
-        if (error) throw error;
-        setFeedback({
-          type: "success",
-          message: "Check your inbox to confirm your email before signing in.",
-        });
-        setMode("login");
-        setPassword("");
-        setConfirmPassword("");
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(ONBOARDING_REDIRECT_KEY, "/welcome");
-        }
-      } else {
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        const userId = signInData?.user?.id;
-        if (!userId) {
-          router.replace("/");
-          return;
-        }
-        if (typeof window !== "undefined") {
-          const pending = window.localStorage.getItem(ONBOARDING_REDIRECT_KEY);
-          if (pending) {
-            window.localStorage.removeItem(ONBOARDING_REDIRECT_KEY);
-            router.replace(pending);
-            setFeedback({ type: "success", message: "Signed in successfully." });
-            return;
-          }
-        }
-        const redirectHint = sanitizeRedirectPath(searchParams?.get("redirectTo"));
-        const destination = redirectHint ?? (await resolveDestinationForUser(supabase, userId));
-        router.replace(destination);
-        setFeedback({ type: "success", message: "Signed in successfully." });
-      }
+      const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: origin
+          ? {
+              emailRedirectTo: `${origin}/auth/callback`,
+            }
+          : undefined,
+      });
+      if (error) throw error;
+      setFeedback({
+        type: "success",
+        message: "Check your inbox for the magic link.",
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Something went wrong. Please try again.";
@@ -231,13 +195,36 @@ function AuthPageContent() {
     setConfirmPassword("");
   };
 
+  const handleGoogleSignIn = async () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: origin ? `${origin}/auth/callback` : undefined,
+      },
+    });
+
+    if (error) {
+      console.error("Google sign-in error", error);
+    }
+  };
+
   return (
-    <main className="auth-page">
+    <>
+      <main className="auth-page">
       <div className="auth-card">
-        <div aria-hidden="true" className="auth-card__glow" />
         <div className="auth-card__content">
           <header className="auth-card__header">
-            <h1 className="auth-card__title">{heading}</h1>
+            <h1
+              className="auth-card__title"
+              style={{
+                fontSize: mode === "login" ? "16px" : "clamp(26px, 4vw, 30px)",
+                textAlign: mode === "login" ? "center" : "left",
+              }}
+            >
+              {heading}
+            </h1>
             <p className="auth-card__subtitle">{subheading}</p>
           </header>
 
@@ -250,7 +237,7 @@ function AuthPageContent() {
 
           <form onSubmit={onSubmit} className="auth-form">
             <label className="auth-form__field">
-              <span className="auth-form__label">Email address</span>
+              <span className="auth-form__label">Email</span>
               <input
                 type="email"
                 required
@@ -261,43 +248,15 @@ function AuthPageContent() {
                 className="auth-form__input"
               />
             </label>
-            <label className="auth-form__field">
-              <span className="auth-form__label">Password</span>
-              <input
-                type="password"
-                required
-                value={password}
-                placeholder="••••••••"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                onChange={(event) => setPassword(event.target.value)}
-                className="auth-form__input"
-              />
-            </label>
-            {mode === "signup" && (
-              <label className="auth-form__field">
-                <span className="auth-form__label">Confirm password</span>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="auth-form__input"
-                />
-              </label>
-            )}
-
             <button
               type="submit"
               className="auth-button auth-button--primary"
               disabled={submitting}
               onMouseDown={(event) => event.currentTarget.blur()}
             >
-              {submitting ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
+              {submitting ? "Sending link…" : "Sign in with email"}
             </button>
           </form>
-
           {feedback && (
             <div role="status" className={`auth-feedback auth-feedback--${feedback.type}`}>
               {feedback.message}
@@ -312,7 +271,7 @@ function AuthPageContent() {
           </div>
         </div>
       </div>
-      <style jsx>{`
+    <style jsx>{`
         .auth-page {
           min-height: 100vh;
           display: flex;
@@ -321,10 +280,7 @@ function AuthPageContent() {
           padding: 36px clamp(18px, 4vw, 48px);
           position: relative;
           overflow: hidden;
-          background:
-            radial-gradient(circle at 18% -10%, rgba(169, 198, 255, 0.42) 0%, rgba(244, 248, 255, 0) 40%),
-            radial-gradient(circle at 82% 0%, rgba(132, 180, 255, 0.36) 0%, rgba(244, 248, 255, 0) 38%),
-            linear-gradient(150deg, #f8fbff 0%, #edf4ff 48%, #e1edff 100%);
+        background: #ffffff;
           color: #052033;
           font-family: ${BODY_FONT_STACK};
         }
@@ -355,32 +311,19 @@ function AuthPageContent() {
 
         .auth-card {
           width: min(440px, 100%);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.88) 100%);
+          background: #ffffff;
           border-radius: 28px;
           padding: clamp(30px, 4vw, 42px);
           color: inherit;
-          box-shadow: 0 28px 68px rgba(42, 82, 160, 0.18);
-          border: 1px solid rgba(209, 223, 255, 0.78);
           position: relative;
           overflow: hidden;
-          backdrop-filter: blur(20px);
-        }
-
-        .auth-card__glow {
-          position: absolute;
-          inset: -60% -20% auto auto;
-          width: clamp(200px, 28vw, 280px);
-          height: clamp(200px, 28vw, 280px);
-          background: radial-gradient(circle at center, rgba(132, 180, 255, 0.26) 0%, rgba(132, 180, 255, 0) 70%);
-          transform: rotate(18deg);
-          opacity: 0.9;
         }
 
         .auth-card__content {
           position: relative;
           display: flex;
           flex-direction: column;
-          gap: 32px;
+          gap: 18px;
           z-index: 1;
         }
 
@@ -464,7 +407,7 @@ function AuthPageContent() {
 
         .auth-form__input {
           appearance: none;
-          border-radius: 16px;
+          border-radius: 8px;
           border: 1px solid rgba(178, 199, 240, 0.8);
           background: #ffffff;
           padding: 13px 16px;
@@ -476,6 +419,7 @@ function AuthPageContent() {
 
         .auth-form__input::placeholder {
           color: rgba(107, 132, 176, 0.6);
+          font-size: 13px;
         }
 
         .auth-form__input:focus-visible {
@@ -509,10 +453,11 @@ function AuthPageContent() {
         .auth-button--primary {
           margin-top: 12px;
           padding: 13px 18px;
-          border-radius: 16px;
+          border-radius: 8px;
           background: linear-gradient(135deg, #5c9cff 0%, #2b6cb0 100%);
           color: #f6fbff;
           box-shadow: 0 18px 48px rgba(82, 146, 255, 0.32);
+          font-size: 13px;
         }
 
         .auth-button--primary:not(:disabled):hover,
@@ -525,9 +470,8 @@ function AuthPageContent() {
           padding: 0;
           background: none;
           color: rgba(43, 108, 176, 0.92);
-          text-decoration: underline;
-          text-decoration-thickness: 1.5px;
-          text-underline-offset: 4px;
+          font-size: 13px;
+          text-decoration: none;
         }
 
         .auth-button--link:hover,
@@ -559,9 +503,9 @@ function AuthPageContent() {
 
         .auth-card__helper-row {
           display: flex;
-          justify-content: space-between;
+          justify-content: center;
           align-items: center;
-          gap: 14px;
+          gap: 8px;
         }
 
         .auth-card__helper-text {
@@ -590,6 +534,7 @@ function AuthPageContent() {
         }
       `}</style>
     </main>
+    </>
   );
 }
 
