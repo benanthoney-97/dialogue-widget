@@ -1568,10 +1568,13 @@ export default function CampaignPrepAgent(props: Props) {
                       width: isNarrow ? 128 : 156,
                       height: isNarrow ? 128 : 156,
                       borderRadius: "50%",
-                      objectFit: "cover",
+                      objectFit: "contain",
                       border: "2px solid rgba(11,31,82,0.4)",
                       boxShadow: "0 12px 30px rgba(15,23,42,0.22)",
                       backgroundColor: "rgba(255,255,255,0.92)",
+                      padding: 8,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "center",
                     }}
                   />
                 </div>

@@ -1,15 +1,15 @@
 "use client";
 
-import { KeyboardEvent, MouseEvent, useCallback, useEffect, useState } from "react";
+import { KeyboardEvent, MouseEvent, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { useParams, useRouter } from "next/navigation";
 const responsesIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#091F5B" viewBox="0 0 16 16">
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#091F5B" viewBox="0 0 16 16">
     <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z" />
   </svg>
 );
 const newIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#22325A" viewBox="0 0 16 16">
     <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
     <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
     <path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
@@ -286,6 +286,30 @@ export default function ResultsPage() {
   const [campaignSections, setCampaignSections] = useState<CampaignSection[]>([]);
   const [qrMenuFor, setQrMenuFor] = useState<string | null>(null);
   const [phoneMenuFor, setPhoneMenuFor] = useState<string | null>(null);
+  const [linkMenuFor, setLinkMenuFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent | Event) => {
+      const target = event.target as HTMLElement | null;
+      const shareableMenu = target?.closest(
+        "[data-qr-menu], [data-phone-menu], [data-link-menu], [data-qr-menu-button], [data-phone-menu-button], [data-link-menu-button]"
+      );
+      if (!shareableMenu) {
+        setQrMenuFor(null);
+        setPhoneMenuFor(null);
+        setLinkMenuFor(null);
+      }
+    };
+
+    document.addEventListener("click", handleOutsideClick);
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+    };
+  }, []);
+  const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null);
+  const [copiedQrKey, setCopiedQrKey] = useState<string | null>(null);
+  const [copiedPhoneKey, setCopiedPhoneKey] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<number | null>(null);
   const toggleCard = (title: string) => {
     setOpenCard((prev) => (prev === title ? null : title));
   };
@@ -311,7 +335,7 @@ export default function ResultsPage() {
       ) {
         return;
       }
-      setQrMenuFor(null);
+      // setQrMenuFor(null); // keep dropdown open so "Copied!" is visible
       setPhoneMenuFor(null);
     };
     document.addEventListener("click", closeMenu);
@@ -737,7 +761,7 @@ export default function ResultsPage() {
     } catch (error) {
       console.error("[campaigns page] failed to copy QR code image", error);
     } finally {
-      setQrMenuFor(null);
+      // keep dropdown open until clicked elsewhere
     }
   }, []);
 
@@ -788,6 +812,7 @@ export default function ResultsPage() {
           return;
         }
         const mapped = validCampaigns.map((campaign) => {
+          console.log("[campaigns page] campaign image_url", campaign.id, campaign.image_url);
           const campaignId =
             typeof campaign.id === "string"
               ? campaign.id
@@ -798,7 +823,7 @@ export default function ResultsPage() {
             id: campaignId ?? undefined,
             title: campaign.name ?? "Untitled campaign",
             description: campaign.description ?? "No description yet",
-            imageUrl: campaign.image_url ?? null,
+            imageUrl: campaign.image_url && typeof campaign.image_url === "string" ? campaign.image_url : null,
             objective:
               typeof campaign.objective === "string" && campaign.objective.trim().length > 0
                 ? campaign.objective.trim()
@@ -955,10 +980,10 @@ export default function ResultsPage() {
               className="campaign-card"
               style={{
                 width: "100%",
-                background: "#f8f9ff",
+                background: "transparent",
                 borderRadius: "18px",
-                padding: "32px",
-                boxShadow: "0 18px 40px rgba(15, 23, 42, 0.08)",
+                padding: "20px",
+                boxShadow: "none",
                 border: "1px solid rgba(15, 23, 42, 0.08)",
                 display: "flex",
                 flexDirection: "column",
@@ -993,44 +1018,56 @@ export default function ResultsPage() {
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: "16px",
+                    flexDirection: "column",
+                    gap: "4px",
                     flex: columnFlex,
                     minWidth: 0,
                   }}
                 >
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      boxShadow: "0 8px 18px rgba(15, 23, 42, 0.18)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
                     }}
                   >
-                    <Image
-                      src={container.imageUrl ?? FALLBACK_CAMPAIGN_IMAGE}
-                      width={48}
-                      height={48}
-                      alt={container.title}
-                      unoptimized
-                      priority
-                    />
+                    <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>{container.title}</h2>
+                    {container.imageUrl ? (
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 8,
+                          overflow: "hidden",
+                          boxShadow: "0 6px 14px rgba(15, 23, 42, 0.12)",
+                          flexShrink: 0,
+                        }}
+                      >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          backgroundImage: `url(${container.imageUrl})`,
+                          backgroundSize: "contain",
+                          backgroundPosition: "center",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                        aria-label={container.title}
+                      />
+                      </div>
+                    ) : null}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 700 }}>{container.title}</h2>
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "rgba(15, 23, 42, 0.7)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {container.description}
-                    </span>
-                  </div>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(15, 23, 42, 0.7)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {container.description}
+                  </span>
                 </div>
                 <div
                   style={{
@@ -1064,12 +1101,12 @@ export default function ResultsPage() {
                         }}
                       >
                         {metric.icon}
-                        <span
-                          style={{
-                            fontSize: "16px",
-                            fontWeight: 700,
-                            color: "#091F5B",
-                          }}
+                      <span
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: "#091F5B",
+                        }}
                         >
                           {metric.value}
                         </span>
@@ -1126,18 +1163,51 @@ export default function ResultsPage() {
                     minWidth: 0,
                   }}
                 >
-                  <button
-                    type="button"
-                    style={{
-                      border: "none",
+                                                    <button
+                                                      type="button"
+                                                      style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "8px 18px",
                       borderRadius: "999px",
-                      padding: "6px 16px",
-                      background: "rgba(15, 23, 42, 0.08)",
-                      color: "#0f172a",
-                      fontSize: "12px",
-                      fontWeight: 600,
+                      border: "1px solid rgba(255, 255, 255, 0.4)",
+                      background: "#1e293b",
+                      color: "#ffffff",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      fontFamily: "var(--font-heading, var(--font-body))",
+                      textDecoration: "none",
+                      transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s, background 0.2s",
+                      boxShadow: "none",
+                      transform: "none",
+                      outline: "none",
                       cursor: "pointer",
-                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.7)";
+                      event.currentTarget.style.background = "#15203b";
+                      event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.3)";
+                      event.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.4)";
+                      event.currentTarget.style.background = "#1e293b";
+                      event.currentTarget.style.boxShadow = "none";
+                      event.currentTarget.style.transform = "none";
+                    }}
+                    onFocus={(event) => {
+                      event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.7)";
+                      event.currentTarget.style.background = "#15203b";
+                      event.currentTarget.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.3)";
+                      event.currentTarget.style.transform = "translateY(-1px)";
+                      event.currentTarget.style.outline = "none";
+                    }}
+                    onBlur={(event) => {
+                      event.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.4)";
+                      event.currentTarget.style.background = "#1e293b";
+                      event.currentTarget.style.boxShadow = "none";
+                      event.currentTarget.style.transform = "none";
                     }}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -1273,30 +1343,115 @@ export default function ResultsPage() {
                                         const publicPath = buildCampaignPublicPath(clientSlug, shareSlug);
                                         const disabled = !publicPath;
                                         return (
-                                          <button
-                                            key={`${entry.id}-${action.key}`}
-                                            type="button"
-                                            title={action.label}
-                                            aria-label={`${action.label} for ${container.title}`}
-                                            aria-disabled={disabled}
-                                            style={{
-                                              ...sharedStyle,
-                                              cursor: disabled ? "not-allowed" : "pointer",
-                                              opacity: disabled ? 0.6 : 1,
-                                            }}
-                                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
-                                              preventCardToggle(event);
-                                              if (!publicPath || disabled) {
-                                                console.warn("[campaigns page] missing public campaign path for share link action");
-                                                return;
-                                              }
-                                              router.push(publicPath);
-                                            }}
-                                          >
-                                            {action.icon}
-                                          </button>
-                                        );
-                                      }
+                                            <div
+                                              key={`${entry.id}-${action.key}`}
+                                              style={{ position: "relative", display: "inline-flex" }}
+                                            >
+                                              <button
+                                                type="button"
+                                                title={action.label}
+                                                aria-label={`${action.label} for ${container.title}`}
+                                                aria-controls={`link-menu-${personaMenuKey}`}
+                                                aria-expanded={linkMenuFor === personaMenuKey}
+                                                data-link-menu-button
+                                                style={{
+                                                  ...sharedStyle,
+                                                  cursor: publicPath ? "pointer" : "not-allowed",
+                                                  opacity: publicPath ? 1 : 0.5,
+                                                }}
+                                                onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                                                  preventCardToggle(event);
+                                                  if (!publicPath) {
+                                                    console.warn("[campaigns page] missing public campaign path for share link action");
+                                                    return;
+                                                  }
+                                                setQrMenuFor(null);
+                                                setPhoneMenuFor(null);
+                                                setLinkMenuFor((prev) =>
+                                                  prev === personaMenuKey ? null : personaMenuKey
+                                                );
+                                                }}
+                                              >
+                                              {action.icon}
+                                            </button>
+                                              {linkMenuFor === personaMenuKey && publicPath && (
+                                                <div
+                                                  id={`link-menu-${personaMenuKey}`}
+                                                  data-link-menu
+                                                  style={{
+                                                    position: "absolute",
+                                                    top: "calc(100% + 6px)",
+                                                    right: 0,
+                                                    background: "#fff",
+                                                    borderRadius: 12,
+                                                    boxShadow: "0 10px 25px rgba(15,23,42,0.2)",
+                                                    border: "1px solid rgba(15,23,42,0.08)",
+                                                    padding: "8px",
+                                                    minWidth: 160,
+                                                    zIndex: 20,
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: "4px",
+                                                  }}
+                                                >
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      textAlign: "left",
+                                                      padding: "6px 8px",
+                                                      borderRadius: 8,
+                                                      cursor: "pointer",
+                                                      fontSize: 13,
+                                                    }}
+                                                    onClick={(event) => {
+                                                      preventCardToggle(event);
+                                                      setLinkMenuFor(null);
+                                                      if (publicPath) {
+                                                        window.open(`${window.location.origin}${publicPath}`, "_blank", "noreferrer");
+                                                      }
+                                                    }}
+                                                  >
+                                                    Test URL
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      textAlign: "left",
+                                                      padding: "6px 8px",
+                                                      borderRadius: 8,
+                                                      cursor: "pointer",
+                                                      fontSize: 13,
+                                                    }}
+                                                    onClick={async (event) => {
+                                                      preventCardToggle(event);
+                                                      if (navigator && navigator.clipboard && publicPath) {
+                                                        try {
+                                                          const fullUrl = `${window.location.origin}${publicPath}`;
+                                                          await navigator.clipboard.writeText(fullUrl);
+                                                          setCopiedLinkKey(personaMenuKey);
+                                                          if (copyTimeoutRef.current) {
+                                                            window.clearTimeout(copyTimeoutRef.current);
+                                                          }
+                                                          copyTimeoutRef.current = window.setTimeout(() => {
+                                                            setCopiedLinkKey(null);
+                                                          }, 2000);
+                                                        } catch (copyErr) {
+                                                          console.error("[campaigns page] failed to copy share URL", copyErr);
+                                                        }
+                                                      }
+                                                    }}
+                                                  >
+                                                    {copiedLinkKey === personaMenuKey ? "Copied!" : "Copy URL"}
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        }
 
                                       if (action.key === "qr") {
                                         return (
@@ -1304,16 +1459,16 @@ export default function ResultsPage() {
                                             key={`${entry.id}-${action.key}`}
                                             style={{ position: "relative", display: "inline-flex" }}
                                           >
-                                            <button
-                                              type="button"
-                                              title={action.label}
-                                              aria-label={action.label}
-                                              aria-controls={`qr-menu-${personaMenuKey}`}
-                                              aria-expanded={qrMenuFor === personaMenuKey}
-                                              disabled={!qrAvailable}
-                                              data-qr-menu-button
-                                              style={{
-                                                ...sharedStyle,
+                                                    <button
+                                                      type="button"
+                                                      title={action.label}
+                                                      aria-label={action.label}
+                                                      aria-controls={`qr-menu-${personaMenuKey}`}
+                                                      aria-expanded={qrMenuFor === personaMenuKey}
+                                                      disabled={!qrAvailable}
+                                                      data-qr-menu-button
+                                                      style={{
+                                                        ...sharedStyle,
                                                 cursor: qrAvailable ? "pointer" : "not-allowed",
                                                 opacity: qrAvailable ? 1 : 0.5,
                                               }}
@@ -1323,15 +1478,17 @@ export default function ResultsPage() {
                                                 if (!qrAvailable) {
                                                   return;
                                                 }
+                                                setLinkMenuFor(null);
+                                                setPhoneMenuFor(null);
                                                 setQrMenuFor((prev) =>
                                                   prev === personaMenuKey ? null : personaMenuKey
                                                 );
                                               }}
-                                            >
-                                              {action.icon}
-                                            </button>
-                                            {qrMenuFor === personaMenuKey && qrAvailable && (
-                                              <div
+                                                    >
+                                                      {action.icon}
+                                                    </button>
+                                                    {qrMenuFor === personaMenuKey && qrAvailable && (
+                                                      <div
                                                 id={`qr-menu-${personaMenuKey}`}
                                                 data-qr-menu
                                                 style={{
@@ -1348,10 +1505,32 @@ export default function ResultsPage() {
                                                   display: "flex",
                                                   flexDirection: "column",
                                                   gap: "4px",
-                                                }}
-                                              >
-                                                <button
-                                                  type="button"
+                                                        }}
+                                                      >
+                                                        <button
+                                                          type="button"
+                                                          style={{
+                                                            border: "none",
+                                                            background: "transparent",
+                                                            textAlign: "left",
+                                                            padding: "6px 8px",
+                                                            borderRadius: 8,
+                                                            cursor: "pointer",
+                                                            fontSize: 13,
+                                                          }}
+                                                          onClick={(event) => {
+                                                            preventCardToggle(event);
+                                                            setCopiedQrKey(null);
+                                                            handleDownloadQr(
+                                                              entry.qrCodeUrl ?? "",
+                                                              `${entry.linkId ?? entry.id ?? "qr"}-code.png`
+                                                            );
+                                                          }}
+                                                        >
+                                                          Download Image
+                                                        </button>
+                                                        <button
+                                                          type="button"
                                                   style={{
                                                     border: "none",
                                                     background: "transparent",
@@ -1361,32 +1540,24 @@ export default function ResultsPage() {
                                                     cursor: "pointer",
                                                     fontSize: 13,
                                                   }}
-                                                  onClick={() =>
-                                                    handleDownloadQr(
-                                                      entry.qrCodeUrl ?? "",
-                                                      `${entry.linkId ?? entry.id ?? "qr"}-code.png`
-                                                    )
-                                                  }
-                                                >
-                                                  Download Image
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  style={{
-                                                    border: "none",
-                                                    background: "transparent",
-                                                    textAlign: "left",
-                                                    padding: "6px 8px",
-                                                    borderRadius: 8,
-                                                    cursor: "pointer",
-                                                    fontSize: 13,
-                                                  }}
-                                                  onClick={() => handleCopyQr(entry.qrCodeUrl ?? "")}
-                                                >
-                                                  Copy Image
-                                                </button>
-                                              </div>
-                                            )}
+                                                          onClick={async (event) => {
+                                                            event.stopPropagation();
+                                                            preventCardToggle(event);
+                                                            handleCopyQr(entry.qrCodeUrl ?? "");
+                                                            setCopiedQrKey(personaMenuKey);
+                                                            setQrMenuFor(personaMenuKey);
+                                                            if (copyTimeoutRef.current) {
+                                                              window.clearTimeout(copyTimeoutRef.current);
+                                                            }
+                                                            copyTimeoutRef.current = window.setTimeout(() => {
+                                                              setCopiedQrKey(null);
+                                                            }, 2000);
+                                                          }}
+                                                        >
+                                                          {copiedQrKey === personaMenuKey ? "Copied!" : "Copy Image"}
+                                                        </button>
+                                                      </div>
+                                                    )}
                                           </div>
                                         );
                                       }
@@ -1417,6 +1588,8 @@ export default function ResultsPage() {
                                                 if (!phoneAvailable) {
                                                   return;
                                                 }
+                                                setLinkMenuFor(null);
+                                                setQrMenuFor(null);
                                                 setPhoneMenuFor((prev) =>
                                                   prev === personaMenuKey ? null : personaMenuKey
                                                 );
@@ -1455,33 +1628,44 @@ export default function ResultsPage() {
                                                     cursor: "pointer",
                                                     fontSize: 13,
                                                   }}
-                                                  onClick={() =>
-                                                    handleTestCall({
-                                                      linkId: entry.linkId ?? undefined,
-                                                    })
-                                                  }
+                                                  onClick={(event) => {
+                                                    preventCardToggle(event);
+                                                    const shareSlug = entry.linkId ?? undefined;
+                                                    if (!shareSlug || !clientSlug) return;
+                                                    const url = `${window.location.origin}/campaign/${clientSlug}/${shareSlug}/call`;
+                                                    window.open(url, "_blank", "noreferrer");
+                                                  }}
                                                 >
                                                   Test call
                                                 </button>
-                                                <button
-                                                  type="button"
-                                                  style={{
-                                                    border: "none",
-                                                    background: "transparent",
-                                                    textAlign: "left",
-                                                    padding: "6px 8px",
-                                                    borderRadius: 8,
-                                                    cursor: "pointer",
-                                                    fontSize: 13,
-                                                  }}
-                                                  onClick={() =>
-                                                    handleCopyPhoneNumber({
-                                                      linkId: entry.linkId,
-                                                    })
-                                                  }
-                                                >
-                                                  Copy call link
-                                                </button>
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      textAlign: "left",
+                                                      padding: "6px 8px",
+                                                      borderRadius: 8,
+                                                      cursor: "pointer",
+                                                      fontSize: 13,
+                                                    }}
+                                                    onClick={async (event) => {
+                                                      preventCardToggle(event);
+                                                      handleCopyPhoneNumber({
+                                                        linkId: entry.linkId,
+                                                      });
+                                                      setCopiedPhoneKey(personaMenuKey);
+                                                      setPhoneMenuFor(personaMenuKey);
+                                                      if (copyTimeoutRef.current) {
+                                                        window.clearTimeout(copyTimeoutRef.current);
+                                                      }
+                                                      copyTimeoutRef.current = window.setTimeout(() => {
+                                                        setCopiedPhoneKey(null);
+                                                      }, 2000);
+                                                    }}
+                                                  >
+                                                    {copiedPhoneKey === personaMenuKey ? "Copied!" : "Copy call link"}
+                                                  </button>
                                               </div>
                                             )}
                                           </div>

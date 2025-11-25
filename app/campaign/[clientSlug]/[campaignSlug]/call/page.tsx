@@ -74,11 +74,6 @@ export default async function CampaignCallPage({ params }: { params: PageParams 
         campaignMeta={campaignMeta}
         documentMarkdowns={documents}
       />
-      <footer style={footerStyle}>
-        <Link href={`/campaign/${clientSlug}/${campaignSlug}`} style={backLinkStyle}>
-          Back to campaign
-        </Link>
-      </footer>
     </div>
   );
 }

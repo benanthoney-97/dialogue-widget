@@ -69,8 +69,16 @@ export default function CallForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <label htmlFor="call-phone" style={labelStyle}>
-        Your phone number
+      <label
+        htmlFor="call-phone"
+        style={{
+          ...labelStyle,
+          width: "100%",
+          textAlign: "center",
+          display: "block",
+        }}
+      >
+        Enter your number and we&apos;ll call you
       </label>
       <input
         id="call-phone"
