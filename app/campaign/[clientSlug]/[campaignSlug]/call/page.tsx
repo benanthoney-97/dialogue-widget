@@ -67,12 +67,7 @@ export default async function CampaignCallPage({ params }: { params: PageParams 
 
   return (
     <div style={containerStyle}>
-      <header style={headerStyle}>
-        <h1 style={titleStyle}>Call me on this number</h1>
-        <p style={subtitleStyle}>
-          We’ll call you from our shared agent number and route the conversation to the right persona.
-        </p>
-      </header>
+
       <CallForm
         campaignLinkId={linkRow.id}
         campaignId={linkRow.campaign_id}

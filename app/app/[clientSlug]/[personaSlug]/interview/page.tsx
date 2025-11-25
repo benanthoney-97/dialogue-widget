@@ -16,18 +16,16 @@ type PageParams = {
 type AgentRow = {
   agent_id: string;
   agent_name: string | null;
+  key: string | null;
   description: string | null;
-  content_type: string | null;
   dialogue_created_date: string | null;
   status: string | null;
   key_traits: unknown;
   key_pain_points: unknown;
-  age: string | number | null;
-  gender: string | null;
-  location: string | null;
   customer_status: string | null;
   profile_image: string | null;
   talk_label: string | null;
+  active_status: boolean | null;
 };
 
 type PersonaDetails = {
@@ -158,6 +156,16 @@ async function resolveClientBySlug(
   supabase: Supabase,
   clientSlug: string
 ): Promise<ClientLookup | null> {
+  const trimmed = clientSlug.trim();
+  if (trimmed.length === 36 && /^[0-9a-fA-F-]{36}$/.test(trimmed)) {
+    const { data } = await supabase
+      .from("clients")
+      .select("id, name, display_name")
+      .eq("id", trimmed)
+      .maybeSingle<ClientRow>();
+    if (data) return { clientId: data.id, displayName: data.display_name };
+  }
+
   const direct = await supabase
     .from("clients")
     .select("id, name, display_name")
@@ -187,40 +195,57 @@ async function fetchPersonaBySlug(
   clientId: number,
   personaSlug: string
 ): Promise<PersonaDetails | null> {
-  const { data, error } = await supabase
+  const columns =
+    "agent_id, agent_name, key, description, dialogue_created_date, status, key_traits, key_pain_points, customer_status, profile_image, talk_label, active_status";
+  const direct = await supabase
     .from("agent_map")
-    .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, age, gender, location, customer_status, profile_image, talk_label"
-    )
-    .eq("client_id", clientId);
+    .select(columns)
+    .eq("client_id", clientId)
+    .eq("key", personaSlug)
+    .maybeSingle<AgentRow>();
 
-  if (error) {
+  if (direct.data && direct.data.active_status && (direct.data.status ?? "").toLowerCase() === "ready") {
+    return mapAgentRowToPersona(direct.data);
+  }
+
+  const { data } = await supabase
+    .from("agent_map")
+    .select(columns)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true })
+    .returns<AgentRow[]>();
+
+  if (!data) {
     return null;
   }
 
-  const target = (data ?? []).find((row) => buildPersonaSlug(row) === personaSlug);
-
-  if (!target) {
-    return null;
+  const slugCounts = new Map<string, number>();
+  for (const row of data) {
+    if ((row.status ?? "").toLowerCase() !== "ready" || !row.active_status) continue;
+    const baseSlug = buildPersonaSlug(row);
+    const count = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, count + 1);
+    const candidate = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+    if (candidate === personaSlug) {
+      return mapAgentRowToPersona(row);
+    }
   }
 
-  if ((target.status ?? "").toLowerCase() !== "ready") {
-    return null;
-  }
-
-  return mapAgentRowToPersona(target);
+  return null;
 }
 
 function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
+  const traits = normalizeList(row.key_traits);
+  const pains = normalizeList(row.key_pain_points);
   return {
     agentId: row.agent_id,
-    slug: buildPersonaSlug(row),
+    slug: row.key ?? buildPersonaSlug(row),
     name: row.agent_name?.trim() || "Untitled persona",
     description: row.description,
-    contentType: row.content_type?.trim() || null,
+    contentType: null,
     updatedAt: row.dialogue_created_date,
-    keyTraits: normalizeList(row.key_traits),
-    painPoints: normalizeList(row.key_pain_points),
+    keyTraits: traits,
+    painPoints: pains,
     attributes: buildAttributes(row),
     profileImage:
       typeof row.profile_image === "string" && row.profile_image.trim().length > 0
@@ -230,7 +255,11 @@ function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
   };
 }
 
-function buildPersonaSlug(row: { agent_id: string; agent_name: string | null }): string {
+function buildPersonaSlug(row: AgentRow): string {
+  const keySlug = row.key?.trim();
+  if (keySlug && keySlug.length > 0) {
+    return slugify(keySlug);
+  }
   const name = row.agent_name?.trim();
   if (name && name.length > 0) {
     return slugify(name);
@@ -255,14 +284,8 @@ function normalizeList(source: unknown): string[] {
 
 function buildAttributes(row: AgentRow): Array<{ label: string; value: string }> {
   const attributes: Array<{ label: string; value: string }> = [];
-  const ageValue = row.age != null ? `${row.age}`.trim() : "";
-  const genderValue = row.gender?.trim() ?? "";
-  const locationValue = row.location?.trim() ?? "";
   const statusValue = row.customer_status?.trim() ?? "";
 
-  if (ageValue) attributes.push({ label: "Age", value: ageValue });
-  if (genderValue) attributes.push({ label: "Gender", value: genderValue });
-  if (locationValue) attributes.push({ label: "Location", value: locationValue });
   if (statusValue) attributes.push({ label: "Customer status", value: statusValue });
 
   return attributes;
@@ -275,8 +298,9 @@ async function fetchOtherPersonaSummaries(
 ): Promise<PersonaPreview[]> {
   const { data, error } = await supabase
     .from("agent_map")
-    .select("agent_id, agent_name, profile_image, status")
-    .eq("client_id", clientId);
+    .select("agent_id, agent_name, profile_image, status, key")
+    .eq("client_id", clientId)
+    .returns<{ agent_id: string; agent_name: string | null; profile_image: string | null; status: string | null; key: string | null }[]>();
 
   if (error) {
     return [];
@@ -285,13 +309,29 @@ async function fetchOtherPersonaSummaries(
   return (data ?? [])
     .filter((row) => (row.status ?? "").toLowerCase() === "ready")
     .filter((row) => row.agent_id !== excludeAgentId)
-    .map((row) => ({
-      id: row.agent_id,
-      slug: buildPersonaSlug(row),
-      name: row.agent_name?.trim() || "Untitled persona",
-      profileImage:
-        typeof row.profile_image === "string" && row.profile_image.trim().length > 0
-          ? row.profile_image.trim()
-          : null,
-    }));
+    .map((row) => {
+      const agentRow: AgentRow = {
+        agent_id: row.agent_id,
+        agent_name: row.agent_name,
+        key: row.key ?? null,
+        description: null,
+        dialogue_created_date: null,
+        status: row.status,
+        key_traits: null,
+        key_pain_points: null,
+        customer_status: null,
+        profile_image: row.profile_image,
+        talk_label: null,
+        active_status: row.status?.toLowerCase() === "ready" ? true : null,
+      };
+      return {
+        id: row.agent_id,
+        slug: buildPersonaSlug(agentRow),
+        name: row.agent_name?.trim() || "Untitled persona",
+        profileImage:
+          typeof row.profile_image === "string" && row.profile_image.trim().length > 0
+            ? row.profile_image.trim()
+            : null,
+      };
+    });
 }

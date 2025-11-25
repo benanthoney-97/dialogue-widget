@@ -16,6 +16,7 @@ type PageParams = {
 type AgentRow = {
   agent_id: string;
   agent_name: string | null;
+  key: string | null;
   description: string | null;
   content_type: string | null;
   dialogue_created_date: string | null;
@@ -28,6 +29,7 @@ type AgentRow = {
   location: string | null;
   customer_status: string | null;
   profile_image: string | null;
+  active_status: boolean | null;
 };
 
 type PersonaDetails = {
@@ -185,6 +187,16 @@ async function resolveClientBySlug(
   supabase: Supabase,
   clientSlug: string
 ): Promise<ClientLookup | null> {
+  const trimmed = clientSlug.trim();
+  if (trimmed.length === 36 && /^[0-9a-fA-F-]{36}$/.test(trimmed)) {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, name, display_name")
+      .eq("id", trimmed)
+      .maybeSingle<ClientRow>();
+    if (data) return { clientId: data.id, displayName: data.display_name };
+  }
+
   const direct = await supabase
     .from("clients")
     .select("id, name, display_name")
@@ -214,62 +226,85 @@ async function fetchPersonaBySlug(
   clientId: number,
   personaSlug: string
 ): Promise<PersonaDetails | null> {
-  const { data, error } = await supabase
+  console.log("[chat] fetchPersonaBySlug start", { clientId, personaSlug });
+  const columns =
+    "agent_id, agent_name, key, description, dialogue_created_date, status, key_traits, key_pain_points, customer_status, profile_image, active_status";
+  const direct = await supabase
+    .from("agent_map")
+    .select(columns)
+    .eq("client_id", clientId)
+    .eq("key", personaSlug)
+    .maybeSingle<AgentRow>();
+
+  if (direct.data && direct.data.active_status && (direct.data.status ?? "").toLowerCase() === "ready") {
+    console.log("[chat] persona direct match", { personaSlug, agentId: direct.data.agent_id });
+    return mapAgentRowToPersona(direct.data);
+  }
+
+  console.log("[chat] fetchPersonaBySlug fallback query", {
+    clientId,
+    personaSlug,
+    select: columns,
+  });
+  const { data } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, intent_signals, age, gender, location, customer_status, profile_image"
+    columns
     )
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true })
+    .returns<AgentRow[]>();
 
-  if (error) {
+  if (!data) {
     return null;
   }
 
-  const target = (data ?? []).find((row) => {
-    const name = row.agent_name?.trim();
-    if (!name) return false;
-    return slugify(name) === personaSlug;
-  });
-
-  if (!target) {
-    return null;
+  const slugCounts = new Map<string, number>();
+  for (const row of data) {
+    if ((row.status ?? "").toLowerCase() !== "ready" || !row.active_status) continue;
+    const baseSlug = buildPersonaSlug(row);
+    const count = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, count + 1);
+    const candidate = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+    if (candidate === personaSlug) {
+      console.log("[chat] persona fallback match", { personaSlug, agentId: row.agent_id });
+      return mapAgentRowToPersona(row);
+    }
   }
 
-  if ((target.status ?? "").toLowerCase() !== "ready") {
-    return null;
-  }
-
-  return mapAgentRowToPersona(target);
+  console.log("[chat] persona slug fallback not matched", { personaSlug });
+  return null;
 }
 
-function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
-  const slug = buildPersonaSlug(row);
-  return {
-    agentId: row.agent_id,
-    slug,
-    name: row.agent_name?.trim() || "Untitled persona",
-    description: row.description,
-    contentType: row.content_type?.trim() || null,
-    updatedAt: row.dialogue_created_date,
-    keyTraits: normalizeList(row.key_traits),
-    painPoints: normalizeList(row.key_pain_points),
-    intentSignals: normalizeList(row.intent_signals),
-    customerStatus: typeof row.customer_status === "string" && row.customer_status.trim().length > 0
-      ? row.customer_status.trim()
-      : null,
-    profileImage:
-      typeof row.profile_image === "string" && row.profile_image.trim().length > 0
-        ? row.profile_image.trim()
-        : null,
-  };
-}
-
-function buildPersonaSlug(row: { agent_id: string; agent_name: string | null }): string {
+function buildPersonaSlug(row: AgentRow): string {
+  const keySlug = row.key?.trim();
+  if (keySlug && keySlug.length > 0) {
+    return slugify(keySlug);
+  }
   const name = row.agent_name?.trim();
   if (name && name.length > 0) {
     return slugify(name);
   }
   return slugify(row.agent_id);
+}
+
+function mapAgentRowToPersona(row: AgentRow): PersonaDetails {
+  const traits = Array.isArray(row.key_traits) ? row.key_traits.filter((item): item is string => Boolean(item?.toString())) : [];
+  const pains = Array.isArray(row.key_pain_points) ? row.key_pain_points.filter((item): item is string => Boolean(item?.toString())) : [];
+  const signals = Array.isArray(row.intent_signals) ? row.intent_signals.filter((item): item is string => Boolean(item?.toString())) : [];
+  return {
+    agentId: row.agent_id,
+    slug: row.key ?? buildPersonaSlug(row),
+    name: row.agent_name?.trim() || "Persona",
+    description: row.description,
+    contentType: row.content_type?.trim() || null,
+    updatedAt: row.dialogue_created_date,
+    keyTraits: traits,
+    painPoints: pains,
+    intentSignals: signals,
+    customerStatus: typeof row.customer_status === "string" && row.customer_status.trim().length > 0 ? row.customer_status.trim() : null,
+    profileImage: typeof row.profile_image === "string" && row.profile_image.trim().length > 0 ? row.profile_image.trim() : null,
+  };
 }
 
 async function fetchOtherPersonaSummaries(
@@ -279,7 +314,7 @@ async function fetchOtherPersonaSummaries(
 ): Promise<PersonaPreview[]> {
   const { data, error } = await supabase
     .from("agent_map")
-    .select("agent_id, agent_name, profile_image, status")
+    .select("agent_id, agent_name, profile_image, status, key")
     .eq("client_id", clientId);
 
   if (error) {
@@ -291,7 +326,24 @@ async function fetchOtherPersonaSummaries(
     .filter((row) => row.agent_id !== excludeAgentId)
     .map((row) => ({
       id: row.agent_id,
-      slug: buildPersonaSlug(row),
+      slug: buildPersonaSlug({
+        agent_id: row.agent_id,
+        agent_name: row.agent_name,
+        key: row.key ?? null,
+        description: null,
+        content_type: null,
+        dialogue_created_date: null,
+        status: row.status,
+        key_traits: null,
+        key_pain_points: null,
+        intent_signals: null,
+        age: null,
+        gender: null,
+        location: null,
+        customer_status: null,
+        profile_image: row.profile_image,
+        active_status: row.status?.toLowerCase() === "ready" ? true : null,
+      }),
       name: row.agent_name?.trim() || "Untitled persona",
       profileImage:
         typeof row.profile_image === "string" && row.profile_image.trim().length > 0

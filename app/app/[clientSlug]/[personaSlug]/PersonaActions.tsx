@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import SimulateOverlayContent from "@/app/components/SimulateOverlayContent";
+import ChatIcon from "@/app/components/personas/ChatIcon";
 
 type PersonaActionsProps = {
   clientSlug: string;
@@ -27,28 +28,17 @@ export default function PersonaActions({ clientSlug, personaSlug, personaName, p
     {
       label: "Chat",
       href: `/app/${clientSlug}/${personaSlug}/chat`,
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="12" r="7" fill="#7dd3fc" />
-          <rect x="9" y="18" width="14" height="7" rx="3.5" fill="#38bdf8" />
-          <path d="M16 25L12 29H20L16 25Z" fill="#0ea5e9" />
-        </svg>
-      ),
+      icon: <ChatIcon />,
     },
     {
       label: "Interview",
       href: `/app/${clientSlug}/${personaSlug}/interview`,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="12" y="4" width="8" height="18" rx="4" fill="#e9d5ff" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#FFFFFF" viewBox="0 0 16 16">
           <path
-            d="M10 14C10 18.4183 13.5817 22 18 22C22.4183 22 26 18.4183 26 14"
-            stroke="#c084fc"
-            strokeWidth="2"
-            strokeLinecap="round"
+            fillRule="evenodd"
+            d="M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5"
           />
-          <rect x="14" y="23" width="4" height="5" rx="1.6" fill="#a855f7" />
-          <rect x="10" y="28" width="12" height="2" rx="1" fill="#7c3aed" />
         </svg>
       ),
     },
@@ -69,6 +59,10 @@ export default function PersonaActions({ clientSlug, personaSlug, personaName, p
       ),
     },
   ];
+
+  useEffect(() => {
+    console.log("[persona actions] mounted", { clientSlug, personaSlug, personaName, personaId, clientId });
+  }, [clientId, clientSlug, personaId, personaName, personaSlug]);
 
   return (
     <>

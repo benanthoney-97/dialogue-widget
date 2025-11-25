@@ -492,9 +492,18 @@ function buildPersonaTraits(persona: PersonaRow): PersonaTrait[] {
 }
 
 function buildPersonaSlug(persona: PersonaRow): string | null {
+  const keySlug = persona.key?.trim();
+  if (keySlug?.length) {
+    return slugify(keySlug);
+  }
   const name = persona.agent_name?.trim();
-  if (!name) return null;
-  return slugify(name);
+  if (name?.length) {
+    return slugify(name);
+  }
+  if (persona.agent_id) {
+    return slugify(persona.agent_id);
+  }
+  return null;
 }
 
 function decodeStorageFileName(path: string | null): string | null {

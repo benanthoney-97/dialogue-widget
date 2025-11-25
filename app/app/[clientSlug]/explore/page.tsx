@@ -14,6 +14,7 @@ type ClientRow = {
 type PersonaRow = {
   agent_id: string;
   agent_name: string | null;
+  key: string | null;
   description: string | null;
   dialogue_created_date: string | null;
   status: string | null;
@@ -56,6 +57,10 @@ function buildAttributes(row: PersonaRow): Array<{ label: string; value: string 
 }
 
 function buildPersonaSlug(row: PersonaRow): string {
+  const keySlug = row.key ? slugify(row.key) : "";
+  if (keySlug.length > 0) {
+    return keySlug;
+  }
   const nameSlug = row.agent_name ? slugify(row.agent_name) : "";
   if (nameSlug.length > 0) {
     return nameSlug;
@@ -97,15 +102,16 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
     slugCounts.set(baseSlug, count + 1);
     const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
 
-    return {
-      id: row.agent_id,
-      slug,
-      name: row.agent_name?.trim().length ? row.agent_name.trim() : "Untitled persona",
-      description: row.description,
-      keyTraits: normalizeKeyTraits(row.key_traits),
-      painPoints: normalizeKeyTraits(row.key_pain_points),
-      updatedAt: row.dialogue_created_date,
-      attributes: buildAttributes(row),
+      return {
+        id: row.agent_id,
+        slug,
+        name: row.agent_name?.trim().length ? row.agent_name.trim() : "Untitled persona",
+        description: row.description,
+        keyTraits: normalizeKeyTraits(row.key_traits),
+        painPoints: normalizeKeyTraits(row.key_pain_points),
+        contentType: null,
+        updatedAt: row.dialogue_created_date,
+        attributes: buildAttributes(row),
       profileImage:
         typeof row.profile_image === "string" && row.profile_image.trim().length > 0
           ? row.profile_image.trim()
@@ -170,7 +176,7 @@ export default async function ExplorePage({
   const { data: personaRows, error } = await supabase
     .from("agent_map")
     .select(
-      "agent_id, agent_name, description, dialogue_created_date, status, key_traits, key_pain_points, customer_status, profile_image, role_title, active_status"
+      "agent_id, agent_name, key, description, dialogue_created_date, status, key_traits, key_pain_points, customer_status, profile_image, role_title, active_status"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });

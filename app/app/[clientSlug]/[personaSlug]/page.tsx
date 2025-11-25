@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import PersonaDescription from "@/app/components/personas/PersonaDescription";
+import PersonaExpandableList from "@/app/components/personas/PersonaExpandableList";
 import PersonaActionsMenu from "@/app/components/personas/PersonaActionsMenu";
 import PersonaActions from "@/app/app/[clientSlug]/[personaSlug]/PersonaActions";
 import { slugify } from "@/app/lib/jump";
@@ -37,6 +38,8 @@ type PersonaDetailPageProps = {
   params: Promise<{ clientSlug: string; personaSlug: string }>;
 };
 
+type Supabase = SupabaseClient<any, "public", any>;
+
 type ClientRow = {
   id: number;
   name: string | null;
@@ -46,20 +49,24 @@ type ClientRow = {
 type PersonaRow = {
   agent_id: string;
   agent_name: string | null;
+  key: string | null;
   description: string | null;
-  content_type: string | null;
   dialogue_created_date: string | null;
   status: string | null;
   key_traits: unknown;
   key_pain_points: unknown;
-  age: string | number | null;
-  gender: string | null;
-  location: string | null;
+  jobs_to_be_done: unknown;
   customer_status: string | null;
   profile_image: string | null;
   role_title: string | null;
-  jobs_to_be_done: unknown;
+  active_status: boolean | null;
 };
+
+const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value.trim());
+}
 
 type PersonaSummary = {
   id: string;
@@ -82,6 +89,17 @@ type SuggestedQuestionRow = {
 
 async function resolveClientId(supabaseUrl: string, supabaseAnonKey: string, clientSlug: string): Promise<number | null> {
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (isUuid(clientSlug)) {
+    const byId = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", clientSlug)
+      .maybeSingle<ClientRow>();
+    console.log("[persona detail] resolveClientId by id", byId);
+    if (byId.data) {
+      return byId.data.id;
+    }
+  }
   const direct = await supabase
     .from("clients")
     .select("id, name, display_name")
@@ -89,6 +107,7 @@ async function resolveClientId(supabaseUrl: string, supabaseAnonKey: string, cli
     .maybeSingle<ClientRow>();
 
   if (direct.data) {
+    console.log("[persona detail] resolveClientId found by name", direct.data);
     return direct.data.id;
   }
 
@@ -104,10 +123,15 @@ async function resolveClientId(supabaseUrl: string, supabaseAnonKey: string, cli
     return nameSlug === clientSlug || displaySlug === clientSlug;
   });
 
+  console.log("[persona detail] resolveClientId fallback match", match);
   return match?.id ?? null;
 }
 
 function buildPersonaSlug(row: PersonaRow): string {
+  const keySlug = row.key ? slugify(row.key) : "";
+  if (keySlug.length > 0) {
+    return keySlug;
+  }
   const nameSlug = row.agent_name ? slugify(row.agent_name) : "";
   if (nameSlug.length > 0) {
     return nameSlug;
@@ -154,7 +178,7 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
         slug,
         name: row.agent_name?.trim().length ? row.agent_name.trim() : "Untitled persona",
         description: row.description,
-        contentType: row.content_type?.trim().length ? row.content_type.trim() : null,
+      contentType: null,
         updatedAt: row.dialogue_created_date,
         profileImage:
           typeof row.profile_image === "string" && row.profile_image.trim().length > 0
@@ -168,8 +192,45 @@ function mapPersonasToSummaries(rows: PersonaRow[]): PersonaSummary[] {
   });
 }
 
+async function resolveAgentIdFromSlug(supabase: Supabase, clientId: number, personaSlug: string): Promise<string | null> {
+  const { data: directMatch } = await supabase
+    .from("agent_map")
+    .select("agent_id")
+    .eq("client_id", clientId)
+    .eq("key", personaSlug)
+    .maybeSingle<{ agent_id: string }>();
+  if (directMatch?.agent_id) {
+    console.log("[persona detail] resolveAgentIdFromSlug key match", { personaSlug });
+    return directMatch.agent_id;
+  }
+
+  const { data } = await supabase
+    .from("agent_map")
+    .select("agent_id, agent_name, key, description, dialogue_created_date, status, key_traits, key_pain_points, jobs_to_be_done, customer_status, profile_image, role_title")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true })
+    .returns<PersonaRow[]>();
+  if (!data) return null;
+
+  const slugCounts = new Map<string, number>();
+  for (const row of data) {
+    if ((row.status ?? "").toLowerCase() !== "ready") continue;
+    if (row.active_status !== true) continue;
+    const baseSlug = buildPersonaSlug(row);
+    const count = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, count + 1);
+    const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+    if (slug === personaSlug) {
+      return row.agent_id;
+    }
+  }
+
+  return null;
+}
+
 export default async function PersonaDetailPage({ params }: PersonaDetailPageProps) {
   const { clientSlug, personaSlug } = await params;
+  console.log("[persona detail page] params", { clientSlug, personaSlug });
   const targetSlug = decodeURIComponent(personaSlug);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -213,14 +274,36 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
     );
   }
 
+  const selectQuery =
+    "agent_id, agent_name, key, description, dialogue_created_date, status, key_traits, key_pain_points, jobs_to_be_done, customer_status, profile_image, role_title";
+  console.log("[persona detail] querying agent_map", { clientId, personaSlug, selectQuery });
+  const resolvedAgentId = await resolveAgentIdFromSlug(supabase, clientId, personaSlug);
+  console.log("[persona detail] resolved agent id", { personaSlug, resolvedAgentId });
+  if (!resolvedAgentId) {
+    return (
+      <div
+        style={{
+          borderRadius: 16,
+          border: "1px solid rgba(239,68,68,0.35)",
+          background: "rgba(239,68,68,0.08)",
+          padding: 20,
+          color: "#b91c1c",
+          fontWeight: 600,
+          fontFamily: BODY_FONT_STACK,
+        }}
+      >
+        Persona not found. Confirm the slug in the shareable URL.
+      </div>
+    );
+  }
   const { data: personaRows, error } = await supabase
     .from("agent_map")
-    .select(
-      "agent_id, agent_name, description, content_type, dialogue_created_date, status, key_traits, key_pain_points, jobs_to_be_done, age, gender, location, customer_status, profile_image, role_title"
-    )
+    .select(selectQuery)
     .eq("client_id", clientId)
+    .eq("agent_id", resolvedAgentId)
     .order("created_at", { ascending: false })
     .returns<PersonaRow[]>();
+  console.log("[persona detail] persona_rows", { count: personaRows?.length ?? 0, error });
 
   if (error) {
     return (
@@ -640,41 +723,12 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               <div
                 style={{
                   marginTop: 12,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
                 }}
               >
-                {persona.painPoints.length > 0 ? (
-                  persona.painPoints.map((point, index) => (
-                    <p
-                      key={`pain-point-${index}`}
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                        lineHeight: 1.5,
-                        color: "#475569",
-                        fontFamily: BODY_FONT_STACK,
-                      }}
-                    >
-                      {point}
-                    </p>
-                  ))
-                ) : (
-                  <p
-                    style={{
-                      margin: 0,
-                      padding: "0 16px 0 0",
-                      borderRadius: 16,
-                      color: "#475569",
-                      fontSize: 15,
-                      lineHeight: 1.5,
-                      fontFamily: BODY_FONT_STACK,
-                    }}
-                  >
-                    Pain points haven’t been documented for this persona yet.
-                  </p>
-                )}
+                <PersonaExpandableList
+                  items={persona.painPoints}
+                  emptyText="Pain points haven’t been documented for this persona yet."
+                />
               </div>
             </div>
 
@@ -717,43 +771,12 @@ export default async function PersonaDetailPage({ params }: PersonaDetailPagePro
               <div
                 style={{
                   marginTop: 12,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
                 }}
               >
-                {persona.jobsToBeDone.length > 0 ? (
-                  persona.jobsToBeDone.map((job, index) => (
-                    <p
-                      key={`jtbd-${index}`}
-                      style={{
-                        margin: 0,
-                        padding: "0px 16px 0px 0",
-                        borderRadius: 16,
-                        color: "#475569",
-                        fontSize: 15,
-                        lineHeight: 1.5,
-                        fontFamily: BODY_FONT_STACK,
-                      }}
-                    >
-                      {job}
-                    </p>
-                  ))
-                ) : (
-                  <p
-                    style={{
-                      margin: 0,
-                      padding: "0 16px 0 0",
-                      borderRadius: 16,
-                      color: "#475569",
-                      fontSize: 15,
-                      lineHeight: 1.5,
-                      fontFamily: BODY_FONT_STACK,
-                    }}
-                  >
-                    Jobs descriptions are coming soon for this persona.
-                  </p>
-                )}
+                <PersonaExpandableList
+                  items={persona.jobsToBeDone}
+                  emptyText="Jobs descriptions are coming soon for this persona."
+                />
               </div>
             </div>
 

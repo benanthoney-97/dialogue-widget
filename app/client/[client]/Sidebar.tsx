@@ -154,7 +154,7 @@ export default function Sidebar() {
       ),
     },
     {
-      label: "Interviews",
+      label: "Conversations",
       href: `${clientBasePath}/conversations`,
       icon: (
         <svg

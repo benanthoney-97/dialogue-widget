@@ -48,11 +48,23 @@ const placeholderImages = [
 const FALLBACK_CAMPAIGN_IMAGE =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjY2JkNWY1Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMTYiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=";
 
+const NO_RESPONSES_PLACEHOLDER = "No responses";
+
 type CampaignOutputType = "string" | "boolean" | "number";
 
 type CampaignOutput = {
+  id?: string;
   type: CampaignOutputType;
   description: string;
+};
+
+type CampaignOutputResponse = {
+  id: string;
+  campaign_id: string;
+  output_id?: string | null;
+  value?: string | null;
+  created_at?: string | null;
+  reasoning?: string | null;
 };
 
 type CampaignPersona = {
@@ -76,6 +88,8 @@ type CampaignSection = {
   personaIds?: string[];
   personas?: CampaignPersona[];
   resultsCount?: number;
+  mostRecentResponseAt?: string | null;
+  responses?: CampaignOutputResponse[];
 };
 
 type CampaignRow = {
@@ -118,6 +132,22 @@ const CAMPAIGN_SELECT_BASE = "id, name, description, objective, image_url, quest
 const CAMPAIGN_SELECT_WITH_OUTPUTS = `${CAMPAIGN_SELECT_BASE}, outputs` as const;
 type CampaignSelectColumns = typeof CAMPAIGN_SELECT_BASE | typeof CAMPAIGN_SELECT_WITH_OUTPUTS;
 const CAMPAIGN_FETCH_LIMIT = 3;
+
+function formatReceivedAt(timestamp?: string | null): string {
+  if (!timestamp) {
+    return NO_RESPONSES_PLACEHOLDER;
+  }
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return NO_RESPONSES_PLACEHOLDER;
+  }
+  return parsed.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 let campaignsHasOutputsColumn = true;
 const missingCampaignColumnWarnings = new Set<"outputs">();
 
@@ -186,7 +216,13 @@ function normalizeCampaignOutputs(value: unknown): CampaignOutput[] | null {
       return acc;
     }
     const type = normalizeOutputType(record.type);
-    acc.push({ type, description });
+    const id =
+      (typeof record.id === "string" && record.id.trim().length > 0
+        ? record.id
+        : typeof record.output_id === "string" && record.output_id.trim().length > 0
+        ? record.output_id
+        : null) ?? undefined;
+    acc.push({ id, type, description });
     return acc;
   }, []);
   return normalized.length > 0 ? normalized : null;
@@ -223,6 +259,8 @@ export default function ResultsPage() {
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [resultsOverlaySection, setResultsOverlaySection] = useState<CampaignSection | null>(null);
   const [isResultsOverlayOpen, setIsResultsOverlayOpen] = useState(false);
+  const [overlayResponses, setOverlayResponses] = useState<CampaignOutputResponse[] | null>(null);
+  const [isOverlayResponsesLoading, setIsOverlayResponsesLoading] = useState(false);
   const [campaignSections, setCampaignSections] = useState<CampaignSection[]>([]);
   const [qrMenuFor, setQrMenuFor] = useState<string | null>(null);
   const [phoneMenuFor, setPhoneMenuFor] = useState<string | null>(null);
@@ -257,6 +295,54 @@ export default function ResultsPage() {
     document.addEventListener("click", closeMenu);
     return () => document.removeEventListener("click", closeMenu);
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!resultsOverlaySection?.id) {
+      setOverlayResponses(null);
+      setIsOverlayResponsesLoading(false);
+      return;
+    }
+    setIsOverlayResponsesLoading(true);
+    setOverlayResponses(null);
+
+    const fetchResponses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("campaign_output_responses")
+          .select("id, campaign_id, output_id, value, reasoning, created_at")
+          .eq("campaign_id", resultsOverlaySection.id)
+          .order("created_at", { ascending: false });
+        if (!isActive) {
+          return;
+        }
+        if (error) {
+          console.error("[campaigns page] failed to load campaign output responses", { campaignId: resultsOverlaySection.id, error });
+          setOverlayResponses([]);
+          return;
+        }
+        if (Array.isArray(data)) {
+          setOverlayResponses(data);
+        } else {
+          setOverlayResponses([]);
+        }
+      } catch (err) {
+        console.error("[campaigns page] unexpected error loading campaign output responses", { campaignId: resultsOverlaySection.id, err });
+        if (isActive) {
+          setOverlayResponses([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsOverlayResponsesLoading(false);
+        }
+      }
+    };
+
+    fetchResponses();
+    return () => {
+      isActive = false;
+    };
+  }, [resultsOverlaySection]);
 
   const handleTestCall = useCallback(
     (payload: { linkId?: string | null }) => {
@@ -371,6 +457,39 @@ export default function ResultsPage() {
         } catch (err) {
           console.error("[campaigns page] unexpected error counting campaign_responses", { campaignId, err });
           lookup.set(campaignId, 0);
+        }
+      })
+    );
+    return lookup;
+  }, []);
+
+  const fetchMostRecentResponseAt = useCallback(async (campaignIds: string[]) => {
+    const lookup = new Map<string, string | null>();
+    if (campaignIds.length === 0) {
+      return lookup;
+    }
+    const uniqueIds = Array.from(new Set(campaignIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)));
+    await Promise.all(
+      uniqueIds.map(async (campaignId) => {
+        try {
+          const { data, error } = await supabase
+            .from("campaign_responses")
+            .select("received_at")
+            .eq("campaign_id", campaignId)
+            .order("received_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (error) {
+            console.error("[campaigns page] failed to fetch most recent campaign_response", { campaignId, error });
+            lookup.set(campaignId, null);
+            return;
+          }
+          const receivedAtValue =
+            data && typeof data.received_at === "string" && data.received_at.trim().length > 0 ? data.received_at : null;
+          lookup.set(campaignId, receivedAtValue);
+        } catch (err) {
+          console.error("[campaigns page] unexpected error fetching most recent campaign_response", { campaignId, err });
+          lookup.set(campaignId, null);
         }
       })
     );
@@ -593,6 +712,7 @@ export default function ResultsPage() {
           .map((campaign) => campaign.id)
           .filter((id): id is string => typeof id === "string" && id.length > 0);
         const responseCounts = await fetchResponseCounts(campaignIds);
+        const recentResponseLookup = await fetchMostRecentResponseAt(campaignIds);
 
         const personaIdSet = new Set<string>();
         mapped.forEach((campaign) => {
@@ -637,11 +757,13 @@ export default function ResultsPage() {
               : [];
           const personas = [...personaEntries, ...tagEntries];
           const resultsCount = campaign.id ? responseCounts.get(campaign.id) ?? 0 : 0;
+          const mostRecentResponseAt = campaign.id ? recentResponseLookup.get(campaign.id) ?? null : null;
 
           return {
             ...campaign,
             personas,
             resultsCount,
+            mostRecentResponseAt,
           };
         });
 
@@ -655,7 +777,7 @@ export default function ResultsPage() {
     return () => {
       isActive = false;
     };
-  }, [fetchPersonaDetails, fetchResponseCounts, fetchCampaignLinks]);
+  }, [fetchPersonaDetails, fetchResponseCounts, fetchCampaignLinks, fetchMostRecentResponseAt]);
   return (
     <div
       style={{
@@ -713,9 +835,10 @@ export default function ResultsPage() {
           const formattedResultsValue = typeof container.resultsCount === "number"
             ? container.resultsCount.toLocaleString()
             : "0";
+          const formattedMostRecentValue = formatReceivedAt(container.mostRecentResponseAt);
           const metrics = [
-            { label: "Results", value: formattedResultsValue, icon: responsesIcon },
-            { label: "New", value: "15", icon: newIcon },
+            { label: "Responses", value: formattedResultsValue, icon: responsesIcon },
+            { label: "Most recent", value: formattedMostRecentValue, icon: newIcon },
           ];
           return (
             <section
@@ -817,11 +940,11 @@ export default function ResultsPage() {
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        alignItems: "flex-end",
+                        alignItems: "center",
                         gap: "2px",
-                        minWidth: 64,
-                      }}
-                    >
+                    minWidth: 96,
+                    }}
+                  >
                       <span
                         style={{
                           display: "inline-flex",
@@ -1452,6 +1575,110 @@ export default function ResultsPage() {
               )}
             </div>
           </div>
+        </div>
+        <div>
+          <h3
+            style={{
+              margin: "0 0 8px 0",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "#0f172a",
+            }}
+          >
+            Output responses
+          </h3>
+          {isOverlayResponsesLoading ? (
+            <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
+              Loading responses...
+            </p>
+          ) : overlayResponses && overlayResponses.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {overlayResponses.map((response) => {
+                const relatedOutput =
+                  overlayOutputs?.find((output) => output.id === response.output_id) ?? null;
+                return (
+                  <div
+                    key={response.id}
+                    style={{
+                      borderRadius: "12px",
+                      padding: "12px 14px",
+                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                      background: "#fff",
+                      boxShadow: "0 6px 14px rgba(15, 23, 42, 0.05)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    {relatedOutput ? (
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "rgba(15, 23, 42, 0.55)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                          display: "inline-flex",
+                          gap: "4px",
+                          alignItems: "center",
+                        }}
+                      >
+                        {formatOutputType(relatedOutput.type)} • {relatedOutput.description}
+                      </span>
+                    ) : null}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {response.value ?? "—"}
+                      </span>
+                      <span style={{ fontSize: "12px", color: "rgba(15, 23, 42, 0.6)" }}>
+                        {formatReceivedAt(response.created_at)}
+                      </span>
+                    </div>
+                    {response.reasoning ? (
+                      <p style={{ margin: 0, fontSize: "13px", color: "rgba(15, 23, 42, 0.75)" }}>
+                        {response.reasoning}
+                      </p>
+                    ) : null}
+                    {response.output_id ? (
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "rgba(15, 23, 42, 0.5)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        Output ID: {response.output_id}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
+              No responses have been submitted yet.
+            </p>
+          )}
         </div>
       </SlidingPanelOverlay>
     </div>

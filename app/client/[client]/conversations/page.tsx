@@ -17,6 +17,7 @@ type PersonaOption = {
 
 type InsightsRow = {
 	personaId: string;
+	agent_name?: string | null;
 	sourceDocument: string;
 	lead: { value: string; source: string };
 	engagementTime: string;
@@ -177,10 +178,10 @@ function InsightActions({
 			minute: "2-digit",
 		}).format(validDate);
 		const payload: TranscriptPdfPayload = {
-			conversationTitle: activeRow.personaName
-				? `Session with ${activeRow.personaName}`
+			conversationTitle: activeRow.agent_name
+				? `Session with ${activeRow.agent_name}`
 				: "Dialogue session",
-			personaName: activeRow.personaName ?? "Persona",
+			personaName: activeRow.agent_name ?? "Persona",
 			researchType: activeRow.status,
 			timestampLabel,
 			messages: pdfMessages,
@@ -707,7 +708,7 @@ export default function InsightsTable() {
 											>
 										{/* Length column removed - engagementTime omitted */}
 										<td className="insights-table__cell">{formatInsightsDate(row.date)}</td>
-										<td className="insights-table__cell insights-table__cell--persona">{row.personaName || "Untitled persona"}</td>
+										<td className="insights-table__cell insights-table__cell--persona">{row.agent_name || "Untitled persona"}</td>
 										<td className="insights-table__cell">{row.ownerName ?? row.ownerEmail ?? row.lead?.value ?? ''}</td>
 									<td className="insights-table__cell">
 										{row.dialogueStatus === "pending" ? (
@@ -743,7 +744,7 @@ export default function InsightsTable() {
 							{activeRow && (
 								<SlidingPanelOverlay
 									open
-									title={activeRow.personaName || "Playback details"}
+									title={activeRow.agent_name || "Playback details"}
 									onRequestClose={() => setActiveRow(null)}
 									onAfterClose={() => setActiveRow(null)}
 								>
@@ -786,7 +787,7 @@ export default function InsightsTable() {
 													{chatMessages.map((message, index) => {
 														const personaAuthorName =
 															activePersonaOption?.name?.trim() ||
-															activeRow?.personaName?.trim() ||
+															activeRow?.agent_name?.trim() ||
 															"Persona";
 													const userAuthorName =
 														activeRow?.ownerName ??

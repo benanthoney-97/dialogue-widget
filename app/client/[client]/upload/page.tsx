@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Sidebar from "../Sidebar";
@@ -36,6 +36,11 @@ const DEFAULT_KEY_TRAITS: KeyTrait[] = KEY_TRAIT_PLACEHOLDERS.map((placeholder) 
   placeholder,
   value: "",
 }));
+
+function getPersonaCategoryStorageKey(clientSlug: string | null | undefined) {
+  const trimmed = (clientSlug ?? "").trim();
+  return trimmed.length > 0 ? `upload-persona-category:${trimmed}` : "upload-persona-category";
+}
 
 type StagedDoc = {
   temp_id: string;
@@ -365,6 +370,10 @@ export default function UploadPage() {
     }
   }
   const clientSlug = getClientSlug(pathname);
+  const personaCategoryStorageKey = useMemo(
+    () => getPersonaCategoryStorageKey(clientSlug),
+    [clientSlug]
+  );
   async function stageFiles() {
     setSubmitted(true);
     setNotification(null);
@@ -431,6 +440,32 @@ export default function UploadPage() {
   const [personaCategory, setPersonaCategory] = useState<typeof PERSONA_CATEGORIES[number]["value"]>(
     PERSONA_CATEGORIES[0].value
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !personaCategoryStorageKey) {
+      return;
+    }
+    try {
+      const storedValue = sessionStorage.getItem(personaCategoryStorageKey);
+      const isValid = PERSONA_CATEGORIES.some((category) => category.value === storedValue);
+      if (storedValue && isValid && storedValue !== personaCategory) {
+        setPersonaCategory(storedValue as (typeof PERSONA_CATEGORIES)[number]["value"]);
+      }
+    } catch (error) {
+      console.warn("[Upload] Failed to load persona category from storage", error);
+    }
+  }, [personaCategoryStorageKey, personaCategory]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !personaCategoryStorageKey) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(personaCategoryStorageKey, personaCategory);
+    } catch (error) {
+      console.warn("[Upload] Failed to persist persona category selection", error);
+    }
+  }, [personaCategory, personaCategoryStorageKey]);
   const [keyTraits, setKeyTraits] = useState<KeyTrait[]>(DEFAULT_KEY_TRAITS);
   const [editingKeyTraitId, setEditingKeyTraitId] = useState<string | null>(null);
 
@@ -936,7 +971,7 @@ export default function UploadPage() {
           personaDescription: personaDescription.trim() || null,
           painPoints: painPoints.trim() || null,
           jobsToBeDone: jobsToBeDone.trim() || null,
-          customer_status: personaCategory,
+          customerStatus: personaCategory,
           personaGuidance: selectedGuidance ?? null,
           personaSetting: selectedSetting ?? null,
           personaTone: tone || null,
@@ -961,6 +996,7 @@ export default function UploadPage() {
       if (typeof window !== "undefined") {
         sessionStorage.removeItem('temp-upload-docs');
         sessionStorage.removeItem('temp-upload-purpose');
+        sessionStorage.removeItem(personaCategoryStorageKey);
       }
       setFinalizing(false);
       router.push(`/client/${clientSlug}/personas`);

@@ -38,11 +38,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims()
   const user = data?.claims
 
-  console.log("[supabase middleware] request", {
-    pathname: request.nextUrl.pathname,
-    search: request.nextUrl.search,
-    cookies: request.cookies.get("sb-access-token"),
-  })
+
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&

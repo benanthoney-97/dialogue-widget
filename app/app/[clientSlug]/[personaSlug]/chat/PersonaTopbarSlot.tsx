@@ -96,7 +96,7 @@ export default function PersonaTopbarSlot({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 12,
+          gap: 4,
           border: "none",
           background: "transparent",
           padding: 0,
@@ -171,7 +171,6 @@ export default function PersonaTopbarSlot({
               justifyContent: "center",
               position: "relative",
               height: 18,
-              width: 34,
             }}
           >
             {otherPersonas

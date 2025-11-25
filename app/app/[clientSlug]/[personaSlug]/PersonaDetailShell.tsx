@@ -7,6 +7,8 @@ export type PersonaDetailShellProps = {
   personaSlug: string;
 };
 
+import { useEffect } from "react";
+
 export default function PersonaDetailShell({ clientSlug, personaSlug }: PersonaDetailShellProps) {
   const placeholderStyle: CSSProperties = {
     display: "flex",
@@ -20,6 +22,10 @@ export default function PersonaDetailShell({ clientSlug, personaSlug }: PersonaD
     fontSize: 16,
     fontWeight: 600,
   };
+
+  useEffect(() => {
+    console.log("[persona detail shell] rendering", { clientSlug, personaSlug });
+  }, [clientSlug, personaSlug]);
 
   return (
     <div style={placeholderStyle}>

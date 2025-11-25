@@ -394,6 +394,50 @@ export type Database = {
           },
         ]
       }
+      campaign_documents: {
+        Row: {
+          id: string
+          campaign_id: string
+          agent_id: string | null
+          file_name: string | null
+          public_url: string | null
+          qr_code_link: string | null
+          qr_code_image: string | null
+          markdown: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          agent_id?: string | null
+          file_name?: string | null
+          public_url?: string | null
+          qr_code_link?: string | null
+          qr_code_image?: string | null
+          markdown?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          agent_id?: string | null
+          file_name?: string | null
+          public_url?: string | null
+          qr_code_link?: string | null
+          qr_code_image?: string | null
+          markdown?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_documents_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       dialogues_count_by_client: {
