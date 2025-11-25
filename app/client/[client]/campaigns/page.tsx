@@ -9,8 +9,10 @@ const responsesIcon = (
   </svg>
 );
 const newIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#001F3F" viewBox="0 0 16 16">
-    <path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.828zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69A1.73 1.73 0 0 0 2.31 4.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z" />
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
+    <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
+    <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
+    <path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
   </svg>
 );
 const personaLinkIcon = (
@@ -65,6 +67,19 @@ type CampaignOutputResponse = {
   value?: string | null;
   created_at?: string | null;
   reasoning?: string | null;
+};
+
+type CampaignOutputStat = {
+  campaign_id: string;
+  output_id: string;
+  output_no?: string | null;
+  output_type?: string | null;
+  output_description?: string | null;
+  true_count?: number | null;
+  false_count?: number | null;
+  true_ratio?: string | null;
+  avg_numeric_value?: string | number | null;
+  text_response_count?: number | null;
 };
 
 type CampaignPersona = {
@@ -215,14 +230,19 @@ function normalizeCampaignOutputs(value: unknown): CampaignOutput[] | null {
     if (!description) {
       return acc;
     }
-    const type = normalizeOutputType(record.type);
-    const id =
-      (typeof record.id === "string" && record.id.trim().length > 0
-        ? record.id
-        : typeof record.output_id === "string" && record.output_id.trim().length > 0
-        ? record.output_id
-        : null) ?? undefined;
-    acc.push({ id, type, description });
+      const typeColumn = typeof record.output_type === "string" ? record.output_type : undefined;
+      const descriptionColumnCandidate =
+        typeof record.output_description === "string" ? record.output_description : record.description;
+      const descriptionColumn =
+        typeof descriptionColumnCandidate === "string" ? descriptionColumnCandidate : undefined;
+      const type = normalizeOutputType(typeColumn);
+      const id =
+        (typeof record.id === "string" && record.id.trim().length > 0
+          ? record.id
+          : typeof record.output_id === "string" && record.output_id.trim().length > 0
+          ? record.output_id
+          : null) ?? undefined;
+      acc.push({ id, type, description: descriptionColumn ?? description });
     return acc;
   }, []);
   return normalized.length > 0 ? normalized : null;
@@ -260,7 +280,9 @@ export default function ResultsPage() {
   const [resultsOverlaySection, setResultsOverlaySection] = useState<CampaignSection | null>(null);
   const [isResultsOverlayOpen, setIsResultsOverlayOpen] = useState(false);
   const [overlayResponses, setOverlayResponses] = useState<CampaignOutputResponse[] | null>(null);
+  const [overlayResponseOutputMap, setOverlayResponseOutputMap] = useState<Map<string, CampaignOutput> | null>(null);
   const [isOverlayResponsesLoading, setIsOverlayResponsesLoading] = useState(false);
+  const [overlayStats, setOverlayStats] = useState<CampaignOutputStat[] | null>(null);
   const [campaignSections, setCampaignSections] = useState<CampaignSection[]>([]);
   const [qrMenuFor, setQrMenuFor] = useState<string | null>(null);
   const [phoneMenuFor, setPhoneMenuFor] = useState<string | null>(null);
@@ -300,7 +322,9 @@ export default function ResultsPage() {
     let isActive = true;
     if (!resultsOverlaySection?.id) {
       setOverlayResponses(null);
+      setOverlayResponseOutputMap(null);
       setIsOverlayResponsesLoading(false);
+      setOverlayStats(null);
       return;
     }
     setIsOverlayResponsesLoading(true);
@@ -323,13 +347,63 @@ export default function ResultsPage() {
         }
         if (Array.isArray(data)) {
           setOverlayResponses(data);
+          const outputIds = data
+            .map((item) => (typeof item.output_id === "string" ? item.output_id : null))
+            .filter((id): id is string => id !== null && id.trim().length > 0);
+          if (outputIds.length > 0) {
+            try {
+              const { data: outputRecords, error: outputError } = await supabase
+                .from("campaign_outputs")
+                .select("id, output_type, output_description")
+                .in("id", outputIds);
+              if (!isActive) {
+                return;
+              }
+              if (outputError) {
+                console.error(
+                  "[campaigns page] failed to load matching outputs",
+                  {
+                    campaignId: resultsOverlaySection.id,
+                    error: outputError,
+                  }
+                );
+                setOverlayResponseOutputMap(null);
+              } else if (Array.isArray(outputRecords)) {
+                const map = new Map<string, CampaignOutput>();
+                outputRecords.forEach((output) => {
+                  if (typeof output.id === "string" && output.id.trim().length > 0) {
+                    map.set(output.id, {
+                      id: output.id,
+                      type: normalizeOutputType(output.output_type),
+                      description: output.output_description ?? "",
+                    });
+                  }
+                });
+                setOverlayResponseOutputMap(map);
+              } else {
+                setOverlayResponseOutputMap(null);
+              }
+            } catch (outputErr) {
+              console.error("[campaigns page] unexpected error loading campaign outputs", {
+                campaignId: resultsOverlaySection.id,
+                err: outputErr,
+              });
+              if (isActive) {
+                setOverlayResponseOutputMap(null);
+              }
+            }
+          } else {
+            setOverlayResponseOutputMap(null);
+          }
         } else {
           setOverlayResponses([]);
+          setOverlayResponseOutputMap(null);
         }
       } catch (err) {
         console.error("[campaigns page] unexpected error loading campaign output responses", { campaignId: resultsOverlaySection.id, err });
         if (isActive) {
           setOverlayResponses([]);
+          setOverlayResponseOutputMap(null);
         }
       } finally {
         if (isActive) {
@@ -339,6 +413,41 @@ export default function ResultsPage() {
     };
 
     fetchResponses();
+    const fetchStats = async () => {
+      try {
+          const { data, error } = await supabase
+            .from("v_campaign_output_stats")
+            .select(
+              "campaign_id, output_id, output_no, output_type, output_description, true_count, false_count, true_ratio, avg_numeric_value, text_response_count"
+            )
+          .eq("campaign_id", resultsOverlaySection.id);
+        if (!isActive) {
+          return;
+        }
+        if (error) {
+          console.error("[campaigns page] failed to load campaign stats", {
+            campaignId: resultsOverlaySection.id,
+            error,
+          });
+          setOverlayStats(null);
+          return;
+        }
+        if (Array.isArray(data)) {
+          setOverlayStats(data);
+        } else {
+          setOverlayStats(null);
+        }
+      } catch (err) {
+        console.error("[campaigns page] unexpected error loading campaign stats", {
+          campaignId: resultsOverlaySection.id,
+          err,
+        });
+        if (isActive) {
+          setOverlayStats(null);
+        }
+      }
+    };
+    fetchStats();
     return () => {
       isActive = false;
     };
@@ -1495,86 +1604,105 @@ export default function ResultsPage() {
             gap: "16px",
           }}
         >
-          <div
+        </div>
+        <div>
+          <h3
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
+              margin: "0 0 8px 0",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "#0f172a",
             }}
           >
-            <div>
-              <h3
-                style={{
-                  margin: "0 0 8px 0",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                }}
-              >
-                Outputs
-              </h3>
-              {overlayOutputs ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "16px",
-                  }}
-                >
-                  {overlayOutputs.map((output, index) => (
+            Results
+          </h3>
+          {overlayStats && overlayStats.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "12px",
+              }}
+            >
+              {overlayStats.map((stat) => {
+                const type = formatOutputType((stat.output_type as CampaignOutputType) ?? "string");
+                const description = stat.output_description ?? "Output";
+                const isNumeric = type === "number";
+                const formatTrueRatio = (value?: string | null) => {
+                  const ratio = parseFloat(value ?? "0");
+                  if (Number.isNaN(ratio)) {
+                    return "0%";
+                  }
+                  return `${(ratio * 100).toFixed(0)}%`;
+                };
+                const statValue = (() => {
+                  if (isNumeric) {
+                    if (typeof stat.avg_numeric_value === "number") {
+                      return stat.avg_numeric_value.toFixed(2);
+                    }
+                    return stat.avg_numeric_value ?? "—";
+                  }
+                  if (type === "boolean") {
+                    return `${formatTrueRatio(stat.true_ratio)} Yes`;
+                  }
+                  if (type === "string") {
+                    return `${stat.text_response_count ?? 0} text responses`;
+                  }
+                  return `${formatTrueRatio(stat.true_ratio)} Yes`;
+                })();
+                return (
                     <div
-                      key={`${output.description}-${index}`}
+                      key={`${stat.output_id}-${stat.output_no}`}
                       style={{
+                        flex: "1 1 calc(33.333% - 16px)",
+                        maxWidth: "calc(33.333% - 16px)",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                        background: "#fff",
+                        boxShadow: "0 6px 14px rgba(15, 23, 42, 0.05)",
                         display: "flex",
                         flexDirection: "column",
                         gap: "6px",
-                        padding: "16px",
-                        borderRadius: "12px",
-                        border: "1px solid rgba(15, 23, 42, 0.08)",
-                        background: "#f5f7ff",
-                        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
-                        flex: "1 1 calc(33.333% - 16px)",
-                        maxWidth: "calc(33.333% - 16px)",
-                        minWidth: "220px",
+                        alignItems: "center",
                       }}
                     >
-                      <div
+                      <span
                         style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          fontSize: "13px",
-                          color: "rgba(15,23,42,0.85)",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#0f172a",
                         }}
                       >
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            padding: "2px 10px",
-                            borderRadius: "999px",
-                            background: "rgba(21, 94, 239, 0.08)",
-                            color: "#155EEF",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {formatOutputType(output.type)}
-                        </span>
-                        <span style={{ lineHeight: 1.4 }}>{output.description}</span>
-                      </div>
+                        {statValue}
+                      </span>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          padding: "2px 10px",
+                          borderRadius: "999px",
+                          background: "rgba(21, 94, 239, 0.08)",
+                          color: "#155EEF",
+                          fontSize: "10px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {type}
+                      </span>
+                      <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(15, 23, 42, 0.85)", textAlign: "center" }}>
+                        {description}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
-                  Define outputs for your campaign to summarize expected responses.
-                </p>
-              )}
+                  );
+                })}
             </div>
-          </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.7)" }}>
+              {(resultsOverlaySection?.resultsCount ?? 0).toLocaleString()} responses recorded for this campaign.
+            </p>
+          )}
         </div>
         <div>
           <h3
@@ -1600,8 +1728,18 @@ export default function ResultsPage() {
               }}
             >
               {overlayResponses.map((response) => {
-                const relatedOutput =
-                  overlayOutputs?.find((output) => output.id === response.output_id) ?? null;
+        const relatedOutput =
+          overlayResponseOutputMap?.get(response.output_id ?? "") ??
+          overlayOutputs?.find((output) => output.id === response.output_id) ??
+          null;
+        if (!relatedOutput) {
+          console.log("[campaigns page] unable to resolve output metadata for response", {
+            campaignId: resultsOverlaySection?.id,
+            responseId: response.id,
+            outputId: response.output_id,
+            overlayOutputsCount: overlayOutputs?.length ?? 0,
+          });
+        }
                 return (
                   <div
                     key={response.id}
@@ -1616,60 +1754,107 @@ export default function ResultsPage() {
                       gap: "4px",
                     }}
                   >
-                    {relatedOutput ? (
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "rgba(15, 23, 42, 0.55)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
-                          display: "inline-flex",
-                          gap: "4px",
-                          alignItems: "center",
-                        }}
-                      >
-                        {formatOutputType(relatedOutput.type)} • {relatedOutput.description}
-                      </span>
-                    ) : null}
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "center",
                         justifyContent: "space-between",
-                        gap: "12px",
+                        gap: "16px",
                         flexWrap: "wrap",
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "#0f172a",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                          flex: "1 1 0",
                         }}
                       >
-                        {response.value ?? "—"}
-                      </span>
-                      <span style={{ fontSize: "12px", color: "rgba(15, 23, 42, 0.6)" }}>
-                        {formatReceivedAt(response.created_at)}
-                      </span>
+                        {relatedOutput ? (
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              gap: "8px",
+                              alignItems: "center",
+                            }}
+                          >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            padding: "2px 10px",
+                            borderRadius: "999px",
+                            background: "rgba(21, 94, 239, 0.08)",
+                            color: "#155EEF",
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                              {formatOutputType(relatedOutput.type)}
+                            </span>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "rgba(15, 23, 42, 0.85)",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                              {relatedOutput.description}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: "15px",
+                              fontWeight: 500,
+                              color: "rgba(15, 23, 42, 0.85)",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            Output response
+                          </span>
+                        )}
+                      </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: "4px",
+                      }}
+                    >
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            color: "#0f172a",
+                          }}
+                        >
+                          {{
+                            true: "Yes",
+                            false: "No",
+                          }[String(response.value).toLowerCase() as "true" | "false"] ??
+                            response.value ??
+                            "—"}
+                        </span>
+                      {response.reasoning ? (
+                        <p style={{ margin: 0, fontSize: "13px", color: "rgba(15, 23, 42, 0.75)", textAlign:"right" }}>
+                          {response.reasoning}
+                        </p>
+                      ) : null}
                     </div>
-                    {response.reasoning ? (
-                      <p style={{ margin: 0, fontSize: "13px", color: "rgba(15, 23, 42, 0.75)" }}>
-                        {response.reasoning}
-                      </p>
-                    ) : null}
-                    {response.output_id ? (
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "rgba(15, 23, 42, 0.5)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
-                        Output ID: {response.output_id}
-                      </span>
-                    ) : null}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(15, 23, 42, 0.6)",
+                      textAlign: "left",
+                    }}
+                  >
+                    {formatReceivedAt(response.created_at)}
+                  </span>
                   </div>
                 );
               })}
