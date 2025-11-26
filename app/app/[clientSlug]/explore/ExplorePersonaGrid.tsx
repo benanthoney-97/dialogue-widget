@@ -16,7 +16,7 @@ export default function ExplorePersonaGrid({ clientSlug, personas, errorMessage 
   const visiblePersonas = useMemo(() => {
     return personas.filter((persona) => {
       const status = (persona.customerStatus ?? "").trim().toLowerCase();
-      const isInternal = status === "internal stakeholder";
+      const isInternal = status === "internal";
       return showInternal ? isInternal : !isInternal;
     });
   }, [personas, showInternal]);

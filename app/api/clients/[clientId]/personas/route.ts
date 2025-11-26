@@ -83,6 +83,7 @@ export async function GET(
     .from("agent_map")
     .select("agent_id, agent_name, work_label, talk_label, background_image, profile_image, key, role_title")
     .eq("client_id", resolvedClientId)
+    .eq("status", "Ready")
     .order("agent_name", { ascending: true });
   if (error) {
     return NextResponse.json(

@@ -1,6 +1,5 @@
 "use client";
 
-console.log("[CampaignPrepAgent] module evaluate");
 
 import {
   useEffect,
@@ -42,6 +41,8 @@ type Props = {
   agentId?: string;
   useSignedUrl?: boolean;
   campaignId?: string;
+  campaignName?: string | null;
+  campaignObjective?: string | null;
   personaId?: string;
   serverLocation?: "us" | "eu-residency" | "in-residency" | "global";
   buttonColor?: string;
@@ -87,6 +88,8 @@ export default function CampaignPrepAgent(props: Props) {
     agentId = "agent_9701k8jk0755e9areqv4km5wsmw3",
     useSignedUrl = false,
     campaignId,
+    campaignName,
+    campaignObjective,
     personaId,
     serverLocation = "us",
     buttonColor = "#525fe1",
@@ -108,18 +111,6 @@ export default function CampaignPrepAgent(props: Props) {
   } = props;
   const resolvedShowVoiceControls =
     showVoiceControls ?? (typeof allowVoiceSelection === "boolean" ? allowVoiceSelection : true);
-  console.log("[CampaignPrepAgent] component render start", { agentId });
-  console.log("[CampaignPrepAgent] render props snapshot", {
-    agentId,
-    campaignId,
-    personaId,
-    personaName,
-    talkLabel,
-    subtitle,
-    panelExpanded,
-    showVoiceControls: resolvedShowVoiceControls,
-    profileImage,
-  });
   const [theme, setTheme] = useState<{
     background?: string;
     text_color?: string;
@@ -140,7 +131,6 @@ export default function CampaignPrepAgent(props: Props) {
   }, [agentId]);
 
   useEffect(() => {
-    console.log("[CampaignPrepAgent] theme state updated", theme);
   }, [theme]);
   // load agent metadata from Supabase agent_map (if present)
   const [agentMap, setAgentMap] = useState<null | {
@@ -161,13 +151,9 @@ export default function CampaignPrepAgent(props: Props) {
     voice_id?: string | null;
   }>(null);
   useEffect(() => {
-    console.log("[CampaignPrepAgent] agentMap state updated", agentMap);
   }, [agentMap]);
   useEffect(() => {
-    console.log("[CampaignPrepAgent] Persona names", {
-      personaProp: personaName,
-      agentMapName: agentMap?.agent_name,
-    });
+
   }, [personaName, agentMap?.agent_name]);
 
   const displayPersonaName = useMemo(() => {
@@ -179,7 +165,6 @@ export default function CampaignPrepAgent(props: Props) {
   }, [personaName, agentMap?.agent_name]);
 
   useEffect(() => {
-    console.log("[CampaignPrepAgent] Display persona name", displayPersonaName);
   }, [displayPersonaName]);
 
   const personaImageUrl = useMemo(() => {
@@ -194,11 +179,7 @@ export default function CampaignPrepAgent(props: Props) {
   const resolvedPersonaImageUrl = personaImageUrl.length > 0 ? personaImageUrl : null;
 
   useEffect(() => {
-    console.log("[CampaignPrepAgent] Persona profile image", {
-      fromProp: profileImage,
-      fromAgentMap: agentMap?.profile_image,
-      resolved: resolvedPersonaImageUrl,
-    });
+
   }, [profileImage, agentMap?.profile_image, resolvedPersonaImageUrl]);
   const [knowledgeText, setKnowledgeText] = useState<string | null>(null);
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
@@ -214,11 +195,6 @@ export default function CampaignPrepAgent(props: Props) {
   const canSelectVoice = !!resolvedShowVoiceControls;
 
   useEffect(() => {
-    console.log("[CampaignPrepAgent] showVoiceControls prop updated", {
-      showVoiceControls,
-      allowVoiceSelection,
-      resolvedShowVoiceControls,
-    });
   }, [showVoiceControls, allowVoiceSelection, resolvedShowVoiceControls]);
   const [documentContext, setDocumentContext] = useState<string | null>(null);
   const [documentContextLoading, setDocumentContextLoading] = useState(false);
@@ -1020,6 +996,14 @@ export default function CampaignPrepAgent(props: Props) {
       };
       if (campaignId) {
         dynamicVariables.campaign_id = campaignId;
+      }
+      const trimmedCampaignName = campaignName?.trim();
+      if (trimmedCampaignName) {
+        dynamicVariables.campaign_name = trimmedCampaignName;
+      }
+      const trimmedCampaignObjective = campaignObjective?.trim();
+      if (trimmedCampaignObjective) {
+        dynamicVariables.campaign_objective = trimmedCampaignObjective;
       }
       if (personaId) {
         dynamicVariables.persona_id = personaId;

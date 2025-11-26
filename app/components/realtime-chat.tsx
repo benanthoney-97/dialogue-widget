@@ -30,6 +30,17 @@ interface RealtimeChatProps {
  * @param messages - The messages to display in the chat. Useful if you want to display messages from a database.
  * @returns The chat component
  */
+interface RealtimeChatProps {
+  roomName: string
+  roomId?: string
+  clientId?: string
+  username?: string
+  senderRoleOverride?: 'user' | 'support_team'
+  onMessage?: (messages: ChatMessage[]) => void
+  messages?: ChatMessage[]
+  initialMessage?: string
+}
+
 export const RealtimeChat = ({
   roomName,
   roomId,
@@ -38,6 +49,7 @@ export const RealtimeChat = ({
   senderRoleOverride,
   onMessage,
   messages: initialMessages = [],
+  initialMessage = '',
 }: RealtimeChatProps) => {
   const { containerRef, scrollToBottom } = useChatScroll()
 
@@ -54,7 +66,11 @@ export const RealtimeChat = ({
     clientId,
     senderRoleOverride,
   })
-  const [newMessage, setNewMessage] = useState('')
+  const [newMessage, setNewMessage] = useState(initialMessage)
+
+  useEffect(() => {
+    setNewMessage(initialMessage)
+  }, [initialMessage])
 
   // Merge realtime messages with initial messages
   const allMessages = useMemo(() => {

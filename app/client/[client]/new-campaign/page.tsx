@@ -16,7 +16,7 @@ const GUIDANCE_AUDIENCE_MAP: Record<string, string> = {
   "Go-to-market": "Client",
 };
 
-const STAGE_CHIPS = ["Basic Info", "Documents", "Personas", "Objective", "Questions", "Output"];
+const STAGE_CHIPS = ["Basic Info", "Objective", "Personas", "Documents", "Outputs"];
 const OUTPUT_OPTIONS = [
   {
       id: "text",
@@ -513,7 +513,7 @@ export default function UploadPage() {
     await stageFiles();
   }
 
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic Info, 1: Documents, 2: Personas, 3: Objective, 4: Questions, 5: Output
+  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Basic Info, 1: Objective, 2: Personas, 3: Documents (includes Questions), 4: Outputs
   const [personaName, setPersonaName] = useState<string>("");
   const [personaNameTouched, setPersonaNameTouched] = useState<boolean>(false);
   const [selectedGuidance, setSelectedGuidance] = useState<string | null>(null);
@@ -636,7 +636,7 @@ export default function UploadPage() {
     if (linksUrls.length === 0) return;
     setKnowledgePanelExpanded(false);
     setKnowledgePanelCompleted(true);
-    setCurrentStep(5);
+    setCurrentStep(4);
   }
   useEffect(() => {
     if (personaCards.length === 0) {
@@ -745,8 +745,8 @@ export default function UploadPage() {
   const [personaDescription, setPersonaDescription] = useState<string>("");
   const personaDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const handleDescriptionLinkClick = () => {
-    setCurrentStep(3);
-    if (currentStep === 3 && personaDescriptionRef.current) {
+    setCurrentStep(1);
+    if (currentStep === 1 && personaDescriptionRef.current) {
       personaDescriptionRef.current.focus();
     }
   };
@@ -768,13 +768,13 @@ export default function UploadPage() {
   };
 
   useEffect(() => {
-    if (currentStep === 3 && personaDescriptionRef.current) {
+    if (currentStep === 1 && personaDescriptionRef.current) {
       personaDescriptionRef.current.focus();
     }
   }, [currentStep]);
 
   useEffect(() => {
-    if (currentStep === 4 && questionInputRef.current) {
+  if (currentStep === 3 && questionInputRef.current) {
       questionInputRef.current.focus();
     }
   }, [currentStep]);
@@ -920,8 +920,8 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
   }, [clientSlug]);
 
   useEffect(() => {
-    if (selectedGuidance === 'Describe persona' && currentStep === 2) {
-      setCurrentStep(5);
+  if (selectedGuidance === 'Describe persona' && currentStep === 2) {
+      setCurrentStep(3);
     }
   }, [selectedGuidance, currentStep]);
 
@@ -933,7 +933,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
     hasHydratedFromParams.current = true;
 
     if (stageParam === "upload") {
-      setCurrentStep(4);
+      setCurrentStep(3);
     }
 
     if (purposeParam) {
@@ -1238,8 +1238,8 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                 </>
               </StagePanel>
             )}
-              {currentStep === 1 && (
-                <StagePanel heading="Upload context documents for your AI interviewer">
+              {currentStep === 3 && (
+              <StagePanel heading="Upload context documents for your AI interviewer">
                   <form onSubmit={handleSubmit} style={{ width: "100%" }}>
                     {uploadMode === "upload" ? (
                       <label
@@ -1268,7 +1268,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                           ref={fileInputRef}
                           type="file"
                           multiple
-                          accept=".pdf,.docx,.txt,.html"
+                          accept=".pdf,.docx,.txt,.html,.jpg,.jpeg,.xlsx,.xls,.ppt,.pptx"
                           onChange={handleFileChange}
                           style={{ display: "none" }}
                         />
@@ -1279,7 +1279,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                               or <span className="data-upload-placeholder__link">click to select from computer</span>
                             </div>
                             <div className="data-upload-placeholder__types">
-                              {["PDF", "TXT", "DOCX", "HTML"].map((type) => (
+                              {["PDF", "TXT", "DOCX", "HTML", "JPG", "XLSX", "PPTX"].map((type) => (
                                 <span key={type} className="data-upload-placeholder__chip">
                                   {type}
                                 </span>
@@ -1360,17 +1360,11 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                                           aria-hidden="true"
                                           focusable="false"
                                         >
-                                          <path
-                                            d="M6 6L18 18M6 18L18 6"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            fill="none"
-                                          />
+                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                          <path d="M14 2v6h6" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                         </svg>
                                       </div>
-                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                                         <div
                                           title={file.name}
                                           style={{
@@ -1385,16 +1379,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                                         >
                                           {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
                                         </div>
-                                        <div
-                                          style={{
-                                            fontSize: 12,
-                                            color: "#1e293b",
-                                            marginTop: 4,
-                                            textAlign: "left",
-                                          }}
-                                        >
-                                          {file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}
-                                        </div>
+                                        {/* file.type removed: avoid long MIME strings overflowing the card */}
                                       </div>
                                     </div>
                                     <button
@@ -1528,21 +1513,71 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                     )}
                     {notification && <StageAlert type={notification.type} message={notification.message} />}
                   </form>
-                  <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 12 }}>
+                  <div className="links-stage__url-input">
+                  <h4 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Add additional questions to ask</h4>
+                  <div className="links-stage__url-wrapper">
+                      <input
+                        ref={questionInputRef}
+                        type="text"
+                        placeholder="Type a critical question"
+                        value={linksUrl}
+                        onChange={(event) => setLinksUrl(event.target.value)}
+                        onPaste={handleQuestionPaste}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleAddLink();
+                          }
+                        }}
+                      />
+                      {canAddCurrentLink && (
+                        <button type="button" className="links-stage__add-link" onClick={handleAddLink}>
+                          Save question
+                        </button>
+                      )}
+                    </div>
+                    <p className="links-stage__bulk-hint" style={{ fontSize: "12px", marginTop: 8, color: "#0f172a", paddingLeft: 5 }}>
+                      Shortcut: Paste multiple questions
+                    </p>
+                    {linksUrls.length > 0 && (
+                      <div className="links-stage__urls-wrapper">
+                        <div className="links-stage__urls-list">
+                          {linksUrls.map((url) => (
+                            <div className="links-stage__url-chip" key={url}>
+                              <span>{url}</span>
+                              <button type="button" aria-label={`Remove ${url}`} onClick={() => handleRemoveLink(url)}>
+                                &times;
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                     <button
                       type="button"
                       className="stage-back"
-                      onClick={() => setCurrentStep(0)}
+                      onClick={() => setCurrentStep(2)}
                       style={{ width: "25%" }}
                     >
                       Back
                     </button>
-                    <div className="stage-button-row__group" style={{ flex: "0 0 25%" }}>
+                    <div className="stage-button-row__group" style={{ flex: "0 0 50%" }}>
+                      <StageButton
+                        type="button"
+                        variant="ghost"
+                        className="stage-button--outline"
+                        onClick={() => setCurrentStep(4)}
+                        disabled={finalizing}
+                      >
+                        Skip questions
+                      </StageButton>
                       <StageButton
                         type="button"
                         variant="primary"
-                        onClick={() => setCurrentStep(2)}
-                        disabled={finalizing || files.length === 0}
+                        onClick={() => stageLinks()}
+                        disabled={linksUrls.length === 0 || finalizing}
                       >
                         Continue
                       </StageButton>
@@ -1715,7 +1750,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
               </div>
             </StagePanel>
           )}
-            {currentStep === 3 && (
+            {currentStep === 1 && (
               <StagePanel
                 className="stage-panel--align-left"
                 footer={
@@ -1723,7 +1758,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                     <button
                       type="button"
                       className="stage-back"
-                      onClick={() => setCurrentStep(2)}
+                      onClick={() => setCurrentStep(0)}
                       style={{ width: "25%" }}
                     >
                       Back
@@ -1733,7 +1768,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
                       variant="primary"
                       onClick={() => {
                         if (!personaDescriptionHasContent) return;
-                        setCurrentStep(4);
+                        setCurrentStep(2);
                       }}
                       disabled={!personaDescriptionHasContent}
                       style={{ width: "25%" }}
@@ -1771,91 +1806,7 @@ async function createCampaignRecord(docsPayload: StagedDoc[], campaignTags: stri
               </StagePanel>
             )}
             {currentStep === 4 && (
-              <StagePanel heading={`Add critical questions for ${personaNameDisplay}`}>
-                <div className="links-stage__url-input">
-                  <div className="links-stage__url-wrapper">
-                    <input
-                      ref={questionInputRef}
-                      type="text"
-                      placeholder="Type a critical question"
-                      value={linksUrl}
-                      onChange={(event) => setLinksUrl(event.target.value)}
-                      onPaste={handleQuestionPaste}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          handleAddLink();
-                        }
-                      }}
-                    />
-                    {canAddCurrentLink && (
-                      <button
-                        type="button"
-                        className="links-stage__add-link"
-                        onClick={handleAddLink}
-                      >
-                        Save question
-                      </button>
-                    )}
-                  </div>
-                    <p
-                      className="links-stage__bulk-hint"
-                      style={{ fontSize: "12px", marginTop: 8, color: "#0f172a", paddingLeft: 5 }}
-                    >
-                    Shortcut: Paste multiple questions
-                  </p>
-                  {linksUrls.length > 0 && (
-                    <div className="links-stage__urls-wrapper">
-                      <div className="links-stage__urls-list">
-                        {linksUrls.map((url) => (
-                          <div className="links-stage__url-chip" key={url}>
-                            <span>{url}</span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${url}`}
-                              onClick={() => handleRemoveLink(url)}
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
-                  <button
-                    type="button"
-                    className="stage-back"
-                    onClick={() => setCurrentStep(3)}
-                    style={{ width: '25%' }}
-                  >
-                    Back
-                  </button>
-                  <div className="stage-button-row__group" style={{ flex: '0 0 50%' }}>
-                    <StageButton
-                      type="button"
-                      variant="ghost"
-                      className="stage-button--outline"
-                      onClick={() => setCurrentStep(5)}
-                      disabled={finalizing}
-                    >
-                      Skip
-                    </StageButton>
-                    <StageButton
-                      type="button"
-                      variant="primary"
-                      onClick={() => stageLinks()}
-                      disabled={linksUrls.length === 0 || finalizing}
-                    >
-                      Continue
-                    </StageButton>
-                  </div>
-                </div>
-              </StagePanel>
-            )}
-            {currentStep === 5 && (
-              <StagePanel heading="Choose what data is collected from interivews">
+              <StagePanel heading="Choose what insights are collected during interviews">
                 <div className="output-stage-content">
                   {!selectedOutputOption ? (
                     canAddMoreOutputs ? (

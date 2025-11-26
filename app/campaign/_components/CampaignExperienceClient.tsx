@@ -22,6 +22,8 @@ export default function CampaignExperienceClient({
 }) {
   const {
     id,
+    name,
+    objective,
     agentId,
     imageUrl,
     personaId,
@@ -69,6 +71,8 @@ export default function CampaignExperienceClient({
             <CampaignPrepAgent
               agentId={agentId}
               campaignId={id}
+              campaignName={name}
+              campaignObjective={objective}
               personaId={personaId ?? undefined}
               profileImage={imageUrl ?? null}
               talkLabel="Start live interview"

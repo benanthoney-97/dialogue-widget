@@ -649,7 +649,7 @@ export default function PersonasPage() {
   const clientSlug = useMemo(() => getClientSlug(pathname), [pathname]);
   const clientIdFromPath = useMemo(() => getClientIdFromPath(pathname), [pathname]);
   const [personas, setPersonas] = useState<PersonaRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [columns, setColumns] = useState<number>(() =>
@@ -4569,8 +4569,8 @@ const handleConfirmDeletePersona = useCallback(async () => {
               <div className="stage-shell">
                 <StagePanel>
                 <section className="personas-section">
-                  <div ref={personasGridScrollRef} className="personas-grid-scroll">
-                    <div className="personas-grid">
+            <div ref={personasGridScrollRef} className="personas-grid-scroll">
+            <div className="personas-grid">
             {loading && (
               <div
                 style={{
@@ -4609,6 +4609,7 @@ const handleConfirmDeletePersona = useCallback(async () => {
                   persona.status && persona.status.trim().length > 0 ? persona.status : "processing";
                 const statusDisplay = statusDisplayRaw.replace(/_/g, " ");
                 const statusText = statusDisplay.charAt(0).toUpperCase() + statusDisplay.slice(1);
+                const isFailedStatus = normalizedStatus === "failed";
                 const isExpanded = isReady && rawIsExpanded;
                 const cardButtonStyle: React.CSSProperties = {};
                 if (gridPosition?.gridColumn) {
@@ -4616,9 +4617,6 @@ const handleConfirmDeletePersona = useCallback(async () => {
                 }
                 if (gridPosition?.gridRow) {
                   cardButtonStyle.gridRow = gridPosition.gridRow;
-                }
-                if (!isReady) {
-                  cardButtonStyle.cursor = "not-allowed";
                 }
                 const traitChips = buildPersonaTraits(persona);
                 const keyTraits = Array.isArray(persona.key_traits)
@@ -4763,6 +4761,48 @@ const handleConfirmDeletePersona = useCallback(async () => {
                           : undefined
                       }
                     >
+                      {!isReady ? (
+                        <span
+                          className={`persona-status${isFailedStatus ? " persona-status--failed persona-status--cta" : ""}`}
+                          aria-label={`Status: ${statusText}`}
+                          role={isFailedStatus ? "button" : undefined}
+                          tabIndex={isFailedStatus ? 0 : undefined}
+                          onClick={
+                            isFailedStatus
+                              ? (event) => {
+                                  event.stopPropagation();
+                                  if (!targetClientSlug) return;
+                                  const clientSegment = encodeURIComponent(targetClientSlug);
+                                  const agentId = persona.agent_id ?? "";
+                                  const agentName = persona.agent_name ?? "this persona";
+                                  const message = `Hi, ${agentName} (${agentId}) failed. Please help.`;
+                                  router.push(
+                                    `/client/${clientSegment}/live-chat?message=${encodeURIComponent(message)}`
+                                  );
+                                }
+                              : undefined
+                          }
+                          onKeyDown={
+                            isFailedStatus
+                              ? (event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    if (!targetClientSlug) return;
+                                    const clientSegment = encodeURIComponent(targetClientSlug);
+                                    const agentId = persona.agent_id ?? "";
+                                    const agentName = persona.agent_name ?? "this persona";
+                                    const message = `Hi, ${agentName} (${agentId}) failed. Please help.`;
+                                    router.push(
+                                      `/client/${clientSegment}/live-chat?message=${encodeURIComponent(message)}`
+                                    );
+                                  }
+                                }
+                              : undefined
+                          }
+                        >
+                          <span>{isFailedStatus ? "Error - Get live help" : statusText}</span>
+                        </span>
+                      ) : null}
                       {profileImageUrl && !isExpanded ? (
                         <div className="persona-card__avatar-floating">
                           <img
@@ -5067,12 +5107,6 @@ const handleConfirmDeletePersona = useCallback(async () => {
                                   </button>
                                 </div>
                               </div>
-                            ) : null}
-                            {!isReady ? (
-                              <span className="persona-status" aria-label={`Status: ${statusText}`}>
-                                <span className="persona-status__spinner" aria-hidden="true" />
-                                <span>{statusText}</span>
-                              </span>
                             ) : null}
                           </div>
                         </div>
@@ -6690,8 +6724,9 @@ const handleConfirmDeletePersona = useCallback(async () => {
             padding-bottom: 12px;
             align-items: stretch;
             justify-items: center;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             grid-auto-flow: row;
+            grid-auto-rows: minmax(0, 1fr);
           }
           .personas-empty {
             width: 100%;
@@ -6787,17 +6822,19 @@ const handleConfirmDeletePersona = useCallback(async () => {
               max-height: calc(100dvh - 200px);
             }
           }
-          .persona-card-button {
-            background: none;
-            border: none;
-            padding: 0;
-            text-align: left;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            position: relative;
-          }
+.persona-card-button {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+  align-self: stretch;
+  height: 100%;
+}
           .persona-card-button[aria-expanded="true"] {
             grid-column: 1 / -1;
             align-self: stretch;
@@ -6840,6 +6877,7 @@ const handleConfirmDeletePersona = useCallback(async () => {
   padding-top: 10px;
   padding-bottom: 24px; /* 👈 overrides just the bottom padding */
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0;
   min-height: 240px;
@@ -8130,12 +8168,28 @@ const handleConfirmDeletePersona = useCallback(async () => {
             justify-content: center;
             white-space: nowrap;
             gap: 6px;
-            z-index: 1;
+            z-index: 20;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
+            cursor: default;
+          }
+          .persona-status--cta {
+            z-index: 30;
+            cursor: pointer !important;
+            pointer-events: auto;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          .persona-status--cta:hover {
+            transform: translate(-50%, -50%) translateY(-2px);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.3);
+          }
+          .persona-status--failed {
+            background: rgba(248, 113, 113, 0.15);
+            color: #b91c1c;
+            border: 1px solid rgba(248, 113, 113, 0.4);
           }
           .persona-status__spinner {
             width: 12px;

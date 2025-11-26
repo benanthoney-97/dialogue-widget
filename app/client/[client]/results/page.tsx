@@ -5,6 +5,7 @@ import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/app/client/[client]/Sidebar";
 import Topbar from "@/components/Topbar";
+import LoadingState from "../../../../components/LoadingState";
 import { TOPBAR_HEIGHT } from "@/components/topbarHeight";
 import { exportTranscriptToPdf, type PdfTranscriptMessage, type TranscriptPdfPayload } from "@/app/lib/exportTranscriptPdf";
 
@@ -583,10 +584,14 @@ export default function InsightsTable() {
 									role={loading ? "status" : "alert"}
 									aria-live={loading ? "polite" : "assertive"}
 								>
-									<StageAlert
-										type={loading ? "info" : "error"}
-										message={loading ? "Loading insights…" : errorMessage || "Unable to load insights"}
-									/>
+									{loading ? (
+										<LoadingState page="results" size="md" />
+									) : (
+										<StageAlert
+											type="error"
+											message={errorMessage || "Unable to load insights"}
+										/>
+									)}
 								</div>
 							)}
 							<div className="insights-table-wrap">

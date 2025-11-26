@@ -441,20 +441,31 @@ export default function UploadPage() {
     PERSONA_CATEGORIES[0].value
   );
 
+  const hasHydratedPersonaCategoryRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined" || !personaCategoryStorageKey) {
       return;
     }
+    // Only hydrate once when the storage key changes (e.g., on mount or client change)
     try {
       const storedValue = sessionStorage.getItem(personaCategoryStorageKey);
       const isValid = PERSONA_CATEGORIES.some((category) => category.value === storedValue);
-      if (storedValue && isValid && storedValue !== personaCategory) {
-        setPersonaCategory(storedValue as (typeof PERSONA_CATEGORIES)[number]["value"]);
+      if (storedValue && isValid) {
+        // If we haven't hydrated yet and the stored value differs, apply it.
+        if (!hasHydratedPersonaCategoryRef.current) {
+          if (storedValue !== personaCategory) {
+            setPersonaCategory(storedValue as (typeof PERSONA_CATEGORIES)[number]["value"]);
+          }
+          hasHydratedPersonaCategoryRef.current = true;
+        }
+      } else {
+        hasHydratedPersonaCategoryRef.current = true;
       }
     } catch (error) {
       console.warn("[Upload] Failed to load persona category from storage", error);
     }
-  }, [personaCategoryStorageKey, personaCategory]);
+    // Re-run when the storage key changes (client changes). Deliberately omit personaCategory
+  }, [personaCategoryStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !personaCategoryStorageKey) {
@@ -525,6 +536,22 @@ export default function UploadPage() {
   const canAddCurrentLink = !!linksUrl.trim() && isLinksUrlValid && !linksUrls.includes(linksUrl.trim());
   const [availableExternalSources, setAvailableExternalSources] = useState<ExternalSource[]>([]);
   const [selectedExternalSources, setSelectedExternalSources] = useState<string[]>([]);
+  const selectedExternalSourcesRef = useRef<string[]>(selectedExternalSources);
+  const externalToggleReqIdRef = useRef(0);
+
+  useEffect(() => {
+    selectedExternalSourcesRef.current = selectedExternalSources;
+  }, [selectedExternalSources]);
+
+  function arraysEqual(a: string[] | null | undefined, b: string[] | null | undefined) {
+    if (a === b) return true;
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
 
   function handleAddLink() {
     const trimmed = linksUrl.trim();
@@ -548,13 +575,17 @@ export default function UploadPage() {
   const handleExternalSourceToggle = useCallback(
     async (sourceName: string) => {
       if (!clientSlug) return;
-      const previous = selectedExternalSources;
+      const previous = selectedExternalSourcesRef.current;
       const isActive = previous.includes(sourceName);
       const nextSources = isActive
         ? previous.filter((name) => name !== sourceName)
         : [...previous, sourceName];
 
+      // Optimistically update local UI
       setSelectedExternalSources(nextSources);
+
+      // Track this request so out-of-order responses are ignored
+      const requestId = ++externalToggleReqIdRef.current;
 
       try {
         const response = await fetch(`/api/clients/${clientSlug}/research-priorities`, {
@@ -572,7 +603,10 @@ export default function UploadPage() {
             response.status,
             errorDetail
           );
-          setSelectedExternalSources(previous);
+          // Only revert if this response corresponds to the latest request
+          if (externalToggleReqIdRef.current === requestId) {
+            setSelectedExternalSources(previous);
+          }
           return;
         }
 
@@ -580,15 +614,24 @@ export default function UploadPage() {
           priority?: { target_sources?: string[] | null } | null;
         };
 
-        if (payload.priority?.target_sources && Array.isArray(payload.priority.target_sources)) {
-          setSelectedExternalSources(payload.priority.target_sources);
+        const remote = Array.isArray(payload.priority?.target_sources)
+          ? payload.priority!.target_sources!
+          : [];
+
+        // Only apply response if it's from the latest request
+        if (externalToggleReqIdRef.current === requestId) {
+          if (!arraysEqual(selectedExternalSourcesRef.current, remote)) {
+            setSelectedExternalSources(remote);
+          }
         }
       } catch (error) {
         console.error("[Upload] Unexpected error updating target sources", error);
-        setSelectedExternalSources(previous);
+        if (externalToggleReqIdRef.current === requestId) {
+          setSelectedExternalSources(previous);
+        }
       }
     },
-    [clientSlug, selectedExternalSources]
+    [clientSlug]
   );
   const canSkipUpload = isDescribeMode;
   const personaNameTrimmed = personaName.trim();
@@ -1374,7 +1417,7 @@ export default function UploadPage() {
             )}
             {currentStep === 3 && (
               <StagePanel
-                heading={`Upload documents for ${personaNamePossessive} persona`}
+                heading={`Add documents to ${personaNamePossessive} knowledge base`}
               >
               <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               {uploadMode === 'upload' ? (
@@ -1401,7 +1444,7 @@ export default function UploadPage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.docx,.txt,.html"
+                    accept=".pdf,.docx,.txt,.html,.jpg,.jpeg,.xlsx,.xls,.ppt,.pptx"
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
@@ -1412,7 +1455,7 @@ export default function UploadPage() {
                         or <span className="data-upload-placeholder__link">click to select from computer</span>
                       </div>
                       <div className="data-upload-placeholder__types">
-                        {['PDF', 'TXT', 'DOCX', 'HTML'].map((type) => (
+                        {['PDF', 'TXT', 'DOCX', 'HTML', 'JPG', 'XLSX', 'PPTX'].map((type) => (
                           <span key={type} className="data-upload-placeholder__chip">
                             {type}
                           </span>
@@ -1460,7 +1503,7 @@ export default function UploadPage() {
                                   <path d="M14 2v6h6" stroke="#1e293b" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                 </svg>
                               </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                                 <div
                                   title={file.name}
                                   style={{
@@ -1475,7 +1518,7 @@ export default function UploadPage() {
                                 >
                                   {file.name.length > 12 ? `${file.name.slice(0, 12)}…` : file.name}
                                 </div>
-                                <div style={{ fontSize: 12, color: '#1e293b', marginTop: 4, textAlign: 'left' }}>{file.type ? file.type : `${(file.size / 1024).toFixed(0)} KB`}</div>
+                                {/* file.type removed to avoid overflow of long MIME type strings */}
                               </div>
                             </div>
 
@@ -1625,7 +1668,7 @@ export default function UploadPage() {
             </StagePanel>
           )}
             {currentStep === 4 && (
-              <StagePanel heading={`Paste links to ${personaNameDisplay}'s knowledge`}>
+              <StagePanel heading={`Add links to ${personaNameDisplay}'s knowledge base`}>
                 <DocumentLinkInput
                   value={linksUrl}
                   onChangeAction={setLinksUrl}
@@ -1633,7 +1676,7 @@ export default function UploadPage() {
                   canAdd={canAddCurrentLink}
                   links={linksUrls}
                   onRemoveAction={(link) => handleRemoveLink(link)}
-                  placeholder="https://"
+                  placeholder="https://market-research-report.com"
                 />
                 <div className="stage-button-row stage-button-row--with-back" style={{ marginTop: 16 }}>
                   <button
@@ -1733,9 +1776,9 @@ export default function UploadPage() {
                 </div>
               </StagePanel>
             )}
-          </div>
-          <div className="upload-layout__separator" aria-hidden="true" />
-          <div className="upload-layout__side-panel">
+        </div>
+        <div className="upload-layout__separator" aria-hidden="true" />
+        <div className="upload-layout__side-panel">
             <div className="upload-layout__resource-card" aria-label="Resource placeholder card">
               <div className="upload-layout__resource-card__top">
                 <div className="upload-layout__resource-card__image" style={resourceImageStyle} />
@@ -1967,22 +2010,24 @@ export default function UploadPage() {
             padding: 0;
             font-family: ${BODY_FONT_STACK};
             display: flex;
-            flex-direction: row;
+            width: 100vw;
+            gap: 0;
           }
           .upload-layout__sidebar {
             width: var(--sidebar-width);
             flex-shrink: 0;
           }
           .upload-layout__content {
-            flex: 1;
+            flex: 1 1 auto;
+            min-width: 0;
             display: flex;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: flex-start;
-            padding: 64px 24px 96px;
+            padding: 64px 24px 64px;
             min-height: 100dvh;
             overflow: hidden;
             gap: 32px;
-            flex-wrap: wrap;
+            position: relative;
           }
           .upload-layout__separator {
             width: 1px;
@@ -1997,7 +2042,8 @@ export default function UploadPage() {
             flex-direction: column;
             gap: 12px;
             align-items: flex-start;
-            width: min(320px, 80vw);
+            width: 340px;
+            min-width: 320px;
             align-self: flex-start;
             max-height: calc(100dvh - 96px);
             overflow-y: auto;
@@ -2005,6 +2051,9 @@ export default function UploadPage() {
             top: 64px;
             padding-bottom: 16px;
           }
+
+          
+
           .upload-layout__resource-card {
             display: flex;
             flex-direction: column;
@@ -2541,7 +2590,7 @@ export default function UploadPage() {
             width: 52px;
             height: 52px;
             border-radius: 14px;
-            background: rgba(15, 23, 42, 0.04);
+            background: none;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2882,7 +2931,7 @@ export default function UploadPage() {
             padding: 18px;
             border: 1px dashed rgba(30, 41, 59, 0.25);
             border-radius: 16px;
-            background: rgba(226, 232, 240, 0.35);
+            background: transparent;
             max-width: 360px;
             margin: 0 auto;
             cursor: pointer;
@@ -2890,7 +2939,7 @@ export default function UploadPage() {
           }
           .image-stage-placeholder:hover {
             border-color: rgba(37, 99, 235, 0.6);
-            background: rgba(226, 232, 240, 0.7);
+            background: transparent;
           }
           .image-stage-placeholder__icon {
             width: 60px;

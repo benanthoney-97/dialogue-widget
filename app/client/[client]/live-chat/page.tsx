@@ -4,9 +4,12 @@ import Sidebar from "../Sidebar";
 import Topbar from "@/components/Topbar";
 import { RealtimeChat } from "@/components/realtime-chat";
 import { TOPBAR_HEIGHT } from "@/components/topbarHeight";
+import { useSearchParams } from "next/navigation";
 
 export default function LiveChatPage() {
   const contentHeight = `calc(100vh - ${TOPBAR_HEIGHT}px)`;
+  const searchParams = useSearchParams();
+  const initialMessage = searchParams.get("message") ?? "";
 
   return (
     <>
@@ -57,7 +60,7 @@ export default function LiveChatPage() {
                 display: "flex",
               }}
             >
-              <RealtimeChat roomName="default-room" username="Guest" />
+              <RealtimeChat roomName="default-room" username="Guest" initialMessage={initialMessage} />
             </div>
           </div>
         </div>

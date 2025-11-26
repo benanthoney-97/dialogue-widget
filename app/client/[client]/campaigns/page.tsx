@@ -10,15 +10,7 @@ const responsesIcon = (
 );
 const newIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#22325A" viewBox="0 0 16 16">
-    <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
-    <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
-    <path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
-  </svg>
-);
-const personaLinkIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
-    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z" />
-    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z" />
+    <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025 7 7 0 0 0-.3-1.036l.979-.31a8 8 0 0 1 .29 1.46 7 7 0 0 0-.86.222z" />
   </svg>
 );
 const personaQrIcon = (
@@ -38,10 +30,17 @@ const personaPhoneIcon = (
     />
   </svg>
 );
+const personaLinkIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#22325A" viewBox="0 0 16 16">
+    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z" />
+    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243l-1.372 1.372z" />
+  </svg>
+);
 import Image from "next/image";
 import Sidebar from "@/app/client/[client]/Sidebar";
 import Topbar from "@/app/components/Topbar";
 import SlidingPanelOverlay from "@/app/components/SlidingPanelOverlay";
+import LoadingState from "../../../../components/LoadingState";
 const placeholderImages = [
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNlMGU3ZmYiLz48L3N2Zz4=",
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNkYmVhZmUiLz48L3N2Zz4=",
@@ -360,6 +359,9 @@ export default function ResultsPage() {
           .from("campaign_output_responses")
           .select("id, campaign_id, output_id, value, reasoning, created_at")
           .eq("campaign_id", resultsOverlaySection.id)
+          // only fetch rows where `value` is not null and not an empty string
+          .not("value", "is", null)
+          .neq("value", "")
           .order("created_at", { ascending: false });
         if (!isActive) {
           return;
@@ -370,7 +372,17 @@ export default function ResultsPage() {
           return;
         }
         if (Array.isArray(data)) {
-          setOverlayResponses(data);
+          // additionally guard client-side: only keep rows with a non-empty `value`
+          const filtered = data.filter((item) => {
+            if (item == null) return false;
+            const val = (item as any).value;
+            if (val === null || val === undefined) return false;
+            if (typeof val === "string") {
+              return val.trim().length > 0;
+            }
+            return true;
+          });
+          setOverlayResponses(filtered);
           const outputIds = data
             .map((item) => (typeof item.output_id === "string" ? item.output_id : null))
             .filter((id): id is string => id !== null && id.trim().length > 0);
@@ -936,20 +948,17 @@ export default function ResultsPage() {
         }}
       >
         {campaignSections.length === 0 ? (
-          <section
+          <div
             style={{
-              padding: "36px",
-              borderRadius: 20,
-              background: "#f5f7ff",
-              border: "1px dashed rgba(15,23,42,0.2)",
-              textAlign: "center",
-              color: "rgba(15,23,42,0.7)",
-              fontSize: 15,
-              fontWeight: 500,
+              gridColumn: "1 / -1",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 18,
             }}
           >
-            No campaigns to display yet. Create one to see it appear here.
-          </section>
+            <LoadingState page="campaigns" size="md" />
+          </div>
         ) : null}
         {campaignSections.map((container) => {
           const isOpen = openCard === container.title;
@@ -1809,9 +1818,13 @@ export default function ResultsPage() {
               }}
             >
               {overlayStats.map((stat) => {
+                const rawType = (stat.output_type as string) ?? "string";
+                const canonicalType = String(rawType).toLowerCase();
                 const type = formatOutputType((stat.output_type as CampaignOutputType) ?? "string");
                 const description = stat.output_description ?? "Output";
-                const isNumeric = type === "number";
+                const isNumeric = ["number", "numeric", "float", "integer"].includes(canonicalType);
+                const isBoolean = ["boolean", "bool"].includes(canonicalType);
+                const isStringType = ["string", "text"].includes(canonicalType);
                 const formatTrueRatio = (value?: string | null) => {
                   const ratio = parseFloat(value ?? "0");
                   if (Number.isNaN(ratio)) {
@@ -1824,13 +1837,21 @@ export default function ResultsPage() {
                     if (typeof stat.avg_numeric_value === "number") {
                       return stat.avg_numeric_value.toFixed(2);
                     }
-                    return stat.avg_numeric_value ?? "—";
+                    return "No average";
                   }
-                  if (type === "boolean") {
+                  if (isBoolean) {
+                    // If true_ratio is explicitly null/undefined, treat as no results
+                    if (stat.true_ratio === null || stat.true_ratio === undefined) {
+                      return "No results";
+                    }
                     return `${formatTrueRatio(stat.true_ratio)} Yes`;
                   }
-                  if (type === "string") {
-                    return `${stat.text_response_count ?? 0} text responses`;
+                  if (isStringType) {
+                    const count = stat.text_response_count ?? 0;
+                    if (!count) {
+                      return "No results";
+                    }
+                    return `${count} text responses`;
                   }
                   return `${formatTrueRatio(stat.true_ratio)} Yes`;
                 })();
@@ -2007,6 +2028,10 @@ export default function ResultsPage() {
                         flexDirection: "column",
                         alignItems: "flex-end",
                         gap: "4px",
+                        /* make this right column occupy half the card so reasoning can size to 50% of card */
+                        width: "50%",
+                        boxSizing: "border-box",
+                        minWidth: 0,
                       }}
                     >
                         <span
@@ -2024,7 +2049,21 @@ export default function ResultsPage() {
                             "—"}
                         </span>
                       {response.reasoning ? (
-                        <p style={{ margin: 0, fontSize: "13px", color: "rgba(15, 23, 42, 0.75)", textAlign:"right" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "13px",
+                            color: "rgba(15, 23, 42, 0.75)",
+                            textAlign: "right",
+                            display: "block",
+                            /* cap to half the card by taking all of this column's width */
+                            maxWidth: "100%",
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {response.reasoning}
                         </p>
                       ) : null}
@@ -2045,7 +2084,7 @@ export default function ResultsPage() {
             </div>
           ) : (
             <p style={{ margin: 0, fontSize: "14px", color: "rgba(15, 23, 42, 0.6)" }}>
-              No responses have been submitted yet.
+              No valid responses have been submitted yet
             </p>
           )}
         </div>
